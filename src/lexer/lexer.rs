@@ -170,9 +170,9 @@ mod tests {
             5 < 10 > 5;
 
             if(5 < 10) {
-            return true;
+                return true;
             } else {
-            return false;
+                return false;
             }
 
             10 == 10;
@@ -182,7 +182,7 @@ mod tests {
             [1, 2];
             {\"foo\": \"bar\"}
             macro(x, y) { x + y; };
-            ";
+        ";
 
         let mut lexer = Lexer::new(input.to_string());
 

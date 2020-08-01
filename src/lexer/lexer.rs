@@ -57,6 +57,7 @@ impl Lexer {
                 '}' => Token::Rbrace,
                 '[' => Token::Lbracket,
                 ']' => Token::Rbracket,
+                '|' => Token::VerticalBar,
                 '"' => Token::StringLiteral(self.read_string().into()),
                 _ => {
                     if Self::is_letter(c) {
@@ -162,7 +163,11 @@ mod tests {
             let ten = 10;
 
             let add = fn(x, y) {
-            x + y;
+                x + y;
+            };
+
+            let add = |x, y| {
+                x + y;
             };
 
             let result = add(five, ten);
@@ -196,6 +201,7 @@ mod tests {
         assert_eq!(lexer.next_token(), Token::Assign);
         assert_eq!(lexer.next_token(), Token::Int("10".into()));
         assert_eq!(lexer.next_token(), Token::Semicolon);
+
         assert_eq!(lexer.next_token(), Token::Let);
         assert_eq!(lexer.next_token(), Token::Ident("add".into()));
         assert_eq!(lexer.next_token(), Token::Assign);
@@ -205,6 +211,22 @@ mod tests {
         assert_eq!(lexer.next_token(), Token::Comma);
         assert_eq!(lexer.next_token(), Token::Ident("y".into()));
         assert_eq!(lexer.next_token(), Token::Rparen);
+        assert_eq!(lexer.next_token(), Token::Lbrace);
+        assert_eq!(lexer.next_token(), Token::Ident("x".into()));
+        assert_eq!(lexer.next_token(), Token::Plus);
+        assert_eq!(lexer.next_token(), Token::Ident("y".into()));
+        assert_eq!(lexer.next_token(), Token::Semicolon);
+        assert_eq!(lexer.next_token(), Token::Rbrace);
+        assert_eq!(lexer.next_token(), Token::Semicolon);
+
+        assert_eq!(lexer.next_token(), Token::Let);
+        assert_eq!(lexer.next_token(), Token::Ident("add".into()));
+        assert_eq!(lexer.next_token(), Token::Assign);
+        assert_eq!(lexer.next_token(), Token::VerticalBar);
+        assert_eq!(lexer.next_token(), Token::Ident("x".into()));
+        assert_eq!(lexer.next_token(), Token::Comma);
+        assert_eq!(lexer.next_token(), Token::Ident("y".into()));
+        assert_eq!(lexer.next_token(), Token::VerticalBar);
         assert_eq!(lexer.next_token(), Token::Lbrace);
         assert_eq!(lexer.next_token(), Token::Ident("x".into()));
         assert_eq!(lexer.next_token(), Token::Plus);

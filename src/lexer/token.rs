@@ -27,6 +27,7 @@ pub enum Token {
     Rbrace,
     Lbracket,
     Rbracket,
+    VerticalBar,
     // keyword
     Function,
     Let,

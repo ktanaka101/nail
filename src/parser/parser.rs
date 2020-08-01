@@ -182,10 +182,11 @@ impl Parser {
             | Token::False
             | Token::Lparen
             | Token::If
-            | Token::Function
             | Token::StringLiteral(_)
             | Token::Lbracket
-            | Token::Lbrace => (),
+            | Token::Lbrace
+            | Token::Function
+            | Token::VerticalBar => (),
             Token::Macro => (),
         }
 
@@ -353,6 +354,51 @@ impl Parser {
         Ok(identifiers)
     }
 
+    fn parse_closure_literal(&mut self) -> Result<ast::Function> {
+        let params = self.parse_closure_params()?;
+        self.expect_peek(Token::Lbrace)?;
+
+        let body = self.parse_block_statement()?;
+
+        Ok(ast::Function {
+            params,
+            body,
+            name: "".to_string(),
+        })
+    }
+
+    fn parse_closure_params(&mut self) -> Result<Vec<ast::Identifier>> {
+        let mut identifiers = Vec::<ast::Identifier>::new();
+
+        if self.peek_token_is(Token::VerticalBar) {
+            self.next_token();
+            return Ok(identifiers);
+        }
+
+        self.next_token();
+
+        identifiers.push(ast::Identifier {
+            value: match &self.cur_token {
+                Token::Ident(t) => t.clone(),
+                t => Err(ParserError::InvalidFunctionParam(format!("{:?}", t)))?,
+            },
+        });
+
+        while self.peek_token_is(Token::Comma) {
+            self.next_token();
+            self.next_token();
+            identifiers.push(ast::Identifier {
+                value: match &self.cur_token {
+                    Token::Ident(t) => t.clone(),
+                    t => Err(ParserError::InvalidFunctionParam(format!("{:?}", t)))?,
+                },
+            })
+        }
+        self.expect_peek(Token::VerticalBar)?;
+
+        Ok(identifiers)
+    }
+
     fn parse_call_expr(&mut self, func: Expr) -> Result<ast::Call> {
         Ok(ast::Call {
             func: Box::new(func),
@@ -506,6 +552,7 @@ impl Parser {
             Token::Lparen => self.parse_grouped_expr()?,
             Token::If => Expr::If(self.parse_if_expr()?),
             Token::Function => Expr::Function(self.parse_function_literal()?),
+            Token::VerticalBar => Expr::Function(self.parse_closure_literal()?),
             Token::StringLiteral(_) => Expr::StringLit(self.parse_string_literal()?),
             Token::Lbracket => Expr::Array(self.parse_array_literal()?),
             Token::Lbrace => Expr::Hash(self.parse_hash_literal()?),
@@ -801,6 +848,40 @@ mod tests {
             assert_eq!(fn_expr.body.statements.len(), 1);
             test_infix_by_stmt(
                 &fn_expr.body.statements[0],
+                &Val::Id(Id("x")),
+                "+",
+                &Val::Id(Id("y")),
+            )
+        }
+    }
+
+    #[test]
+    fn test_closure_exprs() {
+        let inputs = vec!["|x, y| { x + y }", "|x, y| { x + y; }"];
+
+        for input in inputs.into_iter() {
+            let program = test_parse(input);
+            assert_eq!(program.statements.len(), 1);
+
+            let expr_stmt = if let Stmt::ExprStmt(x) = &program.statements[0] {
+                x
+            } else {
+                panic!("Expect type is Stmt::ExprStmt");
+            };
+
+            let cl_expr = if let Expr::Function(x) = &expr_stmt.expr {
+                x
+            } else {
+                panic!("Expect type is Expr::Function")
+            };
+
+            assert_eq!(cl_expr.params.len(), 2);
+            test_identifier(&cl_expr.params[0], "x");
+            test_identifier(&cl_expr.params[1], "y");
+
+            assert_eq!(cl_expr.body.statements.len(), 1);
+            test_infix_by_stmt(
+                &cl_expr.body.statements[0],
                 &Val::Id(Id("x")),
                 "+",
                 &Val::Id(Id("y")),

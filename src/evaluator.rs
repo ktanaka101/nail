@@ -784,6 +784,42 @@ mod tests {
     }
 
     #[test]
+    fn test_closure_application() {
+        let tests = vec![
+            ("let identity = |x| { x; }; identity(5);", 5_i64),
+            ("let identity = |x| { return x; }; identity(5);", 5_i64),
+            ("let double = |x| { x * 2; }; double(5);", 10_i64),
+            ("let add = |x, y| { x + y; }; add(5, 5);", 10_i64),
+            (
+                "let add = |x, y| { x + y; }; add(5 + 5, add(5, 5));",
+                20_i64,
+            ),
+            ("|x| { x; }(5)", 5_i64),
+            (
+                r#"
+                    let add = |a, b| { a + b };
+                    let sub = |a, b| { a - b };
+                    let apply_func = |a, b, func| { func(a, b) };
+                    apply_func(2, 2, add);
+                "#,
+                4_i64,
+            ),
+            (
+                r#"
+                    let add = |a, b| { a + b };
+                    let sub = |a, b| { a - b };
+                    let apply_func = |a, b, func| { func(a, b) };
+                    apply_func(10, 2, sub);
+                "#,
+                8_i64,
+            ),
+        ];
+        tests
+            .into_iter()
+            .for_each(|(input, expected)| assert_integer_object(eval(input), expected));
+    }
+
+    #[test]
     fn test_closures() {
         let tests = vec![(
             r#"

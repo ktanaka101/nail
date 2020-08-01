@@ -1056,6 +1056,226 @@ mod tests {
     }
 
     #[test]
+    fn test_calling_closure_without_arguments() {
+        let tests: Tests = vec![(
+            "
+                let five_plus_ten = || { 5 + 10; };
+                five_plus_ten();
+            ",
+            15,
+        )]
+        .into();
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn test_calling_closures_without_arguments() {
+        let tests: Tests = vec![
+            (
+                "
+                    let one = || { 1; };
+                    let two = || { 2; };
+                    one() + two()
+                ",
+                3,
+            ),
+            (
+                "
+                    let a = || { 1 };
+                    let b = || { a() + 1 };
+                    let c = || { b() + 1 };
+                    c();
+                ",
+                3,
+            ),
+        ]
+        .into();
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn test_closures_with_return_statement() {
+        let tests: Tests = vec![
+            (
+                "
+                    let early_exit = || { return 99; 100; };
+                    early_exit();
+                ",
+                99,
+            ),
+            (
+                "
+                    let early_exit = || { return 99; return 100; };
+                    early_exit();
+                ",
+                99,
+            ),
+            (
+                "
+                    let early_exit = || { 99; return 100; };
+                    early_exit();
+                ",
+                100,
+            ),
+        ]
+        .into();
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn test_closures_without_return_value() {
+        let tests: Tests = vec![
+            (
+                "
+                    let no_return = || { };
+                    no_return();
+                ",
+                Expected::Null,
+            ),
+            (
+                "
+                    let no_return = || { };
+                    let no_return_two = || { no_return(); };
+                    no_return();
+                    no_return_two();
+                ",
+                Expected::Null,
+            ),
+        ]
+        .into();
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn test_first_class_closures() {
+        let tests: Tests = vec![
+            (
+                "
+                    let returns_one = || { 1; };
+                    let returns_one_returner = || { returns_one };
+                    returns_one_returner()();
+                ",
+                1,
+            ),
+            (
+                "
+                    let returns_one_returner = || {
+                        let returns_one = || { 1; };
+                        returns_one;
+                    }
+                    returns_one_returner()();
+                ",
+                1,
+            ),
+        ]
+        .into();
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn test_calling_closures_with_bindings() {
+        let tests: Tests = vec![
+            (
+                "
+                    let one = || { let one = 1; one };
+                    one();
+                ",
+                1,
+            ),
+            (
+                "
+                    let one_and_two = || { let one = 1; let two = 2; one + two; };
+                    one_and_two();
+                ",
+                3,
+            ),
+            (
+                "
+                    let one_and_two = || { let one = 1; let two = 2; one + two; };
+                    let three_and_four = || { let three = 3; let four = 4; three + four; };
+                    one_and_two() + three_and_four();
+                ",
+                10,
+            ),
+            (
+                "
+                    let first_foobar = || { let foobar = 50; foobar; };
+                    let second_foobar = || { let foobar = 100; foobar; };
+                    first_foobar() + second_foobar();
+                ",
+                150,
+            ),
+            (
+                "
+                    let global_seed = 50;
+                    let minus_one = || {
+                        let num = 1;
+                        global_seed - num;
+                    }
+                    let minus_two = || {
+                        let num = 2;
+                        global_seed - num;
+                    }
+                    minus_one() + minus_two();
+                ",
+                97,
+            ),
+        ]
+        .into();
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn test_calling_closures_with_arguments_and_bindings() {
+        let tests: Tests = vec![
+            (
+                "
+                    let identity = |a| { a; };
+                    identity(4);
+                ",
+                4,
+            ),
+            (
+                "
+                    let sum = |a, b| { a + b; };
+                    sum(1, 2);
+                ",
+                3,
+            ),
+            (
+                "
+                    let global_num = 10;
+                    let sum = |a, b| {
+                        let c = a + b;
+                        c + global_num;
+                    }
+                    let outer = || {
+                        sum(1, 2) + sum(3, 4) + global_num;
+                    }
+                    outer() + global_num;
+                ",
+                50,
+            ),
+        ]
+        .into();
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn test_calling_closures_with_wrong_arguments() {
+        let tests = vec![
+            ("|| { 1; }(1);", "wrong number of arguments: want=0, got=1"),
+            ("|a| { a; }();", "wrong number of arguments: want=1, got=0"),
+            (
+                "|a, b| { a + b; }(1);",
+                "wrong number of arguments: want=2, got=1",
+            ),
+        ]
+        .into();
+        run_vm_err_test(tests);
+    }
+
+    #[test]
     fn test_builtin_functions() {
         let tests: Tests = vec![
             (r#"len("")"#, 0.into()),

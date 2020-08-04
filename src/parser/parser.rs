@@ -267,13 +267,18 @@ impl Parser {
     }
 
     fn parse_if_expr(&mut self) -> Result<ast::If> {
-        self.expect_peek(Token::Lparen)?;
+        if self.peek_token_is(Token::Lparen) {
+            self.next_token();
+        }
 
         self.next_token();
 
         let cond = Box::new(self.parse_expr(Priority::Lowest)?);
 
-        self.expect_peek(Token::Rparen)?;
+        if self.peek_token_is(Token::Rparen) {
+            self.next_token();
+        }
+
         self.expect_peek(Token::Lbrace)?;
 
         let consequence = self.parse_block_statement()?;
@@ -783,6 +788,7 @@ mod tests {
         let inputs = vec![
             "if (x < y) { x } else { y }",
             "if (x < y) { x; } else { y; }",
+            "if x < y { x; } else { y; }",
         ];
 
         for input in inputs.into_iter() {

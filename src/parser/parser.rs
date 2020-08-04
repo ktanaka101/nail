@@ -303,6 +303,9 @@ impl Parser {
     }
 
     fn parse_function_literal(&mut self) -> Result<ast::Function> {
+        self.expect_peek(Token::Ident("_".to_string()))?;
+        let name = self.parse_identifier()?;
+
         self.expect_peek(Token::Lparen)?;
 
         let params = self.parse_function_params()?;
@@ -313,7 +316,7 @@ impl Parser {
         Ok(ast::Function {
             params,
             body,
-            name: "".to_string(),
+            name: name.value,
         })
     }
 
@@ -828,7 +831,10 @@ mod tests {
 
     #[test]
     fn test_function_exprs() {
-        let inputs = vec!["fn(x, y) { x + y }", "fn(x, y) { x + y; }"];
+        let inputs = vec![
+            "fn test_func(x, y) { x + y }",
+            "fn test_func(x, y) { x + y; }",
+        ];
 
         for input in inputs.into_iter() {
             let program = test_parse(input);
@@ -845,6 +851,8 @@ mod tests {
             } else {
                 panic!("Expect type is Expr::Function")
             };
+
+            assert_eq!(fn_expr.name, "test_func");
 
             assert_eq!(fn_expr.params.len(), 2);
             test_identifier(&fn_expr.params[0], "x");
@@ -897,9 +905,9 @@ mod tests {
     #[test]
     fn test_function_params() {
         let inputs = vec![
-            ("fn() {};", vec![]),
-            ("fn(x) {};", vec!["x"]),
-            ("fn(x, y, z) {};", vec!["x", "y", "z"]),
+            ("fn a() {};", vec![]),
+            ("fn a(x) {};", vec!["x"]),
+            ("fn a(x, y, z) {};", vec!["x", "y", "z"]),
         ];
 
         for (input, ids) in inputs.into_iter() {
@@ -917,6 +925,9 @@ mod tests {
             } else {
                 panic!("Expect type is Expr::Function.");
             };
+
+            assert_eq!(fn_expr.name, "a");
+
             assert_eq!(fn_expr.params.len(), ids.len());
 
             for (i, id) in ids.into_iter().enumerate() {

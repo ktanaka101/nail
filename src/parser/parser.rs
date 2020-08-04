@@ -117,9 +117,7 @@ impl Parser {
 
         self.next_token();
         let value = self.parse_expr(Priority::Lowest)?;
-        if self.peek_token_is(Token::Semicolon) {
-            self.next_token();
-        }
+        self.optional_peek(Token::Semicolon);
 
         let value = if let Expr::Function(mut func) = value {
             func.name = name.value.clone();
@@ -136,9 +134,7 @@ impl Parser {
 
         let return_value = self.parse_expr(Priority::Lowest)?;
 
-        if self.peek_token_is(Token::Semicolon) {
-            self.next_token();
-        };
+        self.optional_peek(Token::Semicolon);
 
         Ok(ast::Return { return_value })
     }
@@ -146,9 +142,7 @@ impl Parser {
     fn parse_expr_statement(&mut self) -> Result<ast::ExprStmt> {
         let expr = self.parse_expr(Priority::Lowest)?;
 
-        if self.peek_token_is(Token::Semicolon) {
-            self.next_token();
-        }
+        self.optional_peek(Token::Semicolon);
 
         Ok(ast::ExprStmt { expr })
     }
@@ -267,17 +261,13 @@ impl Parser {
     }
 
     fn parse_if_expr(&mut self) -> Result<ast::If> {
-        if self.peek_token_is(Token::Lparen) {
-            self.next_token();
-        }
+        self.optional_peek(Token::Lparen);
 
         self.next_token();
 
         let cond = Box::new(self.parse_expr(Priority::Lowest)?);
 
-        if self.peek_token_is(Token::Rparen) {
-            self.next_token();
-        }
+        self.optional_peek(Token::Rparen);
 
         self.expect_peek(Token::Lbrace)?;
 
@@ -580,6 +570,15 @@ impl Parser {
             Token::Lbracket => InfixFn::Index,
             t => Err(ParserError::InvalidInfix(format!("{:?}", t)))?,
         })
+    }
+
+    fn optional_peek(&mut self, token: Token) -> bool {
+        if self.peek_token_is(token) {
+            self.next_token();
+            true
+        } else {
+            false
+        }
     }
 }
 

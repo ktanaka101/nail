@@ -1106,7 +1106,7 @@ mod tests {
 
     #[test]
     fn test_function_literal_with_name() {
-        let input = "let my_function = fn() {};";
+        let input = "let my_function = || {};";
         let program = test_parse(input);
         assert_eq!(program.statements.len(), 1);
 

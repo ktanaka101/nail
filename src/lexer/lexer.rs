@@ -180,6 +180,12 @@ mod tests {
                 return false;
             }
 
+            if 5 < 10 {
+                return true;
+            } else {
+                return false;
+            }
+
             10 == 10;
             10 != 9;
             \"foobar\"
@@ -278,6 +284,23 @@ mod tests {
         assert_eq!(lexer.next_token(), Token::False);
         assert_eq!(lexer.next_token(), Token::Semicolon);
         assert_eq!(lexer.next_token(), Token::Rbrace);
+
+        assert_eq!(lexer.next_token(), Token::If);
+        assert_eq!(lexer.next_token(), Token::Int("5".into()));
+        assert_eq!(lexer.next_token(), Token::Lt);
+        assert_eq!(lexer.next_token(), Token::Int("10".into()));
+        assert_eq!(lexer.next_token(), Token::Lbrace);
+        assert_eq!(lexer.next_token(), Token::Return);
+        assert_eq!(lexer.next_token(), Token::True);
+        assert_eq!(lexer.next_token(), Token::Semicolon);
+        assert_eq!(lexer.next_token(), Token::Rbrace);
+        assert_eq!(lexer.next_token(), Token::Else);
+        assert_eq!(lexer.next_token(), Token::Lbrace);
+        assert_eq!(lexer.next_token(), Token::Return);
+        assert_eq!(lexer.next_token(), Token::False);
+        assert_eq!(lexer.next_token(), Token::Semicolon);
+        assert_eq!(lexer.next_token(), Token::Rbrace);
+
         assert_eq!(lexer.next_token(), Token::Int("10".into()));
         assert_eq!(lexer.next_token(), Token::Equal);
         assert_eq!(lexer.next_token(), Token::Int("10".into()));

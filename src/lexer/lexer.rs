@@ -162,7 +162,11 @@ mod tests {
             let five = 5;
             let ten = 10;
 
-            let add = fn(x, y) {
+            fn add(x, y) {
+                x + y;
+            }
+
+            fn add(x, y) {
                 x + y;
             };
 
@@ -209,10 +213,22 @@ mod tests {
         assert_eq!(lexer.next_token(), Token::Int("10".into()));
         assert_eq!(lexer.next_token(), Token::Semicolon);
 
-        assert_eq!(lexer.next_token(), Token::Let);
-        assert_eq!(lexer.next_token(), Token::Ident("add".into()));
-        assert_eq!(lexer.next_token(), Token::Assign);
         assert_eq!(lexer.next_token(), Token::Function);
+        assert_eq!(lexer.next_token(), Token::Ident("add".into()));
+        assert_eq!(lexer.next_token(), Token::Lparen);
+        assert_eq!(lexer.next_token(), Token::Ident("x".into()));
+        assert_eq!(lexer.next_token(), Token::Comma);
+        assert_eq!(lexer.next_token(), Token::Ident("y".into()));
+        assert_eq!(lexer.next_token(), Token::Rparen);
+        assert_eq!(lexer.next_token(), Token::Lbrace);
+        assert_eq!(lexer.next_token(), Token::Ident("x".into()));
+        assert_eq!(lexer.next_token(), Token::Plus);
+        assert_eq!(lexer.next_token(), Token::Ident("y".into()));
+        assert_eq!(lexer.next_token(), Token::Semicolon);
+        assert_eq!(lexer.next_token(), Token::Rbrace);
+
+        assert_eq!(lexer.next_token(), Token::Function);
+        assert_eq!(lexer.next_token(), Token::Ident("add".into()));
         assert_eq!(lexer.next_token(), Token::Lparen);
         assert_eq!(lexer.next_token(), Token::Ident("x".into()));
         assert_eq!(lexer.next_token(), Token::Comma);

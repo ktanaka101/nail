@@ -1105,8 +1105,8 @@ mod tests {
     }
 
     #[test]
-    fn test_function_literal_with_name() {
-        let input = "let my_function = || {};";
+    fn test_closure_literal_with_name() {
+        let input = "let closure = || {};";
         let program = test_parse(input);
         assert_eq!(program.statements.len(), 1);
 
@@ -1124,7 +1124,7 @@ mod tests {
             panic!("expected Function. received {}", expr)
         };
 
-        assert_eq!(func.name, "my_function".to_string());
+        assert_eq!(func.name, "closure".to_string());
     }
 
     fn test_infix_by_expr(expr: &Expr, l: &Val, o: &str, r: &Val) {

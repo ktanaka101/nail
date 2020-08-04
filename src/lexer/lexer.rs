@@ -196,6 +196,7 @@ mod tests {
         assert_eq!(lexer.next_token(), Token::Assign);
         assert_eq!(lexer.next_token(), Token::Int("5".into()));
         assert_eq!(lexer.next_token(), Token::Semicolon);
+
         assert_eq!(lexer.next_token(), Token::Let);
         assert_eq!(lexer.next_token(), Token::Ident("ten".into()));
         assert_eq!(lexer.next_token(), Token::Assign);
@@ -234,6 +235,7 @@ mod tests {
         assert_eq!(lexer.next_token(), Token::Semicolon);
         assert_eq!(lexer.next_token(), Token::Rbrace);
         assert_eq!(lexer.next_token(), Token::Semicolon);
+
         assert_eq!(lexer.next_token(), Token::Let);
         assert_eq!(lexer.next_token(), Token::Ident("result".into()));
         assert_eq!(lexer.next_token(), Token::Assign);
@@ -244,18 +246,21 @@ mod tests {
         assert_eq!(lexer.next_token(), Token::Ident("ten".into()));
         assert_eq!(lexer.next_token(), Token::Rparen);
         assert_eq!(lexer.next_token(), Token::Semicolon);
+
         assert_eq!(lexer.next_token(), Token::Bang);
         assert_eq!(lexer.next_token(), Token::Minus);
         assert_eq!(lexer.next_token(), Token::Slash);
         assert_eq!(lexer.next_token(), Token::Asterisk);
         assert_eq!(lexer.next_token(), Token::Int("5".into()));
         assert_eq!(lexer.next_token(), Token::Semicolon);
+
         assert_eq!(lexer.next_token(), Token::Int("5".into()));
         assert_eq!(lexer.next_token(), Token::Lt);
         assert_eq!(lexer.next_token(), Token::Int("10".into()));
         assert_eq!(lexer.next_token(), Token::Gt);
         assert_eq!(lexer.next_token(), Token::Int("5".into()));
         assert_eq!(lexer.next_token(), Token::Semicolon);
+
         assert_eq!(lexer.next_token(), Token::If);
         assert_eq!(lexer.next_token(), Token::Lparen);
         assert_eq!(lexer.next_token(), Token::Int("5".into()));
@@ -277,23 +282,29 @@ mod tests {
         assert_eq!(lexer.next_token(), Token::Equal);
         assert_eq!(lexer.next_token(), Token::Int("10".into()));
         assert_eq!(lexer.next_token(), Token::Semicolon);
+
         assert_eq!(lexer.next_token(), Token::Int("10".into()));
         assert_eq!(lexer.next_token(), Token::NotEqual);
         assert_eq!(lexer.next_token(), Token::Int("9".into()));
         assert_eq!(lexer.next_token(), Token::Semicolon);
+
         assert_eq!(lexer.next_token(), Token::StringLiteral("foobar".into()),);
+
         assert_eq!(lexer.next_token(), Token::StringLiteral("foo bar".into()),);
+
         assert_eq!(lexer.next_token(), Token::Lbracket);
         assert_eq!(lexer.next_token(), Token::Int("1".into()));
         assert_eq!(lexer.next_token(), Token::Comma);
         assert_eq!(lexer.next_token(), Token::Int("2".into()));
         assert_eq!(lexer.next_token(), Token::Rbracket);
         assert_eq!(lexer.next_token(), Token::Semicolon);
+
         assert_eq!(lexer.next_token(), Token::Lbrace);
         assert_eq!(lexer.next_token(), Token::StringLiteral("foo".into()));
         assert_eq!(lexer.next_token(), Token::Colon);
         assert_eq!(lexer.next_token(), Token::StringLiteral("bar".into()));
         assert_eq!(lexer.next_token(), Token::Rbrace);
+
         assert_eq!(lexer.next_token(), Token::Macro);
         assert_eq!(lexer.next_token(), Token::Lparen);
         assert_eq!(lexer.next_token(), Token::Ident("x".into()));

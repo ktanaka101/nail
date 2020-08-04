@@ -926,6 +926,40 @@ mod tests {
     }
 
     #[test]
+    fn test_closure_params() {
+        let inputs = vec![
+            ("|| {};", vec![]),
+            ("|x| {};", vec!["x"]),
+            ("|x, y, z| {};", vec!["x", "y", "z"]),
+        ];
+
+        for (input, ids) in inputs.into_iter() {
+            let program = test_parse(input);
+            assert_eq!(program.statements.len(), 1);
+
+            let stmt_expr = if let Stmt::ExprStmt(x) = &program.statements[0] {
+                x
+            } else {
+                panic!("Expect type is Stmt::ExprStmt.");
+            };
+
+            let fn_expr = if let Expr::Function(x) = &stmt_expr.expr {
+                x
+            } else {
+                panic!("Expect type is Expr::Function.");
+            };
+
+            assert_eq!(fn_expr.name, "");
+
+            assert_eq!(fn_expr.params.len(), ids.len());
+
+            for (i, id) in ids.into_iter().enumerate() {
+                test_identifier(&fn_expr.params[i], id);
+            }
+        }
+    }
+
+    #[test]
     fn test_call_exprs() {
         let input = "add(1, 2 * 3, 4 + 5);";
         let program = test_parse(input);

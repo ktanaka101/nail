@@ -5,8 +5,6 @@ mod prelude {
 
 mod array;
 mod boolean;
-mod closure;
-mod compiled_function;
 mod error;
 mod function;
 mod hashable;
@@ -22,8 +20,6 @@ mod string_lit;
 
 pub use array::Array;
 pub use boolean::Boolean;
-pub use closure::Closure;
-pub use compiled_function::CompiledFunction;
 pub use error::Error;
 pub use function::Function;
 pub use hashable::HashableObject;

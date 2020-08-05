@@ -54,12 +54,26 @@ fn eval_expr(expr: &ast::Expr, env: Rc<RefCell<Environment>>) -> Result<object::
             let args = eval_expressions(&expr.args, Rc::clone(&env))?;
             Ok(apply_function(&func, &args)?)
         }
-        ast::Expr::Function(expr) => Ok(object::Function {
-            params: expr.params.clone(),
-            body: expr.body.clone(),
-            env: Rc::clone(&env),
-        }
-        .into()),
+        ast::Expr::Function(expr) => match &expr.fn_type {
+            ast::FunctionType::Function => {
+                let func: object::Object = object::Function {
+                    params: expr.params.clone(),
+                    body: expr.body.clone(),
+                    env: Rc::new(RefCell::new(Environment::new(None))),
+                }
+                .into();
+
+                env.borrow_mut().insert(&expr.name, func.clone());
+
+                Ok(func)
+            }
+            ast::FunctionType::Closure => Ok(object::Function {
+                params: expr.params.clone(),
+                body: expr.body.clone(),
+                env: Rc::clone(&env),
+            }
+            .into()),
+        },
         ast::Expr::Hash(expr) => Ok(eval_hash_literal(&expr, Rc::clone(&env))?),
         ast::Expr::Identifier(expr) => Ok(eval_identifier(&expr, Rc::clone(&env))?),
         ast::Expr::If(expr) => Ok(eval_if_expr(&expr, Rc::clone(&env))?),
@@ -712,7 +726,7 @@ mod tests {
             ("foobar", "identifier not found: foobar"),
             (r#""Hello" - "World""#, "unknown operator: String - String"),
             (
-                r#"{"name": "Nail"}[fn(x) { x }];"#,
+                r#"{"name": "Nail"}[|x| { x }];"#,
                 "unusable as hash key: Function",
             ),
         ];
@@ -736,7 +750,7 @@ mod tests {
 
     #[test]
     fn test_function_object() {
-        let tests = vec![("fn(x) { x + 2; };", 1, "x", "{ (x + 2) }")];
+        let tests = vec![("|x| { x + 2; };", 1, "x", "{ (x + 2) }")];
         tests.into_iter().for_each(
             |(input, expected_params_size, expected_params, expected_body)| {
                 let obj = eval(input);
@@ -755,37 +769,60 @@ mod tests {
     #[test]
     fn test_function_application() {
         let tests = vec![
-            ("let identity = fn(x) { x; }; identity(5);", 5_i64),
-            ("let identity = fn(x) { return x; }; identity(5);", 5_i64),
-            ("let double = fn(x) { x * 2; }; double(5);", 10_i64),
-            ("let add = fn(x, y) { x + y; }; add(5, 5);", 10_i64),
-            (
-                "let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));",
-                20_i64,
-            ),
-            ("fn(x) { x; }(5)", 5_i64),
+            ("fn identity(x) { x; }; identity(5);", 5_i64),
+            ("fn identity(x) { return x; }; identity(5);", 5_i64),
+            ("fn double(x) { x * 2; }; double(5);", 10_i64),
+            ("fn add(x, y) { x + y; }; add(5, 5);", 10_i64),
+            ("fn add(x, y) { x + y; }; add(5 + 5, add(5, 5));", 20_i64),
             (
                 r#"
-                    let add = fn(a, b) { a + b };
-                    let sub = fn(a, b) { a - b };
-                    let apply_func = fn(a, b, func) { func(a, b) };
+                    fn add(a, b) { a + b };
+                    fn sub(a, b) { a - b };
+                    fn apply_func(a, b, func) { func(a, b) };
                     apply_func(2, 2, add);
                 "#,
                 4_i64,
             ),
             (
                 r#"
-                    let add = fn(a, b) { a + b };
-                    let sub = fn(a, b) { a - b };
-                    let apply_func = fn(a, b, func) { func(a, b) };
+                    fn add(a, b) { a + b };
+                    fn sub(a, b) { a - b };
+                    fn apply_func(a, b, func) { func(a, b) };
                     apply_func(10, 2, sub);
                 "#,
                 8_i64,
+            ),
+            (
+                "
+                    let a = 10;
+                    fn b(a) {
+                        a + a
+                    };
+                    b(10)
+                ",
+                20_i64,
             ),
         ];
         tests
             .into_iter()
             .for_each(|(input, expected)| assert_integer_object(eval(input), expected));
+    }
+
+    #[test]
+    fn test_function_error() {
+        let tests = vec![(
+            "
+                let a = 10;
+                fn b() {
+                    a
+                };
+                b()
+            ",
+            "identifier not found: a",
+        )];
+        tests.into_iter().for_each(|(input, expected)| {
+            assert_error_object(eval_non_check(input).unwrap_err(), expected)
+        });
     }
 
     #[test]
@@ -828,8 +865,8 @@ mod tests {
     fn test_closures() {
         let tests = vec![(
             r#"
-                    let new_addr = fn(x) {
-                    fn(y) { x + y};
+                    let new_addr = |x| {
+                        |y| { x + y };
                     }
 
                     let addTwo = new_addr(2);
@@ -1228,7 +1265,7 @@ mod tests {
     fn test_define_macro() {
         let input = "
             let number = 1;
-            let function = fn(x, y) { x + y; };
+            let function = |x, y| { x + y; };
             let mymacro = macro(x, y) { x + y; };
         ";
 
@@ -1321,8 +1358,8 @@ mod tests {
 
     #[test]
     fn test_fibonacci() {
-        let input = "            
-            let fibonacci = fn(x) {
+        let input = "
+            let fibonacci = |x| {
                 if (x == 0) {
                     return 0;
                 } else {

@@ -1,10 +1,17 @@
 use super::prelude::*;
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum FunctionType {
+    Function,
+    Closure,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Function {
     pub params: Vec<Identifier>,
     pub body: Block,
     pub name: String,
+    pub fn_type: FunctionType,
 }
 
 impl Function {

@@ -317,6 +317,7 @@ impl Parser {
             params,
             body,
             name: name.value,
+            fn_type: ast::FunctionType::Function,
         })
     }
 
@@ -362,6 +363,7 @@ impl Parser {
             params,
             body,
             name: "".to_string(),
+            fn_type: ast::FunctionType::Closure,
         })
     }
 

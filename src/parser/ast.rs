@@ -45,7 +45,7 @@ pub use boolean::Boolean;
 pub use call::Call;
 pub use expr::Expr;
 pub use expr_stmt::ExprStmt;
-pub use function::Function;
+pub use function::{Function, FunctionType};
 pub use hash::Hash;
 pub use identifier::Identifier;
 pub use index::Index;

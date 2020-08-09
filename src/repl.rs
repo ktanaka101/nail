@@ -27,10 +27,12 @@ pub fn start(executer: Executer) {
 }
 
 fn start_llvm() {
-    let context = Context::create();
-    let compiler = Compiler::new(&context);
-    let sum = compiler.compile().unwrap();
+    let mut inputs = "".to_string();
+
     loop {
+        let context = Context::create();
+        let compiler = Compiler::new(&context);
+
         print!("{}", PROMPT);
         io::stdout().flush().unwrap();
 
@@ -38,15 +40,34 @@ fn start_llvm() {
         if io::stdin().read_line(&mut line).is_err() || line == "\n" {
             continue;
         }
+        let mut try_inputs = inputs.clone();
 
-        let x = 1u64;
-        let y = 2u64;
-        let z = 3u64;
+        try_inputs.push('\n');
+        try_inputs.push_str(&line);
 
-        unsafe {
-            println!("{} + {} + {} = {}", x, y, z, sum.call(x, y, z));
-            assert_eq!(sum.call(x, y, z), x + y + z);
-        }
+        let lexer = Lexer::new(try_inputs.clone());
+        let mut parser = Parser::new(lexer);
+
+        let program = match parser.parse_program() {
+            Ok(p) => p,
+            Err(e) => {
+                println!("Parse error: {}", e);
+                continue;
+            }
+        };
+
+        let main_fn = match compiler.compile(&program.into()) {
+            Ok(f) => f,
+            Err(e) => {
+                println!("LLVM error: {}", e);
+                continue;
+            }
+        };
+
+        let result = unsafe { main_fn.call() };
+        println!("{}", result);
+
+        inputs = try_inputs.clone();
     }
 }
 

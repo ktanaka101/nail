@@ -47,8 +47,9 @@ fn start_llvm() {
         if io::stdin().read_line(&mut line).is_err() || line == "\n" {
             continue;
         }
-        let mut try_inputs = inputs.clone();
+        line.push_str(";");
 
+        let mut try_inputs = inputs.clone();
         try_inputs.push('\n');
         try_inputs.push_str(&line);
 

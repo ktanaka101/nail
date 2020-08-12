@@ -12,25 +12,30 @@ use crate::parser::ast;
 
 type MainFunc = unsafe extern "C" fn() -> i64;
 
-pub struct Compiler<'ctx> {
+pub struct Compiler<'a, 'ctx> {
     context: &'ctx Context,
-    module: Module<'ctx>,
-    builder: Builder<'ctx>,
-    execution_engine: ExecutionEngine<'ctx>,
+    module: &'a Module<'ctx>,
+    builder: &'a Builder<'ctx>,
+    execution_engine: &'a ExecutionEngine<'ctx>,
+
+    variables: HashMap<String, PointerValue<'ctx>>,
+    fn_value_opt: Option<FunctionValue<'ctx>>,
 }
 
-impl<'ctx> Compiler<'ctx> {
-    pub fn new(context: &'ctx Context) -> Self {
-        let module = context.create_module("top");
-        let execution_engine = module
-            .create_jit_execution_engine(OptimizationLevel::None)
-            .unwrap();
-
+impl<'a, 'ctx> Compiler<'a, 'ctx> {
+    pub fn new(
+        context: &'ctx Context,
+        module: &'a Module<'ctx>,
+        builder: &'a Builder<'ctx>,
+        execution_engine: &'a ExecutionEngine<'ctx>,
+    ) -> Self {
         Compiler {
             context: &context,
             module,
-            builder: context.create_builder(),
+            builder,
             execution_engine,
+            variables: HashMap::new(),
+            fn_value_opt: None,
         }
     }
 

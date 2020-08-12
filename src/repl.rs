@@ -31,7 +31,13 @@ fn start_llvm() {
 
     loop {
         let context = Context::create();
-        let compiler = Compiler::new(&context);
+        let module = context.create_module("top");
+        let builder = context.create_builder();
+        let execution_engine = module
+            .create_jit_execution_engine(OptimizationLevel::None)
+            .unwrap();
+
+        let mut compiler = Compiler::new(&context, &module, &builder, &execution_engine);
 
         print!("{}", PROMPT);
         io::stdout().flush().unwrap();

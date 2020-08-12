@@ -5,7 +5,7 @@ use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::execution_engine::{ExecutionEngine, JitFunction};
 use inkwell::module::Module;
-use inkwell::values;
+use inkwell::values::{FunctionValue, IntValue, PointerValue};
 
 use crate::parser::ast;
 
@@ -62,7 +62,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
             ast::Node::Expr(expr) => Some(self.compile_expr(expr)?),
             ast::Node::Stmt(stmt) => Some(self.compile_stmt(stmt)?),
             ast::Node::Program(pg) => {
-                let mut last: Option<values::IntValue> = None;
+                let mut last: Option<IntValue> = None;
                 pg.statements.iter().try_for_each::<_, Result<()>>(|stmt| {
                     last = Some(self.compile_stmt(stmt)?);
                     Ok(())

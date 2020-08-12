@@ -120,6 +120,14 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                     _ => unimplemented!(),
                 }
             }
+            ast::Expr::PrefixExpr(prefix_expr) => match &prefix_expr.ope {
+                ast::Operator::Bang => unimplemented!(),
+                ast::Operator::Minus => {
+                    let expr = self.compile_expr(&*prefix_expr.right)?;
+                    self.builder.build_int_neg(expr, "tmpneg")
+                }
+                unknown => Err(anyhow::format_err!("unknown operator {}", unknown))?,
+            },
             _ => unimplemented!(),
         })
     }

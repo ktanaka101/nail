@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::convert::TryInto;
 
+use anyhow::Result;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::execution_engine::{ExecutionEngine, JitFunction};

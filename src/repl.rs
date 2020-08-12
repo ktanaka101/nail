@@ -4,6 +4,7 @@ use std::io::Write;
 use std::rc::Rc;
 
 use inkwell::context::Context;
+use inkwell::OptimizationLevel;
 
 use crate::evaluator::env::Environment;
 use crate::evaluator::object;

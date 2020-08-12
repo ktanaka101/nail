@@ -1,4 +1,4 @@
-use anyhow::Result;
+use std::collections::HashMap;
 use std::convert::TryInto;
 
 use inkwell::builder::Builder;
@@ -6,7 +6,6 @@ use inkwell::context::Context;
 use inkwell::execution_engine::{ExecutionEngine, JitFunction};
 use inkwell::module::Module;
 use inkwell::values;
-use inkwell::OptimizationLevel;
 
 use crate::parser::ast;
 

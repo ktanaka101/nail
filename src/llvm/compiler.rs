@@ -48,7 +48,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         println!("{:?}", node);
 
         match self.compile_node(node)? {
-            Some(v) => self.builder.build_return(Some(&v)),
+            Some(ref v) => self.builder.build_return(Some(v)),
             None => self.builder.build_return(None),
         };
 

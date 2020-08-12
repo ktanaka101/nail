@@ -90,7 +90,12 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                 let lvalue = self.compile_expr(&*infix_expr.left)?;
                 let rvalue = self.compile_expr(&*infix_expr.right)?;
                 match infix_expr.ope {
-                    ast::Operator::Plus => self.builder.build_int_add(lvalue, rvalue, "sum"),
+                    ast::Operator::Plus => self.builder.build_int_add(lvalue, rvalue, "tmpadd"),
+                    ast::Operator::Minus => self.builder.build_int_sub(lvalue, rvalue, "tmpsub"),
+                    ast::Operator::Asterisk => self.builder.build_int_mul(lvalue, rvalue, "tmpmul"),
+                    ast::Operator::Slash => {
+                        self.builder.build_int_signed_div(lvalue, rvalue, "tmpdiv")
+                    }
                     _ => unimplemented!(),
                 }
             }

@@ -38,7 +38,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         }
     }
 
-    pub fn compile(&self, node: &ast::Node) -> Result<JitFunction<MainFunc>> {
+    pub fn compile(&mut self, node: &ast::Node) -> Result<JitFunction<MainFunc>> {
         let fn_type = self.context.void_type().fn_type(&[], false);
         let main_fn = self.module.add_function("main", fn_type, None);
         let basic_block = self.context.append_basic_block(main_fn, "entry");
@@ -57,7 +57,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         Ok(unsafe { self.execution_engine.get_function("main")? })
     }
 
-    fn compile_node(&self, node: &ast::Node) -> Result<Option<values::IntValue>> {
+    fn compile_node(&mut self, node: &ast::Node) -> Result<Option<IntValue<'ctx>>> {
         Ok(match node {
             ast::Node::Expr(expr) => Some(self.compile_expr(expr)?),
             ast::Node::Stmt(stmt) => Some(self.compile_stmt(stmt)?),
@@ -73,14 +73,14 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         })
     }
 
-    fn compile_stmt(&self, stmt: &ast::Stmt) -> Result<values::IntValue> {
+    fn compile_stmt(&mut self, stmt: &ast::Stmt) -> Result<IntValue<'ctx>> {
         Ok(match stmt {
             ast::Stmt::ExprStmt(expr_stmt) => self.compile_expr(&expr_stmt.expr)?,
             _ => unimplemented!(),
         })
     }
 
-    fn compile_expr(&self, expr: &ast::Expr) -> Result<values::IntValue> {
+    fn compile_expr(&mut self, expr: &ast::Expr) -> Result<IntValue<'ctx>> {
         Ok(match expr {
             ast::Expr::Integer(int) => self
                 .context

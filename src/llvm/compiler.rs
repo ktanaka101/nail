@@ -77,6 +77,17 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
     fn compile_stmt(&mut self, stmt: &ast::Stmt) -> Result<IntValue<'ctx>> {
         Ok(match stmt {
             ast::Stmt::ExprStmt(expr_stmt) => self.compile_expr(&expr_stmt.expr)?,
+            ast::Stmt::Let(l) => {
+                let i64type = self.context.i64_type();
+                let alloca = self.builder.build_alloca(i64type, &l.name.value);
+
+                let value = self.compile_expr(&l.value)?;
+                self.builder.build_store(alloca, value);
+
+                self.variables.insert(l.name.value.clone(), alloca);
+
+                value
+            }
             _ => unimplemented!(),
         })
     }
@@ -87,6 +98,15 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                 .context
                 .i64_type()
                 .const_int(int.value.try_into().unwrap(), false),
+            ast::Expr::Identifier(id) => {
+                let name = id.value.as_str();
+                let id = self
+                    .variables
+                    .get(name)
+                    .ok_or_else(|| anyhow::format_err!("undefined '{}'", name))?;
+
+                self.builder.build_load(*id, name).into_int_value()
+            }
             ast::Expr::InfixExpr(infix_expr) => {
                 let lvalue = self.compile_expr(&*infix_expr.left)?;
                 let rvalue = self.compile_expr(&*infix_expr.right)?;

@@ -212,6 +212,12 @@ mod tests {
     }
 
     #[test]
+    fn test_prefix_minus() {
+        let tests = vec![("-10", -10), ("let a = 10; -a", -10), ("-(10 + 20)", -30)];
+        run_llvm_tests(tests);
+    }
+
+    #[test]
     fn test_let_binding() {
         let tests = vec![
             ("let a = 10", 10),

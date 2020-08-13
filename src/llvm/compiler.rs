@@ -95,6 +95,18 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
 
                 value
             }
+            ast::Stmt::Block(block) => {
+                let mut last = self.context.i64_type().const_zero().into();
+                block
+                    .statements
+                    .iter()
+                    .try_for_each::<_, Result<()>>(|stmt| {
+                        last = self.compile_stmt(stmt)?;
+                        Ok(())
+                    })?;
+
+                last
+            }
             _ => unimplemented!(),
         })
     }
@@ -197,6 +209,63 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                 }
                 unknown => Err(anyhow::format_err!("unknown operator {}", unknown))?,
             },
+            ast::Expr::If(if_expr) => {
+                let parent = self.fn_value();
+                let zero = self.context.i64_type().const_zero();
+
+                let cond = self.compile_expr(&*if_expr.cond)?;
+                if !cond.is_int_value() {
+                    Err(anyhow::format_err!(
+                        "expect Integer. received {:?}",
+                        cond.get_type()
+                    ))?;
+                }
+                let cond = cond.into_int_value();
+                let cond =
+                    self.builder
+                        .build_int_compare(inkwell::IntPredicate::NE, cond, zero, "ifcond");
+
+                // build branch
+                let then_bb = self.context.append_basic_block(parent, "then");
+                let else_bb = self.context.append_basic_block(parent, "else");
+                let cont_bb = self.context.append_basic_block(parent, "ifcont");
+
+                self.builder
+                    .build_conditional_branch(cond, then_bb, else_bb);
+
+                let ast::If {
+                    consequence,
+                    alternative,
+                    ..
+                } = if_expr;
+
+                // build then block
+                self.builder.position_at_end(then_bb);
+                let then_val = self.compile_stmt(&consequence.to_owned().into())?;
+                self.builder.build_unconditional_branch(cont_bb);
+
+                let then_bb = self.builder.get_insert_block().unwrap();
+
+                // build else block
+                self.builder.position_at_end(else_bb);
+                let else_val = if let Some(alternative) = alternative {
+                    self.compile_stmt(&alternative.clone().to_owned().into())?
+                } else {
+                    zero.into()
+                };
+                self.builder.build_unconditional_branch(cont_bb);
+
+                let else_bb = self.builder.get_insert_block().unwrap();
+
+                // emit merge block
+                self.builder.position_at_end(cont_bb);
+
+                let phi = self.builder.build_phi(self.context.i64_type(), "iftmp");
+
+                phi.add_incoming(&[(&then_val, then_bb), (&else_val, else_bb)]);
+
+                phi.as_basic_value()
+            }
             _ => unimplemented!(),
         })
     }
@@ -279,6 +348,52 @@ mod tests {
             ("!!10", 1),
             ("let a = 10; !a", 0),
             ("let a = 10; !!a", 1),
+        ];
+        run_llvm_tests(tests);
+    }
+
+    #[test]
+    fn test_if_else() {
+        let tests = vec![
+            ("if 1 { 10 } else { 20 }", 10),
+            ("if 0 { 10 } else { 20 }", 20),
+            ("if 1 { let a = 10; a } else { let b = 20; b }", 10),
+            ("if 0 { let a = 10; a } else { let b = 20; b }", 20),
+            ("if 1 { let a = 10; a } else { let a = 20; a }", 10),
+            ("if 0 { let a = 10; a } else { let a = 20; a }", 20),
+            ("if 1 { 10 }", 10),
+            ("if 1 { }", 0),
+            ("if 0 { 10 }", 0),
+            ("let a = 1; if a { 10 } else { 20 }", 10),
+            ("let a = 0; if a { 10 } else { 20 }", 20),
+            ("if 2 { 10 } else { 20 }", 10),
+            ("let a = 2; if a { 10 } else { 20 }", 10),
+            ("let a = 2; if a == 2 { 10 } else { 20 }", 10),
+            ("if 5 > 2 { 10 } else { 20 }", 10),
+            ("if 5 < 8 { 10 } else { 20 }", 10),
+            ("if 5 == 5 { 10 } else { 20 }", 10),
+            ("let a = if 1 { 10 } else { 20 }; a", 10),
+            (
+                "
+                    let a = 10;
+                    if 1 {
+                        let b = 20;
+                        a + b + 30
+                    }
+                ",
+                60,
+            ),
+            (
+                "
+                    let a = 10;
+                    if 0 { }
+                    else {
+                        let b = 20;
+                        a + b + 30
+                    }
+                ",
+                60,
+            ),
         ];
         run_llvm_tests(tests);
     }

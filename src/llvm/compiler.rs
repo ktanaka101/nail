@@ -314,6 +314,12 @@ mod tests {
             ("let a = 10; a", 10),
             ("let a = 10; a + 5", 15),
             ("let a = 10; let b = 20; a + b", 30),
+            ("let a = 1 < 2; a", 1),
+            ("let a = 1 > 2; a", 0),
+            ("let a = 2 > 1; a", 1),
+            ("let a = 1 > 2; a", 0),
+            ("let a = 1 == 1; a", 1),
+            ("let a = 1 == 2; a", 0),
             ("let a = if 1 { 10 } else { 20 }; a", 10),
             ("let a = if 0 { 10 } else { 20 }; a", 20),
         ];

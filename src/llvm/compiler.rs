@@ -202,9 +202,47 @@ mod tests {
     use crate::parser;
 
     #[test]
-    fn test_bang() {
-        let tests = vec![("!0", 1), ("!1", 0)];
+    fn test_let_binding() {
+        let tests = vec![
+            ("let a = 10", 10),
+            ("let a = 10; a", 10),
+            ("let a = 10; a + 5", 15),
+            ("let a = 10; let b = 20; a + b", 30),
+        ];
+        run_llvm_tests(tests);
+    }
 
+    #[test]
+    fn test_compare() {
+        let tests = vec![
+            ("0 > 0", 0),
+            ("0 < 0", 0),
+            ("0 > 1", 0),
+            ("0 < 1", 1),
+            ("0 == 0", 1),
+            ("0 == 1", 0),
+            ("let a = 10; a > 0", 1),
+            ("let a = 10; a < 0", 0),
+            ("let a = 10; (a < 10) < 10", 1),
+            ("let a = 10; (a > 10) > 10", 0),
+            ("let a = 10; (a == 10) == 10", 0),
+            ("let a = 10; (a == a) == 1", 1),
+        ];
+        run_llvm_tests(tests);
+    }
+
+    #[test]
+    fn test_bang() {
+        let tests = vec![
+            ("!0", 1),
+            ("!1", 0),
+            ("!10", 0),
+            ("!!0", 0),
+            ("!!1", 1),
+            ("!!10", 1),
+            ("let a = 10; !a", 0),
+            ("let a = 10; !!a", 1),
+        ];
         run_llvm_tests(tests);
     }
 

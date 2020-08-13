@@ -156,7 +156,27 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                 }
             }
             ast::Expr::PrefixExpr(prefix_expr) => match &prefix_expr.ope {
-                ast::Operator::Bang => unimplemented!(),
+                ast::Operator::Bang => {
+                    let expr = self.compile_expr(&*prefix_expr.right)?;
+                    if !expr.is_int_value() {
+                        Err(anyhow::format_err!(
+                            "expect Integer. received {:?}",
+                            expr.get_type()
+                        ))?;
+                    }
+
+                    let int = expr.into_int_value();
+                    let zero = self
+                        .context
+                        .i64_type()
+                        .const_int(0.try_into().unwrap(), false)
+                        .into();
+
+                    self.builder
+                        .build_int_compare(inkwell::IntPredicate::EQ, zero, int, "tmpnot")
+                        .const_cast(self.context.i64_type(), false)
+                        .into()
+                }
                 ast::Operator::Minus => {
                     let expr = self.compile_expr(&*prefix_expr.right)?;
                     if !expr.is_int_value() {

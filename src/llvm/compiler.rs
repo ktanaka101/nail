@@ -12,6 +12,30 @@ use crate::parser::ast;
 
 type MainFunc = unsafe extern "C" fn() -> i64;
 
+#[derive(thiserror::Error, Debug, Clone)]
+pub enum Error {
+    #[error("Expected type {0}. Received type {1}")]
+    DifferentType(String, String),
+    #[error("Undefined identifier `{0}`")]
+    UndefinedIdentfier(String),
+    #[error("Expected {1} {0} {1}. Received {2} {0} {2}")]
+    DifferentInfixType(ast::Operator, String, String),
+    #[error("Expected {}. Received {0}", "`-` or `!`")]
+    UnknownInfixOperator(ast::Operator),
+}
+
+fn get_type_string(basic_value: &BasicValueEnum) -> String {
+    match basic_value {
+        BasicValueEnum::IntValue(i) => "IntValue",
+        BasicValueEnum::FloatValue(i) => "FloatValue",
+        BasicValueEnum::ArrayValue(i) => "ArrayValue",
+        BasicValueEnum::PointerValue(i) => "PointerValue",
+        BasicValueEnum::StructValue(i) => "StructValue",
+        BasicValueEnum::VectorValue(i) => "VectorValue",
+    }
+    .to_string()
+}
+
 pub struct Compiler<'a, 'ctx> {
     context: &'ctx Context,
     module: &'a Module<'ctx>,
@@ -123,7 +147,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                 let id = self
                     .variables
                     .get(name)
-                    .ok_or_else(|| anyhow::format_err!("undefined '{}'", name))?;
+                    .ok_or_else(|| Error::UndefinedIdentfier(name.to_string()))?;
 
                 self.builder.build_load(*id, name).into_int_value().into()
             }
@@ -131,12 +155,10 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                 let lvalue = self.compile_expr(&*infix_expr.left)?;
                 let rvalue = self.compile_expr(&*infix_expr.right)?;
                 if !(lvalue.is_int_value() && rvalue.is_int_value()) {
-                    Err(anyhow::format_err!(
-                        "expect Integer {} Integer. received {:?} {} {:?}",
-                        infix_expr.ope,
-                        lvalue.get_type(),
-                        infix_expr.ope,
-                        rvalue.get_type()
+                    Err(Error::DifferentInfixType(
+                        infix_expr.ope.clone(),
+                        get_type_string(&lvalue),
+                        get_type_string(&rvalue),
                     ))?;
                 }
 
@@ -181,9 +203,9 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                 ast::Operator::Bang => {
                     let expr = self.compile_expr(&*prefix_expr.right)?;
                     if !expr.is_int_value() {
-                        Err(anyhow::format_err!(
-                            "expect Integer. received {:?}",
-                            expr.get_type()
+                        Err(Error::DifferentType(
+                            "IntValue".to_string(),
+                            get_type_string(&expr),
                         ))?;
                     }
 
@@ -199,15 +221,15 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                 ast::Operator::Minus => {
                     let expr = self.compile_expr(&*prefix_expr.right)?;
                     if !expr.is_int_value() {
-                        Err(anyhow::format_err!(
-                            "expect Integer. received {:?}",
-                            expr.get_type()
+                        Err(Error::DifferentType(
+                            "IntValue".to_string(),
+                            get_type_string(&expr),
                         ))?;
                     }
                     let int = expr.into_int_value();
                     self.builder.build_int_neg(int, "tmpneg").into()
                 }
-                unknown => Err(anyhow::format_err!("unknown operator {}", unknown))?,
+                unknown => Err(Error::UnknownInfixOperator(unknown.clone()))?,
             },
             ast::Expr::If(if_expr) => {
                 let parent = self.fn_value();
@@ -215,9 +237,9 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
 
                 let cond = self.compile_expr(&*if_expr.cond)?;
                 if !cond.is_int_value() {
-                    Err(anyhow::format_err!(
-                        "expect Integer. received {:?}",
-                        cond.get_type()
+                    Err(Error::DifferentType(
+                        "IntValue".to_string(),
+                        get_type_string(&cond),
                     ))?;
                 }
                 let cond = cond.into_int_value();

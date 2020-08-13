@@ -46,8 +46,6 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
 
         self.builder.position_at_end(basic_block);
 
-        println!("{:?}", node);
-
         match self.compile_node(node)? {
             Some(ref v) => self.builder.build_return(Some(v)),
             None => self.builder.build_return(None),

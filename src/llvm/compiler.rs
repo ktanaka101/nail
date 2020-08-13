@@ -6,7 +6,7 @@ use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::execution_engine::{ExecutionEngine, JitFunction};
 use inkwell::module::Module;
-use inkwell::values::{FunctionValue, IntValue, PointerValue};
+use inkwell::values::{BasicValueEnum, FunctionValue, PointerValue};
 
 use crate::parser::ast;
 
@@ -58,12 +58,12 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         Ok(unsafe { self.execution_engine.get_function("main")? })
     }
 
-    fn compile_node(&mut self, node: &ast::Node) -> Result<Option<IntValue<'ctx>>> {
+    fn compile_node(&mut self, node: &ast::Node) -> Result<Option<BasicValueEnum<'ctx>>> {
         Ok(match node {
             ast::Node::Expr(expr) => Some(self.compile_expr(expr)?),
             ast::Node::Stmt(stmt) => Some(self.compile_stmt(stmt)?),
             ast::Node::Program(pg) => {
-                let mut last: Option<IntValue> = None;
+                let mut last: Option<BasicValueEnum> = None;
                 pg.statements.iter().try_for_each::<_, Result<()>>(|stmt| {
                     last = Some(self.compile_stmt(stmt)?);
                     Ok(())
@@ -74,7 +74,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         })
     }
 
-    fn compile_stmt(&mut self, stmt: &ast::Stmt) -> Result<IntValue<'ctx>> {
+    fn compile_stmt(&mut self, stmt: &ast::Stmt) -> Result<BasicValueEnum<'ctx>> {
         Ok(match stmt {
             ast::Stmt::ExprStmt(expr_stmt) => self.compile_expr(&expr_stmt.expr)?,
             ast::Stmt::Let(l) => {
@@ -92,12 +92,13 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         })
     }
 
-    fn compile_expr(&mut self, expr: &ast::Expr) -> Result<IntValue<'ctx>> {
+    fn compile_expr(&mut self, expr: &ast::Expr) -> Result<BasicValueEnum<'ctx>> {
         Ok(match expr {
             ast::Expr::Integer(int) => self
                 .context
                 .i64_type()
-                .const_int(int.value.try_into().unwrap(), false),
+                .const_int(int.value.try_into().unwrap(), false)
+                .into(),
             ast::Expr::Identifier(id) => {
                 let name = id.value.as_str();
                 let id = self
@@ -105,18 +106,37 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                     .get(name)
                     .ok_or_else(|| anyhow::format_err!("undefined '{}'", name))?;
 
-                self.builder.build_load(*id, name).into_int_value()
+                self.builder.build_load(*id, name).into_int_value().into()
             }
             ast::Expr::InfixExpr(infix_expr) => {
                 let lvalue = self.compile_expr(&*infix_expr.left)?;
                 let rvalue = self.compile_expr(&*infix_expr.right)?;
+                if !(lvalue.is_int_value() && rvalue.is_int_value()) {
+                    Err(anyhow::format_err!(
+                        "expect Integer {} Integer. received {:?} {} {:?}",
+                        infix_expr.ope,
+                        lvalue.get_type(),
+                        infix_expr.ope,
+                        rvalue.get_type()
+                    ))?;
+                }
+
+                let lvalue = lvalue.into_int_value();
+                let rvalue = rvalue.into_int_value();
                 match infix_expr.ope {
-                    ast::Operator::Plus => self.builder.build_int_add(lvalue, rvalue, "tmpadd"),
-                    ast::Operator::Minus => self.builder.build_int_sub(lvalue, rvalue, "tmpsub"),
-                    ast::Operator::Asterisk => self.builder.build_int_mul(lvalue, rvalue, "tmpmul"),
-                    ast::Operator::Slash => {
-                        self.builder.build_int_signed_div(lvalue, rvalue, "tmpdiv")
+                    ast::Operator::Plus => {
+                        self.builder.build_int_add(lvalue, rvalue, "tmpadd").into()
                     }
+                    ast::Operator::Minus => {
+                        self.builder.build_int_sub(lvalue, rvalue, "tmpsub").into()
+                    }
+                    ast::Operator::Asterisk => {
+                        self.builder.build_int_mul(lvalue, rvalue, "tmpmul").into()
+                    }
+                    ast::Operator::Slash => self
+                        .builder
+                        .build_int_signed_div(lvalue, rvalue, "tmpdiv")
+                        .into(),
                     _ => unimplemented!(),
                 }
             }
@@ -124,7 +144,14 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                 ast::Operator::Bang => unimplemented!(),
                 ast::Operator::Minus => {
                     let expr = self.compile_expr(&*prefix_expr.right)?;
-                    self.builder.build_int_neg(expr, "tmpneg")
+                    if !expr.is_int_value() {
+                        Err(anyhow::format_err!(
+                            "expect Integer. received {:?}",
+                            expr.get_type()
+                        ))?;
+                    }
+                    let int = expr.into_int_value();
+                    self.builder.build_int_neg(int, "tmpneg").into()
                 }
                 unknown => Err(anyhow::format_err!("unknown operator {}", unknown))?,
             },

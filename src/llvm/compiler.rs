@@ -314,6 +314,8 @@ mod tests {
             ("let a = 10; a", 10),
             ("let a = 10; a + 5", 15),
             ("let a = 10; let b = 20; a + b", 30),
+            ("let a = if 1 { 10 } else { 20 }; a", 10),
+            ("let a = if 0 { 10 } else { 20 }; a", 20),
         ];
         run_llvm_tests(tests);
     }
@@ -357,22 +359,61 @@ mod tests {
         let tests = vec![
             ("if 1 { 10 } else { 20 }", 10),
             ("if 0 { 10 } else { 20 }", 20),
+            ("if 1 { 10 }", 10),
+            ("if 2 { 10 } else { 20 }", 10),
+        ];
+        run_llvm_tests(tests);
+    }
+
+    #[test]
+    fn test_if_cond_by_comparing() {
+        let tests = vec![
+            ("if 5 > 2 { 10 } else { 20 }", 10),
+            ("if 2 > 5 { 10 } else { 20 }", 20),
+            ("if 5 < 8 { 10 } else { 20 }", 10),
+            ("if 8 < 5 { 10 } else { 20 }", 20),
+            ("if 5 == 5 { 10 } else { 20 }", 10),
+            ("if 5 == 6 { 10 } else { 20 }", 20),
+        ];
+        run_llvm_tests(tests);
+    }
+
+    #[test]
+    fn test_let_binding_in_if_else_block() {
+        let tests = vec![
             ("if 1 { let a = 10; a } else { let b = 20; b }", 10),
             ("if 0 { let a = 10; a } else { let b = 20; b }", 20),
             ("if 1 { let a = 10; a } else { let a = 20; a }", 10),
             ("if 0 { let a = 10; a } else { let a = 20; a }", 20),
-            ("if 1 { 10 }", 10),
-            ("if 1 { }", 0),
-            ("if 0 { 10 }", 0),
+        ];
+        run_llvm_tests(tests);
+    }
+
+    #[test]
+    fn test_if_else_cond_by_identifier() {
+        let tests = vec![
             ("let a = 1; if a { 10 } else { 20 }", 10),
             ("let a = 0; if a { 10 } else { 20 }", 20),
-            ("if 2 { 10 } else { 20 }", 10),
             ("let a = 2; if a { 10 } else { 20 }", 10),
             ("let a = 2; if a == 2 { 10 } else { 20 }", 10),
-            ("if 5 > 2 { 10 } else { 20 }", 10),
-            ("if 5 < 8 { 10 } else { 20 }", 10),
-            ("if 5 == 5 { 10 } else { 20 }", 10),
-            ("let a = if 1 { 10 } else { 20 }; a", 10),
+            ("let a = 2; if a == 3 { 10 } else { 20 }", 20),
+        ];
+        run_llvm_tests(tests);
+    }
+
+    #[test]
+    fn test_if_else_default_return() {
+        let tests = vec![
+            ("if 1 { }", 0),
+            ("if 0 { 10 } else { }", 0),
+            ("if 0 { 10 }", 0),
+        ];
+        run_llvm_tests(tests);
+    }
+
+    #[test]
+    fn test_if_else_scope() {
+        let tests = vec![
             (
                 "
                     let a = 10;

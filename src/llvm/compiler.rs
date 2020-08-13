@@ -169,11 +169,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                     }
 
                     let int = expr.into_int_value();
-                    let zero = self
-                        .context
-                        .i64_type()
-                        .const_int(0.try_into().unwrap(), false)
-                        .into();
+                    let zero = self.context.i64_type().const_zero().into();
 
                     self.builder
                         .build_int_compare(inkwell::IntPredicate::EQ, zero, int, "tmpnot")

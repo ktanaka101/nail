@@ -206,6 +206,12 @@ mod tests {
     use crate::parser;
 
     #[test]
+    fn test_number_literal() {
+        let tests = vec![("10", 10), ("20", 20), ("-10", -10), ("-20", -20)];
+        run_llvm_tests(tests);
+    }
+
+    #[test]
     fn test_let_binding() {
         let tests = vec![
             ("let a = 10", 10),

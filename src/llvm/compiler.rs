@@ -39,12 +39,19 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         }
     }
 
+    #[inline]
+    fn fn_value(&self) -> FunctionValue<'ctx> {
+        self.fn_value_opt.unwrap()
+    }
+
     pub fn compile(&mut self, node: &ast::Node, output_ir: bool) -> Result<JitFunction<MainFunc>> {
         let fn_type = self.context.void_type().fn_type(&[], false);
         let main_fn = self.module.add_function("main", fn_type, None);
         let basic_block = self.context.append_basic_block(main_fn, "entry");
 
         self.builder.position_at_end(basic_block);
+
+        self.fn_value_opt = Some(main_fn);
 
         match self.compile_node(node)? {
             Some(ref v) => self.builder.build_return(Some(v)),

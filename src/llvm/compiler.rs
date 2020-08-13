@@ -140,17 +140,20 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                     ast::Operator::Equal => self
                         .builder
                         .build_int_compare(inkwell::IntPredicate::EQ, lvalue, rvalue, "tmpeq")
-                        .const_cast(self.context.i64_type(), false)
+                        .const_unsigned_to_float(self.context.f64_type())
+                        .const_to_signed_int(self.context.i64_type())
                         .into(),
                     ast::Operator::Gt => self
                         .builder
                         .build_int_compare(inkwell::IntPredicate::SGT, lvalue, rvalue, "tmpgt")
-                        .const_cast(self.context.i64_type(), false)
+                        .const_unsigned_to_float(self.context.f64_type())
+                        .const_to_signed_int(self.context.i64_type())
                         .into(),
                     ast::Operator::Lt => self
                         .builder
                         .build_int_compare(inkwell::IntPredicate::SLT, lvalue, rvalue, "tmplt")
-                        .const_cast(self.context.i64_type(), false)
+                        .const_unsigned_to_float(self.context.f64_type())
+                        .const_to_signed_int(self.context.i64_type())
                         .into(),
                     _ => unimplemented!(),
                 }
@@ -174,7 +177,8 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
 
                     self.builder
                         .build_int_compare(inkwell::IntPredicate::EQ, zero, int, "tmpnot")
-                        .const_cast(self.context.i64_type(), false)
+                        .const_unsigned_to_float(self.context.f64_type())
+                        .const_to_signed_int(self.context.i64_type())
                         .into()
                 }
                 ast::Operator::Minus => {

@@ -174,3 +174,44 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lexer;
+    use crate::parser;
+
+    #[test]
+    fn test_bang() {
+        let tests = vec![("!0", 1), ("!1", 0)];
+
+        run_llvm_tests(tests);
+    }
+
+    fn run_llvm_tests(tests: Vec<(&'static str, i64)>) {
+        tests.into_iter().for_each(|(input, expected)| {
+            let context = Context::create();
+            let module = context.create_module("top");
+            let builder = context.create_builder();
+            let execution_engine = module
+                .create_jit_execution_engine(inkwell::OptimizationLevel::None)
+                .unwrap();
+            let mut compiler = Compiler::new(&context, &module, &builder, &execution_engine);
+            let lexer = lexer::Lexer::new(input.to_string());
+            let mut parser = parser::Parser::new(lexer);
+
+            let program = match parser.parse_program() {
+                Ok(p) => p,
+                Err(e) => panic!("Parser error: {} by {}", e, input),
+            };
+
+            let main_fn = match compiler.compile(&program.into(), false) {
+                Ok(f) => f,
+                Err(e) => panic!("LLVM error: {} by {}", e, input),
+            };
+
+            let result = unsafe { main_fn.call() };
+            assert_eq!(result, expected)
+        });
+    }
+}

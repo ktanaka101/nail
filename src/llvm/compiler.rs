@@ -137,6 +137,21 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                         .builder
                         .build_int_signed_div(lvalue, rvalue, "tmpdiv")
                         .into(),
+                    ast::Operator::Equal => self
+                        .builder
+                        .build_int_compare(inkwell::IntPredicate::EQ, lvalue, rvalue, "tmpeq")
+                        .const_cast(self.context.i64_type(), false)
+                        .into(),
+                    ast::Operator::Gt => self
+                        .builder
+                        .build_int_compare(inkwell::IntPredicate::SGT, lvalue, rvalue, "tmpgt")
+                        .const_cast(self.context.i64_type(), false)
+                        .into(),
+                    ast::Operator::Lt => self
+                        .builder
+                        .build_int_compare(inkwell::IntPredicate::SLT, lvalue, rvalue, "tmplt")
+                        .const_cast(self.context.i64_type(), false)
+                        .into(),
                     _ => unimplemented!(),
                 }
             }

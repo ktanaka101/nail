@@ -64,7 +64,7 @@ fn start_llvm() {
             }
         };
 
-        let main_fn = match compiler.compile(&program.into()) {
+        let main_fn = match compiler.compile(&program.into(), true) {
             Ok(f) => f,
             Err(e) => {
                 println!("LLVM error: {}", e);

@@ -39,7 +39,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         }
     }
 
-    pub fn compile(&mut self, node: &ast::Node) -> Result<JitFunction<MainFunc>> {
+    pub fn compile(&mut self, node: &ast::Node, output_ir: bool) -> Result<JitFunction<MainFunc>> {
         let fn_type = self.context.void_type().fn_type(&[], false);
         let main_fn = self.module.add_function("main", fn_type, None);
         let basic_block = self.context.append_basic_block(main_fn, "entry");
@@ -51,7 +51,9 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
             None => self.builder.build_return(None),
         };
 
-        self.module.print_to_stderr();
+        if output_ir {
+            self.module.print_to_stderr();
+        }
 
         Ok(unsafe { self.execution_engine.get_function("main")? })
     }

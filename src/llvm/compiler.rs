@@ -441,6 +441,26 @@ mod tests {
                 ",
                 60,
             ),
+            // TODO: create scope in if-else
+            (
+                "
+                    if 1 {
+                        let a = 10;
+                    }
+                    a
+                ",
+                10,
+            ),
+            (
+                "
+                    if 0 { }
+                    else {
+                        let a = 10;
+                    }
+                    a
+                ",
+                10,
+            ),
         ];
         run_llvm_tests(tests);
     }

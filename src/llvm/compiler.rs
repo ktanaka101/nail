@@ -6,7 +6,10 @@ use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::execution_engine::{ExecutionEngine, JitFunction};
 use inkwell::module::Module;
-use inkwell::values::{BasicValueEnum, FunctionValue, PointerValue};
+use inkwell::values::{
+    ArrayValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PointerValue, StructValue,
+    VectorValue,
+};
 
 use crate::parser::ast;
 
@@ -135,6 +138,81 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         })
     }
 
+    fn infix_int(
+        &self,
+        ope: &ast::Operator,
+        lv: IntValue<'ctx>,
+        rv: IntValue<'ctx>,
+    ) -> IntValue<'ctx> {
+        match ope {
+            ast::Operator::Plus => self.builder.build_int_add(lv, rv, "tmpadd"),
+            ast::Operator::Minus => self.builder.build_int_sub(lv, rv, "tmpsub"),
+            ast::Operator::Asterisk => self.builder.build_int_mul(lv, rv, "tmpmul"),
+            ast::Operator::Slash => self.builder.build_int_signed_div(lv, rv, "tmpdiv"),
+            ast::Operator::Equal => self
+                .builder
+                .build_int_compare(inkwell::IntPredicate::EQ, lv, rv, "tmpeq")
+                .const_unsigned_to_float(self.context.f64_type())
+                .const_to_signed_int(self.context.i64_type()),
+            ast::Operator::Gt => self
+                .builder
+                .build_int_compare(inkwell::IntPredicate::SGT, lv, rv, "tmpgt")
+                .const_unsigned_to_float(self.context.f64_type())
+                .const_to_signed_int(self.context.i64_type()),
+            ast::Operator::Lt => self
+                .builder
+                .build_int_compare(inkwell::IntPredicate::SLT, lv, rv, "tmplt")
+                .const_unsigned_to_float(self.context.f64_type())
+                .const_to_signed_int(self.context.i64_type()),
+            _ => unimplemented!(),
+        }
+    }
+
+    fn infix_float(
+        &self,
+        ope: &ast::Operator,
+        lv: FloatValue<'ctx>,
+        rv: FloatValue<'ctx>,
+    ) -> FloatValue<'ctx> {
+        unimplemented!()
+    }
+
+    fn infix_array(
+        &self,
+        ope: &ast::Operator,
+        lv: ArrayValue<'ctx>,
+        rv: ArrayValue<'ctx>,
+    ) -> ArrayValue<'ctx> {
+        unimplemented!()
+    }
+
+    fn infix_vector(
+        &self,
+        ope: &ast::Operator,
+        lv: VectorValue<'ctx>,
+        rv: VectorValue<'ctx>,
+    ) -> VectorValue<'ctx> {
+        unimplemented!()
+    }
+
+    fn infix_struct(
+        &self,
+        ope: &ast::Operator,
+        lv: StructValue<'ctx>,
+        rv: StructValue<'ctx>,
+    ) -> StructValue<'ctx> {
+        unimplemented!()
+    }
+
+    fn infix_pointer(
+        &self,
+        ope: &ast::Operator,
+        lv: PointerValue<'ctx>,
+        rv: PointerValue<'ctx>,
+    ) -> PointerValue<'ctx> {
+        unimplemented!()
+    }
+
     fn compile_expr(&mut self, expr: &ast::Expr) -> Result<BasicValueEnum<'ctx>> {
         Ok(match expr {
             ast::Expr::Integer(int) => self
@@ -154,49 +232,31 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
             ast::Expr::InfixExpr(infix_expr) => {
                 let lvalue = self.compile_expr(&*infix_expr.left)?;
                 let rvalue = self.compile_expr(&*infix_expr.right)?;
-                if !(lvalue.is_int_value() && rvalue.is_int_value()) {
-                    Err(Error::DifferentInfixType(
+
+                match (lvalue, rvalue) {
+                    (BasicValueEnum::IntValue(lv), BasicValueEnum::IntValue(rv)) => {
+                        self.infix_int(&infix_expr.ope, lv, rv).into()
+                    }
+                    (BasicValueEnum::FloatValue(lv), BasicValueEnum::FloatValue(rv)) => {
+                        self.infix_float(&infix_expr.ope, lv, rv).into()
+                    }
+                    (BasicValueEnum::ArrayValue(lv), BasicValueEnum::ArrayValue(rv)) => {
+                        self.infix_array(&infix_expr.ope, lv, rv).into()
+                    }
+                    (BasicValueEnum::VectorValue(lv), BasicValueEnum::VectorValue(rv)) => {
+                        self.infix_vector(&infix_expr.ope, lv, rv).into()
+                    }
+                    (BasicValueEnum::StructValue(lv), BasicValueEnum::StructValue(rv)) => {
+                        self.infix_struct(&infix_expr.ope, lv, rv).into()
+                    }
+                    (BasicValueEnum::PointerValue(lv), BasicValueEnum::PointerValue(rv)) => {
+                        self.infix_pointer(&infix_expr.ope, lv, rv).into()
+                    }
+                    (lvalue, rvalue) => Err(Error::DifferentInfixType(
                         infix_expr.ope.clone(),
                         get_type_string(&lvalue),
                         get_type_string(&rvalue),
-                    ))?;
-                }
-
-                let lvalue = lvalue.into_int_value();
-                let rvalue = rvalue.into_int_value();
-                match infix_expr.ope {
-                    ast::Operator::Plus => {
-                        self.builder.build_int_add(lvalue, rvalue, "tmpadd").into()
-                    }
-                    ast::Operator::Minus => {
-                        self.builder.build_int_sub(lvalue, rvalue, "tmpsub").into()
-                    }
-                    ast::Operator::Asterisk => {
-                        self.builder.build_int_mul(lvalue, rvalue, "tmpmul").into()
-                    }
-                    ast::Operator::Slash => self
-                        .builder
-                        .build_int_signed_div(lvalue, rvalue, "tmpdiv")
-                        .into(),
-                    ast::Operator::Equal => self
-                        .builder
-                        .build_int_compare(inkwell::IntPredicate::EQ, lvalue, rvalue, "tmpeq")
-                        .const_unsigned_to_float(self.context.f64_type())
-                        .const_to_signed_int(self.context.i64_type())
-                        .into(),
-                    ast::Operator::Gt => self
-                        .builder
-                        .build_int_compare(inkwell::IntPredicate::SGT, lvalue, rvalue, "tmpgt")
-                        .const_unsigned_to_float(self.context.f64_type())
-                        .const_to_signed_int(self.context.i64_type())
-                        .into(),
-                    ast::Operator::Lt => self
-                        .builder
-                        .build_int_compare(inkwell::IntPredicate::SLT, lvalue, rvalue, "tmplt")
-                        .const_unsigned_to_float(self.context.f64_type())
-                        .const_to_signed_int(self.context.i64_type())
-                        .into(),
-                    _ => unimplemented!(),
+                    ))?,
                 }
             }
             ast::Expr::PrefixExpr(prefix_expr) => match &prefix_expr.ope {

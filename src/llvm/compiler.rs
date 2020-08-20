@@ -112,10 +112,9 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         Ok(match stmt {
             ast::Stmt::ExprStmt(expr_stmt) => self.compile_expr(&expr_stmt.expr)?,
             ast::Stmt::Let(l) => {
-                let i64type = self.context.i64_type();
-                let alloca = self.builder.build_alloca(i64type, &l.name.value);
-
                 let value = self.compile_expr(&l.value)?;
+                let alloca = self.builder.build_alloca(value.get_type(), "let_ptr");
+
                 self.builder.build_store(alloca, value);
 
                 self.variables.insert(l.name.value.clone(), alloca);

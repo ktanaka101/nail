@@ -6,6 +6,7 @@ use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::execution_engine::{ExecutionEngine, JitFunction};
 use inkwell::module::Module;
+use inkwell::types::StructType;
 use inkwell::values::{
     ArrayValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PointerValue, StructValue,
     VectorValue,
@@ -128,6 +129,7 @@ pub struct Compiler<'a, 'ctx> {
     variables: HashMap<String, PointerValue<'ctx>>,
     fn_value_opt: Option<FunctionValue<'ctx>>,
     builtin_functions: HashMap<String, FunctionValue<'ctx>>,
+    builtin_structs: HashMap<String, StructType<'ctx>>,
 }
 
 impl<'a, 'ctx> Compiler<'a, 'ctx> {
@@ -145,6 +147,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
             variables: HashMap::new(),
             fn_value_opt: None,
             builtin_functions: HashMap::new(),
+            builtin_structs: HashMap::new(),
         }
     }
 
@@ -171,7 +174,27 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         self.builtin_functions.insert("puts".to_string(), puts_fn);
     }
 
+    fn add_builtin_struct(&mut self) {
+        // {
+        //     // NailResult
+        //     let ptr_ty = self
+        //         .context
+        //         .i64_type()
+        //         .ptr_type(AddressSpace::Generic);
+        //     let length_ty = self.context.i64_type();
+        //     let primitive_type_ty = self.context.i8_type();
+        //     let struct_type = self.context.struct_type(
+        //         &[ptr_ty.into(), length_ty.into(), primitive_type_ty.into()],
+        //         false,
+        //     );
+
+        //     self.builtin_structs
+        //         .insert("TestStruct".to_string(), struct_type);
+        // }
+    }
+
     pub fn compile(&mut self, node: &ast::Node, output_ir: bool) -> Result<JitFunction<MainFunc>> {
+        self.add_builtin_struct();
         self.add_builtin_function();
 
         let fn_type = self.context.void_type().fn_type(&[], false);

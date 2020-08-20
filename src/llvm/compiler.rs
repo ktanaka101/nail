@@ -230,7 +230,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                     .get(name)
                     .ok_or_else(|| Error::UndefinedIdentfier(name.to_string()))?;
 
-                self.builder.build_load(*id, name).into_int_value().into()
+                self.builder.build_load(*id, name)
             }
             ast::Expr::InfixExpr(infix_expr) => {
                 let lvalue = self.compile_expr(&*infix_expr.left)?;

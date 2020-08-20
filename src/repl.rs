@@ -72,8 +72,7 @@ fn start_llvm() {
             }
         };
 
-        let result = unsafe { main_fn.call() };
-        println!("{}", result);
+        unsafe { main_fn.call() };
 
         inputs = try_inputs.clone();
     }

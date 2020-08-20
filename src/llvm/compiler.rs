@@ -207,8 +207,107 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         self.fn_value_opt = Some(main_fn);
 
         match self.compile_node(node)? {
-            Some(ref v) => self.builder.build_return(Some(v)),
-            None => self.builder.build_return(None),
+            Some(res) => {
+                match res {
+                    BasicValueEnum::IntValue(i) => {
+                        let ptr = self.builder.build_alloca(i.get_type(), "alloca_i");
+                        self.builder.build_store(ptr, i);
+
+                        self.builder.build_call(
+                            self.builtin_functions.get("puts").unwrap().clone(),
+                            &[
+                                ptr.into(),
+                                self.context.i64_type().const_int(1, false).into(),
+                                self.context
+                                    .i8_type()
+                                    .const_int(PrimitiveType::Integer.into(), false)
+                                    .into(),
+                            ],
+                            "puts",
+                        );
+                    }
+                    BasicValueEnum::VectorValue(vec) => {
+                        let ptr = self.builder.build_alloca(vec.get_type(), "test");
+                        self.builder.build_store(ptr, vec);
+
+                        let ptr = unsafe {
+                            self.builder.build_in_bounds_gep(
+                                ptr,
+                                &[
+                                    self.context.i32_type().const_int(0, false),
+                                    self.context.i32_type().const_int(0, false),
+                                ],
+                                "ptr",
+                            )
+                        }
+                        .const_cast(self.context.i64_type().ptr_type(AddressSpace::Generic));
+
+                        let arr_size = self
+                            .context
+                            .i64_type()
+                            .const_int(vec.get_type().get_size().into(), false);
+
+                        let primitive_type = if vec.is_const_string() {
+                            PrimitiveType::CharArray
+                        } else {
+                            PrimitiveType::IntegerArray
+                        };
+                        self.builder.build_call(
+                            self.builtin_functions.get("puts").unwrap().clone(),
+                            &[
+                                ptr.into(),
+                                arr_size.into(),
+                                self.context
+                                    .i8_type()
+                                    .const_int(primitive_type.into(), false)
+                                    .into(),
+                            ],
+                            "puts",
+                        );
+                    }
+                    BasicValueEnum::ArrayValue(arr) => {
+                        let ptr = self.builder.build_alloca(arr.get_type(), "test");
+                        self.builder.build_store(ptr, BasicValueEnum::from(arr));
+
+                        let ptr = unsafe {
+                            self.builder.build_in_bounds_gep(
+                                ptr,
+                                &[
+                                    self.context.i32_type().const_int(0, false),
+                                    self.context.i32_type().const_int(0, false),
+                                ],
+                                "ptr",
+                            )
+                        }
+                        .const_cast(self.context.i64_type().ptr_type(AddressSpace::Generic));
+
+                        let arr_size = self
+                            .context
+                            .i64_type()
+                            .const_int(arr.get_type().len().into(), false);
+
+                        self.builder.build_call(
+                            self.builtin_functions.get("puts").unwrap().clone(),
+                            &[
+                                ptr.into(),
+                                arr_size.into(),
+                                self.context
+                                    .i8_type()
+                                    .const_int(PrimitiveType::IntegerArray.into(), false)
+                                    .into(),
+                            ],
+                            "puts",
+                        );
+                    }
+                    _ => unimplemented!(),
+                };
+
+                self.builder
+                    .build_return(Some(&self.context.i64_type().const_int(1, false)));
+            }
+            None => {
+                self.builder.build_return(None);
+            }
         };
 
         if output_ir {

@@ -233,6 +233,28 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
 
                 self.builder.build_load(*id, name)
             }
+            ast::Expr::Array(arr) => {
+                let size = arr.elements.len();
+                let ty = self.context.i64_type().array_type(size.try_into()?);
+                let size = self.context.i64_type().const_int(size.try_into()?, false);
+                let arr_ptr = self.builder.build_array_alloca(ty, size, "array_alloca");
+                let mut array = self.builder.build_load(arr_ptr, "array").into_array_value();
+
+                for (i, element) in arr.elements.iter().enumerate() {
+                    array = self
+                        .builder
+                        .build_insert_value(
+                            array,
+                            self.compile_expr(element)?,
+                            i.try_into()?,
+                            "array_insert_value",
+                        )
+                        .unwrap()
+                        .into_array_value();
+                }
+
+                array.into()
+            }
             ast::Expr::InfixExpr(infix_expr) => {
                 let lvalue = self.compile_expr(&*infix_expr.left)?;
                 let rvalue = self.compile_expr(&*infix_expr.right)?;

@@ -127,6 +127,7 @@ pub struct Compiler<'a, 'ctx> {
 
     variables: HashMap<String, PointerValue<'ctx>>,
     fn_value_opt: Option<FunctionValue<'ctx>>,
+    builtin_functions: HashMap<String, FunctionValue<'ctx>>,
 }
 
 impl<'a, 'ctx> Compiler<'a, 'ctx> {
@@ -143,6 +144,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
             execution_engine,
             variables: HashMap::new(),
             fn_value_opt: None,
+            builtin_functions: HashMap::new(),
         }
     }
 
@@ -151,7 +153,27 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         self.fn_value_opt.unwrap()
     }
 
+    fn add_builtin_function(&mut self) {
+        let fn_type = self.context.void_type().fn_type(
+            &[
+                self.context
+                    .i64_type()
+                    .ptr_type(AddressSpace::Generic)
+                    .into(),
+                self.context.i64_type().into(),
+                self.context.i8_type().into(),
+            ],
+            false,
+        );
+        let puts_fn = self.module.add_function("puts", fn_type, None);
+        self.execution_engine
+            .add_global_mapping(&puts_fn, puts as usize);
+        self.builtin_functions.insert("puts".to_string(), puts_fn);
+    }
+
     pub fn compile(&mut self, node: &ast::Node, output_ir: bool) -> Result<JitFunction<MainFunc>> {
+        self.add_builtin_function();
+
         let fn_type = self.context.void_type().fn_type(&[], false);
         let main_fn = self.module.add_function("main", fn_type, None);
         let basic_block = self.context.append_basic_block(main_fn, "entry");

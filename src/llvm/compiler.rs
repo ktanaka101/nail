@@ -10,6 +10,7 @@ use inkwell::values::{
     ArrayValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PointerValue, StructValue,
     VectorValue,
 };
+use inkwell::AddressSpace;
 
 use crate::parser::ast;
 

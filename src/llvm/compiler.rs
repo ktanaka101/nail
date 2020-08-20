@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 
 use anyhow::Result;
 use inkwell::builder::Builder;
@@ -15,6 +15,85 @@ use inkwell::AddressSpace;
 use crate::parser::ast;
 
 type MainFunc = unsafe extern "C" fn() -> i64;
+
+enum PrimitiveType {
+    Integer = 1,
+    Char = 2,
+    IntegerArray = 3,
+    CharArray = 4,
+}
+
+impl TryFrom<i8> for PrimitiveType {
+    type Error = anyhow::Error;
+
+    fn try_from(value: i8) -> Result<Self> {
+        Ok(match value {
+            1 => PrimitiveType::Integer,
+            2 => PrimitiveType::Char,
+            3 => PrimitiveType::IntegerArray,
+            4 => PrimitiveType::CharArray,
+            other => Err(anyhow::format_err!(
+                "Expected 1, 2, 3, 4. Received {}",
+                other
+            ))?,
+        })
+    }
+}
+
+impl Into<u64> for PrimitiveType {
+    fn into(self) -> u64 {
+        self as u64
+    }
+}
+
+extern "C" fn puts(ptr: *const i64, length: i64, primitive_type: i8) {
+    let s = match primitive_type.try_into().unwrap() {
+        PrimitiveType::Integer => {
+            let ptr: *const i64 = ptr.cast();
+            let int = unsafe { *ptr as i64 };
+
+            int.to_string()
+        }
+        PrimitiveType::Char => {
+            let ptr: *const char = ptr.cast();
+
+            unsafe { *ptr as char }.to_string()
+        }
+        PrimitiveType::IntegerArray => {
+            let length = usize::try_from(length).unwrap();
+            let ptr: *const i64 = ptr.cast();
+            let mut string = String::new();
+            string.push('[');
+            for i in 0..length {
+                let int = unsafe { *ptr.add(i) as i64 };
+                string.push_str(&int.to_string());
+                if i != length - 1 {
+                    string.push_str(", ")
+                }
+            }
+            string.push(']');
+
+            string
+        }
+        PrimitiveType::CharArray => {
+            let length = usize::try_from(length).unwrap();
+            let ptr: *const u8 = ptr.cast();
+            let mut string = String::new();
+            string.push('[');
+            for i in 0..length {
+                let c = unsafe { *ptr.add(i) as char };
+                string.push(c);
+                if i != length - 1 {
+                    string.push_str(", ")
+                }
+            }
+            string.push(']');
+
+            string
+        }
+    };
+    println!("{}", s);
+}
 
 #[derive(thiserror::Error, Debug, Clone)]
 pub enum Error {

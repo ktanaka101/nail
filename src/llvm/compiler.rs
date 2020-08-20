@@ -220,6 +220,10 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                 .i64_type()
                 .const_int(int.value.try_into().unwrap(), false)
                 .into(),
+            ast::Expr::StringLit(string) => self
+                .context
+                .const_string(string.value.as_bytes(), false)
+                .into(),
             ast::Expr::Identifier(id) => {
                 let name = id.value.as_str();
                 let id = self

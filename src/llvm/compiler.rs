@@ -7,6 +7,7 @@ use inkwell::context::Context;
 use inkwell::execution_engine::{ExecutionEngine, JitFunction};
 use inkwell::module::Module;
 use inkwell::types::StructType;
+use inkwell::values::{AggregateValue, AnyValue, BasicValue, IntMathValue, PointerMathValue}; // traits
 use inkwell::values::{
     ArrayValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PointerValue, StructValue,
     VectorValue,

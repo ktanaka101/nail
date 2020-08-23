@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::convert::TryInto;
 use std::io;
 use std::io::Write;
 use std::rc::Rc;
@@ -10,6 +11,7 @@ use crate::evaluator::env::Environment;
 use crate::evaluator::object;
 use crate::evaluator::{define_macros, eval_node, expand_macros};
 use crate::lexer::Lexer;
+use crate::llvm::compiler;
 use crate::llvm::compiler::Compiler;
 use crate::parser::Parser;
 
@@ -64,7 +66,11 @@ fn start_llvm() {
             }
         };
 
-        let main_fn = match compiler.compile(&program.into(), true) {
+        let main_fn = match compiler.compile(
+            &program.into(),
+            true,
+            compiler::Output::File { suffix: 111 },
+        ) {
             Ok(f) => f,
             Err(e) => {
                 println!("LLVM error: {}", e);

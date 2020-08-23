@@ -48,6 +48,7 @@ impl Into<u64> for PrimitiveType {
     }
 }
 
+#[no_mangle]
 extern "C" fn puts(ptr: *const i64, length: i64, primitive_type: i8) {
     let s = match primitive_type.try_into().unwrap() {
         PrimitiveType::Integer => {

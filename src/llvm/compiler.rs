@@ -55,9 +55,8 @@ impl Into<u64> for PrimitiveType {
     }
 }
 
-#[no_mangle]
-extern "C" fn puts(ptr: *const i64, length: i64, primitive_type: i8) {
-    let s = match primitive_type.try_into().unwrap() {
+fn to_string(ptr: *const i64, length: i64, primitive_type: PrimitiveType) -> String {
+    match primitive_type {
         PrimitiveType::Integer => {
             let ptr: *const i64 = ptr.cast();
             let int = unsafe { *ptr as i64 };
@@ -101,58 +100,18 @@ extern "C" fn puts(ptr: *const i64, length: i64, primitive_type: i8) {
 
             string
         }
-    };
+    }
+}
+
+#[no_mangle]
+extern "C" fn puts(ptr: *const i64, length: i64, primitive_type: i8) {
+    let s = to_string(ptr, length, primitive_type.try_into().unwrap());
     println!("{}", s);
 }
 
 #[no_mangle]
 extern "C" fn to_file(ptr: *const i64, length: i64, primitive_type: i8, file_name_suffix: i64) {
-    let s = match primitive_type.try_into().unwrap() {
-        PrimitiveType::Integer => {
-            let ptr: *const i64 = ptr.cast();
-            let int = unsafe { *ptr as i64 };
-
-            int.to_string()
-        }
-        PrimitiveType::Char => {
-            let ptr: *const char = ptr.cast();
-
-            unsafe { *ptr as char }.to_string()
-        }
-        PrimitiveType::IntegerArray => {
-            let length = usize::try_from(length).unwrap();
-            let ptr: *const i64 = ptr.cast();
-            let mut string = String::new();
-            string.push('[');
-            for i in 0..length {
-                let int = unsafe { *ptr.add(i) as i64 };
-                string.push_str(&int.to_string());
-                if i != length - 1 {
-                    string.push_str(", ")
-                }
-            }
-            string.push(']');
-
-            string
-        }
-        PrimitiveType::CharArray => {
-            let length = usize::try_from(length).unwrap();
-            let ptr: *const u8 = ptr.cast();
-            let mut string = String::new();
-            string.push('[');
-            for i in 0..length {
-                let c = unsafe { *ptr.add(i) as char };
-                string.push(c);
-                if i != length - 1 {
-                    string.push_str(", ")
-                }
-            }
-            string.push(']');
-
-            string
-        }
-    };
-
+    let s = to_string(ptr, length, primitive_type.try_into().unwrap());
     let mut file = File::create(format!("output/{}.output", file_name_suffix)).unwrap();
     file.write_all(s.as_bytes()).unwrap();
 }

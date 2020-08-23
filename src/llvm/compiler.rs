@@ -697,6 +697,9 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use rand::prelude::*;
+
     use crate::lexer;
     use crate::parser;
 
@@ -905,13 +908,28 @@ mod tests {
                 Err(e) => panic!("Parser error: {} by {}", e, input),
             };
 
-            let main_fn = match compiler.compile(&program.into(), false) {
+            let mut rng = rand::thread_rng();
+            let suffix: u32 = rng.gen();
+
+            let main_fn = match compiler.compile(&program.into(), false, Output::File { suffix }) {
                 Ok(f) => f,
                 Err(e) => panic!("LLVM error: {} by {}", e, input),
             };
 
-            let result = unsafe { main_fn.call() };
-            assert_eq!(result, expected)
+            unsafe { main_fn.call() };
+
+            let contents = {
+                let output_file_name = format!("output/{}.output", suffix);
+                let mut file = File::open(output_file_name).unwrap();
+                let mut contents = String::new();
+                file.read_to_string(&mut contents).unwrap();
+
+                contents
+            };
+
+            std::fs::remove_file(format!("output/{}.output", suffix)).unwrap();
+
+            assert_eq!(contents, expected.to_string());
         });
     }
 }

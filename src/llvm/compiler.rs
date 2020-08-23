@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
+use std::fs::File;
+use std::io::prelude::*;
 
 use anyhow::Result;
 use inkwell::builder::Builder;
@@ -16,7 +18,12 @@ use inkwell::AddressSpace;
 
 use crate::parser::ast;
 
-type MainFunc = unsafe extern "C" fn() -> i64;
+type MainFunc = unsafe extern "C" fn();
+
+pub enum Output {
+    File { suffix: u32 },
+    StdOut,
+}
 
 enum PrimitiveType {
     Integer = 1,
@@ -98,6 +105,58 @@ extern "C" fn puts(ptr: *const i64, length: i64, primitive_type: i8) {
     println!("{}", s);
 }
 
+#[no_mangle]
+extern "C" fn to_file(ptr: *const i64, length: i64, primitive_type: i8, file_name_suffix: i64) {
+    let s = match primitive_type.try_into().unwrap() {
+        PrimitiveType::Integer => {
+            let ptr: *const i64 = ptr.cast();
+            let int = unsafe { *ptr as i64 };
+
+            int.to_string()
+        }
+        PrimitiveType::Char => {
+            let ptr: *const char = ptr.cast();
+
+            unsafe { *ptr as char }.to_string()
+        }
+        PrimitiveType::IntegerArray => {
+            let length = usize::try_from(length).unwrap();
+            let ptr: *const i64 = ptr.cast();
+            let mut string = String::new();
+            string.push('[');
+            for i in 0..length {
+                let int = unsafe { *ptr.add(i) as i64 };
+                string.push_str(&int.to_string());
+                if i != length - 1 {
+                    string.push_str(", ")
+                }
+            }
+            string.push(']');
+
+            string
+        }
+        PrimitiveType::CharArray => {
+            let length = usize::try_from(length).unwrap();
+            let ptr: *const u8 = ptr.cast();
+            let mut string = String::new();
+            string.push('[');
+            for i in 0..length {
+                let c = unsafe { *ptr.add(i) as char };
+                string.push(c);
+                if i != length - 1 {
+                    string.push_str(", ")
+                }
+            }
+            string.push(']');
+
+            string
+        }
+    };
+
+    let mut file = File::create(format!("output/{}.output", file_name_suffix)).unwrap();
+    file.write_all(s.as_bytes()).unwrap();
+}
+
 #[derive(thiserror::Error, Debug, Clone)]
 pub enum Error {
     #[error("Expected type {0}. Received type {1}")]
@@ -159,21 +218,43 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
     }
 
     fn add_builtin_function(&mut self) {
-        let fn_type = self.context.void_type().fn_type(
-            &[
-                self.context
-                    .i64_type()
-                    .ptr_type(AddressSpace::Generic)
-                    .into(),
-                self.context.i64_type().into(),
-                self.context.i8_type().into(),
-            ],
-            false,
-        );
-        let puts_fn = self.module.add_function("puts", fn_type, None);
-        self.execution_engine
-            .add_global_mapping(&puts_fn, puts as usize);
-        self.builtin_functions.insert("puts".to_string(), puts_fn);
+        {
+            let fn_type = self.context.void_type().fn_type(
+                &[
+                    self.context
+                        .i64_type()
+                        .ptr_type(AddressSpace::Generic)
+                        .into(),
+                    self.context.i64_type().into(),
+                    self.context.i8_type().into(),
+                ],
+                false,
+            );
+            let puts_fn = self.module.add_function("puts", fn_type, None);
+            self.execution_engine
+                .add_global_mapping(&puts_fn, puts as usize);
+            self.builtin_functions.insert("puts".to_string(), puts_fn);
+        }
+
+        {
+            let fn_type = self.context.void_type().fn_type(
+                &[
+                    self.context
+                        .i64_type()
+                        .ptr_type(AddressSpace::Generic)
+                        .into(),
+                    self.context.i64_type().into(),
+                    self.context.i8_type().into(),
+                    self.context.i64_type().into(),
+                ],
+                false,
+            );
+            let func_value = self.module.add_function("to_file", fn_type, None);
+            self.execution_engine
+                .add_global_mapping(&func_value, to_file as usize);
+            self.builtin_functions
+                .insert("to_file".to_string(), func_value);
+        }
     }
 
     fn add_builtin_struct(&mut self) {
@@ -195,7 +276,12 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         // }
     }
 
-    pub fn compile(&mut self, node: &ast::Node, output_ir: bool) -> Result<JitFunction<MainFunc>> {
+    pub fn compile(
+        &mut self,
+        node: &ast::Node,
+        output_ir: bool,
+        output: Output,
+    ) -> Result<JitFunction<MainFunc>> {
         self.add_builtin_struct();
         self.add_builtin_function();
 
@@ -209,23 +295,16 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
 
         match self.compile_node(node)? {
             Some(res) => {
-                match res {
+                let (ptr, length, primitive_type) = match res {
                     BasicValueEnum::IntValue(i) => {
                         let ptr = self.builder.build_alloca(i.get_type(), "alloca_i");
                         self.builder.build_store(ptr, i);
 
-                        self.builder.build_call(
-                            self.builtin_functions.get("puts").unwrap().clone(),
-                            &[
-                                ptr.into(),
-                                self.context.i64_type().const_int(1, false).into(),
-                                self.context
-                                    .i8_type()
-                                    .const_int(PrimitiveType::Integer.into(), false)
-                                    .into(),
-                            ],
-                            "puts",
-                        );
+                        (
+                            ptr,
+                            self.context.i64_type().const_int(1, false),
+                            PrimitiveType::Integer,
+                        )
                     }
                     BasicValueEnum::VectorValue(vec) => {
                         let ptr = self.builder.build_alloca(vec.get_type(), "test");
@@ -253,18 +332,8 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                         } else {
                             PrimitiveType::IntegerArray
                         };
-                        self.builder.build_call(
-                            self.builtin_functions.get("puts").unwrap().clone(),
-                            &[
-                                ptr.into(),
-                                arr_size.into(),
-                                self.context
-                                    .i8_type()
-                                    .const_int(primitive_type.into(), false)
-                                    .into(),
-                            ],
-                            "puts",
-                        );
+
+                        (ptr, arr_size, primitive_type)
                     }
                     BasicValueEnum::ArrayValue(arr) => {
                         let ptr = self.builder.build_alloca(arr.get_type(), "test");
@@ -287,24 +356,45 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                             .i64_type()
                             .const_int(arr.get_type().len().into(), false);
 
+                        (ptr, arr_size, PrimitiveType::IntegerArray)
+                    }
+                    _ => unimplemented!(),
+                };
+
+                match output {
+                    Output::File { suffix } => {
+                        let suffix = self.context.i64_type().const_int(suffix.into(), false);
+                        self.builder.build_call(
+                            self.builtin_functions.get("to_file").unwrap().clone(),
+                            &[
+                                ptr.into(),
+                                length.into(),
+                                self.context
+                                    .i8_type()
+                                    .const_int(primitive_type.into(), false)
+                                    .into(),
+                                suffix.into(),
+                            ],
+                            "to_file",
+                        );
+                    }
+                    Output::StdOut => {
                         self.builder.build_call(
                             self.builtin_functions.get("puts").unwrap().clone(),
                             &[
                                 ptr.into(),
-                                arr_size.into(),
+                                length.into(),
                                 self.context
                                     .i8_type()
-                                    .const_int(PrimitiveType::IntegerArray.into(), false)
+                                    .const_int(primitive_type.into(), false)
                                     .into(),
                             ],
                             "puts",
                         );
                     }
-                    _ => unimplemented!(),
                 };
 
-                self.builder
-                    .build_return(Some(&self.context.i64_type().const_int(1, false)));
+                self.builder.build_return(None);
             }
             None => {
                 self.builder.build_return(None);

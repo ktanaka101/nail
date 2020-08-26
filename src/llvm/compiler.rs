@@ -943,28 +943,19 @@ mod tests {
                 Err(e) => panic!("Parser error: {} by {}", e, input),
             };
 
-            let mut rng = rand::thread_rng();
-            let suffix: u32 = rng.gen();
-
-            let main_fn = match compiler.compile(&program.into(), false, Output::File { suffix }) {
+            let main_fn = match compiler.compile(&program.into(), false, Output::CStringPtr) {
                 Ok(f) => f,
                 Err(e) => panic!("LLVM error: {} by {}", e, input),
             };
 
-            unsafe { main_fn.call() };
-
-            let contents = {
-                let output_file_name = format!("output/{}.output", suffix);
-                let mut file = File::open(output_file_name).unwrap();
-                let mut contents = String::new();
-                file.read_to_string(&mut contents).unwrap();
-
-                contents
+            let result_string = {
+                let c_string_ptr = unsafe { main_fn.call() };
+                unsafe { CString::from_raw(c_string_ptr) }
+                    .into_string()
+                    .unwrap()
             };
 
-            std::fs::remove_file(format!("output/{}.output", suffix)).unwrap();
-
-            assert_eq!(contents, expected.to_string());
+            assert_eq!(result_string, expected.to_string());
         });
     }
 }

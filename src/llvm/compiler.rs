@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
+use std::ffi::CString;
 use std::fs::File;
 use std::io::prelude::*;
 
@@ -18,11 +19,12 @@ use inkwell::AddressSpace;
 
 use crate::parser::ast;
 
-type MainFunc = unsafe extern "C" fn();
+type MainFunc = unsafe extern "C" fn() -> *mut i8;
 
 pub enum Output {
     File { suffix: u32 },
     StdOut,
+    CStringPtr,
 }
 
 enum PrimitiveType {
@@ -30,6 +32,7 @@ enum PrimitiveType {
     Char = 2,
     IntegerArray = 3,
     CharArray = 4,
+    String = 5,
 }
 
 impl TryFrom<i8> for PrimitiveType {
@@ -41,8 +44,9 @@ impl TryFrom<i8> for PrimitiveType {
             2 => PrimitiveType::Char,
             3 => PrimitiveType::IntegerArray,
             4 => PrimitiveType::CharArray,
+            5 => PrimitiveType::String,
             other => Err(anyhow::format_err!(
-                "Expected 1, 2, 3, 4. Received {}",
+                "Expected 1, 2, 3, 4, 5. Received {}",
                 other
             ))?,
         })
@@ -100,6 +104,19 @@ fn to_string(ptr: *const i64, length: i64, primitive_type: PrimitiveType) -> Str
 
             string
         }
+        // TODO: core library by nail
+        PrimitiveType::String => {
+            let length = usize::try_from(length).unwrap();
+            let ptr: *const u8 = ptr.cast();
+            let mut bytes: Vec<u8> = vec![];
+
+            for i in 0..length {
+                let v = unsafe { *ptr.add(i) as u8 };
+                bytes.push(v);
+            }
+
+            String::from_utf8(bytes).unwrap()
+        }
     }
 }
 
@@ -114,6 +131,13 @@ extern "C" fn to_file(ptr: *const i64, length: i64, primitive_type: i8, file_nam
     let s = to_string(ptr, length, primitive_type.try_into().unwrap());
     let mut file = File::create(format!("output/{}.output", file_name_suffix)).unwrap();
     file.write_all(s.as_bytes()).unwrap();
+}
+
+#[no_mangle]
+extern "C" fn return_to_string(ptr: *const i64, length: i64, primitive_type: i8) -> *const i8 {
+    let s = to_string(ptr, length, primitive_type.try_into().unwrap());
+    let s = CString::new(s).unwrap();
+    s.into_raw()
 }
 
 #[derive(thiserror::Error, Debug, Clone)]
@@ -214,6 +238,26 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
             self.builtin_functions
                 .insert("to_file".to_string(), func_value);
         }
+
+        {
+            let return_ty = self.context.i8_type().ptr_type(AddressSpace::Generic);
+            let fn_type = return_ty.fn_type(
+                &[
+                    self.context
+                        .i64_type()
+                        .ptr_type(AddressSpace::Generic)
+                        .into(),
+                    self.context.i64_type().into(),
+                    self.context.i8_type().into(),
+                ],
+                false,
+            );
+            let func_value = self.module.add_function("return_to_string", fn_type, None);
+            self.execution_engine
+                .add_global_mapping(&func_value, return_to_string as usize);
+            self.builtin_functions
+                .insert("return_to_string".to_string(), func_value);
+        }
     }
 
     fn add_builtin_struct(&mut self) {
@@ -287,7 +331,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                             .const_int(vec.get_type().get_size().into(), false);
 
                         let primitive_type = if vec.is_const_string() {
-                            PrimitiveType::CharArray
+                            PrimitiveType::String
                         } else {
                             PrimitiveType::IntegerArray
                         };
@@ -336,6 +380,13 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                             ],
                             "to_file",
                         );
+
+                        let return_v = self
+                            .context
+                            .i8_type()
+                            .ptr_type(AddressSpace::Generic)
+                            .const_null();
+                        self.builder.build_return(Some(&return_v));
                     }
                     Output::StdOut => {
                         self.builder.build_call(
@@ -350,10 +401,35 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                             ],
                             "puts",
                         );
+
+                        let return_v = self
+                            .context
+                            .i8_type()
+                            .ptr_type(AddressSpace::Generic)
+                            .const_null();
+                        self.builder.build_return(Some(&return_v));
+                    }
+                    Output::CStringPtr => {
+                        let call_v = self.builder.build_call(
+                            self.builtin_functions
+                                .get("return_to_string")
+                                .unwrap()
+                                .clone(),
+                            &[
+                                ptr.into(),
+                                length.into(),
+                                self.context
+                                    .i8_type()
+                                    .const_int(primitive_type.into(), false)
+                                    .into(),
+                            ],
+                            "return_to_string",
+                        );
+                        let return_v = call_v.try_as_basic_value().left().unwrap();
+
+                        self.builder.build_return(Some(&return_v));
                     }
                 };
-
-                self.builder.build_return(None);
             }
             None => {
                 self.builder.build_return(None);

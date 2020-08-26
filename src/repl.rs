@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::convert::TryInto;
+use std::ffi::CString;
 use std::io;
 use std::io::Write;
 use std::rc::Rc;
@@ -66,11 +67,7 @@ fn start_llvm() {
             }
         };
 
-        let main_fn = match compiler.compile(
-            &program.into(),
-            true,
-            compiler::Output::File { suffix: 111 },
-        ) {
+        let main_fn = match compiler.compile(&program.into(), true, compiler::Output::CStringPtr) {
             Ok(f) => f,
             Err(e) => {
                 println!("LLVM error: {}", e);
@@ -78,7 +75,14 @@ fn start_llvm() {
             }
         };
 
-        unsafe { main_fn.call() };
+        let result_string = {
+            let c_string_ptr = unsafe { main_fn.call() };
+            unsafe { CString::from_raw(c_string_ptr) }
+                .into_string()
+                .unwrap()
+        };
+
+        println!("{}", result_string);
 
         inputs = try_inputs.clone();
     }

@@ -9,4 +9,3 @@ license = "MIT"
 anyhow = "1.0"
 thiserror = "1.0"
 inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "llvm10-0" }
-rand = "0.7"

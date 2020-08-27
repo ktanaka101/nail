@@ -733,8 +733,6 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
 mod tests {
     use super::*;
 
-    use rand::prelude::*;
-
     use crate::lexer;
     use crate::parser;
 

@@ -1,3 +1,5 @@
+mod terminal;
+
 use std::cell::RefCell;
 use std::convert::TryInto;
 use std::ffi::CString;
@@ -5,6 +7,7 @@ use std::io;
 use std::io::Write;
 use std::rc::Rc;
 
+use anyhow::Result;
 use inkwell::context::Context;
 use inkwell::OptimizationLevel;
 use termion::event::Key;
@@ -103,121 +106,90 @@ fn start_llvm_on_std() {
     }
 }
 
+fn llvm_run(code: &str) -> Result<String> {
+    let context = Context::create();
+    let module = context.create_module("top");
+    let builder = context.create_builder();
+    let execution_engine = module
+        .create_jit_execution_engine(OptimizationLevel::None)
+        .unwrap();
+    let mut compiler = Compiler::new(&context, &module, &builder, &execution_engine);
+
+    let lexer = Lexer::new(code.to_string());
+    let mut parser = Parser::new(lexer);
+    let program = parser.parse_program()?;
+    let main_fn = compiler.compile(&program.into(), false, compiler::Output::CStringPtr)?;
+
+    let result_string = {
+        let c_string_ptr = unsafe { main_fn.call() };
+        unsafe { CString::from_raw(c_string_ptr) }
+            .into_string()
+            .unwrap()
+    };
+
+    Ok(result_string)
+}
+
 fn start_llvm_on_tty() {
     let stdin = io::stdin();
-    let mut stdout = io::stdout().into_raw_mode().unwrap();
+    let stdout = io::stdout().into_raw_mode().unwrap();
+
+    let mut term = terminal::Terminal::new(stdout);
+    term.init();
+    term.write(PROMPT);
 
     let mut inputs = "".to_string();
-    write!(
-        stdout,
-        "{}{}>> ",
-        termion::clear::All,
-        termion::cursor::Goto(1, 1),
-    )
-    .unwrap();
-
-    stdout.flush().unwrap();
-    let mut row = 1;
-
     let mut line = "".to_string();
 
     for c in stdin.keys() {
         match c.unwrap() {
             Key::Char('q') => {
-                write!(stdout, "q").unwrap();
+                term.write("q");
                 break;
             }
             Key::Char(c) => match c {
                 '\n' => {
                     if line.is_empty() {
-                        row += 1;
-                        write!(stdout, "{}>> ", termion::cursor::Goto(1, row)).unwrap();
-                        stdout.flush().unwrap();
+                        term.next_line();
+                        term.write(PROMPT);
                         continue;
                     }
 
-                    let context = Context::create();
-                    let module = context.create_module("top");
-                    let builder = context.create_builder();
-                    let execution_engine = module
-                        .create_jit_execution_engine(OptimizationLevel::None)
-                        .unwrap();
-
-                    let mut compiler =
-                        Compiler::new(&context, &module, &builder, &execution_engine);
-
-                    let mut try_inputs = inputs.clone();
-                    try_inputs.push('\n');
-
                     line.push(';');
-                    try_inputs.push_str(&line);
+
+                    let try_inputs = {
+                        let mut inputs = inputs.clone();
+                        inputs.push('\n');
+                        inputs.push_str(&line);
+                        inputs
+                    };
+
                     line = "".to_string();
 
-                    let lexer = Lexer::new(try_inputs.clone());
-                    let mut parser = Parser::new(lexer);
+                    match llvm_run(try_inputs.as_str()) {
+                        Ok(result_string) => {
+                            term.next_line();
+                            term.write(result_string.as_str());
 
-                    let program = match parser.parse_program() {
-                        Ok(p) => p,
+                            term.next_line();
+                            term.write(PROMPT);
+
+                            inputs = try_inputs.clone();
+                        }
                         Err(e) => {
-                            row += 1;
-                            write!(
-                                stdout,
-                                "{}Parse error: {}",
-                                termion::cursor::Goto(1, row),
-                                e
-                            )
-                            .unwrap();
-                            row += 1;
-                            write!(stdout, "{}>> ", termion::cursor::Goto(1, row)).unwrap();
-                            stdout.flush().unwrap();
+                            term.next_line();
+                            term.write(e.to_string().as_str());
+
+                            term.next_line();
+                            term.write(PROMPT);
+
                             continue;
                         }
-                    };
-
-                    let main_fn = match compiler.compile(
-                        &program.into(),
-                        false,
-                        compiler::Output::CStringPtr,
-                    ) {
-                        Ok(f) => f,
-                        Err(e) => {
-                            row += 1;
-                            write!(stdout, "{}LLVM error: {}", termion::cursor::Goto(1, row), e)
-                                .unwrap();
-                            row += 1;
-                            write!(stdout, "{}>> ", termion::cursor::Goto(1, row)).unwrap();
-                            stdout.flush().unwrap();
-                            continue;
-                        }
-                    };
-
-                    let result_string = {
-                        let c_string_ptr = unsafe { main_fn.call() };
-                        unsafe { CString::from_raw(c_string_ptr) }
-                            .into_string()
-                            .unwrap()
-                    };
-
-                    row += 1;
-                    write!(stdout, "{}{}", termion::cursor::Goto(1, row), result_string).unwrap();
-
-                    row += 1;
-                    write!(stdout, "{}>> ", termion::cursor::Goto(1, row)).unwrap();
-
-                    inputs = try_inputs.clone();
+                    }
                 }
                 c => {
                     line.push(c);
-                    let line_offset: u16 = line.len().try_into().unwrap();
-                    let offset = line_offset + 4;
-                    write!(
-                        stdout,
-                        "{}>> {}{}",
-                        termion::cursor::Goto(1, row),
-                        line,
-                        termion::cursor::Goto(offset, row)
-                    )
-                    .unwrap();
+                    term.write(format!("{}", c).as_str());
                 }
             },
             Key::Alt(c) => println!("Alt-{}", c),
@@ -228,8 +200,6 @@ fn start_llvm_on_tty() {
             Key::Down => println!("<down>"),
             _ => println!("Other"),
         }
-
-        stdout.flush().unwrap();
     }
 }
 

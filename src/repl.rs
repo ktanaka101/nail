@@ -1,7 +1,7 @@
 mod terminal;
 
 use std::cell::RefCell;
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 use std::ffi::CString;
 use std::io;
 use std::io::Write;
@@ -194,7 +194,14 @@ fn start_llvm_on_tty() {
             },
             Key::Alt(c) => println!("Alt-{}", c),
             Key::Ctrl(c) => println!("Ctrl-{}", c),
-            Key::Left => println!("<left>"),
+            Key::Left => {
+                let left_limit = u16::try_from(PROMPT.len()).unwrap() + 1;
+                if term.cursor_pos().col <= left_limit {
+                    continue;
+                }
+
+                term.move_cursor(terminal::MoveCursorAction::Left(1));
+            }
             Key::Right => println!("<right>"),
             Key::Up => println!("<up>"),
             Key::Down => println!("<down>"),

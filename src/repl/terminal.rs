@@ -5,13 +5,14 @@ use std::io::Write;
 use termion;
 
 pub struct Terminal {
-    pub cursor_pos: Pos,
+    cursor_pos: Pos,
     stdout: termion::raw::RawTerminal<io::Stdout>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Pos {
-    row: u16,
-    col: u16,
+    pub row: u16,
+    pub col: u16,
 }
 
 impl Pos {
@@ -75,6 +76,10 @@ impl Terminal {
         self.stdout.flush().unwrap();
         let len: u16 = string.len().try_into().unwrap();
         self.cursor_pos.right(len);
+    }
+
+    pub fn cursor_pos(&self) -> Pos {
+        self.cursor_pos
     }
 
     fn get_goto_current_pos(&self) -> termion::cursor::Goto {

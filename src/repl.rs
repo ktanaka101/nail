@@ -219,6 +219,22 @@ fn start_llvm_on_tty() {
             }
             Key::Up => println!("<up>"),
             Key::Down => println!("<down>"),
+            Key::Backspace => {
+                let left_limit = u16::try_from(PROMPT.len()).unwrap() + 1;
+                if term.cursor_pos().col <= left_limit {
+                    continue;
+                }
+
+                let pos = term.cursor_pos();
+                let idx = usize::from(pos.col) - PROMPT.len() - 2;
+                line.remove(idx);
+
+                term.clear_current_line();
+                term.write(format!("{}{}", PROMPT, line.as_str()).as_str());
+
+                term.move_cursor(terminal::MoveCursorAction::Pos(pos));
+                term.move_cursor(terminal::MoveCursorAction::Left(1));
+            }
             _ => println!("Other"),
         }
     }

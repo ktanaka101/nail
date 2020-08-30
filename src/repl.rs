@@ -188,8 +188,15 @@ fn start_llvm_on_tty() {
                     }
                 }
                 c => {
-                    line.push(c);
-                    term.write(format!("{}", c).as_str());
+                    let pos = term.cursor_pos();
+                    let idx = usize::from(pos.col) - PROMPT.len() - 1;
+                    line.insert(idx, c);
+
+                    term.clear_current_line();
+                    term.write(format!("{}{}", PROMPT, line.as_str()).as_str());
+
+                    term.move_cursor(terminal::MoveCursorAction::Pos(pos));
+                    term.move_cursor(terminal::MoveCursorAction::Right(1));
                 }
             },
             Key::Alt(c) => println!("Alt-{}", c),

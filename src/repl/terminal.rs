@@ -34,7 +34,9 @@ impl Pos {
 }
 
 pub enum MoveCursorAction {
+    Pos(Pos),
     Left(u16),
+    Right(u16),
 }
 
 impl Terminal {
@@ -76,6 +78,36 @@ impl Terminal {
         self.stdout.flush().unwrap();
         let len: u16 = string.len().try_into().unwrap();
         self.cursor_pos.right(len);
+    }
+
+    pub fn clear_current_line(&mut self) {
+        self.cursor_pos.col = 1;
+        write!(
+            self.stdout,
+            "{}{}",
+            termion::clear::CurrentLine,
+            self.get_goto_current_pos()
+        )
+        .unwrap();
+    }
+
+    pub fn move_cursor(&mut self, pos: MoveCursorAction) {
+        match pos {
+            MoveCursorAction::Left(cnt) => {
+                self.cursor_pos.left(cnt);
+                write!(self.stdout, "{}", self.get_goto_current_pos()).unwrap();
+                self.stdout.flush().unwrap();
+            }
+            MoveCursorAction::Right(cnt) => {
+                self.cursor_pos.right(cnt);
+                write!(self.stdout, "{}", self.get_goto_current_pos()).unwrap();
+                self.stdout.flush().unwrap();
+            }
+            MoveCursorAction::Pos(pos) => {
+                self.cursor_pos = pos;
+                write!(self.stdout, "{}", self.get_goto_current_pos()).unwrap();
+            }
+        }
     }
 
     pub fn cursor_pos(&self) -> Pos {

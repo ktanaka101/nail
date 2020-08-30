@@ -209,7 +209,14 @@ fn start_llvm_on_tty() {
 
                 term.move_cursor(terminal::MoveCursorAction::Left(1));
             }
-            Key::Right => println!("<right>"),
+            Key::Right => {
+                let right_limit = u16::try_from(PROMPT.len() + line.len()).unwrap();
+                if term.cursor_pos().col > right_limit {
+                    continue;
+                }
+
+                term.move_cursor(terminal::MoveCursorAction::Right(1));
+            }
             Key::Up => println!("<up>"),
             Key::Down => println!("<down>"),
             _ => println!("Other"),

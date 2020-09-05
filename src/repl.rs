@@ -24,6 +24,56 @@ use crate::parser::Parser;
 
 const PROMPT: &str = ">> ";
 
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+struct History {
+    stack: Vec<String>,
+    ptr: usize,
+}
+
+impl History {
+    fn new() -> Self {
+        History {
+            stack: vec![],
+            ptr: 0,
+        }
+    }
+
+    fn push(&mut self, line: String) {
+        self.stack.push(line);
+        self.ptr += 1;
+    }
+
+    fn next(&mut self) -> Result<()> {
+        if self.ptr < self.stack.len() {
+            self.ptr += 1;
+            Ok(())
+        } else {
+            anyhow::bail!("The stack pointer points to the wrong position.")
+        }
+    }
+
+    fn back(&mut self) -> Result<()> {
+        if self.ptr > 1 {
+            self.ptr -= 1;
+            Ok(())
+        } else {
+            anyhow::bail!("The stack pointer points to the wrong position.")
+        }
+    }
+
+    fn get_current(&self) -> &String {
+        self.stack
+            .get(self.ptr - 1)
+            .expect("The stack pointer points to the wrong position.")
+    }
+
+    fn get_curernt_mut(&mut self) -> &mut String {
+        self.stack
+            .get_mut(self.ptr - 1)
+            .expect("The stack pointer points to the wrong position.")
+    }
+}
+
 pub enum Interface {
     TTY,
     STD,
@@ -141,6 +191,12 @@ fn start_llvm_on_tty() {
     let mut inputs = "".to_string();
     let mut line = "".to_string();
 
+    let mut history = History::new();
+    let mut current_history = history.clone();
+    current_history.push("".to_string());
+
+    current_history.push("".to_string());
+
     for c in stdin.keys() {
         match c.unwrap() {
             Key::Char('q') => {
@@ -155,6 +211,9 @@ fn start_llvm_on_tty() {
                         continue;
                     }
 
+                    history.push(line.clone());
+                    current_history = history.clone();
+
                     line.push(';');
 
                     let try_inputs = {
@@ -165,6 +224,7 @@ fn start_llvm_on_tty() {
                     };
 
                     line = "".to_string();
+                    current_history.push(line.clone());
 
                     match llvm_run(try_inputs.as_str()) {
                         Ok(result_string) => {
@@ -192,6 +252,9 @@ fn start_llvm_on_tty() {
                     let idx = usize::from(pos.col) - PROMPT.len() - 1;
                     line.insert(idx, c);
 
+                    let current = current_history.get_curernt_mut();
+                    current.insert(idx, c);
+
                     term.clear_current_line();
                     term.write(format!("{}{}", PROMPT, line.as_str()).as_str());
 
@@ -217,8 +280,22 @@ fn start_llvm_on_tty() {
 
                 term.move_cursor(terminal::MoveCursorAction::Right(1));
             }
-            Key::Up => println!("<up>"),
-            Key::Down => println!("<down>"),
+            Key::Up => {
+                if let Ok(_) = current_history.back() {
+                    line = current_history.get_current().to_string();
+                }
+
+                term.clear_current_line();
+                term.write(format!("{}{}", PROMPT, line.as_str()).as_str());
+            }
+            Key::Down => {
+                if let Ok(_) = current_history.next() {
+                    line = current_history.get_current().to_string();
+                }
+
+                term.clear_current_line();
+                term.write(format!("{}{}", PROMPT, line.as_str()).as_str());
+            }
             Key::Backspace => {
                 let left_limit = u16::try_from(PROMPT.len()).unwrap() + 1;
                 if term.cursor_pos().col <= left_limit {
@@ -228,6 +305,9 @@ fn start_llvm_on_tty() {
                 let pos = term.cursor_pos();
                 let idx = usize::from(pos.col) - PROMPT.len() - 2;
                 line.remove(idx);
+
+                let current = current_history.get_curernt_mut();
+                current.remove(idx);
 
                 term.clear_current_line();
                 term.write(format!("{}{}", PROMPT, line.as_str()).as_str());

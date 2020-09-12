@@ -738,30 +738,34 @@ mod tests {
 
     #[test]
     fn test_number_literal() {
-        let tests = vec![("10", 10), ("20", 20), ("-10", -10), ("-20", -20)];
+        let tests = vec![("10", "10"), ("20", "20"), ("-10", "-10"), ("-20", "-20")];
         run_llvm_tests(tests);
     }
 
     #[test]
     fn test_prefix_minus() {
-        let tests = vec![("-10", -10), ("let a = 10; -a", -10), ("-(10 + 20)", -30)];
+        let tests = vec![
+            ("-10", "-10"),
+            ("let a = 10; -a", "-10"),
+            ("-(10 + 20)", "-30"),
+        ];
         run_llvm_tests(tests);
     }
 
     #[test]
     fn test_number_formula() {
         let tests = vec![
-            ("5 + 5 + 5 + 5 - 10", 10),
-            ("2 * 2 * 2 * 2 * 2", 32),
-            ("-50 + 100 + -50", 0),
-            ("5 * 2 + 10", 20),
-            ("5 + 2 * 10", 25),
-            ("20 + 2 * -10", 0),
-            ("50 / 2 * 2 + 10", 60),
-            ("2 * (5 + 10)", 30),
-            ("3 * 3 * 3 + 10", 37),
-            ("3 * (3 * 3) + 10", 37),
-            ("(5 + 10 * 2 + 15 / 3) * 2 + -10", 50),
+            ("5 + 5 + 5 + 5 - 10", "10"),
+            ("2 * 2 * 2 * 2 * 2", "32"),
+            ("-50 + 100 + -50", "0"),
+            ("5 * 2 + 10", "20"),
+            ("5 + 2 * 10", "25"),
+            ("20 + 2 * -10", "0"),
+            ("50 / 2 * 2 + 10", "60"),
+            ("2 * (5 + 10)", "30"),
+            ("3 * 3 * 3 + 10", "37"),
+            ("3 * (3 * 3) + 10", "37"),
+            ("(5 + 10 * 2 + 15 / 3) * 2 + -10", "50"),
         ];
         run_llvm_tests(tests);
     }
@@ -769,18 +773,18 @@ mod tests {
     #[test]
     fn test_let_binding() {
         let tests = vec![
-            ("let a = 10", 10),
-            ("let a = 10; a", 10),
-            ("let a = 10; a + 5", 15),
-            ("let a = 10; let b = 20; a + b", 30),
-            ("let a = 1 < 2; a", 1),
-            ("let a = 1 > 2; a", 0),
-            ("let a = 2 > 1; a", 1),
-            ("let a = 1 > 2; a", 0),
-            ("let a = 1 == 1; a", 1),
-            ("let a = 1 == 2; a", 0),
-            ("let a = if 1 { 10 } else { 20 }; a", 10),
-            ("let a = if 0 { 10 } else { 20 }; a", 20),
+            ("let a = 10", "10"),
+            ("let a = 10; a", "10"),
+            ("let a = 10; a + 5", "15"),
+            ("let a = 10; let b = 20; a + b", "30"),
+            ("let a = 1 < 2; a", "1"),
+            ("let a = 1 > 2; a", "0"),
+            ("let a = 2 > 1; a", "1"),
+            ("let a = 1 > 2; a", "0"),
+            ("let a = 1 == 1; a", "1"),
+            ("let a = 1 == 2; a", "0"),
+            ("let a = if 1 { 10 } else { 20 }; a", "10"),
+            ("let a = if 0 { 10 } else { 20 }; a", "20"),
         ];
         run_llvm_tests(tests);
     }
@@ -788,18 +792,18 @@ mod tests {
     #[test]
     fn test_compare() {
         let tests = vec![
-            ("0 > 0", 0),
-            ("0 < 0", 0),
-            ("0 > 1", 0),
-            ("0 < 1", 1),
-            ("0 == 0", 1),
-            ("0 == 1", 0),
-            ("let a = 10; a > 0", 1),
-            ("let a = 10; a < 0", 0),
-            ("let a = 10; (a < 10) < 10", 1),
-            ("let a = 10; (a > 10) > 10", 0),
-            ("let a = 10; (a == 10) == 10", 0),
-            ("let a = 10; (a == a) == 1", 1),
+            ("0 > 0", "0"),
+            ("0 < 0", "0"),
+            ("0 > 1", "0"),
+            ("0 < 1", "1"),
+            ("0 == 0", "1"),
+            ("0 == 1", "0"),
+            ("let a = 10; a > 0", "1"),
+            ("let a = 10; a < 0", "0"),
+            ("let a = 10; (a < 10) < 10", "1"),
+            ("let a = 10; (a > 10) > 10", "0"),
+            ("let a = 10; (a == 10) == 10", "0"),
+            ("let a = 10; (a == a) == 1", "1"),
         ];
         run_llvm_tests(tests);
     }
@@ -807,14 +811,14 @@ mod tests {
     #[test]
     fn test_bang() {
         let tests = vec![
-            ("!0", 1),
-            ("!1", 0),
-            ("!10", 0),
-            ("!!0", 0),
-            ("!!1", 1),
-            ("!!10", 1),
-            ("let a = 10; !a", 0),
-            ("let a = 10; !!a", 1),
+            ("!0", "1"),
+            ("!1", "0"),
+            ("!10", "0"),
+            ("!!0", "0"),
+            ("!!1", "1"),
+            ("!!10", "1"),
+            ("let a = 10; !a", "0"),
+            ("let a = 10; !!a", "1"),
         ];
         run_llvm_tests(tests);
     }
@@ -822,10 +826,10 @@ mod tests {
     #[test]
     fn test_if_else() {
         let tests = vec![
-            ("if 1 { 10 } else { 20 }", 10),
-            ("if 0 { 10 } else { 20 }", 20),
-            ("if 1 { 10 }", 10),
-            ("if 2 { 10 } else { 20 }", 10),
+            ("if 1 { 10 } else { 20 }", "10"),
+            ("if 0 { 10 } else { 20 }", "20"),
+            ("if 1 { 10 }", "10"),
+            ("if 2 { 10 } else { 20 }", "10"),
         ];
         run_llvm_tests(tests);
     }
@@ -833,12 +837,12 @@ mod tests {
     #[test]
     fn test_if_cond_by_comparing() {
         let tests = vec![
-            ("if 5 > 2 { 10 } else { 20 }", 10),
-            ("if 2 > 5 { 10 } else { 20 }", 20),
-            ("if 5 < 8 { 10 } else { 20 }", 10),
-            ("if 8 < 5 { 10 } else { 20 }", 20),
-            ("if 5 == 5 { 10 } else { 20 }", 10),
-            ("if 5 == 6 { 10 } else { 20 }", 20),
+            ("if 5 > 2 { 10 } else { 20 }", "10"),
+            ("if 2 > 5 { 10 } else { 20 }", "20"),
+            ("if 5 < 8 { 10 } else { 20 }", "10"),
+            ("if 8 < 5 { 10 } else { 20 }", "20"),
+            ("if 5 == 5 { 10 } else { 20 }", "10"),
+            ("if 5 == 6 { 10 } else { 20 }", "20"),
         ];
         run_llvm_tests(tests);
     }
@@ -846,10 +850,10 @@ mod tests {
     #[test]
     fn test_let_binding_in_if_else_block() {
         let tests = vec![
-            ("if 1 { let a = 10; a } else { let b = 20; b }", 10),
-            ("if 0 { let a = 10; a } else { let b = 20; b }", 20),
-            ("if 1 { let a = 10; a } else { let a = 20; a }", 10),
-            ("if 0 { let a = 10; a } else { let a = 20; a }", 20),
+            ("if 1 { let a = 10; a } else { let b = 20; b }", "10"),
+            ("if 0 { let a = 10; a } else { let b = 20; b }", "20"),
+            ("if 1 { let a = 10; a } else { let a = 20; a }", "10"),
+            ("if 0 { let a = 10; a } else { let a = 20; a }", "20"),
         ];
         run_llvm_tests(tests);
     }
@@ -857,11 +861,11 @@ mod tests {
     #[test]
     fn test_if_else_cond_by_identifier() {
         let tests = vec![
-            ("let a = 1; if a { 10 } else { 20 }", 10),
-            ("let a = 0; if a { 10 } else { 20 }", 20),
-            ("let a = 2; if a { 10 } else { 20 }", 10),
-            ("let a = 2; if a == 2 { 10 } else { 20 }", 10),
-            ("let a = 2; if a == 3 { 10 } else { 20 }", 20),
+            ("let a = 1; if a { 10 } else { 20 }", "10"),
+            ("let a = 0; if a { 10 } else { 20 }", "20"),
+            ("let a = 2; if a { 10 } else { 20 }", "10"),
+            ("let a = 2; if a == 2 { 10 } else { 20 }", "10"),
+            ("let a = 2; if a == 3 { 10 } else { 20 }", "20"),
         ];
         run_llvm_tests(tests);
     }
@@ -869,9 +873,9 @@ mod tests {
     #[test]
     fn test_if_else_default_return() {
         let tests = vec![
-            ("if 1 { }", 0),
-            ("if 0 { 10 } else { }", 0),
-            ("if 0 { 10 }", 0),
+            ("if 1 { }", "0"),
+            ("if 0 { 10 } else { }", "0"),
+            ("if 0 { 10 }", "0"),
         ];
         run_llvm_tests(tests);
     }
@@ -887,7 +891,7 @@ mod tests {
                         a + b + 30
                     }
                 ",
-                60,
+                "60",
             ),
             (
                 "
@@ -898,7 +902,7 @@ mod tests {
                         a + b + 30
                     }
                 ",
-                60,
+                "60",
             ),
             // TODO: create scope in if-else
             (
@@ -908,7 +912,7 @@ mod tests {
                     }
                     a
                 ",
-                10,
+                "10",
             ),
             (
                 "
@@ -918,13 +922,13 @@ mod tests {
                     }
                     a
                 ",
-                10,
+                "10",
             ),
         ];
         run_llvm_tests(tests);
     }
 
-    fn run_llvm_tests(tests: Vec<(&'static str, i64)>) {
+    fn run_llvm_tests(tests: Vec<(&'static str, &'static str)>) {
         tests.into_iter().for_each(|(input, expected)| {
             let context = Context::create();
             let module = context.create_module("top");
@@ -953,7 +957,7 @@ mod tests {
                     .unwrap()
             };
 
-            assert_eq!(result_string, expected.to_string());
+            assert_eq!(result_string, expected);
         });
     }
 }

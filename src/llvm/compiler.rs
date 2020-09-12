@@ -753,6 +753,16 @@ mod tests {
     }
 
     #[test]
+    fn test_string_literal() {
+        let tests = vec![
+            (r#""1""#, "1"),
+            (r#""a""#, "a"),
+            (r#""abcdefg100""#, "abcdefg100"),
+        ];
+        run_llvm_tests(tests);
+    }
+
+    #[test]
     fn test_number_formula() {
         let tests = vec![
             ("5 + 5 + 5 + 5 - 10", "10"),

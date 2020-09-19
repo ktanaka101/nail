@@ -59,6 +59,7 @@ impl Lexer {
                 ']' => Token::Rbracket,
                 '|' => Token::VerticalBar,
                 '"' => Token::StringLiteral(self.read_string().into()),
+                '\'' => Token::Char(self.read_native_char().into()),
                 _ => {
                     if Self::is_letter(c) {
                         let literal = self.read_identifier();
@@ -141,6 +142,19 @@ impl Lexer {
         self.read_range(pos, self.pos)
     }
 
+    fn read_native_char(&mut self) -> String {
+        let pos = self.pos + 1;
+        loop {
+            self.read_char();
+            match self.ch {
+                Some('\'') => break,
+                None => break,
+                _ => (),
+            }
+        }
+        self.read_range(pos, self.pos)
+    }
+
     fn skip_whitespace(&mut self) {
         while let Some(c) = self.ch {
             if c.is_ascii_whitespace() {
@@ -194,6 +208,7 @@ mod tests {
             10 != 9;
             \"foobar\"
             \"foo bar\"
+            'a'
             [1, 2];
             {\"foo\": \"bar\"}
             macro(x, y) { x + y; };
@@ -330,6 +345,8 @@ mod tests {
         assert_eq!(lexer.next_token(), Token::StringLiteral("foobar".into()),);
 
         assert_eq!(lexer.next_token(), Token::StringLiteral("foo bar".into()),);
+
+        assert_eq!(lexer.next_token(), Token::Char("a".into()),);
 
         assert_eq!(lexer.next_token(), Token::Lbracket);
         assert_eq!(lexer.next_token(), Token::Int("1".into()));

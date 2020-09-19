@@ -574,6 +574,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                 .context
                 .const_string(string.value.as_bytes(), false)
                 .into(),
+            ast::Expr::Char(c) => self.context.const_string(c.value.as_bytes(), false).into(),
             ast::Expr::Identifier(id) => {
                 let name = id.value.as_str();
                 let id = self
@@ -739,6 +740,12 @@ mod tests {
     #[test]
     fn test_number_literal() {
         let tests = vec![("10", "10"), ("20", "20"), ("-10", "-10"), ("-20", "-20")];
+        run_llvm_tests(tests);
+    }
+
+    #[test]
+    fn test_char_literal() {
+        let tests = vec![("'1'", "1"), ("'a'", "a"), ("'-'", "-")];
         run_llvm_tests(tests);
     }
 

@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use crate::lexer::token::Token;
 use crate::lexer::Lexer;
 
@@ -174,6 +176,7 @@ impl Parser {
             | Token::Minus
             | Token::True
             | Token::False
+            | Token::Char(_)
             | Token::Lparen
             | Token::If
             | Token::StringLiteral(_)
@@ -437,6 +440,19 @@ impl Parser {
         })
     }
 
+    fn parse_char(&self) -> Result<ast::Char> {
+        let s = match &self.cur_token {
+            Token::Char(c) => c.clone(),
+            t => Err(ParserError::ExpectChar(format!("{:?}", t)))?,
+        };
+
+        let c = char::from_str(s.as_str()).or_else(|_| Err(ParserError::InvalidChar(s)))?;
+
+        Ok(ast::Char {
+            value: c.to_string(),
+        })
+    }
+
     fn parse_array_literal(&mut self) -> Result<ast::Array> {
         Ok(ast::Array {
             elements: self.parse_expr_list(Token::Rbracket)?,
@@ -554,6 +570,7 @@ impl Parser {
             Token::Function => Expr::Function(self.parse_function_literal()?),
             Token::VerticalBar => Expr::Function(self.parse_closure_literal()?),
             Token::StringLiteral(_) => Expr::StringLit(self.parse_string_literal()?),
+            Token::Char(_) => Expr::Char(self.parse_char()?),
             Token::Lbracket => Expr::Array(self.parse_array_literal()?),
             Token::Lbrace => Expr::Hash(self.parse_hash_literal()?),
             Token::Macro => Expr::MacroLit(self.parse_macro_literal()?),
@@ -598,6 +615,7 @@ mod tests {
         Id(Id<'a>),
         I(i64),
         Infix(Box<Val<'a>>, &'a str, Box<Val<'a>>),
+        C(char),
     }
 
     #[test]
@@ -607,6 +625,7 @@ mod tests {
             ("let x = 5;", Id("x"), Val::I(5)),
             ("let y = true;", Id("y"), Val::B(true)),
             ("let foobar = y;", Id("foobar"), Val::Id(Id("y"))),
+            ("let x = 'a'", Id("x"), Val::C('a')),
         ];
 
         for (input, id, v) in inputs.into_iter() {
@@ -660,6 +679,23 @@ mod tests {
             assert_eq!(program.statements.len(), 1);
             test_boolean_by_stmt(&program.statements[0], v);
         }
+    }
+
+    #[test]
+    fn test_char_exprs() {
+        let inputs = vec![("'a'", 'a'), ("'1'", '1'), ("'a';", 'a')];
+
+        for (input, v) in inputs.into_iter() {
+            let program = test_parse(input);
+            assert_eq!(program.statements.len(), 1);
+            test_char_by_stmt(&program.statements[0], v);
+        }
+    }
+
+    #[test]
+    fn test_char_expr_errors() {
+        let inputs = vec![("'aa'", ParserError::InvalidChar("aa".to_string()))];
+        test_errors(inputs);
     }
 
     #[test]
@@ -1255,6 +1291,26 @@ mod tests {
         assert_eq!(*boolean_expr, ast::Boolean { value: v });
     }
 
+    fn test_char_by_stmt(stmt: &Stmt, v: char) {
+        let expr_stmt = if let Stmt::ExprStmt(x) = stmt {
+            x
+        } else {
+            panic!("Expect type is Stmt::ExprStmt");
+        };
+
+        let boolean_expr = if let Expr::Char(x) = &expr_stmt.expr {
+            x
+        } else {
+            panic!("Expect type is Expr::Char");
+        };
+        assert_eq!(
+            *boolean_expr,
+            ast::Char {
+                value: v.to_string()
+            }
+        );
+    }
+
     fn test_let_by_stmt(stmt: &ast::Stmt, id: &Id, v: &Val) {
         let let_stmt = if let Stmt::Let(x) = stmt {
             x
@@ -1342,6 +1398,22 @@ mod tests {
             ),
             Val::I(v) => assert_eq!(*expr, Expr::Integer(ast::Integer { value: *v })),
             Val::Infix(l, o, r) => test_infix_by_expr(expr, l, o, r),
+            Val::C(v) => assert_eq!(
+                *expr,
+                Expr::Char(ast::Char {
+                    value: v.to_string()
+                })
+            ),
         }
+    }
+
+    fn test_errors(tests: Vec<(&str, ParserError)>) {
+        tests.into_iter().for_each(|(input, expected)| {
+            let lexer = Lexer::new(input.to_string());
+            let mut parser = Parser::new(lexer);
+            let result = parser.parse_program();
+            let err = result.unwrap_err();
+            assert_eq!(err.downcast::<ParserError>().unwrap(), expected);
+        });
     }
 }

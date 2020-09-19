@@ -18,6 +18,10 @@ pub enum ParserError {
     InvalidHashLiteral(String),
     #[error("Expect StringLiteral token. {0}")]
     InvalidStringLiteral(String),
+    #[error("Expect Char token. {0}")]
+    ExpectChar(String),
+    #[error("Invalid Char token. '{0}'")]
+    InvalidChar(String),
     #[error("Expect Identifier token. {0}")]
     InvalidFunctionParam(String),
     #[error("Expect boolean token. {0}")]

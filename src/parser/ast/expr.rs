@@ -10,6 +10,7 @@ pub enum Expr {
     Call(Call),
     Integer(Integer),
     Boolean(Boolean),
+    Char(Char),
     StringLit(StringLit),
     Array(Array),
     Index(Index),
@@ -29,6 +30,7 @@ impl Display for Expr {
             Self::Integer(e) => write!(f, "{}", e),
             Self::Boolean(e) => write!(f, "{}", e),
             Self::StringLit(e) => write!(f, "{}", e),
+            Self::Char(e) => write!(f, "{}", e),
             Self::Array(e) => write!(f, "{}", e),
             Self::Index(e) => write!(f, "{}", e),
             Self::Hash(e) => write!(f, "{}", e),
@@ -82,6 +84,12 @@ impl From<Integer> for Expr {
 impl From<Boolean> for Expr {
     fn from(value: Boolean) -> Expr {
         Expr::Boolean(value)
+    }
+}
+
+impl From<Char> for Expr {
+    fn from(value: Char) -> Expr {
+        Expr::Char(value)
     }
 }
 

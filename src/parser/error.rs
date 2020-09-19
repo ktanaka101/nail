@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Eq, PartialEq, Clone, Ord, PartialOrd)]
 pub enum ParserError {
     #[error("Expect operator. {0}")]
     ExpectOperator(String),

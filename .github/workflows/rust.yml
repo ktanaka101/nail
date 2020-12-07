@@ -17,6 +17,7 @@ jobs:
       image: docker.io/ktanaka101/rust-and-llvm10-on-ubuntu18.04
       env:
         LLVM_SYS_100_STRICT_VERSIONING: 100
+        CARGO_BUILD_TARGET_DIR: /tmp/target
 
     steps:
     - uses: actions/checkout@v2
@@ -26,7 +27,7 @@ jobs:
         path: |
           ~/.cargo/registry
           ~/.cargo/git
-          target
+          /tmp/target
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
     - name: Select nightly

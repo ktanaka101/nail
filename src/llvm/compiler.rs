@@ -10,7 +10,6 @@ use inkwell::context::Context;
 use inkwell::execution_engine::{ExecutionEngine, JitFunction};
 use inkwell::module::Module;
 use inkwell::types::StructType;
-use inkwell::values::{AggregateValue, AnyValue, BasicValue, IntMathValue, PointerMathValue}; // traits
 use inkwell::values::{
     ArrayValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PointerValue, StructValue,
     VectorValue,
@@ -154,12 +153,12 @@ pub enum Error {
 
 fn get_type_string(basic_value: &BasicValueEnum) -> String {
     match basic_value {
-        BasicValueEnum::IntValue(i) => "IntValue",
-        BasicValueEnum::FloatValue(i) => "FloatValue",
-        BasicValueEnum::ArrayValue(i) => "ArrayValue",
-        BasicValueEnum::PointerValue(i) => "PointerValue",
-        BasicValueEnum::StructValue(i) => "StructValue",
-        BasicValueEnum::VectorValue(i) => "VectorValue",
+        BasicValueEnum::IntValue(_) => "IntValue",
+        BasicValueEnum::FloatValue(_) => "FloatValue",
+        BasicValueEnum::ArrayValue(_) => "ArrayValue",
+        BasicValueEnum::PointerValue(_) => "PointerValue",
+        BasicValueEnum::StructValue(_) => "StructValue",
+        BasicValueEnum::VectorValue(_) => "VectorValue",
     }
     .to_string()
 }
@@ -173,7 +172,7 @@ pub struct Compiler<'a, 'ctx> {
     variables: HashMap<String, PointerValue<'ctx>>,
     fn_value_opt: Option<FunctionValue<'ctx>>,
     builtin_functions: HashMap<String, FunctionValue<'ctx>>,
-    builtin_structs: HashMap<String, StructType<'ctx>>,
+    _builtin_structs: HashMap<String, StructType<'ctx>>,
 }
 
 impl<'a, 'ctx> Compiler<'a, 'ctx> {
@@ -191,7 +190,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
             variables: HashMap::new(),
             fn_value_opt: None,
             builtin_functions: HashMap::new(),
-            builtin_structs: HashMap::new(),
+            _builtin_structs: HashMap::new(),
         }
     }
 
@@ -520,45 +519,45 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
 
     fn infix_float(
         &self,
-        ope: &ast::Operator,
-        lv: FloatValue<'ctx>,
-        rv: FloatValue<'ctx>,
+        _ope: &ast::Operator,
+        _lv: FloatValue<'ctx>,
+        _rv: FloatValue<'ctx>,
     ) -> FloatValue<'ctx> {
         unimplemented!()
     }
 
     fn infix_array(
         &self,
-        ope: &ast::Operator,
-        lv: ArrayValue<'ctx>,
-        rv: ArrayValue<'ctx>,
+        _ope: &ast::Operator,
+        _lv: ArrayValue<'ctx>,
+        _rv: ArrayValue<'ctx>,
     ) -> ArrayValue<'ctx> {
         unimplemented!()
     }
 
     fn infix_vector(
         &self,
-        ope: &ast::Operator,
-        lv: VectorValue<'ctx>,
-        rv: VectorValue<'ctx>,
+        _ope: &ast::Operator,
+        _lv: VectorValue<'ctx>,
+        _rv: VectorValue<'ctx>,
     ) -> VectorValue<'ctx> {
         unimplemented!()
     }
 
     fn infix_struct(
         &self,
-        ope: &ast::Operator,
-        lv: StructValue<'ctx>,
-        rv: StructValue<'ctx>,
+        _ope: &ast::Operator,
+        _lv: StructValue<'ctx>,
+        _rv: StructValue<'ctx>,
     ) -> StructValue<'ctx> {
         unimplemented!()
     }
 
     fn infix_pointer(
         &self,
-        ope: &ast::Operator,
-        lv: PointerValue<'ctx>,
-        rv: PointerValue<'ctx>,
+        _ope: &ast::Operator,
+        _lv: PointerValue<'ctx>,
+        _rv: PointerValue<'ctx>,
     ) -> PointerValue<'ctx> {
         unimplemented!()
     }

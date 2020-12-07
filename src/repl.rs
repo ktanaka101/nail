@@ -1,7 +1,7 @@
 mod terminal;
 
 use std::cell::RefCell;
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryFrom;
 use std::ffi::CString;
 use std::io;
 use std::io::Write;

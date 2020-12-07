@@ -24,10 +24,6 @@ impl Pos {
         self.col -= num;
     }
 
-    fn up(&mut self, num: u16) {
-        self.row -= num;
-    }
-
     fn down(&mut self, num: u16) {
         self.row += num;
     }

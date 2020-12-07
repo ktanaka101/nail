@@ -20,6 +20,7 @@ use crate::evaluator::{define_macros, eval_node, expand_macros};
 use crate::lexer::Lexer;
 use crate::llvm::compiler;
 use crate::llvm::compiler::Compiler;
+use crate::normalizer;
 use crate::parser::Parser;
 use crate::type_checker;
 
@@ -147,6 +148,17 @@ fn start_llvm_on_std() {
                 }
             }
         }
+
+        let node = {
+            let normalizer = normalizer::Normalizer::new();
+            match normalizer.normalize(&node) {
+                Ok(node) => node,
+                Err(e) => {
+                    println!("Normalization error: {}", e);
+                    continue;
+                }
+            }
+        };
 
         let main_fn = match compiler.compile(&node, true, compiler::Output::CStringPtr) {
             Ok(f) => f,
@@ -371,9 +383,20 @@ fn start_evaluator() {
             }
         };
 
+        let node = {
+            let normalizer = normalizer::Normalizer::new();
+            match normalizer.normalize(&expanded) {
+                Ok(node) => node,
+                Err(e) => {
+                    println!("Normalization error: {}", e);
+                    continue;
+                }
+            }
+        };
+
         {
             let checker = type_checker::Checker::new();
-            match checker.check(&expanded) {
+            match checker.check(&node) {
                 Ok(_) => (),
                 Err(e) => {
                     println!("Type error: {}", e);

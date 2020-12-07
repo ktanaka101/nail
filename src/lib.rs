@@ -8,6 +8,7 @@ mod preludes {
 pub mod evaluator;
 pub mod lexer;
 pub mod llvm;
+pub mod normalizer;
 pub mod parser;
 pub mod repl;
 pub mod type_checker;

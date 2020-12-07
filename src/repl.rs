@@ -21,6 +21,7 @@ use crate::lexer::Lexer;
 use crate::llvm::compiler;
 use crate::llvm::compiler::Compiler;
 use crate::parser::Parser;
+use crate::type_checker;
 
 const PROMPT: &str = ">> ";
 
@@ -135,7 +136,19 @@ fn start_llvm_on_std() {
             }
         };
 
-        let main_fn = match compiler.compile(&program.into(), true, compiler::Output::CStringPtr) {
+        let node = program.into();
+        {
+            let checker = type_checker::Checker::new();
+            match checker.check(&node) {
+                Ok(_) => (),
+                Err(e) => {
+                    println!("Type error: {}", e);
+                    continue;
+                }
+            }
+        }
+
+        let main_fn = match compiler.compile(&node, true, compiler::Output::CStringPtr) {
             Ok(f) => f,
             Err(e) => {
                 println!("LLVM error: {}", e);
@@ -357,6 +370,17 @@ fn start_evaluator() {
                 continue;
             }
         };
+
+        {
+            let checker = type_checker::Checker::new();
+            match checker.check(&expanded) {
+                Ok(_) => (),
+                Err(e) => {
+                    println!("Type error: {}", e);
+                    continue;
+                }
+            }
+        }
 
         let evaluated = eval_node(&expanded, Rc::clone(&env));
         match evaluated {

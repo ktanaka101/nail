@@ -30,6 +30,9 @@ jobs:
           /tmp/target
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+    - name: Select stable
+      run: rustup default stable
+
     - name: Build
       run: cargo build --verbose
 

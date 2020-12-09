@@ -194,6 +194,12 @@ fn llvm_run(code: &str) -> Result<String> {
     let mut parser = Parser::new(lexer);
     let program = parser.parse_program()?;
 
+    let node = program.into();
+    {
+        let checker = type_checker::Checker::new();
+        checker.check(&node)?;
+    }
+
     let node = {
         let normalizer = normalizer::Normalizer::new();
         normalizer.normalize(&node)?

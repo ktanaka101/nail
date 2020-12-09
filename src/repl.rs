@@ -193,7 +193,13 @@ fn llvm_run(code: &str) -> Result<String> {
     let lexer = Lexer::new(code.to_string());
     let mut parser = Parser::new(lexer);
     let program = parser.parse_program()?;
-    let main_fn = compiler.compile(&program.into(), false, compiler::Output::CStringPtr)?;
+
+    let node = {
+        let normalizer = normalizer::Normalizer::new();
+        normalizer.normalize(&node)?
+    };
+
+    let main_fn = compiler.compile(&node, false, compiler::Output::CStringPtr)?;
 
     let result_string = {
         let c_string_ptr = unsafe { main_fn.call() };

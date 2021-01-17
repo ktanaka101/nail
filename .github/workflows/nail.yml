@@ -16,7 +16,8 @@ jobs:
     container:
       image: docker.io/ktanaka101/nail-builder:latest
       env:
-        LLVM_SYS_100_STRICT_VERSIONING: 100
+        LLVM_SYS_110_STRICT_VERSIONING: 110
+        LLVM_SYS_110_PREFIX: /usr/lib/llvm-11
         CARGO_BUILD_TARGET_DIR: /tmp/target
 
     steps:

@@ -24,10 +24,7 @@ impl TryFrom<Node> for Program {
     fn try_from(value: Node) -> Result<Self> {
         match value {
             Node::Program(program) => Ok(program),
-            node => Err(ParserError::Convert(
-                format!("{:?}", node),
-                "Program".into(),
-            ))?,
+            node => Err(ParserError::Convert(format!("{:?}", node), "Program".into()).into()),
         }
     }
 }

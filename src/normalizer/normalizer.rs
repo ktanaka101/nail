@@ -5,6 +5,7 @@ use crate::parser::ast;
 #[derive(thiserror::Error, Debug, Clone)]
 pub enum Error {}
 
+#[derive(Default)]
 pub struct Normalizer {}
 
 impl Normalizer {

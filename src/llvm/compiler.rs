@@ -44,10 +44,12 @@ impl TryFrom<i8> for PrimitiveType {
             3 => PrimitiveType::IntegerArray,
             4 => PrimitiveType::CharArray,
             5 => PrimitiveType::String,
-            other => Err(anyhow::format_err!(
-                "Expected 1, 2, 3, 4, 5. Received {}",
-                other
-            ))?,
+            other => {
+                return Err(anyhow::format_err!(
+                    "Expected 1, 2, 3, 4, 5. Received {}",
+                    other
+                ))
+            }
         })
     }
 }
@@ -367,6 +369,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                     Output::File { suffix } => {
                         let suffix = self.context.i64_type().const_int(suffix.into(), false);
                         self.builder.build_call(
+                            #[allow(clippy::clone_on_copy)]
                             self.builtin_functions.get("to_file").unwrap().clone(),
                             &[
                                 ptr.into(),
@@ -389,7 +392,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                     }
                     Output::StdOut => {
                         self.builder.build_call(
-                            self.builtin_functions.get("puts").unwrap().clone(),
+                            self.builtin_functions.get("puts").unwrap().to_owned(),
                             &[
                                 ptr.into(),
                                 length.into(),
@@ -410,6 +413,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                     }
                     Output::CStringPtr => {
                         let call_v = self.builder.build_call(
+                            #[allow(clippy::clone_on_copy)]
                             self.builtin_functions
                                 .get("return_to_string")
                                 .unwrap()
@@ -628,25 +632,29 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                     (BasicValueEnum::PointerValue(lv), BasicValueEnum::PointerValue(rv)) => {
                         self.infix_pointer(&infix_expr.ope, lv, rv).into()
                     }
-                    (lvalue, rvalue) => Err(Error::DifferentInfixType(
-                        infix_expr.ope.clone(),
-                        get_type_string(&lvalue),
-                        get_type_string(&rvalue),
-                    ))?,
+                    (lvalue, rvalue) => {
+                        return Err(Error::DifferentInfixType(
+                            infix_expr.ope.clone(),
+                            get_type_string(&lvalue),
+                            get_type_string(&rvalue),
+                        )
+                        .into());
+                    }
                 }
             }
             ast::Expr::PrefixExpr(prefix_expr) => match &prefix_expr.ope {
                 ast::Operator::Bang => {
                     let expr = self.compile_expr(&*prefix_expr.right)?;
                     if !expr.is_int_value() {
-                        Err(Error::DifferentType(
+                        return Err(Error::DifferentType(
                             "IntValue".to_string(),
                             get_type_string(&expr),
-                        ))?;
+                        )
+                        .into());
                     }
 
                     let int = expr.into_int_value();
-                    let zero = self.context.i64_type().const_zero().into();
+                    let zero = self.context.i64_type().const_zero();
 
                     self.builder
                         .build_int_compare(inkwell::IntPredicate::EQ, zero, int, "tmpnot")
@@ -657,15 +665,16 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                 ast::Operator::Minus => {
                     let expr = self.compile_expr(&*prefix_expr.right)?;
                     if !expr.is_int_value() {
-                        Err(Error::DifferentType(
+                        return Err(Error::DifferentType(
                             "IntValue".to_string(),
                             get_type_string(&expr),
-                        ))?;
+                        )
+                        .into());
                     }
                     let int = expr.into_int_value();
                     self.builder.build_int_neg(int, "tmpneg").into()
                 }
-                unknown => Err(Error::UnknownInfixOperator(unknown.clone()))?,
+                unknown => return Err(Error::UnknownInfixOperator(unknown.clone()).into()),
             },
             ast::Expr::If(if_expr) => {
                 let parent = self.fn_value();
@@ -673,10 +682,11 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
 
                 let cond = self.compile_expr(&*if_expr.cond)?;
                 if !cond.is_int_value() {
-                    Err(Error::DifferentType(
+                    return Err(Error::DifferentType(
                         "IntValue".to_string(),
                         get_type_string(&cond),
-                    ))?;
+                    )
+                    .into());
                 }
                 let cond = cond.into_int_value();
                 let cond =
@@ -707,7 +717,7 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
                 // build else block
                 self.builder.position_at_end(else_bb);
                 let else_val = if let Some(alternative) = alternative {
-                    self.compile_stmt(&alternative.clone().to_owned().into())?
+                    self.compile_stmt(&alternative.clone().into())?
                 } else {
                     zero.into()
                 };

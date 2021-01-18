@@ -66,7 +66,7 @@ fn token_to_operator(t: &Token) -> Result<ast::Operator> {
         Token::NotEqual => ast::Operator::NotEqual,
         Token::Lt => ast::Operator::Lt,
         Token::Gt => ast::Operator::Gt,
-        t => Err(ParserError::ExpectOperator(format!("{:?}", t)))?,
+        t => return Err(ParserError::ExpectOperator(format!("{:?}", t)).into()),
     })
 }
 
@@ -125,7 +125,7 @@ impl Parser {
             func.name = name.value.clone();
             func.into()
         } else {
-            value.into()
+            value
         };
 
         Ok(ast::Let { name, value })
@@ -169,7 +169,9 @@ impl Parser {
             | t @ Token::Rbracket
             | t @ Token::Let
             | t @ Token::Else
-            | t @ Token::Return => Err(ParserError::ExpectExpression(format!("{:?}", t)))?,
+            | t @ Token::Return => {
+                return Err(ParserError::ExpectExpression(format!("{:?}", t)).into())
+            }
             Token::Ident(_)
             | Token::Int(_)
             | Token::Bang
@@ -209,7 +211,7 @@ impl Parser {
         Ok(ast::Identifier {
             value: match &self.cur_token {
                 Token::Ident(val) => val.clone(),
-                t => Err(ParserError::ExpectIdentifier(format!("{:?}", t)))?,
+                t => return Err(ParserError::ExpectIdentifier(format!("{:?}", t)).into()),
             },
         })
     }
@@ -218,8 +220,8 @@ impl Parser {
         let value = match &self.cur_token {
             Token::Int(val) => val
                 .parse::<i64>()
-                .or_else(|e| Err(ParserError::InvalidInteger(format!("{:?}", e))))?,
-            t => Err(ParserError::InvalidIntegerLiteral(format!("{:?}", t)))?,
+                .map_err(|e| ParserError::InvalidInteger(format!("{:?}", e)))?,
+            t => return Err(ParserError::InvalidIntegerLiteral(format!("{:?}", t)).into()),
         };
 
         Ok(ast::Integer { value })
@@ -229,7 +231,7 @@ impl Parser {
         match &self.cur_token {
             Token::True => Ok(ast::Boolean { value: true }),
             Token::False => Ok(ast::Boolean { value: false }),
-            t => Err(ParserError::InvalidBooleanLiteral(format!("{:?}", t)))?,
+            t => Err(ParserError::InvalidBooleanLiteral(format!("{:?}", t)).into()),
         }
     }
 
@@ -337,7 +339,7 @@ impl Parser {
         identifiers.push(ast::Identifier {
             value: match &self.cur_token {
                 Token::Ident(t) => t.clone(),
-                t => Err(ParserError::InvalidFunctionParam(format!("{:?}", t)))?,
+                t => return Err(ParserError::InvalidFunctionParam(format!("{:?}", t)).into()),
             },
         });
 
@@ -347,7 +349,7 @@ impl Parser {
             identifiers.push(ast::Identifier {
                 value: match &self.cur_token {
                     Token::Ident(t) => t.clone(),
-                    t => Err(ParserError::InvalidFunctionParam(format!("{:?}", t)))?,
+                    t => return Err(ParserError::InvalidFunctionParam(format!("{:?}", t)).into()),
                 },
             })
         }
@@ -383,7 +385,7 @@ impl Parser {
         identifiers.push(ast::Identifier {
             value: match &self.cur_token {
                 Token::Ident(t) => t.clone(),
-                t => Err(ParserError::InvalidFunctionParam(format!("{:?}", t)))?,
+                t => return Err(ParserError::InvalidFunctionParam(format!("{:?}", t)).into()),
             },
         });
 
@@ -393,7 +395,7 @@ impl Parser {
             identifiers.push(ast::Identifier {
                 value: match &self.cur_token {
                     Token::Ident(t) => t.clone(),
-                    t => Err(ParserError::InvalidFunctionParam(format!("{:?}", t)))?,
+                    t => return Err(ParserError::InvalidFunctionParam(format!("{:?}", t)).into()),
                 },
             })
         }
@@ -435,7 +437,7 @@ impl Parser {
         Ok(ast::StringLit {
             value: match &self.cur_token {
                 Token::StringLiteral(s) => s.clone(),
-                t => Err(ParserError::InvalidStringLiteral(format!("{:?}", t)))?,
+                t => return Err(ParserError::InvalidStringLiteral(format!("{:?}", t)).into()),
             },
         })
     }
@@ -443,10 +445,10 @@ impl Parser {
     fn parse_char(&self) -> Result<ast::Char> {
         let s = match &self.cur_token {
             Token::Char(c) => c.clone(),
-            t => Err(ParserError::ExpectChar(format!("{:?}", t)))?,
+            t => return Err(ParserError::ExpectChar(format!("{:?}", t)).into()),
         };
 
-        let c = char::from_str(s.as_str()).or_else(|_| Err(ParserError::InvalidChar(s)))?;
+        let c = char::from_str(s.as_str()).map_err(|_| ParserError::InvalidChar(s))?;
 
         Ok(ast::Char {
             value: c.to_string(),
@@ -482,10 +484,9 @@ impl Parser {
             pairs.push(ast::Pair { key, value });
 
             if !self.peek_token_is(Token::Rbrace) && self.expect_peek(Token::Comma).is_err() {
-                Err(ParserError::InvalidHashLiteral(format!(
-                    "{:?}",
-                    self.cur_token
-                )))?
+                return Err(
+                    ParserError::InvalidHashLiteral(format!("{:?}", self.cur_token)).into(),
+                );
             }
         }
         self.expect_peek(Token::Rbrace)?;
@@ -505,44 +506,20 @@ impl Parser {
 
     fn cur_token_is(&self, token_t: Token) -> bool {
         match token_t {
-            Token::Illegal(_) => match self.cur_token {
-                Token::Illegal(_) => true,
-                _ => false,
-            },
-            Token::Ident(_) => match self.cur_token {
-                Token::Ident(_) => true,
-                _ => false,
-            },
-            Token::Int(_) => match self.cur_token {
-                Token::Int(_) => true,
-                _ => false,
-            },
-            Token::StringLiteral(_) => match self.cur_token {
-                Token::StringLiteral(_) => true,
-                _ => false,
-            },
+            Token::Illegal(_) => matches!(self.cur_token, Token::Illegal(_)),
+            Token::Ident(_) => matches!(self.cur_token, Token::Ident(_)),
+            Token::Int(_) => matches!(self.cur_token, Token::Int(_)),
+            Token::StringLiteral(_) => matches!(self.cur_token, Token::StringLiteral(_)),
             t => self.cur_token == t,
         }
     }
 
     fn peek_token_is(&self, token_t: Token) -> bool {
         match token_t {
-            Token::Illegal(_) => match self.peek_token {
-                Token::Illegal(_) => true,
-                _ => false,
-            },
-            Token::Ident(_) => match self.peek_token {
-                Token::Ident(_) => true,
-                _ => false,
-            },
-            Token::Int(_) => match self.peek_token {
-                Token::Int(_) => true,
-                _ => false,
-            },
-            Token::StringLiteral(_) => match self.peek_token {
-                Token::StringLiteral(_) => true,
-                _ => false,
-            },
+            Token::Illegal(_) => matches!(self.peek_token, Token::Illegal(_)),
+            Token::Ident(_) => matches!(self.peek_token, Token::Ident(_)),
+            Token::Int(_) => matches!(self.peek_token, Token::Int(_)),
+            Token::StringLiteral(_) => matches!(self.peek_token, Token::StringLiteral(_)),
             t => self.peek_token == t,
         }
     }
@@ -555,7 +532,8 @@ impl Parser {
             Err(ParserError::ExpectPeek(
                 format!("{:?}", &token_t),
                 format!("{:?}", &self.peek_token),
-            ))?
+            )
+            .into())
         }
     }
 
@@ -574,7 +552,7 @@ impl Parser {
             Token::Lbracket => Expr::Array(self.parse_array_literal()?),
             Token::Lbrace => Expr::Hash(self.parse_hash_literal()?),
             Token::Macro => Expr::MacroLit(self.parse_macro_literal()?),
-            t => Err(ParserError::InvalidPrefix(format!("{:?}", t)))?,
+            t => return Err(ParserError::InvalidPrefix(format!("{:?}", t)).into()),
         })
     }
 
@@ -590,7 +568,7 @@ impl Parser {
             | Token::Gt => InfixFn::Infix,
             Token::Lparen => InfixFn::Call,
             Token::Lbracket => InfixFn::Index,
-            t => Err(ParserError::InvalidInfix(format!("{:?}", t)))?,
+            t => return Err(ParserError::InvalidInfix(format!("{:?}", t)).into()),
         })
     }
 

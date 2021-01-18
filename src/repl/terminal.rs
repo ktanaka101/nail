@@ -2,8 +2,6 @@ use std::convert::TryInto;
 use std::io;
 use std::io::Write;
 
-use termion;
-
 pub struct Terminal {
     cursor_pos: Pos,
     stdout: termion::raw::RawTerminal<io::Stdout>,

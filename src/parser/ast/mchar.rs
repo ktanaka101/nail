@@ -17,7 +17,7 @@ impl TryFrom<Expr> for Char {
     fn try_from(value: Expr) -> Result<Self> {
         match value {
             Expr::Char(c) => Ok(c),
-            expr => Err(ParserError::Convert(format!("{:?}", expr), "Char".into()))?,
+            expr => Err(ParserError::Convert(format!("{:?}", expr), "Char".into()).into()),
         }
     }
 }

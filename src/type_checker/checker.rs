@@ -2,6 +2,7 @@ use anyhow::Result;
 
 use crate::parser::ast;
 
+#[derive(Default)]
 pub struct Checker {}
 
 #[derive(thiserror::Error, Debug, Clone)]

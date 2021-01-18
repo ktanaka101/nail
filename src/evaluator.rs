@@ -102,7 +102,7 @@ fn eval_expr(expr: &ast::Expr, env: Rc<RefCell<Environment>>) -> Result<object::
 }
 
 pub(crate) fn new_error<T>(message: &str) -> Result<T> {
-    Err(object::Error::Standard(message.into()))?
+    Err(object::Error::Standard(message.into()).into())
 }
 
 fn eval_program(program: &ast::Program, env: Rc<RefCell<Environment>>) -> Result<object::Object> {
@@ -479,10 +479,7 @@ pub fn define_macros(program: &mut ast::Program, env: Rc<RefCell<Environment>>) 
 
 fn is_macro_definition(stmt: &ast::Stmt) -> bool {
     match stmt {
-        ast::Stmt::Let(ast::Let { value, .. }) => match value {
-            ast::Expr::MacroLit(_) => true,
-            _ => false,
-        },
+        ast::Stmt::Let(ast::Let { value, .. }) => matches!(value, ast::Expr::MacroLit(_)),
         _ => false,
     }
 }
@@ -490,13 +487,13 @@ fn is_macro_definition(stmt: &ast::Stmt) -> bool {
 fn add_macro(stmt: &ast::Stmt, env: Rc<RefCell<Environment>>) -> Result<()> {
     let let_stmt = match stmt {
         ast::Stmt::Let(l) => l,
-        stmt => Err(anyhow::format_err!("expect Let. received {}", stmt))?,
+        stmt => return Err(anyhow::format_err!("expect Let. received {}", stmt)),
     };
     let ast::Let { name, value } = let_stmt;
 
     let m_macro = match value {
         ast::Expr::MacroLit(m) => m,
-        stmt => Err(anyhow::format_err!("expect Macro. received {}", stmt))?,
+        stmt => return Err(anyhow::format_err!("expect Macro. received {}", stmt)),
     };
     let ast::MacroLit { params, body, .. } = m_macro;
 
@@ -528,17 +525,16 @@ pub fn expand_macros(program: ast::Node, env: Rc<RefCell<Environment>>) -> Resul
         let args = quote_args(call.clone());
         let eval_env = extend_macro_env(m_macro.clone(), args);
 
-        let evaluated = eval_stmt(
-            &m_macro.body.clone().into(),
-            Rc::new(RefCell::new(eval_env)),
-        )?;
+        let evaluated = eval_stmt(&m_macro.body.into(), Rc::new(RefCell::new(eval_env)))?;
 
         let quote = match evaluated {
             object::Object::Quote(q) => q,
-            o => Err(anyhow::format_err!(
-                "we only support returning AST-nodes from macros. {}",
-                o
-            ))?,
+            o => {
+                return Err(anyhow::format_err!(
+                    "we only support returning AST-nodes from macros. {}",
+                    o
+                ))
+            }
         };
 
         Ok(quote.node)

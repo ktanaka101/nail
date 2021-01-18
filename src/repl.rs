@@ -120,7 +120,7 @@ fn start_llvm_on_std() {
         if io::stdin().read_line(&mut line).is_err() || line == "\n" {
             continue;
         }
-        line.push_str(";");
+        line.push(';');
 
         let mut try_inputs = inputs.clone();
         try_inputs.push('\n');
@@ -318,7 +318,7 @@ fn start_llvm_on_tty() {
                 term.move_cursor(terminal::MoveCursorAction::Right(1));
             }
             Key::Up => {
-                if let Ok(_) = current_history.back() {
+                if current_history.back().is_ok() {
                     line = current_history.get_current().to_string();
                 }
 
@@ -326,7 +326,7 @@ fn start_llvm_on_tty() {
                 term.write(format!("{}{}", PROMPT, line.as_str()).as_str());
             }
             Key::Down => {
-                if let Ok(_) = current_history.next() {
+                if current_history.next().is_ok() {
                     line = current_history.get_current().to_string();
                 }
 

@@ -1407,7 +1407,7 @@ mod tests {
     }
 
     fn test_integer(integer: &ast::Integer, v: i64) {
-        assert_eq!(*integer, ast::Integer { value: v.into() });
+        assert_eq!(*integer, ast::Integer { value: v });
     }
 
     fn test_identifier(identifier: &ast::Identifier, literal: &str, ty: &Option<ast::Type>) {

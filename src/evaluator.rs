@@ -1034,9 +1034,9 @@ mod tests {
                 vec![1_i64, 2_i64, 3_i64, 4_i64],
             ),
         ];
-        tests.into_iter().for_each(|(input, expected)| {
-            assert_integer_array_object(eval(input), expected.into())
-        });
+        tests
+            .into_iter()
+            .for_each(|(input, expected)| assert_integer_array_object(eval(input), expected));
 
         let input = "push([1, 2, 3], [4, 5])";
         let expected1 = 1_i64;

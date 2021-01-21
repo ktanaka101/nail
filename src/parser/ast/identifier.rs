@@ -3,11 +3,16 @@ use super::prelude::*;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Identifier {
     pub value: String,
+    pub mtype: Option<Type>,
 }
 
 impl Display for Identifier {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.value)
+        if let Some(mtype) = &self.mtype {
+            write!(f, "{} {}", self.value, mtype)
+        } else {
+            write!(f, "{}", self.value)
+        }
     }
 }
 

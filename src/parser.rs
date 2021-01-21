@@ -110,12 +110,25 @@ impl Parser {
 
     fn parse_let_statement(&mut self) -> Result<ast::Let> {
         self.expect_peek(Token::Ident("_".to_string()))?;
+        let ident = match &self.cur_token {
+            Token::Ident(id) => id.clone(),
+            _ => unreachable!(),
+        };
+
+        let mtype = if self.peek_token_is(Token::Colon) {
+            self.next_token();
+            self.expect_peek(Token::Ident("_".to_string()))?;
+            match &self.cur_token {
+                Token::Ident(id) => Some(ast::Type::from(id.clone())),
+                _ => unreachable!(),
+            }
+        } else {
+            None
+        };
 
         let name = ast::Identifier {
-            value: match &self.cur_token {
-                Token::Ident(id) => id.clone(),
-                _ => unreachable!(),
-            },
+            value: ident,
+            mtype,
         };
 
         self.expect_peek(Token::Assign)?;
@@ -216,6 +229,7 @@ impl Parser {
                 Token::Ident(val) => val.clone(),
                 t => return Err(ParserError::ExpectIdentifier(format!("{:?}", t)).into()),
             },
+            mtype: None,
         })
     }
 
@@ -344,6 +358,7 @@ impl Parser {
                 Token::Ident(t) => t.clone(),
                 t => return Err(ParserError::InvalidFunctionParam(format!("{:?}", t)).into()),
             },
+            mtype: None,
         });
 
         while self.peek_token_is(Token::Comma) {
@@ -354,6 +369,7 @@ impl Parser {
                     Token::Ident(t) => t.clone(),
                     t => return Err(ParserError::InvalidFunctionParam(format!("{:?}", t)).into()),
                 },
+                mtype: None,
             })
         }
         self.expect_peek(Token::Rparen)?;
@@ -390,6 +406,7 @@ impl Parser {
                 Token::Ident(t) => t.clone(),
                 t => return Err(ParserError::InvalidFunctionParam(format!("{:?}", t)).into()),
             },
+            mtype: None,
         });
 
         while self.peek_token_is(Token::Comma) {
@@ -400,6 +417,7 @@ impl Parser {
                     Token::Ident(t) => t.clone(),
                     t => return Err(ParserError::InvalidFunctionParam(format!("{:?}", t)).into()),
                 },
+                mtype: None,
             })
         }
         self.expect_peek(Token::VerticalBar)?;
@@ -589,7 +607,8 @@ impl Parser {
 mod tests {
     use super::*;
 
-    struct Id<'a>(&'a str);
+    struct Id<'a>(&'a str, Option<ast::Type>);
+
     enum Val<'a> {
         S(&'a str),
         B(bool),
@@ -602,11 +621,55 @@ mod tests {
     #[test]
     fn test_let_stmts() {
         let inputs = vec![
-            ("let x = 5", Id("x"), Val::I(5)),
-            ("let x = 5;", Id("x"), Val::I(5)),
-            ("let y = true;", Id("y"), Val::B(true)),
-            ("let foobar = y;", Id("foobar"), Val::Id(Id("y"))),
-            ("let x = 'a'", Id("x"), Val::C('a')),
+            ("let x = 5", Id("x", None), Val::I(5)),
+            ("let x = 5;", Id("x", None), Val::I(5)),
+            ("let y = true;", Id("y", None), Val::B(true)),
+            (
+                "let foobar = y;",
+                Id("foobar", None),
+                Val::Id(Id("y", None)),
+            ),
+            ("let x = 'a'", Id("x", None), Val::C('a')),
+            (
+                "let x: Array = 'a'",
+                Id("x", Some(ast::Type::Array)),
+                Val::C('a'),
+            ),
+            (
+                "let x: Boolean = 'a'",
+                Id("x", Some(ast::Type::Boolean)),
+                Val::C('a'),
+            ),
+            (
+                "let x: Function = 'a'",
+                Id("x", Some(ast::Type::Function)),
+                Val::C('a'),
+            ),
+            (
+                "let x: Hash = 'a'",
+                Id("x", Some(ast::Type::Hash)),
+                Val::C('a'),
+            ),
+            (
+                "let x: Integer = 'a'",
+                Id("x", Some(ast::Type::Integer)),
+                Val::C('a'),
+            ),
+            (
+                "let x: Char = 'a'",
+                Id("x", Some(ast::Type::Char)),
+                Val::C('a'),
+            ),
+            (
+                "let x: String = 'a'",
+                Id("x", Some(ast::Type::String)),
+                Val::C('a'),
+            ),
+            (
+                "let x: CustomeType = 'a'",
+                Id("x", Some(ast::Type::Custome("CustomeType".to_string()))),
+                Val::C('a'),
+            ),
         ];
 
         for (input, id, v) in inputs.into_iter() {
@@ -622,7 +685,7 @@ mod tests {
             ("return 5", Val::I(5)),
             ("return 5;", Val::I(5)),
             ("return true;", Val::B(true)),
-            ("return y;", Val::Id(Id("y"))),
+            ("return y;", Val::Id(Id("y", None))),
         ];
 
         for (input, v) in inputs.into_iter() {
@@ -637,7 +700,7 @@ mod tests {
         let input = "foobar";
         let program = test_parse(input);
         assert_eq!(program.statements.len(), 1);
-        test_identifier_by_stmt(&program.statements[0], "foobar");
+        test_identifier_by_stmt(&program.statements[0], "foobar", None);
     }
 
     #[test]
@@ -794,13 +857,13 @@ mod tests {
 
         test_infix_by_expr(
             if_expr.cond.as_ref(),
-            &Val::Id(Id("x")),
+            &Val::Id(Id("x", None)),
             "<",
-            &Val::Id(Id("y")),
+            &Val::Id(Id("y", None)),
         );
 
         assert_eq!(if_expr.consequence.statements.len(), 1);
-        test_identifier_by_stmt(&if_expr.consequence.statements[0], "x");
+        test_identifier_by_stmt(&if_expr.consequence.statements[0], "x", None);
         assert_eq!(if_expr.alternative, None);
     }
 
@@ -830,13 +893,13 @@ mod tests {
 
             test_infix_by_expr(
                 if_expr.cond.as_ref(),
-                &Val::Id(Id("x")),
+                &Val::Id(Id("x", None)),
                 "<",
-                &Val::Id(Id("y")),
+                &Val::Id(Id("y", None)),
             );
 
             assert_eq!(if_expr.consequence.statements.len(), 1);
-            test_identifier_by_stmt(&if_expr.consequence.statements[0], "x");
+            test_identifier_by_stmt(&if_expr.consequence.statements[0], "x", None);
 
             let alt = if let Some(x) = &if_expr.alternative {
                 x
@@ -844,7 +907,7 @@ mod tests {
                 panic!("Expect some Expr::Block");
             };
             assert_eq!(alt.statements.len(), 1);
-            test_identifier_by_stmt(&alt.statements[0], "y");
+            test_identifier_by_stmt(&alt.statements[0], "y", None);
         }
     }
 
@@ -874,15 +937,15 @@ mod tests {
             assert_eq!(fn_expr.name, "test_func");
 
             assert_eq!(fn_expr.params.len(), 2);
-            test_identifier(&fn_expr.params[0], "x");
-            test_identifier(&fn_expr.params[1], "y");
+            test_identifier(&fn_expr.params[0], "x", &None);
+            test_identifier(&fn_expr.params[1], "y", &None);
 
             assert_eq!(fn_expr.body.statements.len(), 1);
             test_infix_by_stmt(
                 &fn_expr.body.statements[0],
-                &Val::Id(Id("x")),
+                &Val::Id(Id("x", None)),
                 "+",
-                &Val::Id(Id("y")),
+                &Val::Id(Id("y", None)),
             )
         }
     }
@@ -908,15 +971,15 @@ mod tests {
             };
 
             assert_eq!(cl_expr.params.len(), 2);
-            test_identifier(&cl_expr.params[0], "x");
-            test_identifier(&cl_expr.params[1], "y");
+            test_identifier(&cl_expr.params[0], "x", &None);
+            test_identifier(&cl_expr.params[1], "y", &None);
 
             assert_eq!(cl_expr.body.statements.len(), 1);
             test_infix_by_stmt(
                 &cl_expr.body.statements[0],
-                &Val::Id(Id("x")),
+                &Val::Id(Id("x", None)),
                 "+",
-                &Val::Id(Id("y")),
+                &Val::Id(Id("y", None)),
             )
         }
     }
@@ -950,7 +1013,7 @@ mod tests {
             assert_eq!(fn_expr.params.len(), ids.len());
 
             for (i, id) in ids.into_iter().enumerate() {
-                test_identifier(&fn_expr.params[i], id);
+                test_identifier(&fn_expr.params[i], id, &None);
             }
         }
     }
@@ -984,7 +1047,7 @@ mod tests {
             assert_eq!(fn_expr.params.len(), ids.len());
 
             for (i, id) in ids.into_iter().enumerate() {
-                test_identifier(&fn_expr.params[i], id);
+                test_identifier(&fn_expr.params[i], id, &None);
             }
         }
     }
@@ -1007,7 +1070,7 @@ mod tests {
             panic!("Expect type is Expr::Call");
         };
 
-        test_expr(call_expr.func.as_ref(), &Val::Id(Id("add")));
+        test_expr(call_expr.func.as_ref(), &Val::Id(Id("add", None)));
         assert_eq!(call_expr.args.len(), 3);
         test_expr(&call_expr.args[0], &Val::I(1));
         test_infix_by_expr(&call_expr.args[1], &Val::I(2), "*", &Val::I(3));
@@ -1069,7 +1132,7 @@ mod tests {
         } else {
             panic!("Expect type is Expr::Index.");
         };
-        test_expr(index_expr.left.as_ref(), &Val::Id(Id("myArray")));
+        test_expr(index_expr.left.as_ref(), &Val::Id(Id("myArray", None)));
         test_infix_by_expr(index_expr.index.as_ref(), &Val::I(1), "+", &Val::I(1));
     }
 
@@ -1156,15 +1219,15 @@ mod tests {
         };
 
         assert_eq!(m_macro.params.len(), 2);
-        test_identifier(&m_macro.params[0], "x");
-        test_identifier(&m_macro.params[1], "y");
+        test_identifier(&m_macro.params[0], "x", &None);
+        test_identifier(&m_macro.params[1], "y", &None);
 
         assert_eq!(m_macro.body.statements.len(), 1);
         test_infix_by_stmt(
             &m_macro.body.statements[0],
-            &Val::Id(Id("x")),
+            &Val::Id(Id("x", None)),
             "+",
-            &Val::Id(Id("y")),
+            &Val::Id(Id("y", None)),
         );
     }
 
@@ -1299,7 +1362,7 @@ mod tests {
             panic!("Expect type is Stmt::Let");
         };
 
-        test_identifier(&let_stmt.name, id.0);
+        test_identifier(&let_stmt.name, id.0, &id.1);
         test_expr(&let_stmt.value, v);
     }
 
@@ -1313,7 +1376,7 @@ mod tests {
         test_expr(&return_stmt.return_value, v);
     }
 
-    fn test_identifier_by_stmt(stmt: &Stmt, literal: &str) {
+    fn test_identifier_by_stmt(stmt: &Stmt, literal: &str, ty: Option<ast::Type>) {
         let expr_stmt = if let Stmt::ExprStmt(x) = stmt {
             x
         } else {
@@ -1325,7 +1388,7 @@ mod tests {
         } else {
             panic!("Expect type is Expr::Identifier");
         };
-        test_identifier(&identifier, literal);
+        test_identifier(&identifier, literal, &ty);
     }
 
     fn test_interger_by_stmt(stmt: &Stmt, v: i64) {
@@ -1347,11 +1410,12 @@ mod tests {
         assert_eq!(*integer, ast::Integer { value: v.into() });
     }
 
-    fn test_identifier(identifier: &ast::Identifier, literal: &str) {
+    fn test_identifier(identifier: &ast::Identifier, literal: &str, ty: &Option<ast::Type>) {
         assert_eq!(
             *identifier,
             ast::Identifier {
                 value: literal.into(),
+                mtype: ty.to_owned()
             }
         );
     }
@@ -1374,7 +1438,8 @@ mod tests {
             Val::Id(v) => assert_eq!(
                 *expr,
                 Expr::Identifier(ast::Identifier {
-                    value: v.0.to_string()
+                    value: v.0.to_string(),
+                    mtype: v.1.clone()
                 })
             ),
             Val::I(v) => assert_eq!(*expr, Expr::Integer(ast::Integer { value: *v })),

@@ -11,7 +11,7 @@ mod prelude {
     pub use super::{
         Array, Block, Boolean, Call, Char, Expr, ExprStmt, Function, Hash, Identifier, If, Index,
         InfixExpr, Integer, Let, MacroLit, Node, Operator, Pair, PrefixExpr, Program, Return, Stmt,
-        StringLit,
+        StringLit, Type,
     };
 }
 
@@ -32,6 +32,7 @@ mod mchar;
 mod mif;
 mod mlet;
 mod mreturn;
+mod mtype;
 mod node;
 mod operator;
 mod pair;
@@ -57,6 +58,7 @@ pub use mchar::Char;
 pub use mif::If;
 pub use mlet::Let;
 pub use mreturn::Return;
+pub use mtype::Type;
 pub use node::Node;
 pub use operator::Operator;
 pub use pair::Pair;

@@ -250,12 +250,18 @@ mod tests {
             ),
             (
                 Stmt::from(Let {
-                    name: Identifier { value: "x".into() },
+                    name: Identifier {
+                        value: "x".into(),
+                        mtype: None,
+                    },
                     value: one(),
                 })
                 .into(),
                 Stmt::from(Let {
-                    name: Identifier { value: "x".into() },
+                    name: Identifier {
+                        value: "x".into(),
+                        mtype: None,
+                    },
                     value: two(),
                 })
                 .into(),

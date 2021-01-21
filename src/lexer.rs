@@ -176,6 +176,7 @@ mod tests {
         let input = "
             let five = 5;
             let ten = 10;
+            let with_type: String = \"aaa\";
 
             fn add(x, y) {
                 x + y;
@@ -227,6 +228,14 @@ mod tests {
         assert_eq!(lexer.next_token(), Token::Ident("ten".into()));
         assert_eq!(lexer.next_token(), Token::Assign);
         assert_eq!(lexer.next_token(), Token::Int("10".into()));
+        assert_eq!(lexer.next_token(), Token::Semicolon);
+
+        assert_eq!(lexer.next_token(), Token::Let);
+        assert_eq!(lexer.next_token(), Token::Ident("with_type".into()));
+        assert_eq!(lexer.next_token(), Token::Colon);
+        assert_eq!(lexer.next_token(), Token::Ident("String".into()));
+        assert_eq!(lexer.next_token(), Token::Assign);
+        assert_eq!(lexer.next_token(), Token::StringLiteral("aaa".into()));
         assert_eq!(lexer.next_token(), Token::Semicolon);
 
         assert_eq!(lexer.next_token(), Token::Function);

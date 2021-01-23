@@ -13,7 +13,7 @@ impl Normalizer {
         Normalizer {}
     }
 
-    pub fn normalize(&self, node: &ast::Node) -> Result<ast::Node> {
+    pub fn normalize(&self, node: ast::Node) -> Result<ast::Node> {
         Ok(node.clone())
     }
 }

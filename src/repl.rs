@@ -151,7 +151,7 @@ fn start_llvm_on_std() {
 
         let node = {
             let normalizer = normalizer::Normalizer::new();
-            match normalizer.normalize(&node) {
+            match normalizer.normalize(node) {
                 Ok(node) => node,
                 Err(e) => {
                     println!("Normalization error: {}", e);
@@ -202,7 +202,7 @@ fn llvm_run(code: &str) -> Result<String> {
 
     let node = {
         let normalizer = normalizer::Normalizer::new();
-        normalizer.normalize(&node)?
+        normalizer.normalize(node)?
     };
 
     let main_fn = compiler.compile(&node, false, compiler::Output::CStringPtr)?;
@@ -397,7 +397,7 @@ fn start_evaluator() {
 
         let node = {
             let normalizer = normalizer::Normalizer::new();
-            match normalizer.normalize(&expanded) {
+            match normalizer.normalize(expanded) {
                 Ok(node) => node,
                 Err(e) => {
                     println!("Normalization error: {}", e);

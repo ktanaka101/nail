@@ -1,3 +1,5 @@
+mod type_resolver;
+
 use anyhow::Result;
 
 use crate::parser::ast;

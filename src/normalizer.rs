@@ -1,5 +1,7 @@
 mod type_resolver;
 
+use std::convert::TryInto;
+
 use anyhow::Result;
 use type_resolver::TypeResolver;
 
@@ -17,7 +19,24 @@ impl Normalizer {
     }
 
     pub fn normalize(&self, node: ast::Node) -> Result<ast::Node> {
-        Ok(node.clone())
+        match node {
+            ast::Node::Program(mut prg) => {
+                prg.statements = prg
+                    .statements
+                    .into_iter()
+                    .map(|stmt| self.normalize(stmt.into()).unwrap().try_into().unwrap())
+                    .collect::<Vec<_>>();
+                Ok(prg.into())
+            }
+            ast::Node::Stmt(stmt) => match stmt {
+                ast::Stmt::Let(mut mlet) => {
+                    mlet.name.mtype = mlet.value.resolve_type();
+                    Ok(ast::Stmt::from(mlet).into())
+                }
+                other => Ok(other.into()),
+            },
+            other => Ok(other),
+        }
     }
 }
 
@@ -52,6 +71,42 @@ mod tests {
             match &result_node.statements[0] {
                 ast::Stmt::ExprStmt(expr_stmt) => {
                     assert_eq!(expr_stmt.expr.resolve_type(), expected);
+                }
+                other => panic_err(
+                    input,
+                    &expected,
+                    &Some(anyhow!("expected ExprStmt. actual: {}", other)),
+                ),
+            }
+        });
+    }
+
+    #[test]
+    fn resolve_let_type() {
+        let tests = vec![
+            ("let a = [1, 2, 3]", Some(ast::Type::Array)),
+            ("let a = true", Some(ast::Type::Boolean)),
+            ("let a = false", Some(ast::Type::Boolean)),
+            ("let a = || { }", Some(ast::Type::Function)),
+            ("let a = { 1: 2 }", Some(ast::Type::Hash)),
+            ("let a = 1", Some(ast::Type::Integer)),
+            ("let a = 'a'", Some(ast::Type::Char)),
+            (r#"let a = "aaa""#, Some(ast::Type::String)),
+        ];
+
+        parse_and_normalize_each(tests, |result_node, input, expected| {
+            assert!(
+                result_node.statements.len() == 1,
+                make_err_msg(input, &expected, &None)
+            );
+            match &result_node.statements[0] {
+                ast::Stmt::Let(mlet) => {
+                    assert_eq!(
+                        mlet.name.mtype,
+                        expected,
+                        "{}",
+                        make_err_msg(input, &expected, &None)
+                    );
                 }
                 other => panic_err(
                     input,

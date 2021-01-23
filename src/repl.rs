@@ -417,7 +417,7 @@ fn start_evaluator() {
             }
         }
 
-        let evaluated = eval_node(&expanded, Rc::clone(&env));
+        let evaluated = eval_node(&node, Rc::clone(&env));
         match evaluated {
             Ok(o) => match o {
                 object::Object::Null(_) => continue,

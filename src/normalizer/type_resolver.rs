@@ -14,7 +14,6 @@ impl TypeResolver for ast::Expr {
             ast::Expr::Integer(int) => int.resolve_type(),
             ast::Expr::Char(c) => c.resolve_type(),
             ast::Expr::StringLit(s) => s.resolve_type(),
-            ast::Expr::Identifier(id) => id.resolve_type(),
             _need_resolve_expr => unimplemented!(),
         }
     }
@@ -59,12 +58,6 @@ impl TypeResolver for ast::Integer {
 impl TypeResolver for ast::StringLit {
     fn resolve_type(&self) -> Option<ast::Type> {
         Some(ast::Type::String)
-    }
-}
-
-impl TypeResolver for ast::Identifier {
-    fn resolve_type(&self) -> Option<ast::Type> {
-        self.mtype.clone()
     }
 }
 

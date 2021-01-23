@@ -1,6 +1,6 @@
 use crate::parser::ast;
 
-trait TypeResolver {
+pub trait TypeResolver {
     fn resolve_type(&self) -> Option<ast::Type>;
 }
 

@@ -23,7 +23,6 @@ Nail is a programming language for me.
 - language optional
   - [ ] standard library
   - [ ] web programming support
-  - [ ] system programming support
   - [ ] test case
   - etc...
 - tools

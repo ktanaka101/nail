@@ -160,7 +160,7 @@ fn start_llvm_on_std() {
             }
         };
 
-        let main_fn = match codegen.compile(&node, true, codegen::Output::CStringPtr) {
+        let main_fn = match codegen.gen(&node, true, codegen::Output::CStringPtr) {
             Ok(f) => f,
             Err(e) => {
                 println!("LLVM error: {}", e);
@@ -205,7 +205,7 @@ fn llvm_run(code: &str) -> Result<String> {
         normalizer.normalize(node)?
     };
 
-    let main_fn = codegen.compile(&node, false, codegen::Output::CStringPtr)?;
+    let main_fn = codegen.gen(&node, false, codegen::Output::CStringPtr)?;
 
     let result_string = {
         let c_string_ptr = unsafe { main_fn.call() };

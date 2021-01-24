@@ -280,7 +280,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         // }
     }
 
-    pub fn compile(
+    pub fn gen(
         &mut self,
         node: &ast::Node,
         output_ir: bool,
@@ -297,7 +297,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
 
         self.fn_value_opt = Some(main_fn);
 
-        match self.compile_node(node)? {
+        match self.gen_node(node)? {
             Some(res) => {
                 let (ptr, length, primitive_type) = match res {
                     BasicValueEnum::IntValue(i) => {
@@ -446,14 +446,14 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         Ok(unsafe { self.execution_engine.get_function("main")? })
     }
 
-    fn compile_node(&mut self, node: &ast::Node) -> Result<Option<BasicValueEnum<'ctx>>> {
+    fn gen_node(&mut self, node: &ast::Node) -> Result<Option<BasicValueEnum<'ctx>>> {
         Ok(match node {
-            ast::Node::Expr(expr) => Some(self.compile_expr(expr)?),
-            ast::Node::Stmt(stmt) => Some(self.compile_stmt(stmt)?),
+            ast::Node::Expr(expr) => Some(self.gen_expr(expr)?),
+            ast::Node::Stmt(stmt) => Some(self.gen_stmt(stmt)?),
             ast::Node::Program(pg) => {
                 let mut last: Option<BasicValueEnum> = None;
                 pg.statements.iter().try_for_each::<_, Result<()>>(|stmt| {
-                    last = Some(self.compile_stmt(stmt)?);
+                    last = Some(self.gen_stmt(stmt)?);
                     Ok(())
                 })?;
 
@@ -462,11 +462,11 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         })
     }
 
-    fn compile_stmt(&mut self, stmt: &ast::Stmt) -> Result<BasicValueEnum<'ctx>> {
+    fn gen_stmt(&mut self, stmt: &ast::Stmt) -> Result<BasicValueEnum<'ctx>> {
         Ok(match stmt {
-            ast::Stmt::ExprStmt(expr_stmt) => self.compile_expr(&expr_stmt.expr)?,
+            ast::Stmt::ExprStmt(expr_stmt) => self.gen_expr(&expr_stmt.expr)?,
             ast::Stmt::Let(l) => {
-                let value = self.compile_expr(&l.value)?;
+                let value = self.gen_expr(&l.value)?;
                 let alloca = self.builder.build_alloca(value.get_type(), "let_ptr");
 
                 self.builder.build_store(alloca, value);
@@ -481,7 +481,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                     .statements
                     .iter()
                     .try_for_each::<_, Result<()>>(|stmt| {
-                        last = self.compile_stmt(stmt)?;
+                        last = self.gen_stmt(stmt)?;
                         Ok(())
                     })?;
 
@@ -566,7 +566,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         unimplemented!()
     }
 
-    fn compile_expr(&mut self, expr: &ast::Expr) -> Result<BasicValueEnum<'ctx>> {
+    fn gen_expr(&mut self, expr: &ast::Expr) -> Result<BasicValueEnum<'ctx>> {
         Ok(match expr {
             ast::Expr::Integer(int) => self
                 .context
@@ -599,7 +599,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                         .builder
                         .build_insert_value(
                             array,
-                            self.compile_expr(element)?,
+                            self.gen_expr(element)?,
                             i.try_into()?,
                             "array_insert_value",
                         )
@@ -610,8 +610,8 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 array.into()
             }
             ast::Expr::InfixExpr(infix_expr) => {
-                let lvalue = self.compile_expr(&*infix_expr.left)?;
-                let rvalue = self.compile_expr(&*infix_expr.right)?;
+                let lvalue = self.gen_expr(&*infix_expr.left)?;
+                let rvalue = self.gen_expr(&*infix_expr.right)?;
 
                 match (lvalue, rvalue) {
                     (BasicValueEnum::IntValue(lv), BasicValueEnum::IntValue(rv)) => {
@@ -644,7 +644,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             }
             ast::Expr::PrefixExpr(prefix_expr) => match &prefix_expr.ope {
                 ast::Operator::Bang => {
-                    let expr = self.compile_expr(&*prefix_expr.right)?;
+                    let expr = self.gen_expr(&*prefix_expr.right)?;
                     if !expr.is_int_value() {
                         return Err(Error::DifferentType(
                             "IntValue".to_string(),
@@ -663,7 +663,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                         .into()
                 }
                 ast::Operator::Minus => {
-                    let expr = self.compile_expr(&*prefix_expr.right)?;
+                    let expr = self.gen_expr(&*prefix_expr.right)?;
                     if !expr.is_int_value() {
                         return Err(Error::DifferentType(
                             "IntValue".to_string(),
@@ -680,7 +680,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 let parent = self.fn_value();
                 let zero = self.context.i64_type().const_zero();
 
-                let cond = self.compile_expr(&*if_expr.cond)?;
+                let cond = self.gen_expr(&*if_expr.cond)?;
                 if !cond.is_int_value() {
                     return Err(Error::DifferentType(
                         "IntValue".to_string(),
@@ -709,7 +709,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
 
                 // build then block
                 self.builder.position_at_end(then_bb);
-                let then_val = self.compile_stmt(&consequence.to_owned().into())?;
+                let then_val = self.gen_stmt(&consequence.to_owned().into())?;
                 self.builder.build_unconditional_branch(cont_bb);
 
                 let then_bb = self.builder.get_insert_block().unwrap();
@@ -717,7 +717,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 // build else block
                 self.builder.position_at_end(else_bb);
                 let else_val = if let Some(alternative) = alternative {
-                    self.compile_stmt(&alternative.clone().into())?
+                    self.gen_stmt(&alternative.clone().into())?
                 } else {
                     zero.into()
                 };
@@ -972,7 +972,7 @@ mod tests {
                 Err(e) => panic!("Parser error: {} by {}", e, input),
             };
 
-            let main_fn = match compiler.compile(&program.into(), false, Output::CStringPtr) {
+            let main_fn = match compiler.gen(&program.into(), false, Output::CStringPtr) {
                 Ok(f) => f,
                 Err(e) => panic!("LLVM error: {} by {}", e, input),
             };

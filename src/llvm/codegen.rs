@@ -165,7 +165,7 @@ fn get_type_string(basic_value: &BasicValueEnum) -> String {
     .to_string()
 }
 
-pub struct Compiler<'a, 'ctx> {
+pub struct Codegen<'a, 'ctx> {
     context: &'ctx Context,
     module: &'a Module<'ctx>,
     builder: &'a Builder<'ctx>,
@@ -177,14 +177,14 @@ pub struct Compiler<'a, 'ctx> {
     _builtin_structs: HashMap<String, StructType<'ctx>>,
 }
 
-impl<'a, 'ctx> Compiler<'a, 'ctx> {
+impl<'a, 'ctx> Codegen<'a, 'ctx> {
     pub fn new(
         context: &'ctx Context,
         module: &'a Module<'ctx>,
         builder: &'a Builder<'ctx>,
         execution_engine: &'a ExecutionEngine<'ctx>,
     ) -> Self {
-        Compiler {
+        Codegen {
             context: &context,
             module,
             builder,
@@ -963,7 +963,7 @@ mod tests {
             let execution_engine = module
                 .create_jit_execution_engine(inkwell::OptimizationLevel::None)
                 .unwrap();
-            let mut compiler = Compiler::new(&context, &module, &builder, &execution_engine);
+            let mut compiler = Codegen::new(&context, &module, &builder, &execution_engine);
             let lexer = lexer::Lexer::new(input.to_string());
             let mut parser = parser::Parser::new(lexer);
 

@@ -18,8 +18,8 @@ use crate::evaluator::env::Environment;
 use crate::evaluator::object;
 use crate::evaluator::{define_macros, eval_node, expand_macros};
 use crate::lexer::Lexer;
-use crate::llvm::compiler;
-use crate::llvm::compiler::Compiler;
+use crate::llvm::codegen;
+use crate::llvm::codegen::Codegen;
 use crate::normalizer;
 use crate::parser::Parser;
 use crate::type_checker;
@@ -111,7 +111,7 @@ fn start_llvm_on_std() {
             .create_jit_execution_engine(OptimizationLevel::None)
             .unwrap();
 
-        let mut compiler = Compiler::new(&context, &module, &builder, &execution_engine);
+        let mut codegen = Codegen::new(&context, &module, &builder, &execution_engine);
 
         print!("{}", PROMPT);
         io::stdout().flush().unwrap();
@@ -160,7 +160,7 @@ fn start_llvm_on_std() {
             }
         };
 
-        let main_fn = match compiler.compile(&node, true, compiler::Output::CStringPtr) {
+        let main_fn = match codegen.compile(&node, true, codegen::Output::CStringPtr) {
             Ok(f) => f,
             Err(e) => {
                 println!("LLVM error: {}", e);
@@ -188,7 +188,7 @@ fn llvm_run(code: &str) -> Result<String> {
     let execution_engine = module
         .create_jit_execution_engine(OptimizationLevel::None)
         .unwrap();
-    let mut compiler = Compiler::new(&context, &module, &builder, &execution_engine);
+    let mut codegen = Codegen::new(&context, &module, &builder, &execution_engine);
 
     let lexer = Lexer::new(code.to_string());
     let mut parser = Parser::new(lexer);
@@ -205,7 +205,7 @@ fn llvm_run(code: &str) -> Result<String> {
         normalizer.normalize(node)?
     };
 
-    let main_fn = compiler.compile(&node, false, compiler::Output::CStringPtr)?;
+    let main_fn = codegen.compile(&node, false, codegen::Output::CStringPtr)?;
 
     let result_string = {
         let c_string_ptr = unsafe { main_fn.call() };

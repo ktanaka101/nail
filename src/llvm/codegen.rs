@@ -1037,7 +1037,16 @@ mod tests {
                     .unwrap()
             };
 
-            assert_eq!(result_string, expected);
+            assert_eq!(
+                result_string,
+                expected,
+                "\n{}",
+                make_err_msg(input, expected)
+            );
         });
+    }
+
+    fn make_err_msg(input: &'static str, expected: &'static str) -> String {
+        format!("input: {}\nexpected: {:?}", input, expected)
     }
 }

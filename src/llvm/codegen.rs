@@ -566,174 +566,191 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         unimplemented!()
     }
 
-    fn gen_expr(&mut self, expr: &ast::Expr) -> Result<BasicValueEnum<'ctx>> {
-        Ok(match expr {
-            ast::Expr::Integer(int) => self
-                .context
-                .i64_type()
-                .const_int(int.value.try_into().unwrap(), false)
-                .into(),
-            ast::Expr::StringLit(string) => self
-                .context
-                .const_string(string.value.as_bytes(), false)
-                .into(),
-            ast::Expr::Char(c) => self.context.const_string(c.value.as_bytes(), false).into(),
-            ast::Expr::Identifier(id) => {
-                let name = id.value.as_str();
-                let id = self
-                    .variables
-                    .get(name)
-                    .ok_or_else(|| Error::UndefinedIdentfier(name.to_string()))?;
+    fn gen_int(&self, int: &ast::Integer) -> IntValue<'ctx> {
+        self.context
+            .i64_type()
+            .const_int(int.value.try_into().unwrap(), false)
+    }
 
-                self.builder.build_load(*id, name)
+    fn gen_string(&self, string: &ast::StringLit) -> VectorValue<'ctx> {
+        self.context.const_string(string.value.as_bytes(), false)
+    }
+
+    fn gen_char(&self, c: &ast::Char) -> VectorValue<'ctx> {
+        self.context.const_string(c.value.as_bytes(), false)
+    }
+
+    fn gen_identifier(&self, id: &ast::Identifier) -> Result<BasicValueEnum<'ctx>> {
+        let name = id.value.as_str();
+        let id = self
+            .variables
+            .get(name)
+            .ok_or_else(|| Error::UndefinedIdentfier(name.to_string()))?;
+
+        Ok(self.builder.build_load(*id, name))
+    }
+
+    fn gen_array(&mut self, arr: &ast::Array) -> Result<ArrayValue<'ctx>> {
+        let size = arr.elements.len();
+        let ty = self.context.i64_type().array_type(size.try_into()?);
+        let size = self.context.i64_type().const_int(size.try_into()?, false);
+        let arr_ptr = self.builder.build_array_alloca(ty, size, "array_alloca");
+        let mut array = self.builder.build_load(arr_ptr, "array").into_array_value();
+
+        for (i, element) in arr.elements.iter().enumerate() {
+            array = self
+                .builder
+                .build_insert_value(
+                    array,
+                    self.gen_expr(element)?,
+                    i.try_into()?,
+                    "array_insert_value",
+                )
+                .unwrap()
+                .into_array_value();
+        }
+
+        Ok(array)
+    }
+
+    fn gen_infix_expr(&mut self, infix_expr: &ast::InfixExpr) -> Result<BasicValueEnum<'ctx>> {
+        let lvalue = self.gen_expr(&*infix_expr.left)?;
+        let rvalue = self.gen_expr(&*infix_expr.right)?;
+
+        Ok(match (lvalue, rvalue) {
+            (BasicValueEnum::IntValue(lv), BasicValueEnum::IntValue(rv)) => {
+                self.infix_int(&infix_expr.ope, lv, rv).into()
             }
-            ast::Expr::Array(arr) => {
-                let size = arr.elements.len();
-                let ty = self.context.i64_type().array_type(size.try_into()?);
-                let size = self.context.i64_type().const_int(size.try_into()?, false);
-                let arr_ptr = self.builder.build_array_alloca(ty, size, "array_alloca");
-                let mut array = self.builder.build_load(arr_ptr, "array").into_array_value();
-
-                for (i, element) in arr.elements.iter().enumerate() {
-                    array = self
-                        .builder
-                        .build_insert_value(
-                            array,
-                            self.gen_expr(element)?,
-                            i.try_into()?,
-                            "array_insert_value",
-                        )
-                        .unwrap()
-                        .into_array_value();
-                }
-
-                array.into()
+            (BasicValueEnum::FloatValue(lv), BasicValueEnum::FloatValue(rv)) => {
+                self.infix_float(&infix_expr.ope, lv, rv).into()
             }
-            ast::Expr::InfixExpr(infix_expr) => {
-                let lvalue = self.gen_expr(&*infix_expr.left)?;
-                let rvalue = self.gen_expr(&*infix_expr.right)?;
-
-                match (lvalue, rvalue) {
-                    (BasicValueEnum::IntValue(lv), BasicValueEnum::IntValue(rv)) => {
-                        self.infix_int(&infix_expr.ope, lv, rv).into()
-                    }
-                    (BasicValueEnum::FloatValue(lv), BasicValueEnum::FloatValue(rv)) => {
-                        self.infix_float(&infix_expr.ope, lv, rv).into()
-                    }
-                    (BasicValueEnum::ArrayValue(lv), BasicValueEnum::ArrayValue(rv)) => {
-                        self.infix_array(&infix_expr.ope, lv, rv).into()
-                    }
-                    (BasicValueEnum::VectorValue(lv), BasicValueEnum::VectorValue(rv)) => {
-                        self.infix_vector(&infix_expr.ope, lv, rv).into()
-                    }
-                    (BasicValueEnum::StructValue(lv), BasicValueEnum::StructValue(rv)) => {
-                        self.infix_struct(&infix_expr.ope, lv, rv).into()
-                    }
-                    (BasicValueEnum::PointerValue(lv), BasicValueEnum::PointerValue(rv)) => {
-                        self.infix_pointer(&infix_expr.ope, lv, rv).into()
-                    }
-                    (lvalue, rvalue) => {
-                        return Err(Error::DifferentInfixType(
-                            infix_expr.ope.clone(),
-                            get_type_string(&lvalue),
-                            get_type_string(&rvalue),
-                        )
-                        .into());
-                    }
-                }
+            (BasicValueEnum::ArrayValue(lv), BasicValueEnum::ArrayValue(rv)) => {
+                self.infix_array(&infix_expr.ope, lv, rv).into()
             }
-            ast::Expr::PrefixExpr(prefix_expr) => match &prefix_expr.ope {
-                ast::Operator::Bang => {
-                    let expr = self.gen_expr(&*prefix_expr.right)?;
-                    if !expr.is_int_value() {
-                        return Err(Error::DifferentType(
-                            "IntValue".to_string(),
-                            get_type_string(&expr),
-                        )
-                        .into());
-                    }
+            (BasicValueEnum::VectorValue(lv), BasicValueEnum::VectorValue(rv)) => {
+                self.infix_vector(&infix_expr.ope, lv, rv).into()
+            }
+            (BasicValueEnum::StructValue(lv), BasicValueEnum::StructValue(rv)) => {
+                self.infix_struct(&infix_expr.ope, lv, rv).into()
+            }
+            (BasicValueEnum::PointerValue(lv), BasicValueEnum::PointerValue(rv)) => {
+                self.infix_pointer(&infix_expr.ope, lv, rv).into()
+            }
+            (lvalue, rvalue) => {
+                return Err(Error::DifferentInfixType(
+                    infix_expr.ope.clone(),
+                    get_type_string(&lvalue),
+                    get_type_string(&rvalue),
+                )
+                .into());
+            }
+        })
+    }
 
-                    let int = expr.into_int_value();
-                    let zero = self.context.i64_type().const_zero();
-
-                    self.builder
-                        .build_int_compare(inkwell::IntPredicate::EQ, zero, int, "tmpnot")
-                        .const_unsigned_to_float(self.context.f64_type())
-                        .const_to_signed_int(self.context.i64_type())
-                        .into()
-                }
-                ast::Operator::Minus => {
-                    let expr = self.gen_expr(&*prefix_expr.right)?;
-                    if !expr.is_int_value() {
-                        return Err(Error::DifferentType(
-                            "IntValue".to_string(),
-                            get_type_string(&expr),
-                        )
-                        .into());
-                    }
-                    let int = expr.into_int_value();
-                    self.builder.build_int_neg(int, "tmpneg").into()
-                }
-                unknown => return Err(Error::UnknownInfixOperator(unknown.clone()).into()),
-            },
-            ast::Expr::If(if_expr) => {
-                let parent = self.fn_value();
-                let zero = self.context.i64_type().const_zero();
-
-                let cond = self.gen_expr(&*if_expr.cond)?;
-                if !cond.is_int_value() {
+    fn gen_prefix_expr(&mut self, prefix_expr: &ast::PrefixExpr) -> Result<BasicValueEnum<'ctx>> {
+        Ok(match &prefix_expr.ope {
+            ast::Operator::Bang => {
+                let expr = self.gen_expr(&*prefix_expr.right)?;
+                if !expr.is_int_value() {
                     return Err(Error::DifferentType(
                         "IntValue".to_string(),
-                        get_type_string(&cond),
+                        get_type_string(&expr),
                     )
                     .into());
                 }
-                let cond = cond.into_int_value();
-                let cond =
-                    self.builder
-                        .build_int_compare(inkwell::IntPredicate::NE, cond, zero, "ifcond");
 
-                // build branch
-                let then_bb = self.context.append_basic_block(parent, "then");
-                let else_bb = self.context.append_basic_block(parent, "else");
-                let cont_bb = self.context.append_basic_block(parent, "ifcont");
+                let int = expr.into_int_value();
+                let zero = self.context.i64_type().const_zero();
 
                 self.builder
-                    .build_conditional_branch(cond, then_bb, else_bb);
-
-                let ast::If {
-                    consequence,
-                    alternative,
-                    ..
-                } = if_expr;
-
-                // build then block
-                self.builder.position_at_end(then_bb);
-                let then_val = self.gen_stmt(&consequence.to_owned().into())?;
-                self.builder.build_unconditional_branch(cont_bb);
-
-                let then_bb = self.builder.get_insert_block().unwrap();
-
-                // build else block
-                self.builder.position_at_end(else_bb);
-                let else_val = if let Some(alternative) = alternative {
-                    self.gen_stmt(&alternative.clone().into())?
-                } else {
-                    zero.into()
-                };
-                self.builder.build_unconditional_branch(cont_bb);
-
-                let else_bb = self.builder.get_insert_block().unwrap();
-
-                // emit merge block
-                self.builder.position_at_end(cont_bb);
-
-                let phi = self.builder.build_phi(self.context.i64_type(), "iftmp");
-
-                phi.add_incoming(&[(&then_val, then_bb), (&else_val, else_bb)]);
-
-                phi.as_basic_value()
+                    .build_int_compare(inkwell::IntPredicate::EQ, zero, int, "tmpnot")
+                    .const_unsigned_to_float(self.context.f64_type())
+                    .const_to_signed_int(self.context.i64_type())
+                    .into()
             }
+            ast::Operator::Minus => {
+                let expr = self.gen_expr(&*prefix_expr.right)?;
+                if !expr.is_int_value() {
+                    return Err(Error::DifferentType(
+                        "IntValue".to_string(),
+                        get_type_string(&expr),
+                    )
+                    .into());
+                }
+                let int = expr.into_int_value();
+                self.builder.build_int_neg(int, "tmpneg").into()
+            }
+            unknown => return Err(Error::UnknownInfixOperator(unknown.clone()).into()),
+        })
+    }
+
+    fn gen_if(&mut self, if_expr: &ast::If) -> Result<BasicValueEnum<'ctx>> {
+        let parent = self.fn_value();
+        let zero = self.context.i64_type().const_zero();
+
+        let cond = self.gen_expr(&*if_expr.cond)?;
+        if !cond.is_int_value() {
+            return Err(
+                Error::DifferentType("IntValue".to_string(), get_type_string(&cond)).into(),
+            );
+        }
+        let cond = cond.into_int_value();
+        let cond = self
+            .builder
+            .build_int_compare(inkwell::IntPredicate::NE, cond, zero, "ifcond");
+
+        // build branch
+        let then_bb = self.context.append_basic_block(parent, "then");
+        let else_bb = self.context.append_basic_block(parent, "else");
+        let cont_bb = self.context.append_basic_block(parent, "ifcont");
+
+        self.builder
+            .build_conditional_branch(cond, then_bb, else_bb);
+
+        let ast::If {
+            consequence,
+            alternative,
+            ..
+        } = if_expr;
+
+        // build then block
+        self.builder.position_at_end(then_bb);
+        let then_val = self.gen_stmt(&consequence.to_owned().into())?;
+        self.builder.build_unconditional_branch(cont_bb);
+
+        let then_bb = self.builder.get_insert_block().unwrap();
+
+        // build else block
+        self.builder.position_at_end(else_bb);
+        let else_val = if let Some(alternative) = alternative {
+            self.gen_stmt(&alternative.clone().into())?
+        } else {
+            zero.into()
+        };
+        self.builder.build_unconditional_branch(cont_bb);
+
+        let else_bb = self.builder.get_insert_block().unwrap();
+
+        // emit merge block
+        self.builder.position_at_end(cont_bb);
+
+        let phi = self.builder.build_phi(self.context.i64_type(), "iftmp");
+
+        phi.add_incoming(&[(&then_val, then_bb), (&else_val, else_bb)]);
+
+        Ok(phi.as_basic_value())
+    }
+
+    fn gen_expr(&mut self, expr: &ast::Expr) -> Result<BasicValueEnum<'ctx>> {
+        Ok(match expr {
+            ast::Expr::Integer(int) => self.gen_int(int).into(),
+            ast::Expr::StringLit(string) => self.gen_string(string).into(),
+            ast::Expr::Char(c) => self.gen_char(c).into(),
+            ast::Expr::Identifier(id) => self.gen_identifier(id)?,
+            ast::Expr::Array(arr) => self.gen_array(arr)?.into(),
+            ast::Expr::InfixExpr(infix_expr) => self.gen_infix_expr(infix_expr)?,
+            ast::Expr::PrefixExpr(prefix_expr) => self.gen_prefix_expr(prefix_expr)?,
+            ast::Expr::If(if_expr) => self.gen_if(if_expr)?,
             _ => unimplemented!(),
         })
     }

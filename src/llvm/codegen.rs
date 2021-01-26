@@ -127,7 +127,12 @@ fn to_string(ptr: *const i64, length: i64, primitive_type: PrimitiveType) -> Res
             match val {
                 0 => "false",
                 1 => "true",
-                other => return Err(anyhow::anyhow!("Bug: range out boolean. {}", other)),
+                other => {
+                    return Err(anyhow::anyhow!(
+                        "Bug: Out of range of Boolean values. {}",
+                        other
+                    ))
+                }
             }
             .to_string()
         }

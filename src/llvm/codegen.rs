@@ -689,13 +689,21 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 }
 
                 let int = expr.into_int_value();
-                let zero = self.context.i64_type().const_zero();
+                if int.get_type().get_bit_width() == 1 {
+                    let zero = self.context.bool_type().const_zero();
 
-                self.builder
-                    .build_int_compare(inkwell::IntPredicate::EQ, zero, int, "tmpnot")
-                    .const_unsigned_to_float(self.context.f64_type())
-                    .const_to_signed_int(self.context.i64_type())
-                    .into()
+                    self.builder
+                        .build_int_compare(inkwell::IntPredicate::EQ, zero, int, "tmpnot")
+                        .into()
+                } else {
+                    let zero = self.context.i64_type().const_zero();
+
+                    self.builder
+                        .build_int_compare(inkwell::IntPredicate::EQ, zero, int, "tmpnot")
+                        .const_unsigned_to_float(self.context.f64_type())
+                        .const_to_signed_int(self.context.i64_type())
+                        .into()
+                }
             }
             ast::Operator::Minus => {
                 let expr = self.gen_expr(&*prefix_expr.right)?;
@@ -899,6 +907,10 @@ mod tests {
             ("!!10", "1"),
             ("let a = 10; !a", "0"),
             ("let a = 10; !!a", "1"),
+            ("!true", "false"),
+            ("!false", "true"),
+            ("!!true", "true"),
+            ("!!false", "false"),
         ];
         run_llvm_tests(tests);
     }

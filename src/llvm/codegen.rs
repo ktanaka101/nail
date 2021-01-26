@@ -316,12 +316,19 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                     BasicValueEnum::IntValue(i) => {
                         let ptr = self.builder.build_alloca(i.get_type(), "alloca_i");
                         self.builder.build_store(ptr, i);
-
-                        (
-                            ptr,
-                            self.context.i64_type().const_int(1, false),
-                            PrimitiveType::Integer,
-                        )
+                        if i.get_type().get_bit_width() == 1 {
+                            (
+                                ptr,
+                                self.context.i64_type().const_int(1, false),
+                                PrimitiveType::Boolean,
+                            )
+                        } else {
+                            (
+                                ptr,
+                                self.context.i64_type().const_int(1, false),
+                                PrimitiveType::Integer,
+                            )
+                        }
                     }
                     BasicValueEnum::VectorValue(vec) => {
                         let ptr = self.builder.build_alloca(vec.get_type(), "test");
@@ -585,6 +592,10 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             .const_int(int.value.try_into().unwrap(), false)
     }
 
+    fn gen_boolean(&self, b: &ast::Boolean) -> IntValue<'ctx> {
+        self.context.bool_type().const_int(b.value.into(), false)
+    }
+
     fn gen_string(&self, string: &ast::StringLit) -> VectorValue<'ctx> {
         self.context.const_string(string.value.as_bytes(), false)
     }
@@ -757,6 +768,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
     fn gen_expr(&mut self, expr: &ast::Expr) -> Result<BasicValueEnum<'ctx>> {
         Ok(match expr {
             ast::Expr::Integer(int) => self.gen_int(int).into(),
+            ast::Expr::Boolean(b) => self.gen_boolean(b).into(),
             ast::Expr::StringLit(string) => self.gen_string(string).into(),
             ast::Expr::Char(c) => self.gen_char(c).into(),
             ast::Expr::Identifier(id) => self.gen_identifier(id)?,
@@ -779,6 +791,12 @@ mod tests {
     #[test]
     fn test_number_literal() {
         let tests = vec![("10", "10"), ("20", "20"), ("-10", "-10"), ("-20", "-20")];
+        run_llvm_tests(tests);
+    }
+
+    #[test]
+    fn test_boolean_literal() {
+        let tests = vec![("true", "true"), ("false", "false")];
         run_llvm_tests(tests);
     }
 

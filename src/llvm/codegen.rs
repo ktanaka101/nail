@@ -32,6 +32,7 @@ enum PrimitiveType {
     IntegerArray = 3,
     CharArray = 4,
     String = 5,
+    Boolean = 6,
 }
 
 impl TryFrom<i8> for PrimitiveType {
@@ -44,6 +45,7 @@ impl TryFrom<i8> for PrimitiveType {
             3 => PrimitiveType::IntegerArray,
             4 => PrimitiveType::CharArray,
             5 => PrimitiveType::String,
+            6 => PrimitiveType::Boolean,
             other => {
                 return Err(anyhow::format_err!(
                     "Expected 1, 2, 3, 4, 5. Received {}",
@@ -60,8 +62,8 @@ impl Into<u64> for PrimitiveType {
     }
 }
 
-fn to_string(ptr: *const i64, length: i64, primitive_type: PrimitiveType) -> String {
-    match primitive_type {
+fn to_string(ptr: *const i64, length: i64, primitive_type: PrimitiveType) -> Result<String> {
+    Ok(match primitive_type {
         PrimitiveType::Integer => {
             let ptr: *const i64 = ptr.cast();
             let int = unsafe { *ptr as i64 };
@@ -118,25 +120,36 @@ fn to_string(ptr: *const i64, length: i64, primitive_type: PrimitiveType) -> Str
 
             String::from_utf8(bytes).unwrap()
         }
-    }
+        PrimitiveType::Boolean => {
+            let ptr: *const i8 = ptr.cast();
+            let val = unsafe { *ptr as i8 };
+
+            match val {
+                0 => "false",
+                1 => "true",
+                other => return Err(anyhow::anyhow!("Bug: range out boolean. {}", other)),
+            }
+            .to_string()
+        }
+    })
 }
 
 #[no_mangle]
 extern "C" fn puts(ptr: *const i64, length: i64, primitive_type: i8) {
-    let s = to_string(ptr, length, primitive_type.try_into().unwrap());
+    let s = to_string(ptr, length, primitive_type.try_into().unwrap()).unwrap();
     println!("{}", s);
 }
 
 #[no_mangle]
 extern "C" fn to_file(ptr: *const i64, length: i64, primitive_type: i8, file_name_suffix: i64) {
-    let s = to_string(ptr, length, primitive_type.try_into().unwrap());
+    let s = to_string(ptr, length, primitive_type.try_into().unwrap()).unwrap();
     let mut file = File::create(format!("output/{}.output", file_name_suffix)).unwrap();
     file.write_all(s.as_bytes()).unwrap();
 }
 
 #[no_mangle]
 extern "C" fn return_to_string(ptr: *const i64, length: i64, primitive_type: i8) -> *const i8 {
-    let s = to_string(ptr, length, primitive_type.try_into().unwrap());
+    let s = to_string(ptr, length, primitive_type.try_into().unwrap()).unwrap();
     let s = CString::new(s).unwrap();
     s.into_raw()
 }

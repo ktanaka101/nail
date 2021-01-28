@@ -14,6 +14,7 @@ impl TypeResolver for ast::Expr {
             ast::Expr::Integer(int) => int.resolve_type(),
             ast::Expr::Char(c) => c.resolve_type(),
             ast::Expr::StringLit(s) => s.resolve_type(),
+            ast::Expr::Identifier(id) => id.resolve_type(),
             _need_resolve_expr => unimplemented!(),
         }
     }
@@ -58,6 +59,12 @@ impl TypeResolver for ast::Integer {
 impl TypeResolver for ast::StringLit {
     fn resolve_type(&self) -> Option<ast::Type> {
         Some(ast::Type::String)
+    }
+}
+
+impl TypeResolver for ast::Identifier {
+    fn resolve_type(&self) -> Option<ast::Type> {
+        self.mtype.clone()
     }
 }
 
@@ -112,5 +119,20 @@ mod tests {
     fn resolve_type_by_string() {
         let string = ast::StringLit { value: "".into() };
         assert_eq!(string.resolve_type(), Some(ast::Type::String));
+    }
+
+    #[test]
+    fn resolve_type_by_identifier() {
+        let id = ast::Identifier {
+            value: "".into(),
+            mtype: Some(ast::Type::Array),
+        };
+        assert_eq!(id.resolve_type(), Some(ast::Type::Array));
+
+        let id = ast::Identifier {
+            value: "".into(),
+            mtype: None,
+        };
+        assert_eq!(id.resolve_type(), None);
     }
 }

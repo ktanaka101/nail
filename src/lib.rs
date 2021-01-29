@@ -12,3 +12,4 @@ pub mod normalizer;
 pub mod parser;
 pub mod repl;
 pub mod type_checker;
+pub mod type_inferencer;

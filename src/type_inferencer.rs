@@ -10,7 +10,7 @@ pub enum Error {}
 
 impl TypeInferencer {
     pub fn new() -> Self {
-        Self {}
+        Self::default()
     }
 
     pub fn inference(&self, _node: &ast::Node) -> Result<()> {

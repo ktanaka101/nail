@@ -1,11 +1,13 @@
-use std::convert::TryInto;
+use std::{collections::HashMap, convert::TryInto};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 
 use crate::parser::ast;
 
 #[derive(Default)]
-pub struct TypeInferencer {}
+pub struct TypeInferencer {
+    type_table: HashMap<String, Option<ast::Type>>,
+}
 
 #[derive(thiserror::Error, Debug, Clone)]
 pub enum Error {}
@@ -15,7 +17,7 @@ impl TypeInferencer {
         Self::default()
     }
 
-    pub fn inference(&self, node: ast::Node) -> Result<ast::Node> {
+    pub fn inference(&mut self, node: ast::Node) -> Result<ast::Node> {
         match node {
             ast::Node::Program(mut prg) => {
                 prg.statements = prg
@@ -28,12 +30,31 @@ impl TypeInferencer {
             ast::Node::Stmt(stmt) => match stmt {
                 ast::Stmt::Let(mut mlet) => {
                     mlet.name.mtype = self.inference_expr(&mlet.value)?;
+                    self.type_table
+                        .insert(mlet.name.value.clone(), mlet.name.mtype.clone());
                     Ok(ast::Stmt::from(mlet).into())
+                }
+                ast::Stmt::ExprStmt(mut expr_stmt) => {
+                    match expr_stmt.expr {
+                        ast::Expr::Identifier(ref mut id) => {
+                            id.mtype = self.inference_identifier(id)?;
+                        }
+                        _other => unimplemented!(),
+                    };
+                    Ok(ast::Stmt::from(expr_stmt).into())
                 }
                 other => Ok(other.into()),
             },
             other => Ok(other),
         }
+    }
+
+    pub fn inference_identifier(&self, id: &ast::Identifier) -> Result<Option<ast::Type>> {
+        let ty = self
+            .type_table
+            .get(&id.value)
+            .ok_or_else(|| anyhow!("Undefined identifier by {}", id.value))?;
+        Ok(ty.to_owned())
     }
 
     pub fn inference_expr(&self, expr: &ast::Expr) -> Result<Option<ast::Type>> {
@@ -45,6 +66,7 @@ impl TypeInferencer {
             ast::Expr::Hash(_) => ast::Type::Hash,
             ast::Expr::Integer(_) => ast::Type::Integer,
             ast::Expr::StringLit(_) => ast::Type::String,
+            ast::Expr::Identifier(id) => return self.inference_identifier(id),
             _other => unimplemented!(),
         }))
     }
@@ -108,7 +130,7 @@ mod tests {
             (r#"let a = "aaa""#, Some(ast::Type::String)),
         ];
 
-        parse_each(tests, |type_inferencer, program, input, expected| {
+        parse_each(tests, |mut type_inferencer, program, input, expected| {
             let result_node: ast::Program =
                 type_inferencer.inference(program.into())?.try_into()?;
 
@@ -125,6 +147,54 @@ mod tests {
                         make_err_msg(input, &expected, &None)
                     );
                 }
+                other => panic_err(
+                    input,
+                    &expected,
+                    &Some(anyhow!("expected ExprStmt. actual: {}", other)),
+                ),
+            }
+
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn inference_identifier_type() {
+        let tests = vec![
+            ("let a = [1, 2, 3]\n a", Some(ast::Type::Array)),
+            ("let a = true\n a", Some(ast::Type::Boolean)),
+            ("let a = false\n a", Some(ast::Type::Boolean)),
+            ("let a = || { }\n a", Some(ast::Type::Function)),
+            ("let a = { 1: 2 }\n a", Some(ast::Type::Hash)),
+            ("let a = 1\n a", Some(ast::Type::Integer)),
+            ("let a = 'a'\n a", Some(ast::Type::Char)),
+            ("let a = \"aaa\"\n a", Some(ast::Type::String)),
+        ];
+
+        parse_each(tests, |mut type_inferencer, program, input, expected| {
+            let result_node: ast::Program =
+                type_inferencer.inference(program.into())?.try_into()?;
+
+            assert!(
+                result_node.statements.len() == 2,
+                make_err_msg(input, &expected, &None)
+            );
+            match &result_node.statements[1] {
+                ast::Stmt::ExprStmt(expr_stmt) => match &expr_stmt.expr {
+                    ast::Expr::Identifier(id) => {
+                        assert_eq!(
+                            &id.mtype,
+                            expected,
+                            "{}",
+                            make_err_msg(input, &expected, &None)
+                        );
+                    }
+                    other => panic_err(
+                        input,
+                        &expected,
+                        &Some(anyhow!("expected Identifier. actual: {}", other)),
+                    ),
+                },
                 other => panic_err(
                     input,
                     &expected,

@@ -17,19 +17,19 @@ impl TypeInferencer {
         Self::default()
     }
 
-    pub fn inference(&mut self, node: ast::Node) -> Result<ast::Node> {
+    pub fn infer(&mut self, node: ast::Node) -> Result<ast::Node> {
         match node {
             ast::Node::Program(mut prg) => {
                 prg.statements = prg
                     .statements
                     .into_iter()
-                    .map(|stmt| self.inference(stmt.into()).unwrap().try_into().unwrap())
+                    .map(|stmt| self.infer(stmt.into()).unwrap().try_into().unwrap())
                     .collect::<Vec<_>>();
                 Ok(prg.into())
             }
             ast::Node::Stmt(stmt) => match stmt {
                 ast::Stmt::Let(mut mlet) => {
-                    mlet.name.mtype = self.inference_expr(&mlet.value)?;
+                    mlet.name.mtype = self.infer_expr(&mlet.value)?;
                     self.type_table
                         .insert(mlet.name.value.clone(), mlet.name.mtype.clone());
                     Ok(ast::Stmt::from(mlet).into())
@@ -37,7 +37,7 @@ impl TypeInferencer {
                 ast::Stmt::ExprStmt(mut expr_stmt) => {
                     match expr_stmt.expr {
                         ast::Expr::Identifier(ref mut id) => {
-                            id.mtype = self.inference_identifier(id)?;
+                            id.mtype = self.infer_identifier(id)?;
                         }
                         _other => unimplemented!(),
                     };
@@ -49,7 +49,7 @@ impl TypeInferencer {
         }
     }
 
-    pub fn inference_identifier(&self, id: &ast::Identifier) -> Result<Option<ast::Type>> {
+    pub fn infer_identifier(&self, id: &ast::Identifier) -> Result<Option<ast::Type>> {
         let ty = self
             .type_table
             .get(&id.value)
@@ -57,7 +57,7 @@ impl TypeInferencer {
         Ok(ty.to_owned())
     }
 
-    pub fn inference_expr(&self, expr: &ast::Expr) -> Result<Option<ast::Type>> {
+    pub fn infer_expr(&self, expr: &ast::Expr) -> Result<Option<ast::Type>> {
         Ok(Some(match &expr {
             ast::Expr::Array(_) => ast::Type::Array,
             ast::Expr::Boolean(_) => ast::Type::Boolean,
@@ -66,7 +66,7 @@ impl TypeInferencer {
             ast::Expr::Hash(_) => ast::Type::Hash,
             ast::Expr::Integer(_) => ast::Type::Integer,
             ast::Expr::StringLit(_) => ast::Type::String,
-            ast::Expr::Identifier(id) => return self.inference_identifier(id),
+            ast::Expr::Identifier(id) => return self.infer_identifier(id),
             _other => unimplemented!(),
         }))
     }
@@ -101,7 +101,7 @@ mod tests {
                 ast::Stmt::ExprStmt(expr_stmt) => {
                     assert_eq!(
                         &type_inferencer
-                            .inference_expr(&expr_stmt.expr)
+                            .infer_expr(&expr_stmt.expr)
                             .unwrap_or_else(|e| panic_err(input, &expected, &Some(e))),
                         expected
                     );
@@ -131,8 +131,7 @@ mod tests {
         ];
 
         parse_each(tests, |mut type_inferencer, program, input, expected| {
-            let result_node: ast::Program =
-                type_inferencer.inference(program.into())?.try_into()?;
+            let result_node: ast::Program = type_inferencer.infer(program.into())?.try_into()?;
 
             assert!(
                 result_node.statements.len() == 1,
@@ -172,8 +171,7 @@ mod tests {
         ];
 
         parse_each(tests, |mut type_inferencer, program, input, expected| {
-            let result_node: ast::Program =
-                type_inferencer.inference(program.into())?.try_into()?;
+            let result_node: ast::Program = type_inferencer.infer(program.into())?.try_into()?;
 
             assert!(
                 result_node.statements.len() == 2,

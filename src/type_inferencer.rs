@@ -39,13 +39,26 @@ impl TypeInferencer {
                         ast::Expr::Identifier(ref mut id) => {
                             id.mtype = self.infer_identifier(id)?;
                         }
+                        ast::Expr::If(ref mut r#if) => {
+                            let ty = self.infer_if(r#if)?;
+                            r#if.r#type = ty;
+                        }
                         _other => unimplemented!(),
                     };
                     Ok(ast::Stmt::from(expr_stmt).into())
                 }
                 other => Ok(other.into()),
             },
-            other => Ok(other),
+            ast::Node::Expr(mut expr) => {
+                match expr {
+                    ast::Expr::If(ref mut r#if) => {
+                        let ty = self.infer_if(r#if)?;
+                        r#if.r#type = ty;
+                    }
+                    _other => unimplemented!(),
+                }
+                Ok(expr.into())
+            }
         }
     }
 
@@ -67,8 +80,48 @@ impl TypeInferencer {
             ast::Expr::Integer(_) => ast::Type::Integer,
             ast::Expr::StringLit(_) => ast::Type::String,
             ast::Expr::Identifier(id) => return self.infer_identifier(id),
+            ast::Expr::If(r#if) => return self.infer_if(r#if),
             _other => unimplemented!(),
         }))
+    }
+
+    fn infer_stmt(&self, stmt: &ast::Stmt) -> Result<Option<ast::Type>> {
+        Ok(match stmt {
+            ast::Stmt::Let(_) => Some(ast::Type::Never),
+            ast::Stmt::Return(_) => Some(ast::Type::Never),
+            ast::Stmt::Block(b) => {
+                let stmt = &b.last_stmt();
+                if let Some(stmt) = stmt {
+                    self.infer_stmt(stmt)?
+                } else {
+                    None
+                }
+            }
+            ast::Stmt::ExprStmt(es) => self.infer_expr(&es.expr)?,
+        })
+    }
+
+    pub fn infer_block(&self, block: &ast::Block) -> Result<Option<ast::Type>> {
+        let stmt = block.last_stmt();
+
+        if let Some(ref stmt) = stmt {
+            self.infer_stmt(stmt)
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn infer_if(&self, r#if: &ast::If) -> Result<Option<ast::Type>> {
+        let consequence_type = self.infer_block(&r#if.consequence)?;
+
+        if let Some(alternative) = &r#if.alternative {
+            Ok(Some(ast::Type::Union(vec![
+                consequence_type.unwrap(),
+                self.infer_block(alternative).unwrap().unwrap(),
+            ])))
+        } else {
+            Ok(consequence_type)
+        }
     }
 }
 
@@ -168,6 +221,43 @@ mod tests {
             ("let a = 1\n a", Some(ast::Type::Integer)),
             ("let a = 'a'\n a", Some(ast::Type::Char)),
             ("let a = \"aaa\"\n a", Some(ast::Type::String)),
+            (
+                r#"
+                    let a = if true {
+                        10
+                    } else {
+                        15
+                    }
+                    a
+                "#,
+                Some(ast::Type::Union(vec![
+                    ast::Type::Integer,
+                    ast::Type::Integer,
+                ])),
+            ),
+            (
+                r#"
+                    let a = if true {
+                        10
+                    } else {
+                        "xxx"
+                    }
+                    a
+                "#,
+                Some(ast::Type::Union(vec![
+                    ast::Type::Integer,
+                    ast::Type::String,
+                ])),
+            ),
+            (
+                r#"
+                    let a = if true {
+                        10
+                    }
+                    a
+                "#,
+                Some(ast::Type::Integer),
+            ),
         ];
 
         parse_each(tests, |mut type_inferencer, program, input, expected| {
@@ -191,6 +281,79 @@ mod tests {
                         input,
                         &expected,
                         &Some(anyhow!("expected Identifier. actual: {}", other)),
+                    ),
+                },
+                other => panic_err(
+                    input,
+                    &expected,
+                    &Some(anyhow!("expected ExprStmt. actual: {}", other)),
+                ),
+            }
+
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn inference_if_type() {
+        let tests = vec![
+            (
+                r#"
+                    if true {
+                        10
+                    }
+                "#,
+                Some(ast::Type::Integer),
+            ),
+            (
+                r#"
+                    if true {
+                        10
+                    } else {
+                        "xxx"
+                    }
+                "#,
+                Some(ast::Type::Union(vec![
+                    ast::Type::Integer,
+                    ast::Type::String,
+                ])),
+            ),
+            (
+                r#"
+                    if true {
+                        10
+                    } else {
+                        15
+                    }
+                "#,
+                Some(ast::Type::Union(vec![
+                    ast::Type::Integer,
+                    ast::Type::Integer,
+                ])),
+            ),
+        ];
+
+        parse_each(tests, |mut type_inferencer, program, input, expected| {
+            let result_node: ast::Program = type_inferencer.infer(program.into())?.try_into()?;
+
+            assert!(
+                result_node.statements.len() == 1,
+                make_err_msg(input, &expected, &None)
+            );
+            match &result_node.statements[0] {
+                ast::Stmt::ExprStmt(expr_stmt) => match &expr_stmt.expr {
+                    ast::Expr::If(r#if) => {
+                        assert_eq!(
+                            &r#if.r#type,
+                            expected,
+                            "{}",
+                            format!("input: {}\nexpected: {:?}", input, expected)
+                        );
+                    }
+                    other => panic_err(
+                        input,
+                        &expected,
+                        &Some(anyhow!("expected If. actual: {}", other)),
                     ),
                 },
                 other => panic_err(

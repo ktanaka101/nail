@@ -5,6 +5,12 @@ pub struct Block {
     pub statements: Vec<Stmt>,
 }
 
+impl Block {
+    pub fn last_stmt(&self) -> Option<Stmt> {
+        Some(self.statements.last()?.to_owned())
+    }
+}
+
 impl Display for Block {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(

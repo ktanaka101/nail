@@ -5,6 +5,7 @@ pub struct If {
     pub cond: Box<Expr>,
     pub consequence: Block,
     pub alternative: Option<Block>,
+    pub r#type: Option<Type>,
 }
 
 impl Display for If {

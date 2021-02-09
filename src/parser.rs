@@ -308,6 +308,7 @@ impl Parser {
             cond,
             consequence,
             alternative,
+            r#type: None,
         })
     }
 

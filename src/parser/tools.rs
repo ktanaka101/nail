@@ -225,6 +225,7 @@ mod tests {
                     alternative: Some(Block {
                         statements: vec![ExprStmt { expr: one() }.into()],
                     }),
+                    r#type: None,
                 })
                 .into(),
                 Expr::from(If {
@@ -235,6 +236,7 @@ mod tests {
                     alternative: Some(Block {
                         statements: vec![ExprStmt { expr: two() }.into()],
                     }),
+                    r#type: None,
                 })
                 .into(),
             ),

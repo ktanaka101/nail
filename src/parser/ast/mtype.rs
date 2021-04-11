@@ -101,111 +101,207 @@ mod tests {
 
     #[test]
     fn test_compress() {
-        let union_type = Type::new_union(vec![Type::Integer]);
+        let union_type = Type::Union(vec![Type::Integer].into_iter().collect());
         assert_eq!(union_type.compress(), Type::Integer);
 
-        let union_type = Type::new_union(vec![Type::Integer, Type::Integer]);
+        let union_type = Type::Union(vec![Type::Integer, Type::Integer].into_iter().collect());
         assert_eq!(union_type.compress(), Type::Integer);
 
-        let union_type = Type::new_union(vec![Type::Integer, Type::String, Type::Integer]);
+        let union_type = Type::Union(
+            vec![Type::Integer, Type::String, Type::Integer]
+                .into_iter()
+                .collect(),
+        );
         assert_eq!(
             union_type.compress(),
-            Type::new_union(vec![Type::Integer, Type::String]),
+            Type::Union(vec![Type::Integer, Type::String].into_iter().collect()),
         );
 
-        let union_type = Type::new_union(vec![
-            Type::Integer,
-            Type::String,
-            Type::new_union(vec![Type::Integer, Type::Char]),
-        ]);
-        assert_eq!(
-            union_type.compress(),
-            Type::new_union(vec![Type::Integer, Type::String, Type::Char]),
-        );
-
-        let union_type = Type::new_union(vec![
-            Type::Integer,
-            Type::String,
-            Type::new_union(vec![
+        let union_type = Type::Union(
+            vec![
                 Type::Integer,
-                Type::Char,
-                Type::new_union(vec![Type::Integer, Type::Char, Type::Boolean]),
-            ]),
-            Type::new_union(vec![Type::Integer, Type::Char]),
-        ]);
+                Type::String,
+                Type::Union(vec![Type::Integer, Type::Char].into_iter().collect()),
+            ]
+            .into_iter()
+            .collect(),
+        );
         assert_eq!(
             union_type.compress(),
-            Type::new_union(vec![Type::Boolean, Type::Integer, Type::String, Type::Char]),
+            Type::Union(
+                vec![Type::Integer, Type::String, Type::Char]
+                    .into_iter()
+                    .collect()
+            ),
         );
 
-        let union_type = Type::new_union(vec![Type::Integer, Type::new_union(vec![Type::Integer])]);
-        assert_eq!(union_type.compress(), Type::Integer);
-
-        let union_type = Type::new_union(vec![
-            Type::Integer,
-            Type::new_union(vec![Type::Integer, Type::new_union(vec![Type::Integer])]),
-        ]);
-        assert_eq!(union_type.compress(), Type::Integer);
-
-        let union_type = Type::new_union(vec![
-            Type::Integer,
-            Type::new_union(vec![
+        let union_type = Type::Union(
+            vec![
                 Type::Integer,
-                Type::new_union(vec![Type::new_union(vec![Type::Integer])]),
-            ]),
-        ]);
+                Type::String,
+                Type::Union(
+                    vec![
+                        Type::Integer,
+                        Type::Char,
+                        Type::Union(
+                            vec![Type::Integer, Type::Char, Type::Boolean]
+                                .into_iter()
+                                .collect(),
+                        ),
+                    ]
+                    .into_iter()
+                    .collect(),
+                ),
+                Type::Union(vec![Type::Integer, Type::Char].into_iter().collect()),
+            ]
+            .into_iter()
+            .collect(),
+        );
+        assert_eq!(
+            union_type.compress(),
+            Type::Union(
+                vec![Type::Boolean, Type::Integer, Type::String, Type::Char]
+                    .into_iter()
+                    .collect()
+            ),
+        );
+
+        let union_type = Type::Union(
+            vec![
+                Type::Integer,
+                Type::Union(vec![Type::Integer].into_iter().collect()),
+            ]
+            .into_iter()
+            .collect(),
+        );
         assert_eq!(union_type.compress(), Type::Integer);
 
-        let union_type = Type::new_union(vec![Type::new_union(vec![Type::new_union(vec![
-            Type::new_union(vec![Type::Integer]),
-        ])])]);
+        let union_type = Type::Union(
+            vec![
+                Type::Integer,
+                Type::Union(
+                    vec![
+                        Type::Integer,
+                        Type::Union(vec![Type::Integer].into_iter().collect()),
+                    ]
+                    .into_iter()
+                    .collect(),
+                ),
+            ]
+            .into_iter()
+            .collect(),
+        );
+        assert_eq!(union_type.compress(), Type::Integer);
+
+        let union_type = Type::Union(
+            vec![
+                Type::Integer,
+                Type::Union(
+                    vec![
+                        Type::Integer,
+                        Type::Union(
+                            vec![Type::Union(vec![Type::Integer].into_iter().collect())]
+                                .into_iter()
+                                .collect(),
+                        ),
+                    ]
+                    .into_iter()
+                    .collect(),
+                ),
+            ]
+            .into_iter()
+            .collect(),
+        );
+        assert_eq!(union_type.compress(), Type::Integer);
+
+        let union_type = Type::Union(
+            vec![Type::Union(
+                vec![Type::Union(
+                    vec![Type::Union(vec![Type::Integer].into_iter().collect())]
+                        .into_iter()
+                        .collect(),
+                )]
+                .into_iter()
+                .collect(),
+            )]
+            .into_iter()
+            .collect(),
+        );
         assert_eq!(union_type.compress(), Type::Integer);
     }
 
     #[test]
     fn test_type_fmt() {
         // basic
-        let union_type = Type::new_union(vec![Type::Integer, Type::String]);
+        let union_type = Type::Union(vec![Type::Integer, Type::String].into_iter().collect());
         assert_eq!(union_type.to_string(), "Integer | String");
 
         // duplicate type
-        let union_type = Type::new_union(vec![Type::Integer, Type::String, Type::Integer]);
+        let union_type = Type::Union(
+            vec![Type::Integer, Type::String, Type::Integer]
+                .into_iter()
+                .collect(),
+        );
         assert_eq!(union_type.to_string(), "Integer | String");
 
         // nested union
-        let union_type = Type::new_union(vec![
-            Type::Integer,
-            Type::String,
-            Type::new_union(vec![Type::Char, Type::Boolean]),
-        ]);
+        let union_type = Type::Union(
+            vec![
+                Type::Integer,
+                Type::String,
+                Type::Union(vec![Type::Char, Type::Boolean].into_iter().collect()),
+            ]
+            .into_iter()
+            .collect(),
+        );
         assert_eq!(union_type.to_string(), "Boolean | Integer | Char | String");
 
         // duplicate nested union
-        let union_type = Type::new_union(vec![
-            Type::Integer,
-            Type::String,
-            Type::new_union(vec![Type::Integer, Type::String]),
-        ]);
+        let union_type = Type::Union(
+            vec![
+                Type::Integer,
+                Type::String,
+                Type::Union(vec![Type::Integer, Type::String].into_iter().collect()),
+            ]
+            .into_iter()
+            .collect(),
+        );
         assert_eq!(union_type.to_string(), "Integer | String");
 
         // duplicate nested union
-        let union_type = Type::new_union(vec![
-            Type::Integer,
-            Type::String,
-            Type::new_union(vec![Type::Integer, Type::Char]),
-        ]);
+        let union_type = Type::Union(
+            vec![
+                Type::Integer,
+                Type::String,
+                Type::Union(vec![Type::Integer, Type::Char].into_iter().collect()),
+            ]
+            .into_iter()
+            .collect(),
+        );
         assert_eq!(union_type.to_string(), "Integer | Char | String");
 
-        let union_type = Type::new_union(vec![
-            Type::Integer,
-            Type::String,
-            Type::new_union(vec![
+        let union_type = Type::Union(
+            vec![
                 Type::Integer,
-                Type::Char,
-                Type::new_union(vec![Type::Integer, Type::Char, Type::Boolean]),
-            ]),
-            Type::new_union(vec![Type::Integer, Type::Char]),
-        ]);
+                Type::String,
+                Type::Union(
+                    vec![
+                        Type::Integer,
+                        Type::Char,
+                        Type::Union(
+                            vec![Type::Integer, Type::Char, Type::Boolean]
+                                .into_iter()
+                                .collect(),
+                        ),
+                    ]
+                    .into_iter()
+                    .collect(),
+                ),
+                Type::Union(vec![Type::Integer, Type::Char].into_iter().collect()),
+            ]
+            .into_iter()
+            .collect(),
+        );
         assert_eq!(union_type.to_string(), "Boolean | Integer | Char | String");
     }
 }

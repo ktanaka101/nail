@@ -56,9 +56,9 @@ impl TryFrom<i8> for PrimitiveType {
     }
 }
 
-impl Into<u64> for PrimitiveType {
-    fn into(self) -> u64 {
-        self as u64
+impl From<PrimitiveType> for u64 {
+    fn from(value: PrimitiveType) -> Self {
+        value as u64
     }
 }
 

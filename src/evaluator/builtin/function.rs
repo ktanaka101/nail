@@ -75,7 +75,7 @@ impl Function {
             Self::Last => last(args),
             Self::Rest => rest(args),
             Self::Push => push(args),
-            Self::Puts => puts(args),
+            Self::Puts => Ok(puts(args)),
         }
     }
 }
@@ -203,9 +203,9 @@ fn push(args: &[object::Object]) -> Result<Option<object::Object>> {
     }
 }
 
-fn puts(args: &[object::Object]) -> Result<Option<object::Object>> {
+fn puts(args: &[object::Object]) -> Option<object::Object> {
     for arg in args.iter() {
         println!("{}", arg);
     }
-    Ok(None)
+    None
 }

@@ -115,7 +115,7 @@ impl TypeInferencer {
         let consequence_type = self.infer_block(&r#if.consequence)?;
 
         if let Some(alternative) = &r#if.alternative {
-            Ok(Some(ast::Type::Union(vec![
+            Ok(Some(ast::Type::new_union(vec![
                 consequence_type.unwrap(),
                 self.infer_block(alternative).unwrap().unwrap(),
             ])))
@@ -230,10 +230,7 @@ mod tests {
                     }
                     a
                 "#,
-                Some(ast::Type::Union(vec![
-                    ast::Type::Integer,
-                    ast::Type::Integer,
-                ])),
+                Some(ast::Type::new_union(vec![ast::Type::Integer])),
             ),
             (
                 r#"
@@ -244,7 +241,7 @@ mod tests {
                     }
                     a
                 "#,
-                Some(ast::Type::Union(vec![
+                Some(ast::Type::new_union(vec![
                     ast::Type::Integer,
                     ast::Type::String,
                 ])),
@@ -313,7 +310,7 @@ mod tests {
                         "xxx"
                     }
                 "#,
-                Some(ast::Type::Union(vec![
+                Some(ast::Type::new_union(vec![
                     ast::Type::Integer,
                     ast::Type::String,
                 ])),
@@ -326,7 +323,7 @@ mod tests {
                         15
                     }
                 "#,
-                Some(ast::Type::Union(vec![
+                Some(ast::Type::new_union(vec![
                     ast::Type::Integer,
                     ast::Type::Integer,
                 ])),

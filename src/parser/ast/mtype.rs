@@ -17,27 +17,39 @@ pub enum Type {
 
 impl Type {
     pub fn new_union(v: Vec<Type>) -> Type {
-        Type::Union(v.into_iter().collect())
+        if v.is_empty() {
+            panic!("arg is empty vec.")
+        }
+
+        Type::Union(v.into_iter().collect()).compress()
     }
 
     fn compress(&self) -> Type {
         match self {
-            Type::Union(types) => {
-                let mut type_set = std::collections::BTreeSet::<Type>::new();
+            Type::Union(types) => match types.len() {
+                0 => panic!("types is empty."),
+                1 => types.iter().next().unwrap().compress(),
+                _ => {
+                    let mut type_set = std::collections::BTreeSet::<Type>::new();
 
-                types.iter().for_each(|ty| match ty.compress() {
-                    Type::Union(types) => {
-                        types.into_iter().for_each(|ty| {
-                            type_set.insert(ty.compress());
-                        });
-                    }
-                    other => {
-                        type_set.insert(other.compress());
-                    }
-                });
+                    types.iter().for_each(|ty| match ty.compress() {
+                        Type::Union(types) => {
+                            types.into_iter().for_each(|ty| {
+                                type_set.insert(ty.compress());
+                            });
+                        }
+                        other => {
+                            type_set.insert(other.compress());
+                        }
+                    });
 
-                Type::Union(type_set)
-            }
+                    match type_set.len() {
+                        0 => unreachable!(),
+                        1 => types.iter().next().unwrap().to_owned(),
+                        _ => Type::Union(type_set),
+                    }
+                }
+            },
             other => other.clone(),
         }
     }
@@ -89,17 +101,17 @@ mod tests {
 
     #[test]
     fn test_compress() {
+        let union_type = Type::new_union(vec![Type::Integer]);
+        assert_eq!(union_type.compress(), Type::Integer);
+
         let union_type = Type::new_union(vec![Type::Integer, Type::Integer]);
-        assert_eq!(union_type.compress(), Type::new_union(vec![Type::Integer]));
+        assert_eq!(union_type.compress(), Type::Integer);
 
         let union_type = Type::new_union(vec![Type::Integer, Type::String, Type::Integer]);
         assert_eq!(
             union_type.compress(),
             Type::new_union(vec![Type::Integer, Type::String]),
         );
-
-        let union_type = Type::new_union(vec![Type::Integer, Type::new_union(vec![Type::Integer])]);
-        assert_eq!(union_type.compress(), Type::new_union(vec![Type::Integer]));
 
         let union_type = Type::new_union(vec![
             Type::Integer,
@@ -125,6 +137,29 @@ mod tests {
             union_type.compress(),
             Type::new_union(vec![Type::Boolean, Type::Integer, Type::String, Type::Char]),
         );
+
+        let union_type = Type::new_union(vec![Type::Integer, Type::new_union(vec![Type::Integer])]);
+        assert_eq!(union_type.compress(), Type::Integer);
+
+        let union_type = Type::new_union(vec![
+            Type::Integer,
+            Type::new_union(vec![Type::Integer, Type::new_union(vec![Type::Integer])]),
+        ]);
+        assert_eq!(union_type.compress(), Type::Integer);
+
+        let union_type = Type::new_union(vec![
+            Type::Integer,
+            Type::new_union(vec![
+                Type::Integer,
+                Type::new_union(vec![Type::new_union(vec![Type::Integer])]),
+            ]),
+        ]);
+        assert_eq!(union_type.compress(), Type::Integer);
+
+        let union_type = Type::new_union(vec![Type::new_union(vec![Type::new_union(vec![
+            Type::new_union(vec![Type::Integer]),
+        ])])]);
+        assert_eq!(union_type.compress(), Type::Integer);
     }
 
     #[test]

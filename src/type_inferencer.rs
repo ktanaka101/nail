@@ -323,10 +323,7 @@ mod tests {
                         15
                     }
                 "#,
-                Some(ast::Type::new_union(vec![
-                    ast::Type::Integer,
-                    ast::Type::Integer,
-                ])),
+                Some(ast::Type::Integer),
             ),
         ];
 

@@ -181,6 +181,37 @@ mod tests {
             ("let a = 1", Some(ast::Type::Integer)),
             ("let a = 'a'", Some(ast::Type::Char)),
             (r#"let a = "aaa""#, Some(ast::Type::String)),
+            (
+                r#"
+                    let a = if true {
+                        10
+                    } else {
+                        15
+                    }
+                "#,
+                Some(ast::Type::new_union(vec![ast::Type::Integer])),
+            ),
+            (
+                r#"
+                    let a = if true {
+                        10
+                    } else {
+                        "xxx"
+                    }
+                "#,
+                Some(ast::Type::new_union(vec![
+                    ast::Type::Integer,
+                    ast::Type::String,
+                ])),
+            ),
+            (
+                r#"
+                    let a = if true {
+                        10
+                    }
+                "#,
+                Some(ast::Type::Integer),
+            ),
         ];
 
         parse_each(tests, |mut type_inferencer, program, input, expected| {

@@ -77,26 +77,26 @@ impl History {
 }
 
 pub enum Interface {
-    TTY,
-    STD,
+    Tty,
+    Std,
 }
 
 pub enum Executer {
     Evaluator,
-    LLVM(Interface),
+    Llvm(Interface),
 }
 
 pub fn start(executer: Executer) {
     match executer {
         Executer::Evaluator => start_evaluator(),
-        Executer::LLVM(interface) => start_llvm(interface),
+        Executer::Llvm(interface) => start_llvm(interface),
     }
 }
 
 fn start_llvm(interface: Interface) {
     match interface {
-        Interface::STD => start_llvm_on_std(),
-        Interface::TTY => start_llvm_on_tty(),
+        Interface::Std => start_llvm_on_std(),
+        Interface::Tty => start_llvm_on_tty(),
     }
 }
 

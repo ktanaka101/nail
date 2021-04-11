@@ -478,10 +478,13 @@ pub fn define_macros(program: &mut ast::Program, env: Rc<RefCell<Environment>>) 
 }
 
 fn is_macro_definition(stmt: &ast::Stmt) -> bool {
-    match stmt {
-        ast::Stmt::Let(ast::Let { value, .. }) => matches!(value, ast::Expr::MacroLit(_)),
-        _ => false,
-    }
+    matches!(
+        stmt,
+        ast::Stmt::Let(ast::Let {
+            value: ast::Expr::MacroLit(_),
+            ..
+        })
+    )
 }
 
 fn add_macro(stmt: &ast::Stmt, env: Rc<RefCell<Environment>>) -> Result<()> {
@@ -756,7 +759,7 @@ mod tests {
                         assert_eq!(o.params[0].to_string(), expected_params);
                         assert_eq!(o.body.to_string(), expected_body);
                     }
-                    o => panic!(format!("expected Function. received {}", o)),
+                    o => panic!("expected Function. received {}", o),
                 }
             },
         );
@@ -1052,7 +1055,7 @@ mod tests {
                 assert_integer_object(o.elements[2].clone(), expected3);
                 assert_integer_array_object(o.elements[3].clone(), expected4)
             }
-            o => panic!(format!("expected Array, received {:?}.", o)),
+            o => panic!("expected Array, received {:?}.", o),
         }
 
         let tests = vec![
@@ -1176,7 +1179,7 @@ mod tests {
                         assert_integer_object(value.clone(), expected_value);
                     });
             }
-            o => panic!(format!("expected Hash. received {:?}", o)),
+            o => panic!("expected Hash. received {:?}", o),
         }
     }
 
@@ -1211,7 +1214,7 @@ mod tests {
             let evaluated = eval(input);
             match evaluated {
                 object::Object::Quote(o) => assert_eq!(o.to_string(), expected),
-                o => panic!(format!("expected Quote. received {:?}", o)),
+                o => panic!("expected Quote. received {:?}", o),
             }
         });
     }
@@ -1252,7 +1255,7 @@ mod tests {
             let evaluated = eval(input);
             match evaluated {
                 object::Object::Quote(o) => assert_eq!(o.to_string(), expected),
-                o => panic!(format!("expected Quote. received {:?}", o)),
+                o => panic!("expected Quote. received {:?}", o),
             }
         });
     }
@@ -1284,7 +1287,7 @@ mod tests {
 
         let m_macro = match obj.unwrap() {
             object::Object::Macro(m) => m,
-            obj => panic!(format!("expect Macro. received {}", obj)),
+            obj => panic!("expect Macro. received {}", obj),
         };
 
         assert_eq!(m_macro.params.len(), 2);
@@ -1411,21 +1414,21 @@ mod tests {
     fn assert_integer_object(obj: object::Object, expected: i64) {
         match obj {
             object::Object::Integer(o) => assert_eq!(o.value, expected),
-            o => panic!(format!("expected Integer. received {:?}", o)),
+            o => panic!("expected Integer. received {:?}", o),
         }
     }
 
     fn assert_boolean_object(obj: object::Object, expected: bool) {
         match obj {
             object::Object::Boolean(o) => assert_eq!(o.value, expected),
-            o => panic!(format!("expected Boolean. received {:?}", o)),
+            o => panic!("expected Boolean. received {:?}", o),
         }
     }
 
     fn assert_null_object(obj: object::Object) {
         match obj {
             object::Object::Null(_) => (),
-            o => panic!(format!("expected Null. received {:?}", o)),
+            o => panic!("expected Null. received {:?}", o),
         }
     }
 
@@ -1436,7 +1439,7 @@ mod tests {
     fn assert_string_object(obj: object::Object, expected: &str) {
         match obj {
             object::Object::StringLit(o) => assert_eq!(o.value, expected),
-            o => panic!(format!("expected StringLit. received {:?}", o)),
+            o => panic!("expected StringLit. received {:?}", o),
         }
     }
 
@@ -1450,10 +1453,10 @@ mod tests {
                     .zip(o.elements)
                     .for_each(|(expected, ele)| match ele {
                         object::Object::Integer(o) => assert_eq!(o.value, expected),
-                        o => panic!(format!("expected Array<Integer>. received {:?}", o)),
+                        o => panic!("expected Array<Integer>. received {:?}", o),
                     })
             }
-            o => panic!(format!("expected Array<Integer>. received {:?}", o)),
+            o => panic!("expected Array<Integer>. received {:?}", o),
         }
     }
 
@@ -1467,10 +1470,10 @@ mod tests {
                     .zip(o.elements)
                     .for_each(|(expected, ele)| match ele {
                         object::Object::StringLit(o) => assert_eq!(o.value, expected),
-                        o => panic!(format!("expected Array<Integer>. received {:?}", o)),
+                        o => panic!("expected Array<Integer>. received {:?}", o),
                     })
             }
-            o => panic!(format!("expected Array<Integer>. received {:?}", o)),
+            o => panic!("expected Array<Integer>. received {:?}", o),
         }
     }
 }

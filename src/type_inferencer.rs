@@ -148,6 +148,7 @@ mod tests {
         parse_each(tests, |type_inferencer, result_node, input, expected| {
             assert!(
                 result_node.statements.len() == 1,
+                "{}",
                 make_err_msg(input, &expected, &None)
             );
             match &result_node.statements[0] {
@@ -220,6 +221,7 @@ mod tests {
 
             assert!(
                 result_node.statements.len() == 1,
+                "{}",
                 make_err_msg(input, &expected, &None)
             );
             match &result_node.statements[0] {
@@ -295,6 +297,7 @@ mod tests {
 
             assert!(
                 result_node.statements.len() == 2,
+                "{}",
                 make_err_msg(input, &expected, &None)
             );
             match &result_node.statements[1] {
@@ -366,6 +369,7 @@ mod tests {
 
             assert!(
                 result_node.statements.len() == 1,
+                "{}",
                 make_err_msg(input, &expected, &None)
             );
             match &result_node.statements[0] {
@@ -412,7 +416,7 @@ mod tests {
         expected: &Option<ast::Type>,
         err: &Option<anyhow::Error>,
     ) -> ! {
-        panic!(make_err_msg(input, expected, err))
+        std::panic::panic_any(make_err_msg(input, expected, err))
     }
 
     fn make_err_msg(

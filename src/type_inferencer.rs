@@ -81,6 +81,11 @@ impl TypeInferencer {
             ast::Expr::StringLit(_) => ast::Type::String,
             ast::Expr::Identifier(id) => return self.infer_identifier(id),
             ast::Expr::If(r#if) => return self.infer_if(r#if),
+            ast::Expr::Index(_) => {
+                // TODO: typble
+                return Ok(None);
+            }
+
             _other => unimplemented!(),
         }))
     }
@@ -143,6 +148,7 @@ mod tests {
             ("1", Some(ast::Type::Integer)),
             ("'a'", Some(ast::Type::Char)),
             (r#""aaa""#, Some(ast::Type::String)),
+            ("[1, 2][0]", None),
         ];
 
         parse_each(tests, |type_inferencer, result_node, input, expected| {
@@ -213,6 +219,18 @@ mod tests {
                     }
                 "#,
                 Some(ast::Type::Integer),
+            ),
+            (
+                r#"
+                    let a = [1, 2][0]
+                "#,
+                None,
+            ),
+            (
+                r#"
+                    let a = { 1: "a", 2: "b" }[0]
+                "#,
+                None,
             ),
         ];
 
@@ -289,6 +307,20 @@ mod tests {
                     a
                 "#,
                 Some(ast::Type::Integer),
+            ),
+            (
+                r#"
+                    let a = [1, 2][0]
+                    a
+                "#,
+                None,
+            ),
+            (
+                r#"
+                    let a = { 1: "a", 2: "b" }[0]
+                    a
+                "#,
+                None,
             ),
         ];
 

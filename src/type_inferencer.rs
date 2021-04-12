@@ -85,7 +85,6 @@ impl TypeInferencer {
                 // TODO: typble
                 return Ok(None);
             }
-
             _other => unimplemented!(),
         }))
     }

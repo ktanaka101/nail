@@ -49,16 +49,7 @@ impl TypeInferencer {
                 }
                 other => Ok(other.into()),
             },
-            ast::Node::Expr(mut expr) => {
-                match expr {
-                    ast::Expr::If(ref mut r#if) => {
-                        let ty = self.infer_if(r#if)?;
-                        r#if.r#type = ty;
-                    }
-                    _other => unimplemented!(),
-                }
-                Ok(expr.into())
-            }
+            ast::Node::Expr(_) => unreachable!(),
         }
     }
 

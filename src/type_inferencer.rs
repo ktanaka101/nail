@@ -28,28 +28,79 @@ impl TypeInferencer {
                 Ok(prg.into())
             }
             ast::Node::Stmt(stmt) => match stmt {
+                ast::Stmt::Block(mut block) => {
+                    let inferred_statements = block
+                        .statements
+                        .iter()
+                        .map(|stmt| self.infer(stmt.to_owned().into())?.try_into())
+                        .collect::<Result<Vec<ast::Stmt>>>()?;
+                    block.statements = inferred_statements;
+
+                    Ok(ast::Stmt::from(block).into())
+                }
                 ast::Stmt::Let(mut mlet) => {
+                    let infered_value = self.infer(mlet.value.into())?;
+                    let expr: ast::Expr = infered_value.try_into()?;
+                    mlet.value = expr;
                     mlet.name.mtype = self.infer_expr(&mlet.value)?;
                     self.type_table
                         .insert(mlet.name.value.clone(), mlet.name.mtype.clone());
                     Ok(ast::Stmt::from(mlet).into())
                 }
                 ast::Stmt::ExprStmt(mut expr_stmt) => {
-                    match expr_stmt.expr {
-                        ast::Expr::Identifier(ref mut id) => {
-                            id.mtype = self.infer_identifier(id)?;
-                        }
-                        ast::Expr::If(ref mut r#if) => {
-                            let ty = self.infer_if(r#if)?;
-                            r#if.r#type = ty;
-                        }
-                        _other => unimplemented!(),
+                    let inferred_expr: ast::Expr = {
+                        let node = self.infer(expr_stmt.expr.clone().into())?;
+                        node.try_into()?
                     };
+                    expr_stmt.expr = inferred_expr;
                     Ok(ast::Stmt::from(expr_stmt).into())
                 }
                 other => Ok(other.into()),
             },
-            ast::Node::Expr(_) => unreachable!(),
+            ast::Node::Expr(expr) => match expr {
+                ast::Expr::If(mut r#if) => {
+                    let inferred_consequence: ast::Block = {
+                        let stmt: ast::Stmt = self
+                            .infer(ast::Stmt::from(r#if.consequence.clone()).into())?
+                            .try_into()?;
+                        stmt.try_into()?
+                    };
+                    r#if.consequence = inferred_consequence;
+
+                    if let Some(alternative) = &r#if.alternative {
+                        let inferred_alternative: ast::Block = {
+                            let stmt: ast::Stmt = self
+                                .infer(ast::Stmt::from(alternative.clone()).into())?
+                                .try_into()?;
+                            stmt.try_into()?
+                        };
+                        r#if.alternative = Some(inferred_alternative);
+                    }
+
+                    let inferred_if_type = self.infer_if(&r#if).unwrap();
+                    r#if.r#type = inferred_if_type;
+
+                    Ok(ast::Expr::from(r#if).into())
+                }
+                ast::Expr::Identifier(mut id) => {
+                    let id_type = self.type_table.get(&id.value).unwrap().clone();
+                    id.mtype = id_type;
+
+                    Ok(ast::Expr::from(id).into())
+                }
+                ast::Expr::Array(_)
+                | ast::Expr::Boolean(_)
+                | ast::Expr::Call(_)
+                | ast::Expr::Char(_)
+                | ast::Expr::Hash(_)
+                | ast::Expr::Index(_)
+                | ast::Expr::InfixExpr(_)
+                | ast::Expr::Integer(_)
+                | ast::Expr::PrefixExpr(_)
+                | ast::Expr::StringLit(_)
+                | ast::Expr::Function(_) => Ok(expr.into()),
+                other => unimplemented!("{:?}", other),
+            },
         }
     }
 
@@ -221,6 +272,21 @@ mod tests {
                     let a = { 1: "a", 2: "b" }[0]
                 "#,
                 None,
+            ),
+            (
+                r#"
+                    let a = if true {
+                        let b = "xxx";
+                        b
+                    } else {
+                        10
+                    }
+                "#,
+                Some(ast::Type::Union(
+                    vec![ast::Type::Integer, ast::Type::String]
+                        .into_iter()
+                        .collect(),
+                )),
             ),
         ];
 

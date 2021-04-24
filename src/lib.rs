@@ -5,11 +5,11 @@ mod preludes {
     pub use std::fmt::{Display, Formatter};
 }
 
+pub mod ast_parser;
 pub mod evaluator;
 pub mod lexer;
 pub mod llvm;
 pub mod normalizer;
-pub mod parser;
 pub mod repl;
 pub mod type_checker;
 pub mod type_inferencer;

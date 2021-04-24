@@ -14,6 +14,7 @@ use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 
+use crate::ast_parser::Parser;
 use crate::evaluator::env::Environment;
 use crate::evaluator::object;
 use crate::evaluator::{define_macros, eval_node, expand_macros};
@@ -21,7 +22,6 @@ use crate::lexer::Lexer;
 use crate::llvm::codegen;
 use crate::llvm::codegen::Codegen;
 use crate::normalizer;
-use crate::parser::Parser;
 use crate::type_checker;
 
 const PROMPT: &str = ">> ";

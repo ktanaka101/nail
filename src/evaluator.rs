@@ -8,7 +8,7 @@ use std::rc::Rc;
 
 use anyhow::Result;
 
-use crate::parser::{ast, tools};
+use crate::ast_parser::{ast, tools};
 
 use crate::evaluator::builtin::{Function, FALSE, NULL, TRUE};
 use crate::evaluator::env::Environment;
@@ -1271,7 +1271,7 @@ mod tests {
         let env = Rc::new(RefCell::new(Environment::new(None)));
         let mut program = {
             let l = crate::lexer::Lexer::new(input.into());
-            let mut p = crate::parser::Parser::new(l);
+            let mut p = crate::ast_parser::Parser::new(l);
             p.parse_program().unwrap()
         };
 
@@ -1336,13 +1336,13 @@ mod tests {
         tests.into_iter().for_each(|(input, expected)| {
             let expected = {
                 let l = crate::lexer::Lexer::new(expected.into());
-                let mut p = crate::parser::Parser::new(l);
+                let mut p = crate::ast_parser::Parser::new(l);
                 p.parse_program().unwrap()
             };
 
             let mut program = {
                 let l = crate::lexer::Lexer::new(input.into());
-                let mut p = crate::parser::Parser::new(l);
+                let mut p = crate::ast_parser::Parser::new(l);
                 p.parse_program().unwrap()
             };
             let env = Rc::new(RefCell::new(Environment::new(None)));
@@ -1375,7 +1375,7 @@ mod tests {
         let env = Rc::new(RefCell::new(Environment::new(None)));
         let program = {
             let l = crate::lexer::Lexer::new(input.into());
-            let mut p = crate::parser::Parser::new(l);
+            let mut p = crate::ast_parser::Parser::new(l);
             p.parse_program().unwrap()
         };
 
@@ -1402,7 +1402,7 @@ mod tests {
 
     fn eval_non_check(input: &str) -> Result<object::Object> {
         let l = crate::lexer::Lexer::new(input.to_string());
-        let mut p = crate::parser::Parser::new(l);
+        let mut p = crate::ast_parser::Parser::new(l);
 
         let program = p.parse_program();
         let program = check_err_and_unrwap(program, input);

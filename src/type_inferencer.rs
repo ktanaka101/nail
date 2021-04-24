@@ -2,7 +2,7 @@ use std::{collections::HashMap, convert::TryInto};
 
 use anyhow::{anyhow, Result};
 
-use crate::parser::ast;
+use crate::ast_parser::ast;
 
 #[derive(Default)]
 pub struct TypeInferencer {
@@ -524,7 +524,7 @@ mod tests {
 
     fn run_parse(input: &str) -> Result<ast::Program> {
         let lexer = crate::lexer::Lexer::new(input.to_string());
-        let mut parser = crate::parser::Parser::new(lexer);
+        let mut parser = crate::ast_parser::Parser::new(lexer);
         parser.parse_program()
     }
 }

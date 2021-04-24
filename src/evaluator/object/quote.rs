@@ -1,4 +1,4 @@
-use crate::parser::ast::Node;
+use crate::ast_parser::ast::Node;
 
 use super::prelude::*;
 

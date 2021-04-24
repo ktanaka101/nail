@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::parser::ast;
+use crate::ast_parser::ast;
 
 #[derive(thiserror::Error, Debug, Clone)]
 pub enum Error {}

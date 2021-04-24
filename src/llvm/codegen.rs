@@ -16,7 +16,7 @@ use inkwell::values::{
 };
 use inkwell::AddressSpace;
 
-use crate::parser::ast;
+use crate::ast_parser::ast;
 
 type MainFunc = unsafe extern "C" fn() -> *mut i8;
 
@@ -798,8 +798,8 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
 mod tests {
     use super::*;
 
+    use crate::ast_parser;
     use crate::lexer;
-    use crate::parser;
 
     #[test]
     fn test_number_literal() {
@@ -1030,7 +1030,7 @@ mod tests {
                 .unwrap();
             let mut compiler = Codegen::new(&context, &module, &builder, &execution_engine);
             let lexer = lexer::Lexer::new(input.to_string());
-            let mut parser = parser::Parser::new(lexer);
+            let mut parser = ast_parser::Parser::new(lexer);
 
             let program = match parser.parse_program() {
                 Ok(p) => p,

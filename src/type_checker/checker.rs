@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::parser::ast;
+use crate::ast_parser::ast;
 
 #[derive(Default)]
 pub struct Checker {}

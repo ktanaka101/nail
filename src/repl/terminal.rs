@@ -4,7 +4,7 @@ use std::io::Write;
 
 pub struct Terminal {
     cursor_pos: Pos,
-    stdout: termion::raw::RawTerminal<io::Stdout>,
+    stdout: termion::screen::AlternateScreen<termion::raw::RawTerminal<io::Stdout>>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -35,6 +35,8 @@ pub enum MoveCursorAction {
 
 impl Terminal {
     pub fn new(stdout: termion::raw::RawTerminal<io::Stdout>) -> Terminal {
+        let stdout = termion::screen::AlternateScreen::from(stdout);
+
         Self {
             cursor_pos: Pos { row: 0, col: 0 },
             stdout,

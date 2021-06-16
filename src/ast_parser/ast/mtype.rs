@@ -12,6 +12,7 @@ pub enum Type {
     String,
     Union(BTreeSet<Type>),
     Custome(String),
+    Unit,
     Never,
 }
 
@@ -66,6 +67,7 @@ impl From<String> for Type {
             "Char" => Type::Char,
             "String" => Type::String,
             "Never" => Type::Never,
+            "()" => Type::Unit,
             name => Type::Custome(name.to_string()),
         }
     }
@@ -89,6 +91,7 @@ impl Display for Type {
                     types.join(" | ")
                 }
                 Type::Custome(name) => name,
+                Type::Unit => "()".to_string(),
                 Type::Never => "Never".to_string(),
             }
         )

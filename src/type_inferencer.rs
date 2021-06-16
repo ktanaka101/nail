@@ -166,7 +166,10 @@ impl TypeInferencer {
                 self.infer_block(alternative).unwrap().unwrap(),
             ])))
         } else {
-            Ok(consequence_type)
+            Ok(Some(ast::Type::new_union(vec![
+                consequence_type.unwrap(),
+                ast::Type::Unit,
+            ])))
         }
     }
 }
@@ -259,7 +262,11 @@ mod tests {
                         10
                     }
                 "#,
-                Some(ast::Type::Integer),
+                Some(ast::Type::Union(
+                    vec![ast::Type::Integer, ast::Type::Unit]
+                        .into_iter()
+                        .collect(),
+                )),
             ),
             (
                 r#"
@@ -362,7 +369,11 @@ mod tests {
                     }
                     a
                 "#,
-                Some(ast::Type::Integer),
+                Some(ast::Type::Union(
+                    vec![ast::Type::Integer, ast::Type::Unit]
+                        .into_iter()
+                        .collect(),
+                )),
             ),
             (
                 r#"
@@ -424,7 +435,11 @@ mod tests {
                         10
                     }
                 "#,
-                Some(ast::Type::Integer),
+                Some(ast::Type::Union(
+                    vec![ast::Type::Integer, ast::Type::Unit]
+                        .into_iter()
+                        .collect(),
+                )),
             ),
             (
                 r#"

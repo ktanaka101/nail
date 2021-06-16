@@ -1,5 +1,5 @@
 use nail::repl;
 
 fn main() {
-    repl::start(repl::Executer::Llvm(repl::Interface::Tty));
+    repl::start(repl::Executer::Llvm);
 }

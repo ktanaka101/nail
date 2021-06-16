@@ -76,108 +76,15 @@ impl History {
     }
 }
 
-pub enum Interface {
-    Tty,
-    Std,
-}
-
 pub enum Executer {
     Evaluator,
-    Llvm(Interface),
+    Llvm,
 }
 
 pub fn start(executer: Executer) {
     match executer {
         Executer::Evaluator => start_evaluator(),
-        Executer::Llvm(interface) => start_llvm(interface),
-    }
-}
-
-fn start_llvm(interface: Interface) {
-    match interface {
-        Interface::Std => start_llvm_on_std(),
-        Interface::Tty => start_llvm_on_tty(),
-    }
-}
-
-fn start_llvm_on_std() {
-    let mut inputs = "".to_string();
-
-    loop {
-        let context = Context::create();
-        let module = context.create_module("top");
-        let builder = context.create_builder();
-        let execution_engine = module
-            .create_jit_execution_engine(OptimizationLevel::None)
-            .unwrap();
-
-        let mut codegen = Codegen::new(&context, &module, &builder, &execution_engine);
-
-        print!("{}", PROMPT);
-        io::stdout().flush().unwrap();
-
-        let mut line = String::new();
-        if io::stdin().read_line(&mut line).is_err() || line == "\n" {
-            continue;
-        }
-        line.push(';');
-
-        let mut try_inputs = inputs.clone();
-        try_inputs.push('\n');
-        try_inputs.push_str(&line);
-
-        let lexer = Lexer::new(try_inputs.clone());
-        let mut parser = Parser::new(lexer);
-
-        let program = match parser.parse_program() {
-            Ok(p) => p,
-            Err(e) => {
-                println!("Parse error: {}", e);
-                continue;
-            }
-        };
-
-        let node = program.into();
-        {
-            let checker = type_checker::Checker::new();
-            match checker.check(&node) {
-                Ok(_) => (),
-                Err(e) => {
-                    println!("Type error: {}", e);
-                    continue;
-                }
-            }
-        }
-
-        let node = {
-            let normalizer = normalizer::Normalizer::new();
-            match normalizer.normalize(node) {
-                Ok(node) => node,
-                Err(e) => {
-                    println!("Normalization error: {}", e);
-                    continue;
-                }
-            }
-        };
-
-        let main_fn = match codegen.gen(&node, true, codegen::Output::CStringPtr) {
-            Ok(f) => f,
-            Err(e) => {
-                println!("LLVM error: {}", e);
-                continue;
-            }
-        };
-
-        let result_string = {
-            let c_string_ptr = unsafe { main_fn.call() };
-            unsafe { CString::from_raw(c_string_ptr) }
-                .into_string()
-                .unwrap()
-        };
-
-        println!("{}", result_string);
-
-        inputs = try_inputs.clone();
+        Executer::Llvm => start_llvm(),
     }
 }
 
@@ -217,7 +124,7 @@ fn llvm_run(code: &str) -> Result<String> {
     Ok(result_string)
 }
 
-fn start_llvm_on_tty() {
+fn start_llvm() {
     let stdin = io::stdin();
     let stdout = io::stdout().into_raw_mode().unwrap();
 

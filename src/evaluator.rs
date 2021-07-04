@@ -1279,11 +1279,11 @@ mod tests {
 
         assert_eq!(program.statements.len(), 2);
 
-        assert_eq!(env.borrow().get("number").is_none(), true);
-        assert_eq!(env.borrow().get("function").is_none(), true);
+        assert!(env.borrow().get("number").is_none());
+        assert!(env.borrow().get("function").is_none());
 
         let obj = env.borrow().get("mymacro");
-        assert_eq!(obj.is_some(), true);
+        assert!(obj.is_some());
 
         let m_macro = match obj.unwrap() {
             object::Object::Macro(m) => m,

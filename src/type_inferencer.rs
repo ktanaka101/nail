@@ -295,6 +295,22 @@ mod tests {
                         .collect(),
                 )),
             ),
+            (
+                r#"
+                    let a = if true {
+                        if true {
+                            "aaa"
+                        }
+                    } else {
+                        10
+                    }
+                "#,
+                Some(ast::Type::Union(
+                    vec![ast::Type::Integer, ast::Type::String, ast::Type::Unit]
+                        .into_iter()
+                        .collect(),
+                )),
+            ),
         ];
 
         parse_each(tests, |mut type_inferencer, program, input, expected| {

@@ -348,8 +348,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                                 ],
                                 "ptr",
                             )
-                        }
-                        .const_cast(self.context.i64_type().ptr_type(AddressSpace::Generic));
+                        };
 
                         let arr_size = self
                             .context
@@ -377,8 +376,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                                 ],
                                 "ptr",
                             )
-                        }
-                        .const_cast(self.context.i64_type().ptr_type(AddressSpace::Generic));
+                        };
 
                         let arr_size = self
                             .context

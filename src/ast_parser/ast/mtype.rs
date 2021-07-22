@@ -17,12 +17,13 @@ pub enum Type {
 }
 
 impl Type {
-    pub fn new_union(v: Vec<Type>) -> Type {
+    pub fn new_union(v: impl IntoIterator<Item = Type>) -> Type {
+        let v: BTreeSet<Type> = v.into_iter().collect();
         if v.is_empty() {
             panic!("arg is empty vec.")
         }
 
-        Type::Union(v.into_iter().collect()).compress()
+        Type::Union(v).compress()
     }
 
     fn compress(&self) -> Type {

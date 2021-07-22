@@ -250,11 +250,10 @@ mod tests {
                         "xxx"
                     }
                 "#,
-                Some(ast::Type::Union(
-                    vec![ast::Type::Integer, ast::Type::String]
-                        .into_iter()
-                        .collect(),
-                )),
+                Some(ast::Type::new_union(vec![
+                    ast::Type::Integer,
+                    ast::Type::String,
+                ])),
             ),
             (
                 r#"
@@ -262,11 +261,10 @@ mod tests {
                         10
                     }
                 "#,
-                Some(ast::Type::Union(
-                    vec![ast::Type::Integer, ast::Type::Unit]
-                        .into_iter()
-                        .collect(),
-                )),
+                Some(ast::Type::new_union(vec![
+                    ast::Type::Integer,
+                    ast::Type::Unit,
+                ])),
             ),
             (
                 r#"
@@ -289,11 +287,10 @@ mod tests {
                         10
                     }
                 "#,
-                Some(ast::Type::Union(
-                    vec![ast::Type::Integer, ast::Type::String]
-                        .into_iter()
-                        .collect(),
-                )),
+                Some(ast::Type::new_union(vec![
+                    ast::Type::Integer,
+                    ast::Type::String,
+                ])),
             ),
             (
                 r#"
@@ -305,11 +302,11 @@ mod tests {
                         10
                     }
                 "#,
-                Some(ast::Type::Union(
-                    vec![ast::Type::Integer, ast::Type::String, ast::Type::Unit]
-                        .into_iter()
-                        .collect(),
-                )),
+                Some(ast::Type::new_union(vec![
+                    ast::Type::Integer,
+                    ast::Type::String,
+                    ast::Type::Unit,
+                ])),
             ),
         ];
 
@@ -372,11 +369,10 @@ mod tests {
                     }
                     a
                 "#,
-                Some(ast::Type::Union(
-                    vec![ast::Type::Integer, ast::Type::String]
-                        .into_iter()
-                        .collect(),
-                )),
+                Some(ast::Type::new_union(vec![
+                    ast::Type::Integer,
+                    ast::Type::String,
+                ])),
             ),
             (
                 r#"
@@ -385,11 +381,10 @@ mod tests {
                     }
                     a
                 "#,
-                Some(ast::Type::Union(
-                    vec![ast::Type::Integer, ast::Type::Unit]
-                        .into_iter()
-                        .collect(),
-                )),
+                Some(ast::Type::new_union(vec![
+                    ast::Type::Integer,
+                    ast::Type::Unit,
+                ])),
             ),
             (
                 r#"
@@ -451,11 +446,10 @@ mod tests {
                         10
                     }
                 "#,
-                Some(ast::Type::Union(
-                    vec![ast::Type::Integer, ast::Type::Unit]
-                        .into_iter()
-                        .collect(),
-                )),
+                Some(ast::Type::new_union(vec![
+                    ast::Type::Integer,
+                    ast::Type::Unit,
+                ])),
             ),
             (
                 r#"
@@ -465,11 +459,10 @@ mod tests {
                         "xxx"
                     }
                 "#,
-                Some(ast::Type::Union(
-                    vec![ast::Type::Integer, ast::Type::String]
-                        .into_iter()
-                        .collect(),
-                )),
+                Some(ast::Type::new_union(vec![
+                    ast::Type::Integer,
+                    ast::Type::String,
+                ])),
             ),
             (
                 r#"

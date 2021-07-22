@@ -693,25 +693,21 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 }
 
                 let int = expr.into_int_value();
-                if int.get_type().get_bit_width() == 1 {
+                let val = if int.get_type().get_bit_width() == 1 {
                     let zero = self.context.bool_type().const_zero();
 
                     self.builder
                         .build_int_compare(inkwell::IntPredicate::EQ, zero, int, "tmpnot")
-                        .into()
                 } else {
                     let zero = self.context.i64_type().const_zero();
 
-                    let val = self.builder.build_int_compare(
-                        inkwell::IntPredicate::EQ,
-                        zero,
-                        int,
-                        "tmpnot",
-                    );
                     self.builder
-                        .build_int_z_extend(val, self.context.i64_type(), "i1_to_i64")
-                        .into()
-                }
+                        .build_int_compare(inkwell::IntPredicate::EQ, zero, int, "tmpnot")
+                };
+
+                self.builder
+                    .build_int_z_extend(val, self.context.i64_type(), "i1_to_i64")
+                    .into()
             }
             ast::Operator::Minus => {
                 let expr = self.gen_expr(&*prefix_expr.right)?;
@@ -915,10 +911,10 @@ mod tests {
             ("!!10", "1"),
             ("let a = 10; !a", "0"),
             ("let a = 10; !!a", "1"),
-            ("!true", "false"),
-            ("!false", "true"),
-            ("!!true", "true"),
-            ("!!false", "false"),
+            ("!true", "0"),
+            ("!false", "1"),
+            ("!!true", "1"),
+            ("!!false", "0"),
         ];
         run_llvm_tests(tests);
     }

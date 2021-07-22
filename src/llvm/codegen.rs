@@ -926,6 +926,8 @@ mod tests {
             ("if 0 { 10 } else { 20 }", "20"),
             ("if 1 { 10 }", "10"),
             ("if 2 { 10 } else { 20 }", "10"),
+            ("if true { 10 } else { 20 }", "10"),
+            ("if false { 10 } else { 20 }", "20"),
         ];
         run_llvm_tests(tests);
     }

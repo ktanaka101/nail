@@ -525,21 +525,27 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             ast::Operator::Minus => self.builder.build_int_sub(lv, rv, "tmpsub"),
             ast::Operator::Asterisk => self.builder.build_int_mul(lv, rv, "tmpmul"),
             ast::Operator::Slash => self.builder.build_int_signed_div(lv, rv, "tmpdiv"),
-            ast::Operator::Equal => self
-                .builder
-                .build_int_compare(inkwell::IntPredicate::EQ, lv, rv, "tmpeq")
-                .const_unsigned_to_float(self.context.f64_type())
-                .const_to_signed_int(self.context.i64_type()),
-            ast::Operator::Gt => self
-                .builder
-                .build_int_compare(inkwell::IntPredicate::SGT, lv, rv, "tmpgt")
-                .const_unsigned_to_float(self.context.f64_type())
-                .const_to_signed_int(self.context.i64_type()),
-            ast::Operator::Lt => self
-                .builder
-                .build_int_compare(inkwell::IntPredicate::SLT, lv, rv, "tmplt")
-                .const_unsigned_to_float(self.context.f64_type())
-                .const_to_signed_int(self.context.i64_type()),
+            ast::Operator::Equal => {
+                let val =
+                    self.builder
+                        .build_int_compare(inkwell::IntPredicate::EQ, lv, rv, "tmpeq");
+                self.builder
+                    .build_int_z_extend(val, self.context.i64_type(), "i1_to_i64")
+            }
+            ast::Operator::Gt => {
+                let val =
+                    self.builder
+                        .build_int_compare(inkwell::IntPredicate::SGT, lv, rv, "tmpgt");
+                self.builder
+                    .build_int_z_extend(val, self.context.i64_type(), "i1_to_i64")
+            }
+            ast::Operator::Lt => {
+                let val =
+                    self.builder
+                        .build_int_compare(inkwell::IntPredicate::SLT, lv, rv, "tmplt");
+                self.builder
+                    .build_int_z_extend(val, self.context.i64_type(), "i1_to_i64")
+            }
             _ => unimplemented!(),
         }
     }
@@ -696,10 +702,14 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 } else {
                     let zero = self.context.i64_type().const_zero();
 
+                    let val = self.builder.build_int_compare(
+                        inkwell::IntPredicate::EQ,
+                        zero,
+                        int,
+                        "tmpnot",
+                    );
                     self.builder
-                        .build_int_compare(inkwell::IntPredicate::EQ, zero, int, "tmpnot")
-                        .const_unsigned_to_float(self.context.f64_type())
-                        .const_to_signed_int(self.context.i64_type())
+                        .build_int_z_extend(val, self.context.i64_type(), "i1_to_i64")
                         .into()
                 }
             }

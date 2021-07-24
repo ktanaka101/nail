@@ -6,7 +6,6 @@ mod preludes {
 }
 
 pub mod ast_parser;
-pub mod evaluator;
 pub mod lexer;
 pub mod llvm;
 pub mod normalizer;

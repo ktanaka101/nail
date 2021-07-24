@@ -1,11 +1,8 @@
 mod terminal;
 
-use std::cell::RefCell;
 use std::convert::TryFrom;
 use std::ffi::CString;
 use std::io;
-use std::io::Write;
-use std::rc::Rc;
 
 use anyhow::Result;
 use inkwell::context::Context;
@@ -15,9 +12,6 @@ use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 
 use crate::ast_parser::Parser;
-use crate::evaluator::env::Environment;
-use crate::evaluator::object;
-use crate::evaluator::{define_macros, eval_node, expand_macros};
 use crate::lexer::Lexer;
 use crate::llvm::codegen;
 use crate::llvm::codegen::Codegen;
@@ -77,13 +71,11 @@ impl History {
 }
 
 pub enum Executer {
-    Evaluator,
     Llvm,
 }
 
 pub fn start(executer: Executer) {
     match executer {
-        Executer::Evaluator => start_evaluator(),
         Executer::Llvm => start_llvm(),
     }
 }
@@ -260,80 +252,6 @@ fn start_llvm() {
                 term.move_cursor(terminal::MoveCursorAction::Left(1));
             }
             _ => println!("Other"),
-        }
-    }
-}
-
-fn start_evaluator() {
-    let env = Rc::new(RefCell::new(Environment::new(None)));
-    let macro_env = Rc::new(RefCell::new(Environment::new(None)));
-
-    loop {
-        print!("{}", PROMPT);
-        io::stdout().flush().unwrap();
-
-        let mut line = String::new();
-        if io::stdin().read_line(&mut line).is_err() || line == "\n" {
-            continue;
-        }
-
-        let lexer = Lexer::new(line);
-        let mut parser = Parser::new(lexer);
-
-        let mut program = match parser.parse_program() {
-            Ok(p) => p,
-            Err(x) => {
-                println!("Parse error: {}", x);
-                continue;
-            }
-        };
-
-        let res = define_macros(&mut program, Rc::clone(&macro_env));
-        if let Err(e) = res {
-            println!("Define macro error: {}", e);
-            continue;
-        }
-
-        let expanded = match expand_macros(program.into(), Rc::clone(&macro_env)) {
-            Ok(expanded) => expanded,
-            Err(e) => {
-                println!("Expand macro error: {}", e);
-                continue;
-            }
-        };
-
-        let node = {
-            let normalizer = normalizer::Normalizer::new();
-            match normalizer.normalize(expanded) {
-                Ok(node) => node,
-                Err(e) => {
-                    println!("Normalization error: {}", e);
-                    continue;
-                }
-            }
-        };
-
-        {
-            let checker = type_checker::Checker::new();
-            match checker.check(&node) {
-                Ok(_) => (),
-                Err(e) => {
-                    println!("Type error: {}", e);
-                    continue;
-                }
-            }
-        }
-
-        let evaluated = eval_node(&node, Rc::clone(&env));
-        match evaluated {
-            Ok(o) => match o {
-                object::Object::Null(_) => continue,
-                o => println!("{}", o),
-            },
-            Err(e) => {
-                println!("Eval error: {}", e);
-                continue;
-            }
         }
     }
 }

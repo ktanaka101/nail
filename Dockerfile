@@ -50,3 +50,5 @@ RUN rustup component add rustfmt clippy rls rust-analysis rust-src
 
 # for CI
 FROM base AS ci
+
+RUN rustup component add rustfmt clippy

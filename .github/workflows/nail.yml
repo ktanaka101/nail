@@ -1,17 +1,19 @@
-name: Nail
+name: Nail CI
 
 on:
-  push:
-    branches: [ master ]
   pull_request:
-    branches: [ master ]
+    types:
+      - opened
+      - synchronize
+  push:
+    branches:
+      - master
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     container:
       image: docker.io/ktanaka101/nail-builder:latest
@@ -21,21 +23,21 @@ jobs:
         CARGO_BUILD_TARGET_DIR: /tmp/target
 
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - uses: actions/cache@v2
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          /tmp/target
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            /tmp/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-    - name: Select stable
-      run: rustup default stable
+      - name: Run format
+        run: cargo fmt -- --check
 
-    - name: Build
-      run: cargo build --verbose
+      - name: Run clippy
+        run: cargo clippy -- -D warnings
 
-    - name: Run tests
-      run: cargo test --verbose
+      - name: Run tests
+        run: cargo test --verbose

@@ -1,4 +1,4 @@
-FROM rust:slim AS base
+FROM rust:slim-bullseye AS base
 
 RUN apt-get update && apt-get -y upgrade
 
@@ -8,7 +8,7 @@ RUN apt-get install -y wget
 
 RUN wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
 
-RUN echo 'deb http://apt.llvm.org/buster/ llvm-toolchain-buster-11 main' >> /etc/apt/sources.list
+RUN echo 'deb http://apt.llvm.org/bullseye/ llvm-toolchain-bullseye-11 main' >> /etc/apt/sources.list
 
 RUN apt-get update
 

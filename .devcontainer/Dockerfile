@@ -43,3 +43,4 @@ ENV LLVM_SYS_111_PREFIX=/usr/lib/llvm-11
 
 # development tools
 RUN apt-get install -y git
+RUN rustup component add rustfmt clippy rls rust-analysis rust-src

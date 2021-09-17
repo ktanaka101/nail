@@ -780,7 +780,7 @@ mod tests {
         for (input, left, ope, right) in inputs.into_iter() {
             let program = test_parse(input);
             assert_eq!(program.statements.len(), 1);
-            test_infix_by_stmt(&program.statements[0], &left, &ope, &right);
+            test_infix_by_stmt(&program.statements[0], &left, ope, &right);
         }
     }
 
@@ -1262,7 +1262,7 @@ mod tests {
             panic!("Expect type is Expr::InfixExpr.");
         };
 
-        test_infix(&infix, l, o, r);
+        test_infix(infix, l, o, r);
     }
 
     fn test_infix_by_stmt(stmt: &Stmt, l: &Val, o: &str, r: &Val) {
@@ -1278,7 +1278,7 @@ mod tests {
             panic!("Expect type is Expr::InfixExpr");
         };
 
-        test_infix(&infix, &l, &o, &r);
+        test_infix(infix, l, o, r);
     }
 
     fn test_infix(infix: &ast::InfixExpr, l: &Val, o: &str, r: &Val) {
@@ -1300,7 +1300,7 @@ mod tests {
             panic!("Expect type is Expr::PrefixExpr");
         };
         test_operator(&prefix_expr.ope, ope);
-        test_expr(&prefix_expr.right, &r);
+        test_expr(&prefix_expr.right, r);
     }
 
     fn test_operator(ope: &ast::Operator, ope_s: &str) {
@@ -1389,7 +1389,7 @@ mod tests {
         } else {
             panic!("Expect type is Expr::Identifier");
         };
-        test_identifier(&identifier, literal, &ty);
+        test_identifier(identifier, literal, &ty);
     }
 
     fn test_interger_by_stmt(stmt: &Stmt, v: i64) {
@@ -1404,7 +1404,7 @@ mod tests {
         } else {
             panic!("Expect type is Expr::Integer");
         };
-        test_integer(&integer, v);
+        test_integer(integer, v);
     }
 
     fn test_integer(integer: &ast::Integer, v: i64) {

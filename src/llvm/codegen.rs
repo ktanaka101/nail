@@ -203,7 +203,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         execution_engine: &'a ExecutionEngine<'ctx>,
     ) -> Self {
         Codegen {
-            context: &context,
+            context,
             module,
             builder,
             execution_engine,

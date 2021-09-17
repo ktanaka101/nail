@@ -199,20 +199,20 @@ mod tests {
             assert!(
                 result_node.statements.len() == 1,
                 "{}",
-                make_err_msg(input, &expected, &None)
+                make_err_msg(input, expected, &None)
             );
             match &result_node.statements[0] {
                 ast::Stmt::ExprStmt(expr_stmt) => {
                     assert_eq!(
                         &type_inferencer
                             .infer_expr(&expr_stmt.expr)
-                            .unwrap_or_else(|e| panic_err(input, &expected, &Some(e))),
+                            .unwrap_or_else(|e| panic_err(input, expected, &Some(e))),
                         expected
                     );
                 }
                 other => panic_err(
                     input,
-                    &expected,
+                    expected,
                     &Some(anyhow!("expected ExprStmt. actual: {}", other)),
                 ),
             }
@@ -316,7 +316,7 @@ mod tests {
             assert!(
                 result_node.statements.len() == 1,
                 "{}",
-                make_err_msg(input, &expected, &None)
+                make_err_msg(input, expected, &None)
             );
             match &result_node.statements[0] {
                 ast::Stmt::Let(mlet) => {
@@ -324,12 +324,12 @@ mod tests {
                         &mlet.name.mtype,
                         expected,
                         "{}",
-                        make_err_msg(input, &expected, &None)
+                        make_err_msg(input, expected, &None)
                     );
                 }
                 other => panic_err(
                     input,
-                    &expected,
+                    expected,
                     &Some(anyhow!("expected ExprStmt. actual: {}", other)),
                 ),
             }
@@ -408,7 +408,7 @@ mod tests {
             assert!(
                 result_node.statements.len() == 2,
                 "{}",
-                make_err_msg(input, &expected, &None)
+                make_err_msg(input, expected, &None)
             );
             match &result_node.statements[1] {
                 ast::Stmt::ExprStmt(expr_stmt) => match &expr_stmt.expr {
@@ -417,18 +417,18 @@ mod tests {
                             &id.mtype,
                             expected,
                             "{}",
-                            make_err_msg(input, &expected, &None)
+                            make_err_msg(input, expected, &None)
                         );
                     }
                     other => panic_err(
                         input,
-                        &expected,
+                        expected,
                         &Some(anyhow!("expected Identifier. actual: {}", other)),
                     ),
                 },
                 other => panic_err(
                     input,
-                    &expected,
+                    expected,
                     &Some(anyhow!("expected ExprStmt. actual: {}", other)),
                 ),
             }
@@ -482,7 +482,7 @@ mod tests {
             assert!(
                 result_node.statements.len() == 1,
                 "{}",
-                make_err_msg(input, &expected, &None)
+                make_err_msg(input, expected, &None)
             );
             match &result_node.statements[0] {
                 ast::Stmt::ExprStmt(expr_stmt) => match &expr_stmt.expr {
@@ -496,13 +496,13 @@ mod tests {
                     }
                     other => panic_err(
                         input,
-                        &expected,
+                        expected,
                         &Some(anyhow!("expected If. actual: {}", other)),
                     ),
                 },
                 other => panic_err(
                     input,
-                    &expected,
+                    expected,
                     &Some(anyhow!("expected ExprStmt. actual: {}", other)),
                 ),
             }
@@ -518,7 +518,7 @@ mod tests {
         tests.into_iter().for_each(|(input, r#type)| {
             let program = run_parse(input).unwrap_or_else(|e| panic_err(input, &r#type, &Some(e)));
             let type_inferencer = TypeInferencer::new();
-            f(type_inferencer, program, &input, &r#type)
+            f(type_inferencer, program, input, &r#type)
                 .unwrap_or_else(|e| panic_err(input, &r#type, &Some(e)));
         });
     }

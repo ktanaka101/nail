@@ -3,6 +3,7 @@ mod terminal;
 use std::convert::TryFrom;
 use std::ffi::CString;
 use std::io;
+use std::os::raw::c_char;
 
 use anyhow::Result;
 use inkwell::context::Context;
@@ -108,7 +109,7 @@ fn llvm_run(code: &str) -> Result<String> {
 
     let result_string = {
         let c_string_ptr = unsafe { main_fn.call() };
-        unsafe { CString::from_raw(c_string_ptr) }
+        unsafe { CString::from_raw(c_string_ptr as *mut c_char) }
             .into_string()
             .unwrap()
     };

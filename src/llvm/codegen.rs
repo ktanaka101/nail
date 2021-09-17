@@ -3,6 +3,7 @@ use std::convert::{TryFrom, TryInto};
 use std::ffi::CString;
 use std::fs::File;
 use std::io::prelude::*;
+use std::os::raw::c_char;
 
 use anyhow::Result;
 use inkwell::builder::Builder;
@@ -153,7 +154,7 @@ extern "C" fn to_file(ptr: *const i64, length: i64, primitive_type: i8, file_nam
 }
 
 #[no_mangle]
-extern "C" fn return_to_string(ptr: *const i64, length: i64, primitive_type: i8) -> *const i8 {
+extern "C" fn return_to_string(ptr: *const i64, length: i64, primitive_type: i8) -> *const c_char {
     let s = to_string(ptr, length, primitive_type.try_into().unwrap()).unwrap();
     let s = CString::new(s).unwrap();
     s.into_raw()
@@ -800,6 +801,8 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
 
 #[cfg(test)]
 mod tests {
+    use std::os::raw::c_char;
+
     use super::*;
 
     use crate::ast_parser;
@@ -1050,7 +1053,7 @@ mod tests {
 
             let result_string = {
                 let c_string_ptr = unsafe { main_fn.call() };
-                unsafe { CString::from_raw(c_string_ptr) }
+                unsafe { CString::from_raw(c_string_ptr as *mut c_char) }
                     .into_string()
                     .unwrap()
             };

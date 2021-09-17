@@ -1,7 +1,8 @@
 {
   "name": "Nail",
   "build": {
-    "dockerfile": "Dockerfile"
+    "dockerfile": "../Dockerfile",
+    "target": "development"
   },
   "settings": {
     "lldb.executable": "/usr/bin/lldb",

@@ -1,4 +1,4 @@
-FROM rust:slim
+FROM rust:slim AS base
 
 RUN apt-get update && apt-get -y upgrade
 
@@ -40,3 +40,13 @@ ENV CARGO_BUILD_TARGET_DIR=/tmp/target
 # llvm
 ENV LLVM_SYS_111_STRICT_VERSIONING=111
 ENV LLVM_SYS_111_PREFIX=/usr/lib/llvm-11
+
+
+# for development
+FROM base AS development
+
+RUN apt-get install -y git
+RUN rustup component add rustfmt clippy rls rust-analysis rust-src
+
+# for CI
+FROM base AS ci

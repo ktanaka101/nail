@@ -1,7 +1,5 @@
-pub mod token;
-
 use crate::ast_parser;
-use token::Token;
+use crate::token::Token;
 
 #[derive(Debug)]
 pub struct Lexer {
@@ -53,7 +51,7 @@ impl ast_parser::Lexer for Lexer {
                 _ => {
                     if Self::is_letter(c) {
                         let literal = self.read_identifier();
-                        return token::lookup_ident(&literal);
+                        return lookup_ident(&literal);
                     } else if Self::is_digit(c) {
                         return Token::Int(self.read_number());
                     } else {
@@ -170,11 +168,37 @@ impl Lexer {
     }
 }
 
+fn lookup_ident(ident: &str) -> Token {
+    match ident {
+        "fn" => Token::Function,
+        "let" => Token::Let,
+        "true" => Token::True,
+        "false" => Token::False,
+        "if" => Token::If,
+        "else" => Token::Else,
+        "return" => Token::Return,
+        "macro" => Token::Macro,
+        id => Token::Ident(id.into()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::ast_parser::Lexer;
 
     use super::*;
+
+    #[test]
+    fn it_return_token() {
+        assert_eq!(lookup_ident("fn"), Token::Function);
+        assert_eq!(lookup_ident("let"), Token::Let);
+        assert_eq!(lookup_ident("true"), Token::True);
+        assert_eq!(lookup_ident("false"), Token::False);
+        assert_eq!(lookup_ident("if"), Token::If);
+        assert_eq!(lookup_ident("else"), Token::Else);
+        assert_eq!(lookup_ident("return"), Token::Return);
+        assert_eq!(lookup_ident("fna"), Token::Ident("fna".into()));
+    }
 
     #[test]
     fn return_tokens() {

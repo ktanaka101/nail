@@ -5,7 +5,7 @@ mod prelude {
 
     pub use anyhow::{Error, Result};
 
-    pub use crate::lexer::token::Token;
+    pub use crate::token::Token;
 
     pub use super::super::error::ParserError;
     pub use super::{

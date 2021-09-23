@@ -4,8 +4,7 @@ pub mod tools;
 
 use std::str::FromStr;
 
-use crate::lexer;
-use crate::lexer::token::Token;
+use crate::token::Token;
 
 use anyhow::Result;
 
@@ -611,6 +610,7 @@ impl<T: Lexer> Parser<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::lexer;
 
     struct Id<'a>(&'a str, Option<ast::Type>);
 

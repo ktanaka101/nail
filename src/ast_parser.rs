@@ -4,8 +4,8 @@ pub mod tools;
 
 use std::str::FromStr;
 
+use crate::lexer;
 use crate::lexer::token::Token;
-use crate::lexer::Lexer;
 
 use anyhow::Result;
 
@@ -43,8 +43,8 @@ impl From<&Token> for Priority {
 }
 
 #[derive(Debug)]
-pub struct Parser {
-    lexer: Lexer,
+pub struct Parser<T: Lexer> {
+    lexer: T,
     cur_token: Token,
     peek_token: Token,
     pub errors: Vec<String>,
@@ -73,8 +73,12 @@ fn token_to_operator(t: &Token) -> Result<ast::Operator> {
     })
 }
 
-impl Parser {
-    pub fn new(mut lexer: Lexer) -> Parser {
+pub trait Lexer {
+    fn next_token(&mut self) -> Token;
+}
+
+impl<T: Lexer> Parser<T> {
+    pub fn new(mut lexer: T) -> Parser<T> {
         Parser {
             cur_token: lexer.next_token(),
             peek_token: lexer.next_token(),
@@ -1422,7 +1426,7 @@ mod tests {
     }
 
     fn test_parse(input: &str) -> ast::Program {
-        let lexer = Lexer::new(input.to_string());
+        let lexer = lexer::Lexer::new(input.to_string());
         let mut parser = Parser::new(lexer);
         parser.parse_program().unwrap()
     }
@@ -1456,7 +1460,7 @@ mod tests {
 
     fn test_errors(tests: Vec<(&str, ParserError)>) {
         tests.into_iter().for_each(|(input, expected)| {
-            let lexer = Lexer::new(input.to_string());
+            let lexer = lexer::Lexer::new(input.to_string());
             let mut parser = Parser::new(lexer);
             let result = parser.parse_program();
             let err = result.unwrap_err();

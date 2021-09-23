@@ -1,5 +1,6 @@
 pub mod token;
 
+use crate::ast_parser;
 use token::Token;
 
 #[derive(Debug)]
@@ -10,20 +11,8 @@ pub struct Lexer {
     ch: Option<char>,
 }
 
-impl Lexer {
-    pub fn new(input: String) -> Lexer {
-        let mut lexer = Lexer {
-            input,
-            pos: 0,
-            read_pos: 0,
-            ch: None,
-        };
-
-        lexer.read_char();
-        lexer
-    }
-
-    pub fn next_token(&mut self) -> Token {
+impl ast_parser::Lexer for Lexer {
+    fn next_token(&mut self) -> Token {
         self.skip_whitespace();
 
         let token = match self.ch {
@@ -76,6 +65,20 @@ impl Lexer {
 
         self.read_char();
         token
+    }
+}
+
+impl Lexer {
+    pub fn new(input: String) -> Lexer {
+        let mut lexer = Lexer {
+            input,
+            pos: 0,
+            read_pos: 0,
+            ch: None,
+        };
+
+        lexer.read_char();
+        lexer
     }
 
     fn is_letter(ch: char) -> bool {
@@ -169,6 +172,8 @@ impl Lexer {
 
 #[cfg(test)]
 mod tests {
+    use crate::ast_parser::Lexer;
+
     use super::*;
 
     #[test]
@@ -216,7 +221,7 @@ mod tests {
             macro(x, y) { x + y; };
         ";
 
-        let mut lexer = Lexer::new(input.to_string());
+        let mut lexer = super::Lexer::new(input.to_string());
 
         assert_eq!(lexer.next_token(), Token::Let);
         assert_eq!(lexer.next_token(), Token::Ident("five".into()));

@@ -281,61 +281,55 @@ mod tests {
 
         let mut lexer = super::Lexer::new(input.to_string());
 
+        let mut assert_token = |token: Token, offset: usize, literal: &'static str| {
+            let tkn = lexer.next_token();
+            assert_eq!(tkn, token);
+            assert_eq!(offset..offset + literal.len(), tkn.position().range);
+            assert_eq!(&input[tkn.position().range.clone()], literal);
+        };
+
         {
-            let tkn = lexer.next_token();
-            assert_eq!(tkn, Token::r#let());
-            assert_eq!(13..16, tkn.position().range);
-            assert_eq!(&input[tkn.position().range.clone()], "let");
-
-            let tkn = lexer.next_token();
-            assert_eq!(tkn, Token::ident_with("five".into(), Position::default()));
-            assert_eq!(17..21, tkn.position().range);
-            assert_eq!(&input[tkn.position().range.clone()], "five");
-
-            let tkn = lexer.next_token();
-            assert_eq!(tkn, Token::assign());
-            assert_eq!(22..23, tkn.position().range);
-            assert_eq!(&input[tkn.position().range.clone()], "=");
-
-            let tkn = lexer.next_token();
-            assert_eq!(tkn, Token::int_with("5".into(), Position::default()));
-            assert_eq!(24..25, tkn.position().range);
-            assert_eq!(&input[tkn.position().range.clone()], "5");
-
-            let tkn = lexer.next_token();
-            assert_eq!(tkn, Token::semicolon());
-            assert_eq!(25..26, tkn.position().range);
-            assert_eq!(&input[tkn.position().range.clone()], ";");
+            assert_token(Token::r#let(), 13, "let");
+            assert_token(
+                Token::ident_with("five".into(), Position::default()),
+                17,
+                "five",
+            );
+            assert_token(Token::assign(), 22, "=");
+            assert_token(Token::int_with("5".into(), Position::default()), 24, "5");
+            assert_token(Token::semicolon(), 25, ";");
         }
 
-        assert_eq!(lexer.next_token(), Token::r#let());
-        assert_eq!(
-            lexer.next_token(),
-            Token::ident_with("ten".into(), Position::default())
-        );
-        assert_eq!(lexer.next_token(), Token::assign());
-        assert_eq!(
-            lexer.next_token(),
-            Token::int_with("10".into(), Position::default())
-        );
-        assert_eq!(lexer.next_token(), Token::semicolon());
+        {
+            assert_eq!(lexer.next_token(), Token::r#let());
+            assert_eq!(
+                lexer.next_token(),
+                Token::ident_with("ten".into(), Position::default())
+            );
+            assert_eq!(lexer.next_token(), Token::assign());
+            assert_eq!(
+                lexer.next_token(),
+                Token::int_with("10".into(), Position::default())
+            );
+            assert_eq!(lexer.next_token(), Token::semicolon());
 
-        assert_eq!(lexer.next_token(), Token::r#let());
-        assert_eq!(
-            lexer.next_token(),
-            Token::ident_with("with_type".into(), Position::default())
-        );
-        assert_eq!(lexer.next_token(), Token::colon());
-        assert_eq!(
-            lexer.next_token(),
-            Token::ident_with("String".into(), Position::default())
-        );
-        assert_eq!(lexer.next_token(), Token::assign());
-        assert_eq!(
-            lexer.next_token(),
-            Token::string_literal_with("aaa".into(), Position::default())
-        );
-        assert_eq!(lexer.next_token(), Token::semicolon());
+            assert_eq!(lexer.next_token(), Token::r#let());
+            assert_eq!(
+                lexer.next_token(),
+                Token::ident_with("with_type".into(), Position::default())
+            );
+            assert_eq!(lexer.next_token(), Token::colon());
+            assert_eq!(
+                lexer.next_token(),
+                Token::ident_with("String".into(), Position::default())
+            );
+            assert_eq!(lexer.next_token(), Token::assign());
+            assert_eq!(
+                lexer.next_token(),
+                Token::string_literal_with("aaa".into(), Position::default())
+            );
+            assert_eq!(lexer.next_token(), Token::semicolon());
+        }
 
         assert_eq!(lexer.next_token(), Token::function());
         assert_eq!(

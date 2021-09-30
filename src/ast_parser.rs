@@ -26,16 +26,16 @@ enum Priority {
 impl From<&Token> for Priority {
     fn from(value: &Token) -> Priority {
         match value {
-            Token::Equal => Priority::Equals,
-            Token::NotEqual => Priority::Equals,
-            Token::Lt => Priority::Lessgreater,
-            Token::Gt => Priority::Lessgreater,
-            Token::Plus => Priority::Sum,
-            Token::Minus => Priority::Sum,
-            Token::Slash => Priority::Product,
-            Token::Asterisk => Priority::Product,
-            Token::Lparen => Priority::Call,
-            Token::Lbracket => Priority::Index,
+            Token::Equal(_) => Priority::Equals,
+            Token::NotEqual(_) => Priority::Equals,
+            Token::Lt(_) => Priority::Lessgreater,
+            Token::Gt(_) => Priority::Lessgreater,
+            Token::Plus(_) => Priority::Sum,
+            Token::Minus(_) => Priority::Sum,
+            Token::Slash(_) => Priority::Product,
+            Token::Asterisk(_) => Priority::Product,
+            Token::Lparen(_) => Priority::Call,
+            Token::Lbracket(_) => Priority::Index,
             _ => Priority::Lowest,
         }
     }
@@ -58,16 +58,16 @@ enum InfixFn {
 
 fn token_to_operator(t: &Token) -> Result<ast::Operator> {
     Ok(match t {
-        Token::Assign => ast::Operator::Assign,
-        Token::Plus => ast::Operator::Plus,
-        Token::Minus => ast::Operator::Minus,
-        Token::Bang => ast::Operator::Bang,
-        Token::Asterisk => ast::Operator::Asterisk,
-        Token::Slash => ast::Operator::Slash,
-        Token::Equal => ast::Operator::Equal,
-        Token::NotEqual => ast::Operator::NotEqual,
-        Token::Lt => ast::Operator::Lt,
-        Token::Gt => ast::Operator::Gt,
+        Token::Assign(_) => ast::Operator::Assign,
+        Token::Plus(_) => ast::Operator::Plus,
+        Token::Minus(_) => ast::Operator::Minus,
+        Token::Bang(_) => ast::Operator::Bang,
+        Token::Asterisk(_) => ast::Operator::Asterisk,
+        Token::Slash(_) => ast::Operator::Slash,
+        Token::Equal(_) => ast::Operator::Equal,
+        Token::NotEqual(_) => ast::Operator::NotEqual,
+        Token::Lt(_) => ast::Operator::Lt,
+        Token::Gt(_) => ast::Operator::Gt,
         t => return Err(ParserError::ExpectOperator(format!("{:?}", t)).into()),
     })
 }
@@ -94,7 +94,7 @@ impl<T: Lexer> Parser<T> {
     pub fn parse_program(&mut self) -> Result<ast::Program> {
         let mut program = ast::Program::default();
 
-        while self.cur_token != Token::Eof {
+        while self.cur_token != Token::eof() {
             let stmt = self.parse_statement()?;
             program.statements.push(stmt);
             self.next_token();
@@ -105,24 +105,24 @@ impl<T: Lexer> Parser<T> {
 
     fn parse_statement(&mut self) -> Result<Stmt> {
         Ok(match self.cur_token {
-            Token::Let => Stmt::Let(self.parse_let_statement()?),
-            Token::Return => Stmt::Return(self.parse_return_statement()?),
+            Token::Let(_) => Stmt::Let(self.parse_let_statement()?),
+            Token::Return(_) => Stmt::Return(self.parse_return_statement()?),
             _ => Stmt::ExprStmt(self.parse_expr_statement()?),
         })
     }
 
     fn parse_let_statement(&mut self) -> Result<ast::Let> {
-        self.expect_peek(Token::Ident("_".to_string()))?;
+        self.expect_peek(Token::ident())?;
         let ident = match &self.cur_token {
             Token::Ident(id) => id.clone(),
             _ => unreachable!(),
         };
 
-        let mtype = if self.peek_token_is(Token::Colon) {
+        let mtype = if self.peek_token_is(Token::colon()) {
             self.next_token();
-            self.expect_peek(Token::Ident("_".to_string()))?;
+            self.expect_peek(Token::ident())?;
             match &self.cur_token {
-                Token::Ident(id) => Some(ast::Type::from(id.clone())),
+                Token::Ident(id) => Some(ast::Type::from(id.input.clone())),
                 _ => unreachable!(),
             }
         } else {
@@ -130,15 +130,15 @@ impl<T: Lexer> Parser<T> {
         };
 
         let name = ast::Identifier {
-            value: ident,
+            value: ident.input,
             mtype,
         };
 
-        self.expect_peek(Token::Assign)?;
+        self.expect_peek(Token::assign())?;
 
         self.next_token();
         let value = self.parse_expr(Priority::Lowest)?;
-        self.optional_peek(Token::Semicolon);
+        self.optional_peek(Token::semicolon());
 
         let value = if let Expr::Function(mut func) = value {
             func.name = name.value.clone();
@@ -155,7 +155,7 @@ impl<T: Lexer> Parser<T> {
 
         let return_value = self.parse_expr(Priority::Lowest)?;
 
-        self.optional_peek(Token::Semicolon);
+        self.optional_peek(Token::semicolon());
 
         Ok(ast::Return { return_value })
     }
@@ -163,7 +163,7 @@ impl<T: Lexer> Parser<T> {
     fn parse_expr_statement(&mut self) -> Result<ast::ExprStmt> {
         let expr = self.parse_expr(Priority::Lowest)?;
 
-        self.optional_peek(Token::Semicolon);
+        self.optional_peek(Token::semicolon());
 
         Ok(ast::ExprStmt { expr })
     }
@@ -171,46 +171,47 @@ impl<T: Lexer> Parser<T> {
     fn parse_expr(&mut self, precedende: Priority) -> Result<Expr> {
         match &self.cur_token {
             t @ Token::Illegal(_)
-            | t @ Token::Eof
-            | t @ Token::Assign
-            | t @ Token::Plus
-            | t @ Token::Asterisk
-            | t @ Token::Slash
-            | t @ Token::Equal
-            | t @ Token::NotEqual
-            | t @ Token::Lt
-            | t @ Token::Gt
-            | t @ Token::Comma
-            | t @ Token::Semicolon
-            | t @ Token::Colon
-            | t @ Token::Rparen
-            | t @ Token::Rbrace
-            | t @ Token::Rbracket
-            | t @ Token::Let
-            | t @ Token::Else
-            | t @ Token::Return => {
+            | t @ Token::Eof(_)
+            | t @ Token::Assign(_)
+            | t @ Token::Plus(_)
+            | t @ Token::Asterisk(_)
+            | t @ Token::Slash(_)
+            | t @ Token::Equal(_)
+            | t @ Token::NotEqual(_)
+            | t @ Token::Lt(_)
+            | t @ Token::Gt(_)
+            | t @ Token::Comma(_)
+            | t @ Token::Semicolon(_)
+            | t @ Token::Colon(_)
+            | t @ Token::Rparen(_)
+            | t @ Token::Rbrace(_)
+            | t @ Token::Rbracket(_)
+            | t @ Token::Let(_)
+            | t @ Token::Else(_)
+            | t @ Token::Return(_) => {
                 return Err(ParserError::ExpectExpression(format!("{:?}", t)).into())
             }
             Token::Ident(_)
             | Token::Int(_)
-            | Token::Bang
-            | Token::Minus
-            | Token::True
-            | Token::False
+            | Token::Bang(_)
+            | Token::Minus(_)
+            | Token::True(_)
+            | Token::False(_)
             | Token::Char(_)
-            | Token::Lparen
-            | Token::If
+            | Token::Lparen(_)
+            | Token::If(_)
             | Token::StringLiteral(_)
-            | Token::Lbracket
-            | Token::Lbrace
-            | Token::Function
-            | Token::VerticalBar => (),
-            Token::Macro => (),
+            | Token::Lbracket(_)
+            | Token::Lbrace(_)
+            | Token::Function(_)
+            | Token::VerticalBar(_) => (),
+            Token::Macro(_) => (),
         }
 
         let mut left_expr = self.prefix_parse_fns(self.cur_token.clone())?;
 
-        while !self.peek_token_is(Token::Semicolon) && precedende < Priority::from(&self.peek_token)
+        while !self.peek_token_is(Token::semicolon())
+            && precedende < Priority::from(&self.peek_token)
         {
             let infix_fn = self.infix_parse_fns(self.peek_token.clone())?;
 
@@ -229,7 +230,7 @@ impl<T: Lexer> Parser<T> {
     fn parse_identifier(&self) -> Result<ast::Identifier> {
         Ok(ast::Identifier {
             value: match &self.cur_token {
-                Token::Ident(val) => val.clone(),
+                Token::Ident(val) => val.input.clone(),
                 t => return Err(ParserError::ExpectIdentifier(format!("{:?}", t)).into()),
             },
             mtype: None,
@@ -238,7 +239,8 @@ impl<T: Lexer> Parser<T> {
 
     fn parse_integer_literal(&self) -> Result<ast::Integer> {
         let value = match &self.cur_token {
-            Token::Int(val) => val
+            Token::Int(int) => int
+                .input
                 .parse::<i64>()
                 .map_err(|e| ParserError::InvalidInteger(format!("{:?}", e)))?,
             t => return Err(ParserError::InvalidIntegerLiteral(format!("{:?}", t)).into()),
@@ -249,8 +251,8 @@ impl<T: Lexer> Parser<T> {
 
     fn parse_bool_literal(&self) -> Result<ast::Boolean> {
         match &self.cur_token {
-            Token::True => Ok(ast::Boolean { value: true }),
-            Token::False => Ok(ast::Boolean { value: false }),
+            Token::True(_) => Ok(ast::Boolean { value: true }),
+            Token::False(_) => Ok(ast::Boolean { value: false }),
             t => Err(ParserError::InvalidBooleanLiteral(format!("{:?}", t)).into()),
         }
     }
@@ -258,7 +260,7 @@ impl<T: Lexer> Parser<T> {
     fn parse_grouped_expr(&mut self) -> Result<Expr> {
         self.next_token();
         let expr = self.parse_expr(Priority::Lowest)?;
-        self.expect_peek(Token::Rparen)?;
+        self.expect_peek(Token::rparen())?;
         Ok(expr)
     }
 
@@ -286,21 +288,21 @@ impl<T: Lexer> Parser<T> {
     }
 
     fn parse_if_expr(&mut self) -> Result<ast::If> {
-        self.optional_peek(Token::Lparen);
+        self.optional_peek(Token::lparen());
 
         self.next_token();
 
         let cond = Box::new(self.parse_expr(Priority::Lowest)?);
 
-        self.optional_peek(Token::Rparen);
+        self.optional_peek(Token::rparen());
 
-        self.expect_peek(Token::Lbrace)?;
+        self.expect_peek(Token::lbrace())?;
 
         let consequence = self.parse_block_statement()?;
 
-        let alternative = if self.peek_token_is(Token::Else) {
+        let alternative = if self.peek_token_is(Token::r#else()) {
             self.next_token();
-            self.expect_peek(Token::Lbrace)?;
+            self.expect_peek(Token::lbrace())?;
 
             Some(self.parse_block_statement()?)
         } else {
@@ -320,7 +322,7 @@ impl<T: Lexer> Parser<T> {
 
         self.next_token();
 
-        while !(self.cur_token_is(Token::Rbrace) || self.cur_token_is(Token::Eof)) {
+        while !(self.cur_token_is(Token::rbrace()) || self.cur_token_is(Token::eof())) {
             statements.push(self.parse_statement()?);
             self.next_token();
         }
@@ -329,13 +331,13 @@ impl<T: Lexer> Parser<T> {
     }
 
     fn parse_function_literal(&mut self) -> Result<ast::Function> {
-        self.expect_peek(Token::Ident("_".to_string()))?;
+        self.expect_peek(Token::ident())?;
         let name = self.parse_identifier()?;
 
-        self.expect_peek(Token::Lparen)?;
+        self.expect_peek(Token::lparen())?;
 
         let params = self.parse_function_params()?;
-        self.expect_peek(Token::Lbrace)?;
+        self.expect_peek(Token::lbrace())?;
 
         let body = self.parse_block_statement()?;
 
@@ -350,7 +352,7 @@ impl<T: Lexer> Parser<T> {
     fn parse_function_params(&mut self) -> Result<Vec<ast::Identifier>> {
         let mut identifiers = Vec::<ast::Identifier>::new();
 
-        if self.peek_token_is(Token::Rparen) {
+        if self.peek_token_is(Token::rparen()) {
             self.next_token();
             return Ok(identifiers);
         }
@@ -359,31 +361,31 @@ impl<T: Lexer> Parser<T> {
 
         identifiers.push(ast::Identifier {
             value: match &self.cur_token {
-                Token::Ident(t) => t.clone(),
+                Token::Ident(t) => t.input.clone(),
                 t => return Err(ParserError::InvalidFunctionParam(format!("{:?}", t)).into()),
             },
             mtype: None,
         });
 
-        while self.peek_token_is(Token::Comma) {
+        while self.peek_token_is(Token::comma()) {
             self.next_token();
             self.next_token();
             identifiers.push(ast::Identifier {
                 value: match &self.cur_token {
-                    Token::Ident(t) => t.clone(),
+                    Token::Ident(t) => t.input.clone(),
                     t => return Err(ParserError::InvalidFunctionParam(format!("{:?}", t)).into()),
                 },
                 mtype: None,
             })
         }
-        self.expect_peek(Token::Rparen)?;
+        self.expect_peek(Token::rparen())?;
 
         Ok(identifiers)
     }
 
     fn parse_closure_literal(&mut self) -> Result<ast::Function> {
         let params = self.parse_closure_params()?;
-        self.expect_peek(Token::Lbrace)?;
+        self.expect_peek(Token::lbrace())?;
 
         let body = self.parse_block_statement()?;
 
@@ -398,7 +400,7 @@ impl<T: Lexer> Parser<T> {
     fn parse_closure_params(&mut self) -> Result<Vec<ast::Identifier>> {
         let mut identifiers = Vec::<ast::Identifier>::new();
 
-        if self.peek_token_is(Token::VerticalBar) {
+        if self.peek_token_is(Token::vertical_bar()) {
             self.next_token();
             return Ok(identifiers);
         }
@@ -407,24 +409,24 @@ impl<T: Lexer> Parser<T> {
 
         identifiers.push(ast::Identifier {
             value: match &self.cur_token {
-                Token::Ident(t) => t.clone(),
+                Token::Ident(t) => t.input.clone(),
                 t => return Err(ParserError::InvalidFunctionParam(format!("{:?}", t)).into()),
             },
             mtype: None,
         });
 
-        while self.peek_token_is(Token::Comma) {
+        while self.peek_token_is(Token::comma()) {
             self.next_token();
             self.next_token();
             identifiers.push(ast::Identifier {
                 value: match &self.cur_token {
-                    Token::Ident(t) => t.clone(),
+                    Token::Ident(t) => t.input.clone(),
                     t => return Err(ParserError::InvalidFunctionParam(format!("{:?}", t)).into()),
                 },
                 mtype: None,
             })
         }
-        self.expect_peek(Token::VerticalBar)?;
+        self.expect_peek(Token::vertical_bar())?;
 
         Ok(identifiers)
     }
@@ -432,7 +434,7 @@ impl<T: Lexer> Parser<T> {
     fn parse_call_expr(&mut self, func: Expr) -> Result<ast::Call> {
         Ok(ast::Call {
             func: Box::new(func),
-            args: self.parse_expr_list(Token::Rparen)?,
+            args: self.parse_expr_list(Token::rparen())?,
         })
     }
 
@@ -447,7 +449,7 @@ impl<T: Lexer> Parser<T> {
         self.next_token();
         expr_list.push(self.parse_expr(Priority::Lowest)?);
 
-        while self.peek_token_is(Token::Comma) {
+        while self.peek_token_is(Token::comma()) {
             self.next_token();
             self.next_token();
             expr_list.push(self.parse_expr(Priority::Lowest)?);
@@ -461,7 +463,7 @@ impl<T: Lexer> Parser<T> {
     fn parse_string_literal(&self) -> Result<ast::StringLit> {
         Ok(ast::StringLit {
             value: match &self.cur_token {
-                Token::StringLiteral(s) => s.clone(),
+                Token::StringLiteral(s) => s.input.clone(),
                 t => return Err(ParserError::InvalidStringLiteral(format!("{:?}", t)).into()),
             },
         })
@@ -469,7 +471,7 @@ impl<T: Lexer> Parser<T> {
 
     fn parse_char(&self) -> Result<ast::Char> {
         let s = match &self.cur_token {
-            Token::Char(c) => c.clone(),
+            Token::Char(c) => c.input.clone(),
             t => return Err(ParserError::ExpectChar(format!("{:?}", t)).into()),
         };
 
@@ -482,14 +484,14 @@ impl<T: Lexer> Parser<T> {
 
     fn parse_array_literal(&mut self) -> Result<ast::Array> {
         Ok(ast::Array {
-            elements: self.parse_expr_list(Token::Rbracket)?,
+            elements: self.parse_expr_list(Token::rbracket())?,
         })
     }
 
     fn parse_index_expr(&mut self, left: Expr) -> Result<ast::Index> {
         self.next_token();
         let index = self.parse_expr(Priority::Lowest)?;
-        self.expect_peek(Token::Rbracket)?;
+        self.expect_peek(Token::rbracket())?;
 
         Ok(ast::Index {
             left: Box::new(left),
@@ -500,30 +502,30 @@ impl<T: Lexer> Parser<T> {
     fn parse_hash_literal(&mut self) -> Result<ast::Hash> {
         let mut pairs = Vec::<ast::Pair>::new();
 
-        while !self.peek_token_is(Token::Rbrace) {
+        while !self.peek_token_is(Token::rbrace()) {
             self.next_token();
             let key = self.parse_expr(Priority::Lowest)?;
-            self.expect_peek(Token::Colon)?;
+            self.expect_peek(Token::colon())?;
             self.next_token();
             let value = self.parse_expr(Priority::Lowest)?;
             pairs.push(ast::Pair { key, value });
 
-            if !self.peek_token_is(Token::Rbrace) && self.expect_peek(Token::Comma).is_err() {
+            if !self.peek_token_is(Token::rbrace()) && self.expect_peek(Token::comma()).is_err() {
                 return Err(
                     ParserError::InvalidHashLiteral(format!("{:?}", self.cur_token)).into(),
                 );
             }
         }
-        self.expect_peek(Token::Rbrace)?;
+        self.expect_peek(Token::rbrace())?;
 
         Ok(ast::Hash { pairs })
     }
 
     fn parse_macro_literal(&mut self) -> Result<ast::MacroLit> {
-        self.expect_peek(Token::Lparen)?;
+        self.expect_peek(Token::lparen())?;
         let params = self.parse_function_params()?;
 
-        self.expect_peek(Token::Lbrace)?;
+        self.expect_peek(Token::lbrace())?;
         let body = self.parse_block_statement()?;
 
         Ok(ast::MacroLit { params, body })
@@ -566,33 +568,33 @@ impl<T: Lexer> Parser<T> {
         Ok(match token_t {
             Token::Ident(_) => Expr::Identifier(self.parse_identifier()?),
             Token::Int(_) => Expr::Integer(self.parse_integer_literal()?),
-            Token::Bang | Token::Minus => Expr::PrefixExpr(self.parse_prefix_expr()?),
-            Token::True | Token::False => Expr::Boolean(self.parse_bool_literal()?),
-            Token::Lparen => self.parse_grouped_expr()?,
-            Token::If => Expr::If(self.parse_if_expr()?),
-            Token::Function => Expr::Function(self.parse_function_literal()?),
-            Token::VerticalBar => Expr::Function(self.parse_closure_literal()?),
+            Token::Bang(_) | Token::Minus(_) => Expr::PrefixExpr(self.parse_prefix_expr()?),
+            Token::True(_) | Token::False(_) => Expr::Boolean(self.parse_bool_literal()?),
+            Token::Lparen(_) => self.parse_grouped_expr()?,
+            Token::If(_) => Expr::If(self.parse_if_expr()?),
+            Token::Function(_) => Expr::Function(self.parse_function_literal()?),
+            Token::VerticalBar(_) => Expr::Function(self.parse_closure_literal()?),
             Token::StringLiteral(_) => Expr::StringLit(self.parse_string_literal()?),
             Token::Char(_) => Expr::Char(self.parse_char()?),
-            Token::Lbracket => Expr::Array(self.parse_array_literal()?),
-            Token::Lbrace => Expr::Hash(self.parse_hash_literal()?),
-            Token::Macro => Expr::MacroLit(self.parse_macro_literal()?),
+            Token::Lbracket(_) => Expr::Array(self.parse_array_literal()?),
+            Token::Lbrace(_) => Expr::Hash(self.parse_hash_literal()?),
+            Token::Macro(_) => Expr::MacroLit(self.parse_macro_literal()?),
             t => return Err(ParserError::InvalidPrefix(format!("{:?}", t)).into()),
         })
     }
 
     fn infix_parse_fns(&self, token_t: Token) -> Result<InfixFn> {
         Ok(match token_t {
-            Token::Plus
-            | Token::Minus
-            | Token::Slash
-            | Token::Asterisk
-            | Token::Equal
-            | Token::NotEqual
-            | Token::Lt
-            | Token::Gt => InfixFn::Infix,
-            Token::Lparen => InfixFn::Call,
-            Token::Lbracket => InfixFn::Index,
+            Token::Plus(_)
+            | Token::Minus(_)
+            | Token::Slash(_)
+            | Token::Asterisk(_)
+            | Token::Equal(_)
+            | Token::NotEqual(_)
+            | Token::Lt(_)
+            | Token::Gt(_) => InfixFn::Infix,
+            Token::Lparen(_) => InfixFn::Call,
+            Token::Lbracket(_) => InfixFn::Index,
             t => return Err(ParserError::InvalidInfix(format!("{:?}", t)).into()),
         })
     }

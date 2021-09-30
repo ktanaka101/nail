@@ -1,5 +1,5 @@
 use crate::ast_parser;
-use crate::token::Token;
+use crate::token::{Position, Token};
 
 #[derive(Debug)]
 pub struct Lexer {
@@ -13,49 +13,50 @@ impl ast_parser::Lexer for Lexer {
     fn next_token(&mut self) -> Token {
         self.skip_whitespace();
 
+        let start_pos = self.pos;
         let token = match self.ch {
-            None => Token::Eof,
+            None => Token::eof_with(self.position(start_pos)),
             Some(c) => match c {
                 '=' => match self.peek_char() {
                     Some('=') => {
                         self.read_char();
-                        Token::Equal
+                        Token::equal_with(self.position(start_pos))
                     }
-                    _ => Token::Assign,
+                    _ => Token::assign_with(self.position(start_pos)),
                 },
-                '+' => Token::Plus,
-                '-' => Token::Minus,
+                '+' => Token::plus_with(self.position(start_pos)),
+                '-' => Token::minus_with(self.position(start_pos)),
                 '!' => match self.peek_char() {
                     Some('=') => {
                         self.read_char();
-                        Token::NotEqual
+                        Token::not_equal_with(self.position(start_pos))
                     }
-                    _ => Token::Bang,
+                    _ => Token::bang_with(self.position(start_pos)),
                 },
-                '*' => Token::Asterisk,
-                '/' => Token::Slash,
-                '<' => Token::Lt,
-                '>' => Token::Gt,
-                ',' => Token::Comma,
-                ';' => Token::Semicolon,
-                ':' => Token::Colon,
-                '(' => Token::Lparen,
-                ')' => Token::Rparen,
-                '{' => Token::Lbrace,
-                '}' => Token::Rbrace,
-                '[' => Token::Lbracket,
-                ']' => Token::Rbracket,
-                '|' => Token::VerticalBar,
-                '"' => Token::StringLiteral(self.read_string()),
-                '\'' => Token::Char(self.read_native_char()),
+                '*' => Token::asterisk_with(self.position(start_pos)),
+                '/' => Token::slash_with(self.position(start_pos)),
+                '<' => Token::lt_with(self.position(start_pos)),
+                '>' => Token::gt_with(self.position(start_pos)),
+                ',' => Token::comma_with(self.position(start_pos)),
+                ';' => Token::semicolon_with(self.position(start_pos)),
+                ':' => Token::colon_with(self.position(start_pos)),
+                '(' => Token::lparen_with(self.position(start_pos)),
+                ')' => Token::rparen_with(self.position(start_pos)),
+                '{' => Token::lbrace_with(self.position(start_pos)),
+                '}' => Token::rbrace_with(self.position(start_pos)),
+                '[' => Token::lbracket_with(self.position(start_pos)),
+                ']' => Token::rbracket_with(self.position(start_pos)),
+                '|' => Token::vertical_bar_with(self.position(start_pos)),
+                '"' => Token::string_literal_with(self.read_string(), self.position(start_pos)),
+                '\'' => Token::char_with(self.read_native_char(), self.position(start_pos)),
                 _ => {
                     if Self::is_letter(c) {
                         let literal = self.read_identifier();
-                        return lookup_ident(&literal);
+                        return lookup_ident(&literal, self.position(start_pos));
                     } else if Self::is_digit(c) {
-                        return Token::Int(self.read_number());
+                        return Token::int_with(self.read_number(), self.position(start_pos));
                     } else {
-                        Token::Illegal(c.to_string())
+                        Token::illegal_with(c.to_string(), self.position(start_pos))
                     }
                 }
             },
@@ -77,6 +78,12 @@ impl Lexer {
 
         lexer.read_char();
         lexer
+    }
+
+    fn position(&self, start_pos: usize) -> Position {
+        Position {
+            range: start_pos..self.pos + 1,
+        }
     }
 
     fn is_letter(ch: char) -> bool {
@@ -168,36 +175,63 @@ impl Lexer {
     }
 }
 
-fn lookup_ident(ident: &str) -> Token {
+fn lookup_ident(ident: &str, position: Position) -> Token {
     match ident {
-        "fn" => Token::Function,
-        "let" => Token::Let,
-        "true" => Token::True,
-        "false" => Token::False,
-        "if" => Token::If,
-        "else" => Token::Else,
-        "return" => Token::Return,
-        "macro" => Token::Macro,
-        id => Token::Ident(id.into()),
+        "fn" => Token::function_with(position),
+        "let" => Token::let_with(position),
+        "true" => Token::true_with(position),
+        "false" => Token::false_with(position),
+        "if" => Token::if_with(position),
+        "else" => Token::else_with(position),
+        "return" => Token::return_with(position),
+        "macro" => Token::macro_with(position),
+        id => Token::ident_with(id.into(), position),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::ast_parser::Lexer;
+    use crate::{ast_parser::Lexer, token::TokenWithInput};
 
     use super::*;
 
     #[test]
     fn it_return_token() {
-        assert_eq!(lookup_ident("fn"), Token::Function);
-        assert_eq!(lookup_ident("let"), Token::Let);
-        assert_eq!(lookup_ident("true"), Token::True);
-        assert_eq!(lookup_ident("false"), Token::False);
-        assert_eq!(lookup_ident("if"), Token::If);
-        assert_eq!(lookup_ident("else"), Token::Else);
-        assert_eq!(lookup_ident("return"), Token::Return);
-        assert_eq!(lookup_ident("fna"), Token::Ident("fna".into()));
+        assert_eq!(
+            lookup_ident("fn", Default::default()),
+            Token::Function(Default::default())
+        );
+        assert_eq!(
+            lookup_ident("let", Default::default()),
+            Token::Let(Default::default())
+        );
+        assert_eq!(
+            lookup_ident("true", Default::default()),
+            Token::True(Default::default())
+        );
+        assert_eq!(
+            lookup_ident("false", Default::default()),
+            Token::False(Default::default())
+        );
+        assert_eq!(
+            lookup_ident("if", Default::default()),
+            Token::If(Default::default())
+        );
+        assert_eq!(
+            lookup_ident("else", Default::default()),
+            Token::Else(Default::default())
+        );
+        assert_eq!(
+            lookup_ident("return", Default::default()),
+            Token::Return(Default::default())
+        );
+        assert_eq!(
+            lookup_ident("fna", Default::default()),
+            Token::Ident(TokenWithInput {
+                input: "fna".into(),
+                position: Default::default()
+            })
+        );
     }
 
     #[test]
@@ -247,172 +281,319 @@ mod tests {
 
         let mut lexer = super::Lexer::new(input.to_string());
 
-        assert_eq!(lexer.next_token(), Token::Let);
-        assert_eq!(lexer.next_token(), Token::Ident("five".into()));
-        assert_eq!(lexer.next_token(), Token::Assign);
-        assert_eq!(lexer.next_token(), Token::Int("5".into()));
-        assert_eq!(lexer.next_token(), Token::Semicolon);
+        assert_eq!(lexer.next_token(), Token::r#let());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("five".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::assign());
+        assert_eq!(
+            lexer.next_token(),
+            Token::int_with("5".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::semicolon());
 
-        assert_eq!(lexer.next_token(), Token::Let);
-        assert_eq!(lexer.next_token(), Token::Ident("ten".into()));
-        assert_eq!(lexer.next_token(), Token::Assign);
-        assert_eq!(lexer.next_token(), Token::Int("10".into()));
-        assert_eq!(lexer.next_token(), Token::Semicolon);
+        assert_eq!(lexer.next_token(), Token::r#let());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("ten".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::assign());
+        assert_eq!(
+            lexer.next_token(),
+            Token::int_with("10".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::semicolon());
 
-        assert_eq!(lexer.next_token(), Token::Let);
-        assert_eq!(lexer.next_token(), Token::Ident("with_type".into()));
-        assert_eq!(lexer.next_token(), Token::Colon);
-        assert_eq!(lexer.next_token(), Token::Ident("String".into()));
-        assert_eq!(lexer.next_token(), Token::Assign);
-        assert_eq!(lexer.next_token(), Token::StringLiteral("aaa".into()));
-        assert_eq!(lexer.next_token(), Token::Semicolon);
+        assert_eq!(lexer.next_token(), Token::r#let());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("with_type".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::colon());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("String".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::assign());
+        assert_eq!(
+            lexer.next_token(),
+            Token::string_literal_with("aaa".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::semicolon());
 
-        assert_eq!(lexer.next_token(), Token::Function);
-        assert_eq!(lexer.next_token(), Token::Ident("add".into()));
-        assert_eq!(lexer.next_token(), Token::Lparen);
-        assert_eq!(lexer.next_token(), Token::Ident("x".into()));
-        assert_eq!(lexer.next_token(), Token::Comma);
-        assert_eq!(lexer.next_token(), Token::Ident("y".into()));
-        assert_eq!(lexer.next_token(), Token::Rparen);
-        assert_eq!(lexer.next_token(), Token::Lbrace);
-        assert_eq!(lexer.next_token(), Token::Ident("x".into()));
-        assert_eq!(lexer.next_token(), Token::Plus);
-        assert_eq!(lexer.next_token(), Token::Ident("y".into()));
-        assert_eq!(lexer.next_token(), Token::Semicolon);
-        assert_eq!(lexer.next_token(), Token::Rbrace);
+        assert_eq!(lexer.next_token(), Token::function());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("add".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::lparen());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("x".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::comma());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("y".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::rparen());
+        assert_eq!(lexer.next_token(), Token::lbrace());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("x".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::plus());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("y".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::semicolon());
+        assert_eq!(lexer.next_token(), Token::rbrace());
 
-        assert_eq!(lexer.next_token(), Token::Function);
-        assert_eq!(lexer.next_token(), Token::Ident("add".into()));
-        assert_eq!(lexer.next_token(), Token::Lparen);
-        assert_eq!(lexer.next_token(), Token::Ident("x".into()));
-        assert_eq!(lexer.next_token(), Token::Comma);
-        assert_eq!(lexer.next_token(), Token::Ident("y".into()));
-        assert_eq!(lexer.next_token(), Token::Rparen);
-        assert_eq!(lexer.next_token(), Token::Lbrace);
-        assert_eq!(lexer.next_token(), Token::Ident("x".into()));
-        assert_eq!(lexer.next_token(), Token::Plus);
-        assert_eq!(lexer.next_token(), Token::Ident("y".into()));
-        assert_eq!(lexer.next_token(), Token::Semicolon);
-        assert_eq!(lexer.next_token(), Token::Rbrace);
-        assert_eq!(lexer.next_token(), Token::Semicolon);
+        assert_eq!(lexer.next_token(), Token::function());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("add".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::lparen());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("x".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::comma());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("y".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::rparen());
+        assert_eq!(lexer.next_token(), Token::lbrace());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("x".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::plus());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("y".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::semicolon());
+        assert_eq!(lexer.next_token(), Token::rbrace());
+        assert_eq!(lexer.next_token(), Token::semicolon());
 
-        assert_eq!(lexer.next_token(), Token::Let);
-        assert_eq!(lexer.next_token(), Token::Ident("add".into()));
-        assert_eq!(lexer.next_token(), Token::Assign);
-        assert_eq!(lexer.next_token(), Token::VerticalBar);
-        assert_eq!(lexer.next_token(), Token::Ident("x".into()));
-        assert_eq!(lexer.next_token(), Token::Comma);
-        assert_eq!(lexer.next_token(), Token::Ident("y".into()));
-        assert_eq!(lexer.next_token(), Token::VerticalBar);
-        assert_eq!(lexer.next_token(), Token::Lbrace);
-        assert_eq!(lexer.next_token(), Token::Ident("x".into()));
-        assert_eq!(lexer.next_token(), Token::Plus);
-        assert_eq!(lexer.next_token(), Token::Ident("y".into()));
-        assert_eq!(lexer.next_token(), Token::Semicolon);
-        assert_eq!(lexer.next_token(), Token::Rbrace);
-        assert_eq!(lexer.next_token(), Token::Semicolon);
+        assert_eq!(lexer.next_token(), Token::r#let());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("add".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::assign());
+        assert_eq!(lexer.next_token(), Token::vertical_bar());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("x".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::comma());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("y".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::vertical_bar());
+        assert_eq!(lexer.next_token(), Token::lbrace());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("x".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::plus());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("y".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::semicolon());
+        assert_eq!(lexer.next_token(), Token::rbrace());
+        assert_eq!(lexer.next_token(), Token::semicolon());
 
-        assert_eq!(lexer.next_token(), Token::Let);
-        assert_eq!(lexer.next_token(), Token::Ident("result".into()));
-        assert_eq!(lexer.next_token(), Token::Assign);
-        assert_eq!(lexer.next_token(), Token::Ident("add".into()));
-        assert_eq!(lexer.next_token(), Token::Lparen);
-        assert_eq!(lexer.next_token(), Token::Ident("five".into()));
-        assert_eq!(lexer.next_token(), Token::Comma);
-        assert_eq!(lexer.next_token(), Token::Ident("ten".into()));
-        assert_eq!(lexer.next_token(), Token::Rparen);
-        assert_eq!(lexer.next_token(), Token::Semicolon);
+        assert_eq!(lexer.next_token(), Token::r#let());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("result".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::assign());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("add".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::lparen());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("five".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::comma());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("ten".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::rparen());
+        assert_eq!(lexer.next_token(), Token::semicolon());
 
-        assert_eq!(lexer.next_token(), Token::Bang);
-        assert_eq!(lexer.next_token(), Token::Minus);
-        assert_eq!(lexer.next_token(), Token::Slash);
-        assert_eq!(lexer.next_token(), Token::Asterisk);
-        assert_eq!(lexer.next_token(), Token::Int("5".into()));
-        assert_eq!(lexer.next_token(), Token::Semicolon);
+        assert_eq!(lexer.next_token(), Token::bang());
+        assert_eq!(lexer.next_token(), Token::minus());
+        assert_eq!(lexer.next_token(), Token::slash());
+        assert_eq!(lexer.next_token(), Token::asterisk());
+        assert_eq!(
+            lexer.next_token(),
+            Token::int_with("5".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::semicolon());
 
-        assert_eq!(lexer.next_token(), Token::Int("5".into()));
-        assert_eq!(lexer.next_token(), Token::Lt);
-        assert_eq!(lexer.next_token(), Token::Int("10".into()));
-        assert_eq!(lexer.next_token(), Token::Gt);
-        assert_eq!(lexer.next_token(), Token::Int("5".into()));
-        assert_eq!(lexer.next_token(), Token::Semicolon);
+        assert_eq!(
+            lexer.next_token(),
+            Token::int_with("5".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::lt());
+        assert_eq!(
+            lexer.next_token(),
+            Token::int_with("10".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::gt());
+        assert_eq!(
+            lexer.next_token(),
+            Token::int_with("5".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::semicolon());
 
-        assert_eq!(lexer.next_token(), Token::If);
-        assert_eq!(lexer.next_token(), Token::Lparen);
-        assert_eq!(lexer.next_token(), Token::Int("5".into()));
-        assert_eq!(lexer.next_token(), Token::Lt);
-        assert_eq!(lexer.next_token(), Token::Int("10".into()));
-        assert_eq!(lexer.next_token(), Token::Rparen);
-        assert_eq!(lexer.next_token(), Token::Lbrace);
-        assert_eq!(lexer.next_token(), Token::Return);
-        assert_eq!(lexer.next_token(), Token::True);
-        assert_eq!(lexer.next_token(), Token::Semicolon);
-        assert_eq!(lexer.next_token(), Token::Rbrace);
-        assert_eq!(lexer.next_token(), Token::Else);
-        assert_eq!(lexer.next_token(), Token::Lbrace);
-        assert_eq!(lexer.next_token(), Token::Return);
-        assert_eq!(lexer.next_token(), Token::False);
-        assert_eq!(lexer.next_token(), Token::Semicolon);
-        assert_eq!(lexer.next_token(), Token::Rbrace);
+        assert_eq!(lexer.next_token(), Token::r#if());
+        assert_eq!(lexer.next_token(), Token::lparen());
+        assert_eq!(
+            lexer.next_token(),
+            Token::int_with("5".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::lt());
+        assert_eq!(
+            lexer.next_token(),
+            Token::int_with("10".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::rparen());
+        assert_eq!(lexer.next_token(), Token::lbrace());
+        assert_eq!(lexer.next_token(), Token::r#return());
+        assert_eq!(lexer.next_token(), Token::r#true());
+        assert_eq!(lexer.next_token(), Token::semicolon());
+        assert_eq!(lexer.next_token(), Token::rbrace());
+        assert_eq!(lexer.next_token(), Token::r#else());
+        assert_eq!(lexer.next_token(), Token::lbrace());
+        assert_eq!(lexer.next_token(), Token::r#return());
+        assert_eq!(lexer.next_token(), Token::r#false());
+        assert_eq!(lexer.next_token(), Token::semicolon());
+        assert_eq!(lexer.next_token(), Token::rbrace());
 
-        assert_eq!(lexer.next_token(), Token::If);
-        assert_eq!(lexer.next_token(), Token::Int("5".into()));
-        assert_eq!(lexer.next_token(), Token::Lt);
-        assert_eq!(lexer.next_token(), Token::Int("10".into()));
-        assert_eq!(lexer.next_token(), Token::Lbrace);
-        assert_eq!(lexer.next_token(), Token::Return);
-        assert_eq!(lexer.next_token(), Token::True);
-        assert_eq!(lexer.next_token(), Token::Semicolon);
-        assert_eq!(lexer.next_token(), Token::Rbrace);
-        assert_eq!(lexer.next_token(), Token::Else);
-        assert_eq!(lexer.next_token(), Token::Lbrace);
-        assert_eq!(lexer.next_token(), Token::Return);
-        assert_eq!(lexer.next_token(), Token::False);
-        assert_eq!(lexer.next_token(), Token::Semicolon);
-        assert_eq!(lexer.next_token(), Token::Rbrace);
+        assert_eq!(lexer.next_token(), Token::r#if());
+        assert_eq!(
+            lexer.next_token(),
+            Token::int_with("5".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::lt());
+        assert_eq!(
+            lexer.next_token(),
+            Token::int_with("10".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::lbrace());
+        assert_eq!(lexer.next_token(), Token::r#return());
+        assert_eq!(lexer.next_token(), Token::r#true());
+        assert_eq!(lexer.next_token(), Token::semicolon());
+        assert_eq!(lexer.next_token(), Token::rbrace());
+        assert_eq!(lexer.next_token(), Token::r#else());
+        assert_eq!(lexer.next_token(), Token::lbrace());
+        assert_eq!(lexer.next_token(), Token::r#return());
+        assert_eq!(lexer.next_token(), Token::r#false());
+        assert_eq!(lexer.next_token(), Token::semicolon());
+        assert_eq!(lexer.next_token(), Token::rbrace());
 
-        assert_eq!(lexer.next_token(), Token::Int("10".into()));
-        assert_eq!(lexer.next_token(), Token::Equal);
-        assert_eq!(lexer.next_token(), Token::Int("10".into()));
-        assert_eq!(lexer.next_token(), Token::Semicolon);
+        assert_eq!(
+            lexer.next_token(),
+            Token::int_with("10".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::equal());
+        assert_eq!(
+            lexer.next_token(),
+            Token::int_with("10".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::semicolon());
 
-        assert_eq!(lexer.next_token(), Token::Int("10".into()));
-        assert_eq!(lexer.next_token(), Token::NotEqual);
-        assert_eq!(lexer.next_token(), Token::Int("9".into()));
-        assert_eq!(lexer.next_token(), Token::Semicolon);
+        assert_eq!(
+            lexer.next_token(),
+            Token::int_with("10".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::not_equal());
+        assert_eq!(
+            lexer.next_token(),
+            Token::int_with("9".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::semicolon());
 
-        assert_eq!(lexer.next_token(), Token::StringLiteral("foobar".into()),);
+        assert_eq!(
+            lexer.next_token(),
+            Token::string_literal_with("foobar".into(), Position::default())
+        );
 
-        assert_eq!(lexer.next_token(), Token::StringLiteral("foo bar".into()),);
+        assert_eq!(
+            lexer.next_token(),
+            Token::string_literal_with("foo bar".into(), Position::default())
+        );
 
-        assert_eq!(lexer.next_token(), Token::Char("a".into()),);
+        assert_eq!(
+            lexer.next_token(),
+            Token::char_with("a".into(), Position::default())
+        );
 
-        assert_eq!(lexer.next_token(), Token::Lbracket);
-        assert_eq!(lexer.next_token(), Token::Int("1".into()));
-        assert_eq!(lexer.next_token(), Token::Comma);
-        assert_eq!(lexer.next_token(), Token::Int("2".into()));
-        assert_eq!(lexer.next_token(), Token::Rbracket);
-        assert_eq!(lexer.next_token(), Token::Semicolon);
+        assert_eq!(lexer.next_token(), Token::lbracket());
+        assert_eq!(
+            lexer.next_token(),
+            Token::int_with("1".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::comma());
+        assert_eq!(
+            lexer.next_token(),
+            Token::int_with("2".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::rbracket());
+        assert_eq!(lexer.next_token(), Token::semicolon());
 
-        assert_eq!(lexer.next_token(), Token::Lbrace);
-        assert_eq!(lexer.next_token(), Token::StringLiteral("foo".into()));
-        assert_eq!(lexer.next_token(), Token::Colon);
-        assert_eq!(lexer.next_token(), Token::StringLiteral("bar".into()));
-        assert_eq!(lexer.next_token(), Token::Rbrace);
+        assert_eq!(lexer.next_token(), Token::lbrace());
+        assert_eq!(
+            lexer.next_token(),
+            Token::string_literal_with("foo".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::colon());
+        assert_eq!(
+            lexer.next_token(),
+            Token::string_literal_with("bar".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::rbrace());
 
-        assert_eq!(lexer.next_token(), Token::Macro);
-        assert_eq!(lexer.next_token(), Token::Lparen);
-        assert_eq!(lexer.next_token(), Token::Ident("x".into()));
-        assert_eq!(lexer.next_token(), Token::Comma);
-        assert_eq!(lexer.next_token(), Token::Ident("y".into()));
-        assert_eq!(lexer.next_token(), Token::Rparen);
-        assert_eq!(lexer.next_token(), Token::Lbrace);
-        assert_eq!(lexer.next_token(), Token::Ident("x".into()));
-        assert_eq!(lexer.next_token(), Token::Plus);
-        assert_eq!(lexer.next_token(), Token::Ident("y".into()));
-        assert_eq!(lexer.next_token(), Token::Semicolon);
-        assert_eq!(lexer.next_token(), Token::Rbrace);
-        assert_eq!(lexer.next_token(), Token::Semicolon);
-        assert_eq!(lexer.next_token(), Token::Eof);
+        assert_eq!(lexer.next_token(), Token::r#macro());
+        assert_eq!(lexer.next_token(), Token::lparen());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("x".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::comma());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("y".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::rparen());
+        assert_eq!(lexer.next_token(), Token::lbrace());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("x".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::plus());
+        assert_eq!(
+            lexer.next_token(),
+            Token::ident_with("y".into(), Position::default())
+        );
+        assert_eq!(lexer.next_token(), Token::semicolon());
+        assert_eq!(lexer.next_token(), Token::rbrace());
+        assert_eq!(lexer.next_token(), Token::semicolon());
+        assert_eq!(lexer.next_token(), Token::eof());
     }
 }

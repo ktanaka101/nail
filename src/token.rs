@@ -70,3 +70,8 @@ mod tests {
         assert_eq!(lookup_ident("fna"), Token::Ident("fna".into()));
     }
 }
+
+#[derive(Clone, Eq, PartialEq, Debug, Default)]
+pub struct Position {
+    pub range: Range<usize>,
+}

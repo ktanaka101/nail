@@ -53,6 +53,47 @@ pub enum Token {
     Macro(PureToken),
 }
 
+impl<'a> Token {
+    pub fn position(&'a self) -> &'a Position {
+        match self {
+            Self::Assign(t)
+            | Self::Plus(t)
+            | Self::Minus(t)
+            | Self::Bang(t)
+            | Self::Asterisk(t)
+            | Self::Slash(t)
+            | Self::Equal(t)
+            | Self::NotEqual(t)
+            | Self::Lt(t)
+            | Self::Gt(t)
+            | Self::Comma(t)
+            | Self::Semicolon(t)
+            | Self::Colon(t)
+            | Self::Lparen(t)
+            | Self::Rparen(t)
+            | Self::Lbrace(t)
+            | Self::Rbrace(t)
+            | Self::Lbracket(t)
+            | Self::Rbracket(t)
+            | Self::VerticalBar(t)
+            | Self::Function(t)
+            | Self::Let(t)
+            | Self::True(t)
+            | Self::False(t)
+            | Self::If(t)
+            | Self::Else(t)
+            | Self::Return(t)
+            | Self::Eof(t)
+            | Self::Macro(t) => &t.position,
+            Self::Illegal(t)
+            | Self::Ident(t)
+            | Self::Int(t)
+            | Self::StringLiteral(t)
+            | Self::Char(t) => &t.position,
+        }
+    }
+}
+
 impl Token {
     pub fn illegal() -> Self {
         Token::Illegal(Default::default())

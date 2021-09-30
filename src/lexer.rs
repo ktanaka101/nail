@@ -15,48 +15,48 @@ impl ast_parser::Lexer for Lexer {
 
         let start_pos = self.pos;
         let token = match self.ch {
-            None => Token::eof_with(self.position(start_pos)),
+            None => Token::eof_with(self.position(start_pos, 1)),
             Some(c) => match c {
                 '=' => match self.peek_char() {
                     Some('=') => {
                         self.read_char();
-                        Token::equal_with(self.position(start_pos))
+                        Token::equal_with(self.position(start_pos, 1))
                     }
-                    _ => Token::assign_with(self.position(start_pos)),
+                    _ => Token::assign_with(self.position(start_pos, 1)),
                 },
-                '+' => Token::plus_with(self.position(start_pos)),
-                '-' => Token::minus_with(self.position(start_pos)),
+                '+' => Token::plus_with(self.position(start_pos, 1)),
+                '-' => Token::minus_with(self.position(start_pos, 1)),
                 '!' => match self.peek_char() {
                     Some('=') => {
                         self.read_char();
-                        Token::not_equal_with(self.position(start_pos))
+                        Token::not_equal_with(self.position(start_pos, 1))
                     }
-                    _ => Token::bang_with(self.position(start_pos)),
+                    _ => Token::bang_with(self.position(start_pos, 1)),
                 },
-                '*' => Token::asterisk_with(self.position(start_pos)),
-                '/' => Token::slash_with(self.position(start_pos)),
-                '<' => Token::lt_with(self.position(start_pos)),
-                '>' => Token::gt_with(self.position(start_pos)),
-                ',' => Token::comma_with(self.position(start_pos)),
-                ';' => Token::semicolon_with(self.position(start_pos)),
-                ':' => Token::colon_with(self.position(start_pos)),
-                '(' => Token::lparen_with(self.position(start_pos)),
-                ')' => Token::rparen_with(self.position(start_pos)),
-                '{' => Token::lbrace_with(self.position(start_pos)),
-                '}' => Token::rbrace_with(self.position(start_pos)),
-                '[' => Token::lbracket_with(self.position(start_pos)),
-                ']' => Token::rbracket_with(self.position(start_pos)),
-                '|' => Token::vertical_bar_with(self.position(start_pos)),
-                '"' => Token::string_literal_with(self.read_string(), self.position(start_pos)),
-                '\'' => Token::char_with(self.read_native_char(), self.position(start_pos)),
+                '*' => Token::asterisk_with(self.position(start_pos, 1)),
+                '/' => Token::slash_with(self.position(start_pos, 1)),
+                '<' => Token::lt_with(self.position(start_pos, 1)),
+                '>' => Token::gt_with(self.position(start_pos, 1)),
+                ',' => Token::comma_with(self.position(start_pos, 1)),
+                ';' => Token::semicolon_with(self.position(start_pos, 1)),
+                ':' => Token::colon_with(self.position(start_pos, 1)),
+                '(' => Token::lparen_with(self.position(start_pos, 1)),
+                ')' => Token::rparen_with(self.position(start_pos, 1)),
+                '{' => Token::lbrace_with(self.position(start_pos, 1)),
+                '}' => Token::rbrace_with(self.position(start_pos, 1)),
+                '[' => Token::lbracket_with(self.position(start_pos, 1)),
+                ']' => Token::rbracket_with(self.position(start_pos, 1)),
+                '|' => Token::vertical_bar_with(self.position(start_pos, 1)),
+                '"' => Token::string_literal_with(self.read_string(), self.position(start_pos, 1)),
+                '\'' => Token::char_with(self.read_native_char(), self.position(start_pos, 1)),
                 _ => {
                     if Self::is_letter(c) {
                         let literal = self.read_identifier();
-                        return lookup_ident(&literal, self.position(start_pos));
+                        return lookup_ident(&literal, self.position(start_pos, 0));
                     } else if Self::is_digit(c) {
-                        return Token::int_with(self.read_number(), self.position(start_pos));
+                        return Token::int_with(self.read_number(), self.position(start_pos, 0));
                     } else {
-                        Token::illegal_with(c.to_string(), self.position(start_pos))
+                        Token::illegal_with(c.to_string(), self.position(start_pos, 1))
                     }
                 }
             },
@@ -80,9 +80,9 @@ impl Lexer {
         lexer
     }
 
-    fn position(&self, start_pos: usize) -> Position {
+    fn position(&self, start_pos: usize, offset: usize) -> Position {
         Position {
-            range: start_pos..self.pos + 1,
+            range: start_pos..self.pos + offset,
         }
     }
 
@@ -281,17 +281,32 @@ mod tests {
 
         let mut lexer = super::Lexer::new(input.to_string());
 
-        assert_eq!(lexer.next_token(), Token::r#let());
-        assert_eq!(
-            lexer.next_token(),
-            Token::ident_with("five".into(), Position::default())
-        );
-        assert_eq!(lexer.next_token(), Token::assign());
-        assert_eq!(
-            lexer.next_token(),
-            Token::int_with("5".into(), Position::default())
-        );
-        assert_eq!(lexer.next_token(), Token::semicolon());
+        {
+            let tkn = lexer.next_token();
+            assert_eq!(tkn, Token::r#let());
+            assert_eq!(13..16, tkn.position().range);
+            assert_eq!(&input[tkn.position().range.clone()], "let");
+
+            let tkn = lexer.next_token();
+            assert_eq!(tkn, Token::ident_with("five".into(), Position::default()));
+            assert_eq!(17..21, tkn.position().range);
+            assert_eq!(&input[tkn.position().range.clone()], "five");
+
+            let tkn = lexer.next_token();
+            assert_eq!(tkn, Token::assign());
+            assert_eq!(22..23, tkn.position().range);
+            assert_eq!(&input[tkn.position().range.clone()], "=");
+
+            let tkn = lexer.next_token();
+            assert_eq!(tkn, Token::int_with("5".into(), Position::default()));
+            assert_eq!(24..25, tkn.position().range);
+            assert_eq!(&input[tkn.position().range.clone()], "5");
+
+            let tkn = lexer.next_token();
+            assert_eq!(tkn, Token::semicolon());
+            assert_eq!(25..26, tkn.position().range);
+            assert_eq!(&input[tkn.position().range.clone()], ";");
+        }
 
         assert_eq!(lexer.next_token(), Token::r#let());
         assert_eq!(

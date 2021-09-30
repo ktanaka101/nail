@@ -54,6 +54,43 @@ pub enum Token {
 }
 
 impl<'a> Token {
+    pub fn literal(&self) -> String {
+        match self {
+            Self::Assign(_) => "=".to_string(),
+            Self::Plus(_) => "+".to_string(),
+            Self::Minus(_) => "-".to_string(),
+            Self::Bang(_) => "!".to_string(),
+            Self::Asterisk(_) => "*".to_string(),
+            Self::Slash(_) => "/".to_string(),
+            Self::Equal(_) => "=".to_string(),
+            Self::NotEqual(_) => "!=".to_string(),
+            Self::Lt(_) => "<".to_string(),
+            Self::Gt(_) => ">".to_string(),
+            Self::Comma(_) => ",".to_string(),
+            Self::Semicolon(_) => ";".to_string(),
+            Self::Colon(_) => ":".to_string(),
+            Self::Lparen(_) => "(".to_string(),
+            Self::Rparen(_) => ")".to_string(),
+            Self::Lbrace(_) => "{".to_string(),
+            Self::Rbrace(_) => "}".to_string(),
+            Self::Lbracket(_) => "[".to_string(),
+            Self::Rbracket(_) => "]".to_string(),
+            Self::VerticalBar(_) => "|".to_string(),
+            Self::Function(_) => "fn".to_string(),
+            Self::Let(_) => "let".to_string(),
+            Self::True(_) => "true".to_string(),
+            Self::False(_) => "false".to_string(),
+            Self::If(_) => "if".to_string(),
+            Self::Else(_) => "else".to_string(),
+            Self::Return(_) => "return".to_string(),
+            Self::Eof(_) => "".to_string(),
+            Self::Macro(_) => "macro".to_string(),
+            Self::Illegal(t) | Self::Ident(t) | Self::Int(t) => t.input.to_string(),
+            Self::StringLiteral(t) => format!("\"{}\"", t.input),
+            Self::Char(t) => format!("'{}'", &t.input),
+        }
+    }
+
     pub fn position(&'a self) -> &'a Position {
         match self {
             Self::Assign(t)

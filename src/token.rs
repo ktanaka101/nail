@@ -62,7 +62,7 @@ impl<'a> Token {
             Self::Bang(_) => "!".to_string(),
             Self::Asterisk(_) => "*".to_string(),
             Self::Slash(_) => "/".to_string(),
-            Self::Equal(_) => "=".to_string(),
+            Self::Equal(_) => "==".to_string(),
             Self::NotEqual(_) => "!=".to_string(),
             Self::Lt(_) => "<".to_string(),
             Self::Gt(_) => ">".to_string(),

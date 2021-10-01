@@ -1,8 +1,9 @@
-use super::prelude::*;
+use super::{prelude::*, Tokens};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Array {
     pub elements: Vec<Expr>,
+    pub tokens: Tokens,
 }
 
 impl Display for Array {

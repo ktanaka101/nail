@@ -128,6 +128,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::token::{Position, Token};
+
     use super::super::ast::*;
     use super::*;
 
@@ -290,10 +292,20 @@ mod tests {
             (
                 Expr::from(Array {
                     elements: vec![one()],
+                    tokens: Tokens::from(vec![
+                        Token::lbracket(),
+                        Token::int_with("1".to_string(), Position::default()),
+                        Token::rbracket(),
+                    ]),
                 })
                 .into(),
                 Expr::from(Array {
                     elements: vec![two()],
+                    tokens: Tokens::from(vec![
+                        Token::lbracket(),
+                        Token::int_with("1".to_string(), Position::default()),
+                        Token::rbracket(),
+                    ]),
                 })
                 .into(),
             ),

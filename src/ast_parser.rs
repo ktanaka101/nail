@@ -46,6 +46,7 @@ pub struct Parser<T: Lexer> {
     lexer: T,
     cur_token: Token,
     peek_token: Token,
+    cur_tokens: Vec<Token>,
     pub errors: Vec<String>,
 }
 
@@ -81,12 +82,14 @@ impl<T: Lexer> Parser<T> {
         Parser {
             cur_token: lexer.next_token(),
             peek_token: lexer.next_token(),
+            cur_tokens: Vec::<Token>::new(),
             lexer,
             errors: Vec::new(),
         }
     }
 
     fn next_token(&mut self) {
+        self.cur_tokens.push(self.cur_token.clone());
         self.cur_token = self.peek_token.clone();
         self.peek_token = self.lexer.next_token();
     }
@@ -483,8 +486,12 @@ impl<T: Lexer> Parser<T> {
     }
 
     fn parse_array_literal(&mut self) -> Result<ast::Array> {
+        self.cur_tokens.clear();
+        let elements = self.parse_expr_list(Token::rbracket())?;
+        self.cur_tokens.push(self.cur_token.clone());
         Ok(ast::Array {
-            elements: self.parse_expr_list(Token::rbracket())?,
+            elements,
+            tokens: self.cur_tokens.clone().into(),
         })
     }
 
@@ -612,7 +619,7 @@ impl<T: Lexer> Parser<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lexer;
+    use crate::{lexer, token::Position};
 
     struct Id<'a>(&'a str, Option<ast::Type>);
 
@@ -1120,6 +1127,21 @@ mod tests {
         test_expr(&array_expr.elements[0], &Val::I(1));
         test_infix_by_expr(&array_expr.elements[1], &Val::I(2), "*", &Val::I(2));
         test_infix_by_expr(&array_expr.elements[2], &Val::I(3), "+", &Val::I(3));
+
+        let expected_tokens = vec![
+            Token::lbracket(),
+            Token::int_with("1".to_string(), Position::default()),
+            Token::comma(),
+            Token::int_with("2".to_string(), Position::default()),
+            Token::asterisk(),
+            Token::int_with("2".to_string(), Position::default()),
+            Token::comma(),
+            Token::int_with("3".to_string(), Position::default()),
+            Token::plus(),
+            Token::int_with("3".to_string(), Position::default()),
+            Token::rbracket(),
+        ];
+        assert_eq!(array_expr.tokens, expected_tokens.into());
     }
 
     #[test]

@@ -66,3 +66,16 @@ pub use prefix_expr::PrefixExpr;
 pub use program::Program;
 pub use stmt::Stmt;
 pub use string_lit::StringLit;
+
+use crate::token;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Tokens {
+    tokens: Vec<token::Token>,
+}
+
+impl From<Vec<token::Token>> for Tokens {
+    fn from(tokens: Vec<token::Token>) -> Self {
+        Tokens { tokens }
+    }
+}

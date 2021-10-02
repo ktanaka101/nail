@@ -487,6 +487,7 @@ impl<T: Lexer> Parser<T> {
 
     fn parse_array_literal(&mut self) -> Result<ast::Array> {
         self.cur_tokens.clear();
+
         let elements = self.parse_expr_list(Token::rbracket())?;
         self.cur_tokens.push(self.cur_token.clone());
         Ok(ast::Array {

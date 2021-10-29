@@ -1,8 +1,9 @@
-use super::prelude::*;
+use super::{prelude::*, Tokens};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Block {
     pub statements: Vec<Stmt>,
+    pub tokens: Tokens,
 }
 
 impl Block {

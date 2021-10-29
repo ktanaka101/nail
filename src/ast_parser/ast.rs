@@ -69,7 +69,7 @@ pub use string_lit::StringLit;
 
 use crate::token;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Tokens {
     tokens: Vec<token::Token>,
 }

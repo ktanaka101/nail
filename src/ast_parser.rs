@@ -330,7 +330,10 @@ impl<T: Lexer> Parser<T> {
             self.next_token();
         }
 
-        Ok(ast::Block { statements })
+        Ok(ast::Block {
+            statements,
+            tokens: self.cur_tokens.clone().into(),
+        })
     }
 
     fn parse_function_literal(&mut self) -> Result<ast::Function> {

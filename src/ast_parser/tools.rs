@@ -222,9 +222,11 @@ mod tests {
                     cond: one().into(),
                     consequence: Block {
                         statements: vec![ExprStmt { expr: one() }.into()],
+                        tokens: Tokens::default(),
                     },
                     alternative: Some(Block {
                         statements: vec![ExprStmt { expr: one() }.into()],
+                        tokens: Tokens::default(),
                     }),
                     r#type: None,
                 })
@@ -233,9 +235,11 @@ mod tests {
                     cond: two().into(),
                     consequence: Block {
                         statements: vec![ExprStmt { expr: two() }.into()],
+                        tokens: Tokens::default(),
                     },
                     alternative: Some(Block {
                         statements: vec![ExprStmt { expr: two() }.into()],
+                        tokens: Tokens::default(),
                     }),
                     r#type: None,
                 })
@@ -274,6 +278,7 @@ mod tests {
                     params: Vec::<Identifier>::new(),
                     body: Block {
                         statements: vec![ExprStmt { expr: one() }.into()],
+                        tokens: Tokens::default(),
                     },
                     name: "".to_string(),
                     fn_type: FunctionType::Function,
@@ -283,6 +288,7 @@ mod tests {
                     params: Vec::<Identifier>::new(),
                     body: Block {
                         statements: vec![ExprStmt { expr: two() }.into()],
+                        tokens: Tokens::default(),
                     },
                     name: "".to_string(),
                     fn_type: FunctionType::Function,

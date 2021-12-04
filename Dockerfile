@@ -13,7 +13,7 @@ RUN echo 'deb http://apt.llvm.org/bullseye/ llvm-toolchain-bullseye-11 main' >> 
 RUN apt-get update
 
 # LLVM
-RUN apt-get install -y libllvm-11-ocaml-dev libllvm11 llvm-11 llvm-11-dev llvm-11-doc llvm-11-examples llvm-11-runtime
+RUN apt-get install -y libllvm-11-ocaml-dev libllvm11 llvm-11 llvm-11-dev llvm-11-doc llvm-11-runtime
 # Clang and co
 # Replaced python-clang-10 to python3-clang-10
 RUN apt-get install -y clang-11 clang-tools-11 clang-11-doc libclang-common-11-dev libclang-11-dev libclang1-11 clang-format-11 python3-clang-11 clangd-11

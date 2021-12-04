@@ -12,15 +12,16 @@
     "rust-analyzer.checkOnSave.command": "clippy"
   },
   "extensions": [
-	"vadimcn.vscode-lldb",
-	"mutantdino.resourcemonitor",
-	"matklad.rust-analyzer",
-	"tamasfe.even-better-toml",
-	"editorconfig.editorconfig",
-	"gizak.shortcuts",
-	"christian-kohler.path-intellisense",
-	"spywhere.guides",
-	"github.copilot"
-],
+    "vadimcn.vscode-lldb",
+    "mutantdino.resourcemonitor",
+    "matklad.rust-analyzer",
+    "tamasfe.even-better-toml",
+    "editorconfig.editorconfig",
+    "gizak.shortcuts",
+    "christian-kohler.path-intellisense",
+    "spywhere.guides",
+    "github.copilot",
+    "eamodio.gitlens"
+  ],
   "runArgs": ["--cap-add=SYS_PTRACE", "--security-opt", "seccomp=unconfined"]
 }

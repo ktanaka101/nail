@@ -3,3 +3,4 @@
 .vscode
 /output/*.output
 .envrc
+.DS_STORE

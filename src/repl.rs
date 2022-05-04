@@ -16,7 +16,6 @@ use crate::ast_parser::Parser;
 use crate::lexer::Lexer;
 use crate::llvm::codegen;
 use crate::llvm::codegen::Codegen;
-use crate::normalizer;
 use crate::type_checker;
 
 const PROMPT: &str = ">> ";
@@ -99,11 +98,6 @@ fn llvm_run(code: &str) -> Result<String> {
         let checker = type_checker::Checker::new();
         checker.check(&node)?;
     }
-
-    let node = {
-        let normalizer = normalizer::Normalizer::new();
-        normalizer.normalize(node)?
-    };
 
     let main_fn = codegen.gen(&node, false, codegen::Output::CStringPtr)?;
 

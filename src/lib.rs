@@ -8,7 +8,6 @@ mod preludes {
 pub mod ast_parser;
 pub mod lexer;
 pub mod llvm;
-pub mod normalizer;
 pub mod repl;
 pub mod token;
 pub mod type_checker;

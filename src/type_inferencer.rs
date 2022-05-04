@@ -488,10 +488,9 @@ mod tests {
                 ast::Stmt::ExprStmt(expr_stmt) => match &expr_stmt.expr {
                     ast::Expr::If(r#if) => {
                         assert_eq!(
-                            &r#if.r#type,
-                            expected,
-                            "{}",
-                            format!("input: {}\nexpected: {:?}", input, expected)
+                            &r#if.r#type, expected,
+                            "input: {}\nexpected: {:?}",
+                            input, expected
                         );
                     }
                     other => panic_err(

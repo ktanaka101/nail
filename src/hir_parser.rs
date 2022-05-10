@@ -92,20 +92,17 @@ impl<'ctx> Scope<'ctx> {
     }
 }
 
-pub struct HirParser<'a, 'hir>
-where
-    'a: 'hir,
-{
-    hir_arena: &'a arena::Arena<'hir>,
+pub struct HirParser<'hir> {
+    hir_arena: &'hir arena::Arena<'hir>,
     scope: &'hir mut Scope<'hir>,
-    resolver: &'a mut IdResolver,
+    resolver: &'hir mut IdResolver,
 }
 
-impl<'a, 'hir> HirParser<'a, 'hir> {
+impl<'hir> HirParser<'hir> {
     pub fn new(
         hir_arena: &'hir arena::Arena<'hir>,
         scope: &'hir mut Scope<'hir>,
-        resolver: &'a mut IdResolver,
+        resolver: &'hir mut IdResolver,
     ) -> Self {
         Self {
             hir_arena,

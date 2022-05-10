@@ -6,6 +6,7 @@ mod preludes {
 }
 
 pub mod ast_parser;
+pub mod hir_parser;
 pub mod lexer;
 pub mod llvm;
 pub mod repl;

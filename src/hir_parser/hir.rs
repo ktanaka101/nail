@@ -21,6 +21,7 @@ mod r#return;
 mod stmt;
 mod stmt_kind;
 mod string_lit;
+mod r#type;
 
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
 pub struct HirId(u64);
@@ -54,6 +55,7 @@ pub use program::Program;
 pub use r#if::If;
 pub use r#let::Let;
 pub use r#return::Return;
+pub use r#type::Type;
 pub use stmt::Stmt;
 pub use stmt_kind::StmtKind;
 pub use string_lit::StringLit;

@@ -193,7 +193,11 @@ impl<'hir> HirParser<'hir> {
         let id = self.resolver.next_id();
         let kind = self.parse_expr_no_alloc(expr);
 
-        self.hir_arena.alloc(hir::Expr { id, kind })
+        self.hir_arena.alloc(hir::Expr {
+            id,
+            kind,
+            r#type: hir::Type::Infer,
+        })
     }
 
     fn parse_exprs(&mut self, exprs: &Vec<ast::Expr>) -> &'hir [hir::Expr<'hir>] {
@@ -203,7 +207,11 @@ impl<'hir> HirParser<'hir> {
             let id = self.resolver.next_id();
             let kind = self.parse_expr_no_alloc(expr);
 
-            expressions.push(hir::Expr { id, kind });
+            expressions.push(hir::Expr {
+                id,
+                kind,
+                r#type: hir::Type::Infer,
+            });
         }
 
         self.hir_arena.alloc_from_iter(expressions)
@@ -265,6 +273,7 @@ impl<'hir> HirParser<'hir> {
                 self.hir_arena.alloc(hir::Expr {
                     id: self.resolver.next_id(),
                     kind: hir::ExprKind::FunctionParam(param),
+                    r#type: hir::Type::Infer,
                 }),
             );
         }
@@ -450,10 +459,12 @@ mod test {
         let integer_a = hir::Expr {
             id: hir::HirId::new(2),
             kind: hir::ExprKind::Integer(&hir::Integer { value: 1 }),
+            r#type: hir::Type::Infer,
         };
         let integer_b = hir::Expr {
             id: hir::HirId::new(4),
             kind: hir::ExprKind::Integer(&hir::Integer { value: 2 }),
+            r#type: hir::Type::Infer,
         };
         assert_eq!(
             &hir.statements[0],
@@ -489,6 +500,7 @@ mod test {
                                     name: &hir::Symbol("x".to_string()),
                                     resolved_expr: Some(&integer_a)
                                 }),
+                                r#type: hir::Type::Infer,
                             },
                             operator: hir::Operator::Plus,
                             right: &hir::Expr {
@@ -497,8 +509,10 @@ mod test {
                                     name: &hir::Symbol("y".to_string()),
                                     resolved_expr: Some(&integer_b)
                                 }),
+                                r#type: hir::Type::Infer,
                             },
-                        })
+                        }),
+                        r#type: hir::Type::Infer,
                     }
                 })
             }
@@ -583,10 +597,12 @@ mod test {
         let integer_a = hir::Expr {
             id: hir::HirId::new(5),
             kind: hir::ExprKind::Integer(&hir::Integer { value: 1 }),
+            r#type: hir::Type::Infer,
         };
         let integer_b = hir::Expr {
             id: hir::HirId::new(9),
             kind: hir::ExprKind::Integer(&hir::Integer { value: 2 }),
+            r#type: hir::Type::Infer,
         };
         assert_eq!(
             &hir.statements[0],
@@ -599,6 +615,7 @@ mod test {
                             condition: &hir::Expr {
                                 id: hir::HirId::new(3),
                                 kind: hir::ExprKind::Boolean(&hir::Boolean { value: true }),
+                                r#type: hir::Type::Infer,
                             },
                             then_branch: &hir::Block {
                                 statements: &[
@@ -618,6 +635,7 @@ mod test {
                                                     name: &hir::Symbol("x".to_string()),
                                                     resolved_expr: Some(&integer_a)
                                                 }),
+                                                r#type: hir::Type::Infer,
                                             }
                                         })
                                     },
@@ -641,8 +659,9 @@ mod test {
                                                     name: &hir::Symbol("y".to_string()),
                                                     resolved_expr: Some(&integer_b)
                                                 }),
+                                                r#type: hir::Type::Infer,
                                             }
-                                        })
+                                        }),
                                     },
                                     hir::Stmt {
                                         id: hir::HirId::new(12),
@@ -653,12 +672,14 @@ mod test {
                                                     name: &hir::Symbol("x".to_string()),
                                                     resolved_expr: None,
                                                 }),
+                                                r#type: hir::Type::Infer,
                                             }
                                         })
                                     },
                                 ]
                             }),
-                        })
+                        }),
+                        r#type: hir::Type::Infer,
                     }
                 })
             }
@@ -673,7 +694,8 @@ mod test {
                         kind: hir::ExprKind::Identifier(&hir::Identifier {
                             name: &hir::Symbol("x".to_string()),
                             resolved_expr: None,
-                        })
+                        }),
+                        r#type: hir::Type::Infer,
                     }
                 })
             }
@@ -688,7 +710,8 @@ mod test {
                         kind: hir::ExprKind::Identifier(&hir::Identifier {
                             name: &hir::Symbol("y".to_string()),
                             resolved_expr: None,
-                        })
+                        }),
+                        r#type: hir::Type::Infer,
                     }
                 })
             }
@@ -717,6 +740,7 @@ mod test {
         let expr = hir::Expr {
             id: hir::HirId::new(0),
             kind: hir::ExprKind::StringLit(&string),
+            r#type: hir::Type::Infer,
         };
         context.scope.define_into_current_scope(&symbol, &expr);
 
@@ -796,13 +820,15 @@ mod test {
                         name: &func_symbol,
                         resolved_expr: None,
                     }),
+                    r#type: hir::Type::Infer,
                 },
                 args: &[hir::Expr {
                     id: hir::HirId::new(1),
                     kind: hir::ExprKind::Identifier(&hir::Identifier {
                         name: &arg_symbol,
                         resolved_expr: None,
-                    })
+                    }),
+                    r#type: hir::Type::Infer,
                 }],
             },
         );
@@ -843,6 +869,7 @@ mod test {
                             expr: &hir::Expr {
                                 id: hir::HirId::new(2),
                                 kind: hir::ExprKind::Integer(&hir::Integer { value: 1 }),
+                                r#type: hir::Type::Infer,
                             },
                         }),
                     }],
@@ -896,8 +923,10 @@ mod test {
                                         kind: hir::ExprKind::FunctionParam(&hir::FunctionParam {
                                             name: &hir::Symbol("argA".to_string()),
                                         }),
+                                        r#type: hir::Type::Infer,
                                     },),
                                 }),
+                                r#type: hir::Type::Infer,
                             },
                         }),
                     }],
@@ -991,6 +1020,7 @@ mod test {
                                                             kind: hir::ExprKind::Integer(
                                                                 &hir::Integer { value: 1 }
                                                             ),
+                                                            r#type: hir::Type::Infer,
                                                         },
                                                     }),
                                                 },
@@ -1009,9 +1039,11 @@ mod test {
                                                                         kind: hir::ExprKind::Integer(
                                                                             &hir::Integer { value: 1 }
                                                                         ),
+                                                                        r#type: hir::Type::Infer,
                                                                     }),
                                                                 }
                                                             ),
+                                                            r#type: hir::Type::Infer,
                                                         },
                                                     }),
                                                 },
@@ -1019,6 +1051,7 @@ mod test {
                                         },
                                         fn_type: hir::FunctionType::Function,
                                     }),
+                                    r#type: hir::Type::Infer,
                                 },
                             }),
                         },
@@ -1031,6 +1064,7 @@ mod test {
                                         name: &hir::Symbol("x".to_string()),
                                         resolved_expr: None,
                                     }),
+                                    r#type: hir::Type::Infer,
                                 },
                             }),
                         },
@@ -1070,6 +1104,7 @@ mod test {
                             name: &key_symbol,
                             resolved_expr: None,
                         }),
+                        r#type: hir::Type::Infer,
                     },
                     value: &hir::Expr {
                         id: hir::HirId::new(1),
@@ -1077,6 +1112,7 @@ mod test {
                             name: &value_symbol,
                             resolved_expr: None,
                         }),
+                        r#type: hir::Type::Infer,
                     },
                 }],
             },
@@ -1120,6 +1156,7 @@ mod test {
                         name: &test_symbol,
                         resolved_expr: None,
                     }),
+                    r#type: hir::Type::Infer,
                 },
                 then_branch: &hir::Block {
                     statements: &[hir::Stmt {
@@ -1128,6 +1165,7 @@ mod test {
                             expr: &hir::Expr {
                                 id: hir::HirId::new(2),
                                 kind: hir::ExprKind::Integer(&hir::Integer { value: 1 }),
+                                r#type: hir::Type::Infer,
                             },
                         }),
                     }],
@@ -1139,6 +1177,7 @@ mod test {
                             expr: &hir::Expr {
                                 id: hir::HirId::new(4),
                                 kind: hir::ExprKind::Integer(&hir::Integer { value: 2 }),
+                                r#type: hir::Type::Infer,
                             },
                         }),
                     }],
@@ -1171,10 +1210,12 @@ mod test {
                         name: &hir::Symbol("test".to_string()),
                         resolved_expr: None,
                     }),
+                    r#type: hir::Type::Infer,
                 },
                 index: &hir::Expr {
                     id: hir::HirId::new(1),
                     kind: hir::ExprKind::Integer(&hir::Integer { value: 1 }),
+                    r#type: hir::Type::Infer,
                 },
             }
         );
@@ -1205,11 +1246,13 @@ mod test {
                         name: &hir::Symbol("test".to_string()),
                         resolved_expr: None,
                     }),
+                    r#type: hir::Type::Infer,
                 },
                 operator: hir::Operator::Plus,
                 right: &hir::Expr {
                     id: hir::HirId::new(1),
                     kind: hir::ExprKind::Integer(&hir::Integer { value: 1 }),
+                    r#type: hir::Type::Infer,
                 },
             }
         );
@@ -1230,6 +1273,7 @@ mod test {
                 kind: hir::ExprKind::StringLit(&hir::StringLit {
                     value: "test".to_string(),
                 }),
+                r#type: hir::Type::Infer,
             },
         );
     }
@@ -1250,6 +1294,7 @@ mod test {
                 target: &hir::Expr {
                     id: hir::HirId::new(0),
                     kind: hir::ExprKind::Integer(&hir::Integer { value: 1 }),
+                    r#type: hir::Type::Infer,
                 },
             },
         );
@@ -1276,12 +1321,14 @@ mod test {
                     kind: hir::ExprKind::StringLit(&hir::StringLit {
                         value: "test".to_string(),
                     }),
+                    r#type: hir::Type::Infer,
                 },
                 hir::Expr {
                     id: hir::HirId::new(1),
                     kind: hir::ExprKind::StringLit(&hir::StringLit {
                         value: "test2".to_string(),
                     }),
+                    r#type: hir::Type::Infer,
                 },
             ],
         );
@@ -1305,6 +1352,7 @@ mod test {
                     kind: hir::ExprKind::StringLit(&hir::StringLit {
                         value: "test".to_string(),
                     }),
+                    r#type: hir::Type::Infer,
                 },
             },
         );
@@ -1332,6 +1380,7 @@ mod test {
         let expected_expr = hir::Expr {
             id: hir::HirId::new(0),
             kind: hir::ExprKind::StringLit(&expected_string),
+            r#type: hir::Type::Infer,
         };
 
         assert_eq!(
@@ -1365,6 +1414,7 @@ mod test {
                     kind: hir::ExprKind::StringLit(&hir::StringLit {
                         value: "test".to_string(),
                     }),
+                    r#type: hir::Type::Infer,
                 },
             }
         );
@@ -1400,6 +1450,7 @@ mod test {
                         kind: hir::ExprKind::StringLit(&hir::StringLit {
                             value: "test1".to_string(),
                         }),
+                        r#type: hir::Type::Infer,
                     },
                 }),
             }
@@ -1416,6 +1467,7 @@ mod test {
                         kind: hir::ExprKind::StringLit(&hir::StringLit {
                             value: "test2".to_string(),
                         }),
+                        r#type: hir::Type::Infer,
                     },
                 }),
             }
@@ -1446,6 +1498,7 @@ mod test {
                             kind: hir::ExprKind::StringLit(&hir::StringLit {
                                 value: "test1".to_string(),
                             }),
+                            r#type: hir::Type::Infer,
                         },
                     }),
                 },],

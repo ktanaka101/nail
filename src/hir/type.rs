@@ -11,4 +11,5 @@ pub enum Type<'hir> {
     Unit,
     Never,
     Infer,
+    Unknown,
 }

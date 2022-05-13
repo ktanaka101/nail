@@ -1,9 +1,10 @@
 mod arena;
-pub mod hir;
 mod symbol_table;
 
 use std::{cell::RefCell, rc::Rc};
 use thiserror;
+
+use crate::hir;
 
 use crate::ast_parser::ast;
 

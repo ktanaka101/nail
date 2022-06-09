@@ -8,6 +8,8 @@ pub enum FunctionType {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionParam<'hir> {
+    pub id: hir::HirId,
+    pub r#type: &'hir hir::Type<'hir>,
     pub name: &'hir hir::Symbol,
 }
 

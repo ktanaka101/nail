@@ -374,9 +374,18 @@ impl<'hir> HirParser<'hir> {
         let mut params: Vec<hir::FunctionParam<'hir>> = vec![];
 
         for identifier in identifiers {
-            let symbol = self.hir_arena.alloc(hir::Symbol(identifier.value.clone()));
+            let param_id = self.resolver.next_id();
+            let name = self.hir_arena.alloc(hir::Symbol(identifier.value.clone()));
+            let r#type = self.hir_arena.alloc(hir::Type {
+                id: self.resolver.next_id(),
+                kind: self.hir_arena.alloc(hir::TypeKind::Infer),
+            });
 
-            params.push(hir::FunctionParam { name: symbol });
+            params.push(hir::FunctionParam {
+                id: param_id,
+                r#type,
+                name,
+            });
         }
 
         self.hir_arena.alloc_from_iter(params)
@@ -835,14 +844,19 @@ mod test {
             &hir::Function {
                 name: &hir::Symbol("test".to_string()),
                 params: &[hir::FunctionParam {
+                    id: hir::HirId::new(0),
                     name: &hir::Symbol("argA".to_string()),
+                    r#type: &hir::Type {
+                        id: hir::HirId::new(1),
+                        kind: &hir::TypeKind::Infer
+                    }
                 }],
                 body: &hir::Block {
                     statements: &[hir::Stmt {
-                        id: hir::HirId::new(1),
+                        id: hir::HirId::new(3),
                         kind: hir::StmtKind::Return(&hir::Return {
                             expr: &hir::Expr {
-                                id: hir::HirId::new(2),
+                                id: hir::HirId::new(4),
                                 kind: hir::ExprKind::Integer(&hir::Integer { value: 1 }),
                             },
                         }),
@@ -882,20 +896,30 @@ mod test {
             &hir::Function {
                 name: &hir::Symbol("test".to_string()),
                 params: &[hir::FunctionParam {
+                    id: hir::HirId::new(0),
                     name: &hir::Symbol("argA".to_string()),
+                    r#type: &hir::Type {
+                        id: hir::HirId::new(1),
+                        kind: &hir::TypeKind::Infer
+                    }
                 }],
                 body: &hir::Block {
                     statements: &[hir::Stmt {
-                        id: hir::HirId::new(1),
+                        id: hir::HirId::new(3),
                         kind: hir::StmtKind::Return(&hir::Return {
                             expr: &hir::Expr {
-                                id: hir::HirId::new(2),
+                                id: hir::HirId::new(4),
                                 kind: hir::ExprKind::Identifier(&hir::Identifier {
                                     name: &hir::Symbol("argA".to_string()),
                                     resolved_expr: Some(&hir::Expr {
-                                        id: hir::HirId::new(0),
+                                        id: hir::HirId::new(2),
                                         kind: hir::ExprKind::FunctionParam(&hir::FunctionParam {
+                                            id: hir::HirId::new(0),
                                             name: &hir::Symbol("argA".to_string()),
+                                            r#type: &hir::Type {
+                                                id: hir::HirId::new(1),
+                                                kind: &hir::TypeKind::Infer
+                                            }
                                         }),
                                     },),
                                 }),
@@ -966,29 +990,42 @@ mod test {
             hir_function,
             &hir::Function {
                 name: &hir::Symbol("outer_function".to_string()),
-                params: &[hir::FunctionParam {
+                params: &[
+                hir::FunctionParam {
+                    id: hir::HirId::new(0),
                     name: &hir::Symbol("outer_arg_a".to_string()),
+                    r#type: &hir::Type {
+                        id: hir::HirId::new(1),
+                        kind: &hir::TypeKind::Infer
+                    }
                 }],
                 body: &hir::Block {
                     statements: &[
                         hir::Stmt {
-                            id: hir::HirId::new(1),
+                            id: hir::HirId::new(3),
                             kind: hir::StmtKind::ExprStmt(&hir::ExprStmt {
                                 expr: &hir::Expr {
-                                    id: hir::HirId::new(2),
+                                    id: hir::HirId::new(4),
                                     kind: hir::ExprKind::Function(&hir::Function {
                                         name: &hir::Symbol("inner_function".to_string()),
-                                        params: &[hir::FunctionParam {
-                                            name: &hir::Symbol("inner_arg_a".to_string())
-                                        }],
+                                        params: &[
+                                            hir::FunctionParam {
+                                                id: hir::HirId::new(5),
+                                                name: &hir::Symbol("inner_arg_a".to_string()),
+                                                r#type: &hir::Type {
+                                                    id: hir::HirId::new(6),
+                                                    kind: &hir::TypeKind::Infer
+                                                }
+                                            }
+                                        ],
                                         body: &hir::Block {
                                             statements: &[
                                                 hir::Stmt {
-                                                    id: hir::HirId::new(4),
+                                                    id: hir::HirId::new(8),
                                                     kind: hir::StmtKind::Let(&hir::Let {
                                                         name: &hir::Symbol("x".to_string()),
                                                         value: &hir::Expr {
-                                                            id: hir::HirId::new(5),
+                                                            id: hir::HirId::new(9),
                                                             kind: hir::ExprKind::Integer(
                                                                 &hir::Integer { value: 1 }
                                                             ),
@@ -997,17 +1034,17 @@ mod test {
                                                     }),
                                                 },
                                                 hir::Stmt {
-                                                    id: hir::HirId::new(6),
+                                                    id: hir::HirId::new(10),
                                                     kind: hir::StmtKind::ExprStmt(&hir::ExprStmt {
                                                         expr: &hir::Expr {
-                                                            id: hir::HirId::new(7),
+                                                            id: hir::HirId::new(11),
                                                             kind: hir::ExprKind::Identifier(
                                                                 &hir::Identifier {
                                                                     name: &hir::Symbol(
                                                                         "x".to_string()
                                                                     ),
                                                                     resolved_expr: Some(&hir::Expr {
-                                                                        id: hir::HirId::new(5),
+                                                                        id: hir::HirId::new(9),
                                                                         kind: hir::ExprKind::Integer(
                                                                             &hir::Integer { value: 1 }
                                                                         ),
@@ -1028,10 +1065,10 @@ mod test {
                             }),
                         },
                         hir::Stmt {
-                            id: hir::HirId::new(8),
+                            id: hir::HirId::new(12),
                             kind: hir::StmtKind::ExprStmt(&hir::ExprStmt {
                                 expr: &hir::Expr {
-                                    id: hir::HirId::new(9),
+                                    id: hir::HirId::new(13),
                                     kind: hir::ExprKind::Identifier(&hir::Identifier {
                                         name: &hir::Symbol("x".to_string()),
                                         resolved_expr: None,

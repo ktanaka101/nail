@@ -26,6 +26,8 @@ pub struct Arena<'hir> {
     string_lit: typed_arena::Arena<hir::StringLit>,
     symbol: typed_arena::Arena<hir::Symbol>,
     function_param: typed_arena::Arena<hir::FunctionParam<'hir>>,
+    r#type: typed_arena::Arena<hir::Type<'hir>>,
+    type_kind: typed_arena::Arena<hir::TypeKind>,
 }
 
 impl<'hir> Arena<'hir> {
@@ -355,5 +357,31 @@ impl<'hir> ArenaAllocatable<'hir> for hir::HashPair<'hir> {
         iter: impl ::std::iter::IntoIterator<Item = Self>,
     ) -> &'hir mut [Self] {
         arena.hash_pair.alloc_extend(iter.into_iter())
+    }
+}
+
+impl<'hir> ArenaAllocatable<'hir> for hir::Type<'hir> {
+    fn allocate_on(self, arena: &'hir Arena<'hir>) -> &'hir mut Self {
+        arena.r#type.alloc(self)
+    }
+
+    fn allocate_from_iter(
+        arena: &'hir Arena<'hir>,
+        iter: impl ::std::iter::IntoIterator<Item = Self>,
+    ) -> &'hir mut [Self] {
+        arena.r#type.alloc_extend(iter.into_iter())
+    }
+}
+
+impl<'hir> ArenaAllocatable<'hir> for hir::TypeKind {
+    fn allocate_on(self, arena: &'hir Arena<'hir>) -> &'hir mut Self {
+        arena.type_kind.alloc(self)
+    }
+
+    fn allocate_from_iter(
+        arena: &'hir Arena<'hir>,
+        iter: impl ::std::iter::IntoIterator<Item = Self>,
+    ) -> &'hir mut [Self] {
+        arena.type_kind.alloc_extend(iter.into_iter())
     }
 }

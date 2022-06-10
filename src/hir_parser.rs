@@ -122,7 +122,7 @@ impl<'hir> HirParser<'hir> {
         Ok(self.hir_arena.alloc(hir::Program { id, statements }))
     }
 
-    fn parse_stmts(&mut self, stmts: &Vec<ast::Stmt>) -> &'hir [hir::Stmt<'hir>] {
+    fn parse_stmts(&mut self, stmts: &[ast::Stmt]) -> &'hir [hir::Stmt<'hir>] {
         let mut statements: Vec<hir::Stmt<'hir>> = vec![];
 
         for stmt in stmts {
@@ -197,7 +197,7 @@ impl<'hir> HirParser<'hir> {
         self.hir_arena.alloc(hir::Expr { id, kind })
     }
 
-    fn parse_exprs(&mut self, exprs: &Vec<ast::Expr>) -> &'hir [hir::Expr<'hir>] {
+    fn parse_exprs(&mut self, exprs: &[ast::Expr]) -> &'hir [hir::Expr<'hir>] {
         let mut expressions: Vec<hir::Expr<'hir>> = vec![];
 
         for expr in exprs {
@@ -369,7 +369,7 @@ impl<'hir> HirParser<'hir> {
 
     fn parse_params(
         &mut self,
-        identifiers: &Vec<ast::Identifier>,
+        identifiers: &[ast::Identifier],
     ) -> &'hir [hir::FunctionParam<'hir>] {
         let mut params: Vec<hir::FunctionParam<'hir>> = vec![];
 

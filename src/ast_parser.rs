@@ -679,7 +679,7 @@ mod tests {
             ),
             (
                 "let x: CustomeType = 'a'",
-                Id("x", Some(ast::Type::Custome("CustomeType".to_string()))),
+                Id("x", Some(ast::Type::Custom("CustomeType".to_string()))),
                 Val::C('a'),
             ),
         ];

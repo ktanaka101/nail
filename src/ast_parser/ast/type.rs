@@ -9,7 +9,7 @@ pub enum Type {
     Integer,
     Char,
     String,
-    Custome(String),
+    Custom(String),
     Unit,
     Never,
 }
@@ -26,7 +26,7 @@ impl From<String> for Type {
             "String" => Type::String,
             "Never" => Type::Never,
             "()" => Type::Unit,
-            name => Type::Custome(name.to_string()),
+            name => Type::Custom(name.to_string()),
         }
     }
 }
@@ -44,7 +44,7 @@ impl Display for Type {
                 Type::Integer => "Integer".to_string(),
                 Type::Char => "Char".to_string(),
                 Type::String => "String".to_string(),
-                Type::Custome(name) => name.to_string(),
+                Type::Custom(name) => name.to_string(),
                 Type::Unit => "()".to_string(),
                 Type::Never => "Never".to_string(),
             }

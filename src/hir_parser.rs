@@ -177,6 +177,7 @@ impl<'hir> HirParser<'hir> {
             }
             ast::Expr::Call(call) => hir::ExprKind::Call(self.parse_call(call)),
             ast::Expr::Function(func) => hir::ExprKind::Function(self.parse_function(func)),
+            ast::Expr::Closure(closure) => hir::ExprKind::Closure(self.parse_closure(closure)),
             ast::Expr::Hash(hash) => hir::ExprKind::Hash(self.parse_hash(hash)),
             ast::Expr::If(r#if) => hir::ExprKind::If(self.parse_if(r#if)),
             ast::Expr::Index(index) => hir::ExprKind::Index(self.parse_index(index)),
@@ -274,15 +275,52 @@ impl<'hir> HirParser<'hir> {
 
         self.scope.leave_scope();
 
-        self.hir_arena.alloc(hir::Function {
-            name,
-            params,
-            body,
-            fn_type: match func.fn_type {
-                ast::FunctionType::Function => hir::FunctionType::Function,
-                ast::FunctionType::Closure => hir::FunctionType::Closure,
-            },
-        })
+        self.hir_arena.alloc(hir::Function { name, params, body })
+    }
+
+    fn parse_closure(&mut self, closure: &ast::Closure) -> &'hir hir::Closure<'hir> {
+        self.scope.enter_scope();
+
+        let params = self.parse_closure_params(&closure.params);
+        for param in params.iter() {
+            self.scope.define_into_current_scope(
+                param.name,
+                self.hir_arena.alloc(hir::Expr {
+                    id: self.resolver.next_id(),
+                    kind: hir::ExprKind::ClosureParam(param),
+                }),
+            );
+        }
+
+        let body = self.parse_block(&closure.body);
+
+        self.scope.leave_scope();
+
+        self.hir_arena.alloc(hir::Closure { params, body })
+    }
+
+    fn parse_closure_params(
+        &mut self,
+        identifiers: &[ast::Identifier],
+    ) -> &'hir [hir::ClosureParam<'hir>] {
+        let mut params: Vec<hir::ClosureParam<'hir>> = vec![];
+
+        for identifier in identifiers {
+            let param_id = self.resolver.next_id();
+            let name = self.hir_arena.alloc(hir::Symbol(identifier.value.clone()));
+            let r#type = self.hir_arena.alloc(hir::Type {
+                id: self.resolver.next_id(),
+                kind: self.hir_arena.alloc(hir::TypeKind::Infer),
+            });
+
+            params.push(hir::ClosureParam {
+                id: param_id,
+                r#type,
+                name,
+            });
+        }
+
+        self.hir_arena.alloc_from_iter(params)
     }
 
     fn parse_hash(&mut self, hash: &ast::Hash) -> &'hir hir::Hash<'hir> {
@@ -834,7 +872,6 @@ mod test {
                 })],
                 tokens: Default::default(),
             },
-            fn_type: ast::FunctionType::Function,
         };
 
         let hir_function = parser.parse_function(&function);
@@ -862,7 +899,6 @@ mod test {
                         }),
                     }],
                 },
-                fn_type: hir::FunctionType::Function,
             }
         );
     }
@@ -886,7 +922,6 @@ mod test {
                 })],
                 tokens: Default::default(),
             },
-            fn_type: ast::FunctionType::Function,
         };
 
         let hir_function = parser.parse_function(&function);
@@ -927,7 +962,6 @@ mod test {
                         }),
                     }],
                 },
-                fn_type: hir::FunctionType::Function,
             }
         );
     }
@@ -941,7 +975,6 @@ mod test {
                 value: "outer_arg_a".to_string(),
                 mtype: None,
             }],
-            fn_type: ast::FunctionType::Function,
             name: "outer_function".to_string(),
             body: ast::Block {
                 statements: vec![
@@ -970,7 +1003,6 @@ mod test {
                                 ],
                                 tokens: Default::default(),
                             },
-                            fn_type: ast::FunctionType::Function,
                         }),
                     }),
                     ast::Stmt::ExprStmt(ast::ExprStmt {
@@ -1058,7 +1090,6 @@ mod test {
                                                 },
                                             ],
                                         },
-                                        fn_type: hir::FunctionType::Function,
                                     }),
 
                                 },
@@ -1079,7 +1110,6 @@ mod test {
                         },
                     ],
                 },
-                fn_type: hir::FunctionType::Function,
             }
         );
     }

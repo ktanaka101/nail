@@ -28,6 +28,8 @@ pub struct Arena<'hir> {
     function_param: typed_arena::Arena<hir::FunctionParam<'hir>>,
     r#type: typed_arena::Arena<hir::Type<'hir>>,
     type_kind: typed_arena::Arena<hir::TypeKind>,
+    closure_param: typed_arena::Arena<hir::ClosureParam<'hir>>,
+    closure: typed_arena::Arena<hir::Closure<'hir>>,
 }
 
 impl<'hir> Arena<'hir> {
@@ -383,5 +385,31 @@ impl<'hir> ArenaAllocatable<'hir> for hir::TypeKind {
         iter: impl ::std::iter::IntoIterator<Item = Self>,
     ) -> &'hir mut [Self] {
         arena.type_kind.alloc_extend(iter.into_iter())
+    }
+}
+
+impl<'hir> ArenaAllocatable<'hir> for hir::ClosureParam<'hir> {
+    fn allocate_on(self, arena: &'hir Arena<'hir>) -> &'hir mut Self {
+        arena.closure_param.alloc(self)
+    }
+
+    fn allocate_from_iter(
+        arena: &'hir Arena<'hir>,
+        iter: impl ::std::iter::IntoIterator<Item = Self>,
+    ) -> &'hir mut [Self] {
+        arena.closure_param.alloc_extend(iter.into_iter())
+    }
+}
+
+impl<'hir> ArenaAllocatable<'hir> for hir::Closure<'hir> {
+    fn allocate_on(self, arena: &'hir Arena<'hir>) -> &'hir mut Self {
+        arena.closure.alloc(self)
+    }
+
+    fn allocate_from_iter(
+        arena: &'hir Arena<'hir>,
+        iter: impl ::std::iter::IntoIterator<Item = Self>,
+    ) -> &'hir mut [Self] {
+        arena.closure.alloc_extend(iter.into_iter())
     }
 }

@@ -281,7 +281,6 @@ mod tests {
                         tokens: Tokens::default(),
                     },
                     name: "".to_string(),
-                    fn_type: FunctionType::Function,
                 })
                 .into(),
                 Expr::from(Function {
@@ -291,7 +290,6 @@ mod tests {
                         tokens: Tokens::default(),
                     },
                     name: "".to_string(),
-                    fn_type: FunctionType::Function,
                 })
                 .into(),
             ),

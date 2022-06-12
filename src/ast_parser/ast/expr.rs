@@ -7,6 +7,7 @@ pub enum Expr {
     InfixExpr(InfixExpr),
     If(If),
     Function(Function),
+    Closure(Closure),
     Call(Call),
     Integer(Integer),
     Boolean(Boolean),
@@ -26,6 +27,7 @@ impl Display for Expr {
             Self::InfixExpr(e) => write!(f, "{}", e),
             Self::If(e) => write!(f, "{}", e),
             Self::Function(e) => write!(f, "{}", e),
+            Self::Closure(e) => write!(f, "{}", e),
             Self::Call(e) => write!(f, "{}", e),
             Self::Integer(e) => write!(f, "{}", e),
             Self::Boolean(e) => write!(f, "{}", e),
@@ -66,6 +68,12 @@ impl From<If> for Expr {
 impl From<Function> for Expr {
     fn from(value: Function) -> Expr {
         Expr::Function(value)
+    }
+}
+
+impl From<Closure> for Expr {
+    fn from(value: Closure) -> Expr {
+        Expr::Closure(value)
     }
 }
 

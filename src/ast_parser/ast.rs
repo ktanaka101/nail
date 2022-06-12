@@ -9,9 +9,9 @@ mod prelude {
 
     pub use super::super::error::ParserError;
     pub use super::{
-        Array, Block, Boolean, Call, Char, Expr, ExprStmt, Function, Hash, Identifier, If, Index,
-        InfixExpr, Integer, Let, MacroLit, Node, Operator, Pair, PrefixExpr, Program, Return, Stmt,
-        StringLit, Type,
+        Array, Block, Boolean, Call, Char, Closure, Expr, ExprStmt, Function, Hash, Identifier, If,
+        Index, InfixExpr, Integer, Let, MacroLit, Node, Operator, Pair, PrefixExpr, Program,
+        Return, Stmt, StringLit, Type,
     };
 }
 
@@ -19,6 +19,7 @@ mod array;
 mod block;
 mod boolean;
 mod call;
+mod closure;
 mod expr;
 mod expr_stmt;
 mod function;
@@ -45,9 +46,10 @@ pub use array::Array;
 pub use block::Block;
 pub use boolean::Boolean;
 pub use call::Call;
+pub use closure::Closure;
 pub use expr::Expr;
 pub use expr_stmt::ExprStmt;
-pub use function::{Function, FunctionType};
+pub use function::Function;
 pub use hash::Hash;
 pub use identifier::Identifier;
 pub use index::Index;

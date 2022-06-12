@@ -351,7 +351,6 @@ impl<T: Lexer> Parser<T> {
             params,
             body,
             name: name.value,
-            fn_type: ast::FunctionType::Function,
         })
     }
 
@@ -389,18 +388,13 @@ impl<T: Lexer> Parser<T> {
         Ok(identifiers)
     }
 
-    fn parse_closure_literal(&mut self) -> Result<ast::Function> {
+    fn parse_closure_literal(&mut self) -> Result<ast::Closure> {
         let params = self.parse_closure_params()?;
         self.expect_peek(Token::lbrace())?;
 
         let body = self.parse_block_statement()?;
 
-        Ok(ast::Function {
-            params,
-            body,
-            name: "".to_string(),
-            fn_type: ast::FunctionType::Closure,
-        })
+        Ok(ast::Closure { params, body })
     }
 
     fn parse_closure_params(&mut self) -> Result<Vec<ast::Identifier>> {
@@ -584,7 +578,7 @@ impl<T: Lexer> Parser<T> {
             Token::Lparen(_) => self.parse_grouped_expr()?,
             Token::If(_) => Expr::If(self.parse_if_expr()?),
             Token::Function(_) => Expr::Function(self.parse_function_literal()?),
-            Token::VerticalBar(_) => Expr::Function(self.parse_closure_literal()?),
+            Token::VerticalBar(_) => Expr::Closure(self.parse_closure_literal()?),
             Token::StringLiteral(_) => Expr::StringLit(self.parse_string_literal()?),
             Token::Char(_) => Expr::Char(self.parse_char()?),
             Token::Lbracket(_) => Expr::Array(self.parse_array_literal()?),
@@ -982,10 +976,10 @@ mod tests {
                 panic!("Expect type is Stmt::ExprStmt");
             };
 
-            let cl_expr = if let Expr::Function(x) = &expr_stmt.expr {
+            let cl_expr = if let Expr::Closure(x) = &expr_stmt.expr {
                 x
             } else {
-                panic!("Expect type is Expr::Function")
+                panic!("Expect type is Expr::Closure")
             };
 
             assert_eq!(cl_expr.params.len(), 2);
@@ -1054,13 +1048,11 @@ mod tests {
                 panic!("Expect type is Stmt::ExprStmt.");
             };
 
-            let fn_expr = if let Expr::Function(x) = &stmt_expr.expr {
+            let fn_expr = if let Expr::Closure(x) = &stmt_expr.expr {
                 x
             } else {
-                panic!("Expect type is Expr::Function.");
+                panic!("Expect type is Expr::Closure.");
             };
-
-            assert_eq!(fn_expr.name, "");
 
             assert_eq!(fn_expr.params.len(), ids.len());
 
@@ -1262,29 +1254,6 @@ mod tests {
             "+",
             &Val::Id(Id("y", None)),
         );
-    }
-
-    #[test]
-    fn test_closure_literal_with_name() {
-        let input = "let closure = || {};";
-        let program = test_parse(input);
-        assert_eq!(program.statements.len(), 1);
-
-        let stmt = program.statements[0].clone();
-        let let_stmt = if let Stmt::Let(l) = stmt {
-            l
-        } else {
-            panic!("expected Let. received {}", stmt);
-        };
-
-        let expr = let_stmt.value;
-        let func = if let Expr::Function(f) = expr {
-            f
-        } else {
-            panic!("expected Function. received {}", expr)
-        };
-
-        assert_eq!(func.name, "closure".to_string());
     }
 
     fn test_infix_by_expr(expr: &Expr, l: &Val, o: &str, r: &Val) {

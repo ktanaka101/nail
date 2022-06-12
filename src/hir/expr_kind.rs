@@ -7,6 +7,7 @@ pub enum ExprKind<'hir> {
     Char(&'hir Char),
     Call(&'hir Call<'hir>),
     Function(&'hir Function<'hir>),
+    Closure(&'hir Closure<'hir>),
     Identifier(&'hir Identifier<'hir>),
     If(&'hir If<'hir>),
     Index(&'hir Index<'hir>),
@@ -15,5 +16,6 @@ pub enum ExprKind<'hir> {
     PrefixExpr(&'hir PrefixExpr<'hir>),
     StringLit(&'hir StringLit),
     Hash(&'hir Hash<'hir>),
+    ClosureParam(&'hir ClosureParam<'hir>),
     FunctionParam(&'hir FunctionParam<'hir>),
 }

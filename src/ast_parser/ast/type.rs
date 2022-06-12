@@ -1,5 +1,4 @@
 use super::prelude::*;
-use std::collections::BTreeSet;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Type {
@@ -10,51 +9,9 @@ pub enum Type {
     Integer,
     Char,
     String,
-    Union(BTreeSet<Type>),
     Custome(String),
     Unit,
     Never,
-}
-
-impl Type {
-    pub fn new_union(v: impl IntoIterator<Item = Type>) -> Type {
-        let v: BTreeSet<Type> = v.into_iter().collect();
-        if v.is_empty() {
-            panic!("arg is empty vec.")
-        }
-
-        Type::Union(v).compress()
-    }
-
-    fn compress(&self) -> Type {
-        match self {
-            Type::Union(types) => match types.len() {
-                0 => panic!("types is empty."),
-                1 => types.iter().next().unwrap().compress(),
-                _ => {
-                    let mut type_set = std::collections::BTreeSet::<Type>::new();
-
-                    types.iter().for_each(|ty| match ty.compress() {
-                        Type::Union(types) => {
-                            types.into_iter().for_each(|ty| {
-                                type_set.insert(ty.compress());
-                            });
-                        }
-                        other => {
-                            type_set.insert(other.compress());
-                        }
-                    });
-
-                    match type_set.len() {
-                        0 => unreachable!(),
-                        1 => types.iter().next().unwrap().to_owned(),
-                        _ => Type::Union(type_set),
-                    }
-                }
-            },
-            other => other.clone(),
-        }
-    }
 }
 
 impl From<String> for Type {
@@ -79,7 +36,7 @@ impl Display for Type {
         write!(
             f,
             "{}",
-            match self.compress() {
+            match self {
                 Type::Array => "Array".to_string(),
                 Type::Boolean => "Boolean".to_string(),
                 Type::Function => "Function".to_string(),
@@ -87,225 +44,10 @@ impl Display for Type {
                 Type::Integer => "Integer".to_string(),
                 Type::Char => "Char".to_string(),
                 Type::String => "String".to_string(),
-                Type::Union(types) => {
-                    let types = types.iter().map(|ty| ty.to_string()).collect::<Vec<_>>();
-                    types.join(" | ")
-                }
-                Type::Custome(name) => name,
+                Type::Custome(name) => name.to_string(),
                 Type::Unit => "()".to_string(),
                 Type::Never => "Never".to_string(),
             }
         )
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_compress() {
-        let union_type = Type::Union(vec![Type::Integer].into_iter().collect());
-        assert_eq!(union_type.compress(), Type::Integer);
-
-        let union_type = Type::Union(vec![Type::Integer, Type::Integer].into_iter().collect());
-        assert_eq!(union_type.compress(), Type::Integer);
-
-        let union_type = Type::Union(
-            vec![Type::Integer, Type::String, Type::Integer]
-                .into_iter()
-                .collect(),
-        );
-        assert_eq!(
-            union_type.compress(),
-            Type::Union(vec![Type::Integer, Type::String].into_iter().collect()),
-        );
-
-        let union_type = Type::Union(
-            vec![
-                Type::Integer,
-                Type::String,
-                Type::Union(vec![Type::Integer, Type::Char].into_iter().collect()),
-            ]
-            .into_iter()
-            .collect(),
-        );
-        assert_eq!(
-            union_type.compress(),
-            Type::Union(
-                vec![Type::Integer, Type::String, Type::Char]
-                    .into_iter()
-                    .collect()
-            ),
-        );
-
-        let union_type = Type::Union(
-            vec![
-                Type::Integer,
-                Type::String,
-                Type::Union(
-                    vec![
-                        Type::Integer,
-                        Type::Char,
-                        Type::Union(
-                            vec![Type::Integer, Type::Char, Type::Boolean]
-                                .into_iter()
-                                .collect(),
-                        ),
-                    ]
-                    .into_iter()
-                    .collect(),
-                ),
-                Type::Union(vec![Type::Integer, Type::Char].into_iter().collect()),
-            ]
-            .into_iter()
-            .collect(),
-        );
-        assert_eq!(
-            union_type.compress(),
-            Type::Union(
-                vec![Type::Boolean, Type::Integer, Type::String, Type::Char]
-                    .into_iter()
-                    .collect()
-            ),
-        );
-
-        let union_type = Type::Union(
-            vec![
-                Type::Integer,
-                Type::Union(vec![Type::Integer].into_iter().collect()),
-            ]
-            .into_iter()
-            .collect(),
-        );
-        assert_eq!(union_type.compress(), Type::Integer);
-
-        let union_type = Type::Union(
-            vec![
-                Type::Integer,
-                Type::Union(
-                    vec![
-                        Type::Integer,
-                        Type::Union(vec![Type::Integer].into_iter().collect()),
-                    ]
-                    .into_iter()
-                    .collect(),
-                ),
-            ]
-            .into_iter()
-            .collect(),
-        );
-        assert_eq!(union_type.compress(), Type::Integer);
-
-        let union_type = Type::Union(
-            vec![
-                Type::Integer,
-                Type::Union(
-                    vec![
-                        Type::Integer,
-                        Type::Union(
-                            vec![Type::Union(vec![Type::Integer].into_iter().collect())]
-                                .into_iter()
-                                .collect(),
-                        ),
-                    ]
-                    .into_iter()
-                    .collect(),
-                ),
-            ]
-            .into_iter()
-            .collect(),
-        );
-        assert_eq!(union_type.compress(), Type::Integer);
-
-        let union_type = Type::Union(
-            vec![Type::Union(
-                vec![Type::Union(
-                    vec![Type::Union(vec![Type::Integer].into_iter().collect())]
-                        .into_iter()
-                        .collect(),
-                )]
-                .into_iter()
-                .collect(),
-            )]
-            .into_iter()
-            .collect(),
-        );
-        assert_eq!(union_type.compress(), Type::Integer);
-    }
-
-    #[test]
-    fn test_type_fmt() {
-        // basic
-        let union_type = Type::Union(vec![Type::Integer, Type::String].into_iter().collect());
-        assert_eq!(union_type.to_string(), "Integer | String");
-
-        // duplicate type
-        let union_type = Type::Union(
-            vec![Type::Integer, Type::String, Type::Integer]
-                .into_iter()
-                .collect(),
-        );
-        assert_eq!(union_type.to_string(), "Integer | String");
-
-        // nested union
-        let union_type = Type::Union(
-            vec![
-                Type::Integer,
-                Type::String,
-                Type::Union(vec![Type::Char, Type::Boolean].into_iter().collect()),
-            ]
-            .into_iter()
-            .collect(),
-        );
-        assert_eq!(union_type.to_string(), "Boolean | Integer | Char | String");
-
-        // duplicate nested union
-        let union_type = Type::Union(
-            vec![
-                Type::Integer,
-                Type::String,
-                Type::Union(vec![Type::Integer, Type::String].into_iter().collect()),
-            ]
-            .into_iter()
-            .collect(),
-        );
-        assert_eq!(union_type.to_string(), "Integer | String");
-
-        // duplicate nested union
-        let union_type = Type::Union(
-            vec![
-                Type::Integer,
-                Type::String,
-                Type::Union(vec![Type::Integer, Type::Char].into_iter().collect()),
-            ]
-            .into_iter()
-            .collect(),
-        );
-        assert_eq!(union_type.to_string(), "Integer | Char | String");
-
-        let union_type = Type::Union(
-            vec![
-                Type::Integer,
-                Type::String,
-                Type::Union(
-                    vec![
-                        Type::Integer,
-                        Type::Char,
-                        Type::Union(
-                            vec![Type::Integer, Type::Char, Type::Boolean]
-                                .into_iter()
-                                .collect(),
-                        ),
-                    ]
-                    .into_iter()
-                    .collect(),
-                ),
-                Type::Union(vec![Type::Integer, Type::Char].into_iter().collect()),
-            ]
-            .into_iter()
-            .collect(),
-        );
-        assert_eq!(union_type.to_string(), "Boolean | Integer | Char | String");
     }
 }

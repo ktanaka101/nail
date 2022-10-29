@@ -2,6 +2,9 @@ use std::convert::TryInto;
 use std::io;
 use std::io::Write;
 
+use anyhow::Result;
+use termion::screen::IntoAlternateScreen;
+
 pub struct Terminal {
     cursor_pos: Pos,
     stdout: termion::screen::AlternateScreen<termion::raw::RawTerminal<io::Stdout>>,
@@ -34,13 +37,13 @@ pub enum MoveCursorAction {
 }
 
 impl Terminal {
-    pub fn new(stdout: termion::raw::RawTerminal<io::Stdout>) -> Terminal {
-        let stdout = termion::screen::AlternateScreen::from(stdout);
+    pub fn new(stdout: termion::raw::RawTerminal<io::Stdout>) -> Result<Terminal> {
+        let stdout = stdout.into_alternate_screen()?;
 
-        Self {
+        Ok(Self {
             cursor_pos: Pos { row: 0, col: 0 },
             stdout,
-        }
+        })
     }
 
     pub fn init(&mut self) {

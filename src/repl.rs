@@ -115,7 +115,7 @@ fn start_llvm() {
     let stdin = io::stdin();
     let stdout = io::stdout().into_raw_mode().unwrap();
 
-    let mut term = terminal::Terminal::new(stdout);
+    let mut term = terminal::Terminal::new(stdout).expect("Failed to create a terminal.");
     term.init();
     term.write(PROMPT);
 

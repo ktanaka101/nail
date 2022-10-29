@@ -11,7 +11,7 @@ thiserror = "1.0"
 inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = [
   "llvm11-0",
 ] }
-termion = "1.5"
+termion = "2.0"
 nom = "7.1"
 nom_locate = "4.0"
 typed-arena = "2.0"

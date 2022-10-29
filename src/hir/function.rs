@@ -1,6 +1,6 @@
 use super::super::hir;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FunctionParam<'hir> {
     pub id: hir::HirId,
     pub r#type: &'hir hir::Type<'hir>,

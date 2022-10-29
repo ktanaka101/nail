@@ -12,6 +12,4 @@ inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", feat
   "llvm14-0",
 ] }
 termion = "2.0"
-nom = "7.1"
-nom_locate = "4.0"
 typed-arena = "2.0"

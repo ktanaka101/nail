@@ -120,21 +120,15 @@ impl<T: Lexer> Parser<T> {
             _ => unreachable!(),
         };
 
-        let mtype = if self.peek_token_is(Token::colon()) {
+        let r#type = if self.peek_token_is(Token::colon()) {
             self.next_token();
-            self.expect_peek(Token::ident())?;
-            match &self.cur_token {
-                Token::Ident(id) => Some(ast::Type::from(id.input.clone())),
-                _ => unreachable!(),
-            }
+            self.next_token();
+            Some(self.parse_type()?)
         } else {
             None
         };
 
-        let name = ast::Identifier {
-            value: ident.input,
-            mtype,
-        };
+        let name = ast::Identifier { value: ident.input };
 
         self.expect_peek(Token::assign())?;
 
@@ -149,7 +143,11 @@ impl<T: Lexer> Parser<T> {
             value
         };
 
-        Ok(ast::Let { name, value })
+        Ok(ast::Let {
+            name,
+            value,
+            r#type,
+        })
     }
 
     fn parse_return_statement(&mut self) -> Result<ast::Return> {
@@ -234,7 +232,6 @@ impl<T: Lexer> Parser<T> {
                 Token::Ident(val) => val.input.clone(),
                 t => return Err(ParserError::ExpectIdentifier(format!("{:?}", t)).into()),
             },
-            mtype: None,
         })
     }
 
@@ -341,6 +338,14 @@ impl<T: Lexer> Parser<T> {
         self.expect_peek(Token::lparen())?;
 
         let params = self.parse_function_params()?;
+        let return_type = if self.peek_token_is(Token::colon()) {
+            self.next_token();
+            self.next_token();
+            Some(self.parse_type()?)
+        } else {
+            None
+        };
+
         self.expect_peek(Token::lbrace())?;
 
         let body = self.parse_block_statement()?;
@@ -349,84 +354,118 @@ impl<T: Lexer> Parser<T> {
             params,
             body,
             name: name.value,
+            return_type,
         })
     }
 
-    fn parse_function_params(&mut self) -> Result<Vec<ast::Identifier>> {
-        let mut identifiers = Vec::<ast::Identifier>::new();
+    fn parse_function_params(&mut self) -> Result<Vec<ast::FunctionParam>> {
+        let mut params = Vec::<ast::FunctionParam>::new();
 
         if self.peek_token_is(Token::rparen()) {
             self.next_token();
-            return Ok(identifiers);
+            return Ok(params);
         }
 
         self.next_token();
 
-        identifiers.push(ast::Identifier {
-            value: match &self.cur_token {
-                Token::Ident(t) => t.input.clone(),
-                t => return Err(ParserError::InvalidFunctionParam(format!("{:?}", t)).into()),
-            },
-            mtype: None,
-        });
+        params.push(self.parse_param()?);
 
         while self.peek_token_is(Token::comma()) {
             self.next_token();
             self.next_token();
-            identifiers.push(ast::Identifier {
-                value: match &self.cur_token {
-                    Token::Ident(t) => t.input.clone(),
-                    t => return Err(ParserError::InvalidFunctionParam(format!("{:?}", t)).into()),
-                },
-                mtype: None,
-            })
+
+            params.push(self.parse_param()?);
         }
         self.expect_peek(Token::rparen())?;
 
-        Ok(identifiers)
+        Ok(params)
+    }
+
+    fn parse_param(&mut self) -> Result<ast::FunctionParam> {
+        let identifier = ast::Identifier {
+            value: match &self.cur_token {
+                Token::Ident(t) => t.input.clone(),
+                t => return Err(ParserError::InvalidFunctionParam(format!("{:?}", t)).into()),
+            },
+        };
+
+        let r#type = if self.peek_token_is(Token::colon()) {
+            self.next_token();
+            self.next_token();
+            Some(self.parse_type()?)
+        } else {
+            None
+        };
+
+        Ok(ast::FunctionParam {
+            name: identifier,
+            r#type,
+        })
     }
 
     fn parse_closure_literal(&mut self) -> Result<ast::Closure> {
         let params = self.parse_closure_params()?;
+        let return_type = if self.peek_token_is(Token::colon()) {
+            self.next_token();
+            self.next_token();
+            Some(self.parse_type()?)
+        } else {
+            None
+        };
+
         self.expect_peek(Token::lbrace())?;
 
         let body = self.parse_block_statement()?;
 
-        Ok(ast::Closure { params, body })
+        Ok(ast::Closure {
+            params,
+            body,
+            return_type,
+        })
     }
 
-    fn parse_closure_params(&mut self) -> Result<Vec<ast::Identifier>> {
-        let mut identifiers = Vec::<ast::Identifier>::new();
+    fn parse_closure_params(&mut self) -> Result<Vec<ast::ClosureParam>> {
+        let mut params = Vec::<ast::ClosureParam>::new();
 
         if self.peek_token_is(Token::vertical_bar()) {
             self.next_token();
-            return Ok(identifiers);
+            return Ok(params);
         }
 
         self.next_token();
 
-        identifiers.push(ast::Identifier {
-            value: match &self.cur_token {
-                Token::Ident(t) => t.input.clone(),
-                t => return Err(ParserError::InvalidFunctionParam(format!("{:?}", t)).into()),
-            },
-            mtype: None,
-        });
+        params.push(self.parse_closure_param()?);
 
         while self.peek_token_is(Token::comma()) {
             self.next_token();
             self.next_token();
-            identifiers.push(ast::Identifier {
-                value: match &self.cur_token {
-                    Token::Ident(t) => t.input.clone(),
-                    t => return Err(ParserError::InvalidFunctionParam(format!("{:?}", t)).into()),
-                },
-                mtype: None,
-            })
+            params.push(self.parse_closure_param()?);
         }
         self.expect_peek(Token::vertical_bar())?;
 
-        Ok(identifiers)
+        Ok(params)
+    }
+
+    fn parse_closure_param(&mut self) -> Result<ast::ClosureParam> {
+        let identifier = ast::Identifier {
+            value: match &self.cur_token {
+                Token::Ident(t) => t.input.clone(),
+                t => return Err(ParserError::InvalidFunctionParam(format!("{:?}", t)).into()),
+            },
+        };
+
+        let r#type = if self.peek_token_is(Token::colon()) {
+            self.next_token();
+            self.next_token();
+            Some(self.parse_type()?)
+        } else {
+            None
+        };
+
+        Ok(ast::ClosureParam {
+            name: identifier,
+            r#type,
+        })
     }
 
     fn parse_call_expr(&mut self, func: Expr) -> Result<ast::Call> {
@@ -524,6 +563,24 @@ impl<T: Lexer> Parser<T> {
         Ok(ast::Hash { pairs })
     }
 
+    fn parse_type(&mut self) -> Result<ast::Type> {
+        match &self.cur_token {
+            Token::Ident(ident) => Ok(match ident.input.as_str() {
+                "array" => ast::Type::Array,
+                "bool" => ast::Type::Boolean,
+                "int" => ast::Type::Integer,
+                "char" => ast::Type::Char,
+                "string" => ast::Type::String,
+                "hash" => ast::Type::Hash,
+                "Fn" => ast::Type::Function,
+                "never" => ast::Type::Never,
+                "unit" => ast::Type::Unit,
+                name => ast::Type::Custom(name.to_string()),
+            }),
+            _ => anyhow::bail!(ParserError::InvalidType(format!("{:?}", self.cur_token))),
+        }
+    }
+
     fn cur_token_is(&self, token_t: Token) -> bool {
         match token_t {
             Token::Illegal(_) => matches!(self.cur_token, Token::Illegal(_)),
@@ -606,7 +663,7 @@ mod tests {
     use super::*;
     use crate::{lexer, token::Position};
 
-    struct Id<'a>(&'a str, Option<ast::Type>);
+    struct Id<'a>(&'a str);
 
     enum Val<'a> {
         S(&'a str),
@@ -620,61 +677,23 @@ mod tests {
     #[test]
     fn test_let_stmts() {
         let inputs = vec![
-            ("let x = 5", Id("x", None), Val::I(5)),
-            ("let x = 5;", Id("x", None), Val::I(5)),
-            ("let y = true;", Id("y", None), Val::B(true)),
+            ("let x = 5", Id("x"), None, Val::I(5)),
+            ("let x = 5;", Id("x"), None, Val::I(5)),
+            ("let y = true;", Id("y"), None, Val::B(true)),
+            ("let foobar = y;", Id("foobar"), None, Val::Id(Id("y"))),
+            ("let x = 'a'", Id("x"), None, Val::C('a')),
             (
-                "let foobar = y;",
-                Id("foobar", None),
-                Val::Id(Id("y", None)),
-            ),
-            ("let x = 'a'", Id("x", None), Val::C('a')),
-            (
-                "let x: Array = 'a'",
-                Id("x", Some(ast::Type::Array)),
-                Val::C('a'),
-            ),
-            (
-                "let x: Boolean = 'a'",
-                Id("x", Some(ast::Type::Boolean)),
-                Val::C('a'),
-            ),
-            (
-                "let x: Function = 'a'",
-                Id("x", Some(ast::Type::Function)),
-                Val::C('a'),
-            ),
-            (
-                "let x: Hash = 'a'",
-                Id("x", Some(ast::Type::Hash)),
-                Val::C('a'),
-            ),
-            (
-                "let x: Integer = 'a'",
-                Id("x", Some(ast::Type::Integer)),
-                Val::C('a'),
-            ),
-            (
-                "let x: Char = 'a'",
-                Id("x", Some(ast::Type::Char)),
-                Val::C('a'),
-            ),
-            (
-                "let x: String = 'a'",
-                Id("x", Some(ast::Type::String)),
-                Val::C('a'),
-            ),
-            (
-                "let x: CustomeType = 'a'",
-                Id("x", Some(ast::Type::Custom("CustomeType".to_string()))),
+                "let x: array = 'a'",
+                Id("x"),
+                Some(ast::Type::Array),
                 Val::C('a'),
             ),
         ];
 
-        for (input, id, v) in inputs.into_iter() {
+        for (input, id, ty, v) in inputs.into_iter() {
             let program = test_parse(input);
             assert_eq!(program.statements.len(), 1);
-            test_let_by_stmt(&program.statements[0], &id, &v);
+            test_let_by_stmt(&program.statements[0], &id, &ty, &v);
         }
     }
 
@@ -684,7 +703,7 @@ mod tests {
             ("return 5", Val::I(5)),
             ("return 5;", Val::I(5)),
             ("return true;", Val::B(true)),
-            ("return y;", Val::Id(Id("y", None))),
+            ("return y;", Val::Id(Id("y"))),
         ];
 
         for (input, v) in inputs.into_iter() {
@@ -699,7 +718,7 @@ mod tests {
         let input = "foobar";
         let program = test_parse(input);
         assert_eq!(program.statements.len(), 1);
-        test_identifier_by_stmt(&program.statements[0], "foobar", None);
+        test_identifier_by_stmt(&program.statements[0], "foobar");
     }
 
     #[test]
@@ -856,13 +875,13 @@ mod tests {
 
         test_infix_by_expr(
             if_expr.cond.as_ref(),
-            &Val::Id(Id("x", None)),
+            &Val::Id(Id("x")),
             "<",
-            &Val::Id(Id("y", None)),
+            &Val::Id(Id("y")),
         );
 
         assert_eq!(if_expr.consequence.statements.len(), 1);
-        test_identifier_by_stmt(&if_expr.consequence.statements[0], "x", None);
+        test_identifier_by_stmt(&if_expr.consequence.statements[0], "x");
         assert_eq!(if_expr.alternative, None);
     }
 
@@ -892,13 +911,13 @@ mod tests {
 
             test_infix_by_expr(
                 if_expr.cond.as_ref(),
-                &Val::Id(Id("x", None)),
+                &Val::Id(Id("x")),
                 "<",
-                &Val::Id(Id("y", None)),
+                &Val::Id(Id("y")),
             );
 
             assert_eq!(if_expr.consequence.statements.len(), 1);
-            test_identifier_by_stmt(&if_expr.consequence.statements[0], "x", None);
+            test_identifier_by_stmt(&if_expr.consequence.statements[0], "x");
 
             let alt = if let Some(x) = &if_expr.alternative {
                 x
@@ -906,15 +925,15 @@ mod tests {
                 panic!("Expect some Expr::Block");
             };
             assert_eq!(alt.statements.len(), 1);
-            test_identifier_by_stmt(&alt.statements[0], "y", None);
+            test_identifier_by_stmt(&alt.statements[0], "y");
         }
     }
 
     #[test]
     fn test_function_exprs() {
         let inputs = vec![
-            "fn test_func(x, y) { x + y }",
-            "fn test_func(x, y) { x + y; }",
+            "fn test_func(x: int, y: char) { x + y }",
+            "fn test_func(x: int, y: char) { x + y; }",
         ];
 
         for input in inputs.into_iter() {
@@ -936,15 +955,15 @@ mod tests {
             assert_eq!(fn_expr.name, "test_func");
 
             assert_eq!(fn_expr.params.len(), 2);
-            test_identifier(&fn_expr.params[0], "x", &None);
-            test_identifier(&fn_expr.params[1], "y", &None);
+            test_function_param(&fn_expr.params[0], "x", &Some(ast::Type::Integer));
+            test_function_param(&fn_expr.params[1], "y", &Some(ast::Type::Char));
 
             assert_eq!(fn_expr.body.statements.len(), 1);
             test_infix_by_stmt(
                 &fn_expr.body.statements[0],
-                &Val::Id(Id("x", None)),
+                &Val::Id(Id("x")),
                 "+",
-                &Val::Id(Id("y", None)),
+                &Val::Id(Id("y")),
             )
         }
     }
@@ -970,50 +989,16 @@ mod tests {
             };
 
             assert_eq!(cl_expr.params.len(), 2);
-            test_identifier(&cl_expr.params[0], "x", &None);
-            test_identifier(&cl_expr.params[1], "y", &None);
+            test_closure_param(&cl_expr.params[0], "x", &None);
+            test_closure_param(&cl_expr.params[1], "y", &None);
 
             assert_eq!(cl_expr.body.statements.len(), 1);
             test_infix_by_stmt(
                 &cl_expr.body.statements[0],
-                &Val::Id(Id("x", None)),
+                &Val::Id(Id("x")),
                 "+",
-                &Val::Id(Id("y", None)),
+                &Val::Id(Id("y")),
             )
-        }
-    }
-
-    #[test]
-    fn test_function_params() {
-        let inputs = vec![
-            ("fn a() {};", vec![]),
-            ("fn a(x) {};", vec!["x"]),
-            ("fn a(x, y, z) {};", vec!["x", "y", "z"]),
-        ];
-
-        for (input, ids) in inputs.into_iter() {
-            let program = test_parse(input);
-            assert_eq!(program.statements.len(), 1);
-
-            let stmt_expr = if let Stmt::ExprStmt(x) = &program.statements[0] {
-                x
-            } else {
-                panic!("Expect type is Stmt::ExprStmt.");
-            };
-
-            let fn_expr = if let Expr::Function(x) = &stmt_expr.expr {
-                x
-            } else {
-                panic!("Expect type is Expr::Function.");
-            };
-
-            assert_eq!(fn_expr.name, "a");
-
-            assert_eq!(fn_expr.params.len(), ids.len());
-
-            for (i, id) in ids.into_iter().enumerate() {
-                test_identifier(&fn_expr.params[i], id, &None);
-            }
         }
     }
 
@@ -1021,8 +1006,16 @@ mod tests {
     fn test_closure_params() {
         let inputs = vec![
             ("|| {};", vec![]),
-            ("|x| {};", vec!["x"]),
-            ("|x, y, z| {};", vec!["x", "y", "z"]),
+            ("|x| {};", vec![("x", None)]),
+            ("|x, y, z| {};", vec![("x", None), ("y", None), ("z", None)]),
+            (
+                "|x: int, y: char, z| {};",
+                vec![
+                    ("x", Some(ast::Type::Integer)),
+                    ("y", Some(ast::Type::Char)),
+                    ("z", None),
+                ],
+            ),
         ];
 
         for (input, ids) in inputs.into_iter() {
@@ -1043,8 +1036,8 @@ mod tests {
 
             assert_eq!(fn_expr.params.len(), ids.len());
 
-            for (i, id) in ids.into_iter().enumerate() {
-                test_identifier(&fn_expr.params[i], id, &None);
+            for (i, (id, ty)) in ids.into_iter().enumerate() {
+                test_closure_param(&fn_expr.params[i], id, &ty);
             }
         }
     }
@@ -1067,7 +1060,7 @@ mod tests {
             panic!("Expect type is Expr::Call");
         };
 
-        test_expr(call_expr.func.as_ref(), &Val::Id(Id("add", None)));
+        test_expr(call_expr.func.as_ref(), &Val::Id(Id("add")));
         assert_eq!(call_expr.args.len(), 3);
         test_expr(&call_expr.args[0], &Val::I(1));
         test_infix_by_expr(&call_expr.args[1], &Val::I(2), "*", &Val::I(3));
@@ -1144,7 +1137,7 @@ mod tests {
         } else {
             panic!("Expect type is Expr::Index.");
         };
-        test_expr(index_expr.left.as_ref(), &Val::Id(Id("myArray", None)));
+        test_expr(index_expr.left.as_ref(), &Val::Id(Id("myArray")));
         test_infix_by_expr(index_expr.index.as_ref(), &Val::I(1), "+", &Val::I(1));
     }
 
@@ -1211,6 +1204,234 @@ mod tests {
                 test_expr(&hash_expr.pairs[i].key, &expect.0);
                 test_expr(&hash_expr.pairs[i].value, &expect.1);
             }
+        }
+    }
+
+    #[test]
+    fn test_type_by_let_stmts() {
+        let inputs = vec![
+            (
+                "let x: array = 'a'",
+                Id("x"),
+                Some(ast::Type::Array),
+                Val::C('a'),
+            ),
+            (
+                "let x: bool = 'a'",
+                Id("x"),
+                Some(ast::Type::Boolean),
+                Val::C('a'),
+            ),
+            (
+                "let x: Fn = 'a'",
+                Id("x"),
+                Some(ast::Type::Function),
+                Val::C('a'),
+            ),
+            (
+                "let x: hash = 'a'",
+                Id("x"),
+                Some(ast::Type::Hash),
+                Val::C('a'),
+            ),
+            (
+                "let x: int = 'a'",
+                Id("x"),
+                Some(ast::Type::Integer),
+                Val::C('a'),
+            ),
+            (
+                "let x: char = 'a'",
+                Id("x"),
+                Some(ast::Type::Char),
+                Val::C('a'),
+            ),
+            (
+                "let x: string = 'a'",
+                Id("x"),
+                Some(ast::Type::String),
+                Val::C('a'),
+            ),
+            (
+                "let x: CustomeType = 'a'",
+                Id("x"),
+                Some(ast::Type::Custom("CustomeType".to_string())),
+                Val::C('a'),
+            ),
+            (
+                "let x: unit = 'a'",
+                Id("x"),
+                Some(ast::Type::Unit),
+                Val::C('a'),
+            ),
+            (
+                "let x: never = 'a'",
+                Id("x"),
+                Some(ast::Type::Never),
+                Val::C('a'),
+            ),
+        ];
+
+        for (input, id, ty, v) in inputs.into_iter() {
+            let program = test_parse(input);
+            assert_eq!(program.statements.len(), 1);
+            test_let_by_stmt(&program.statements[0], &id, &ty, &v);
+        }
+    }
+
+    #[test]
+    fn test_type_by_function() {
+        let inputs = vec![
+            ("fn a() {};", (vec![], None)),
+            ("fn a(x, y) {};", (vec![("x", None), ("y", None)], None)),
+            (
+                "fn a(x: int) {};",
+                (vec![("x", Some(ast::Type::Integer))], None),
+            ),
+            (
+                "fn a(x: int, y: char, z: string) {};",
+                (
+                    vec![
+                        ("x", Some(ast::Type::Integer)),
+                        ("y", Some(ast::Type::Char)),
+                        ("z", Some(ast::Type::String)),
+                    ],
+                    None,
+                ),
+            ),
+            (
+                "fn a(x, y: int) {};",
+                (vec![("x", None), ("y", Some(ast::Type::Integer))], None),
+            ),
+            ("fn a(): int {};", (vec![], Some(ast::Type::Integer))),
+            (
+                "fn a(x: int): int {};",
+                (
+                    vec![("x", Some(ast::Type::Integer))],
+                    Some(ast::Type::Integer),
+                ),
+            ),
+            (
+                "fn a(x: int, y: char, z: string): int {};",
+                (
+                    vec![
+                        ("x", Some(ast::Type::Integer)),
+                        ("y", Some(ast::Type::Char)),
+                        ("z", Some(ast::Type::String)),
+                    ],
+                    Some(ast::Type::Integer),
+                ),
+            ),
+            (
+                "fn a(x, y: char): int {};",
+                (
+                    vec![("x", None), ("y", Some(ast::Type::Char))],
+                    Some(ast::Type::Integer),
+                ),
+            ),
+        ];
+
+        for (input, expected) in inputs.into_iter() {
+            let program = test_parse(input);
+            assert_eq!(program.statements.len(), 1);
+
+            let stmt_expr = if let Stmt::ExprStmt(x) = &program.statements[0] {
+                x
+            } else {
+                panic!("Expect type is Stmt::ExprStmt.");
+            };
+
+            let fn_expr = if let Expr::Function(x) = &stmt_expr.expr {
+                x
+            } else {
+                panic!("Expect type is Expr::Function.");
+            };
+
+            assert_eq!(fn_expr.name, "a");
+
+            assert_eq!(fn_expr.params.len(), expected.0.len());
+
+            for (i, (id, ty)) in expected.0.into_iter().enumerate() {
+                test_function_param(&fn_expr.params[i], id, &ty);
+            }
+            test_optional_type(&fn_expr.return_type, &expected.1);
+        }
+    }
+
+    #[test]
+    fn test_type_by_closure() {
+        let inputs = vec![
+            ("|| {};", (vec![], None)),
+            ("|x, y| {};", (vec![("x", None), ("y", None)], None)),
+            (
+                "|x: int| {};",
+                (vec![("x", Some(ast::Type::Integer))], None),
+            ),
+            (
+                "|x: int, y: char, z: string| {};",
+                (
+                    vec![
+                        ("x", Some(ast::Type::Integer)),
+                        ("y", Some(ast::Type::Char)),
+                        ("z", Some(ast::Type::String)),
+                    ],
+                    None,
+                ),
+            ),
+            (
+                "|x, y: int| {};",
+                (vec![("x", None), ("y", Some(ast::Type::Integer))], None),
+            ),
+            ("||: int {};", (vec![], Some(ast::Type::Integer))),
+            (
+                "|x: int|: int {};",
+                (
+                    vec![("x", Some(ast::Type::Integer))],
+                    Some(ast::Type::Integer),
+                ),
+            ),
+            (
+                "|x: int, y: char, z: string|: int {};",
+                (
+                    vec![
+                        ("x", Some(ast::Type::Integer)),
+                        ("y", Some(ast::Type::Char)),
+                        ("z", Some(ast::Type::String)),
+                    ],
+                    Some(ast::Type::Integer),
+                ),
+            ),
+            (
+                "|x, y: char|: int {};",
+                (
+                    vec![("x", None), ("y", Some(ast::Type::Char))],
+                    Some(ast::Type::Integer),
+                ),
+            ),
+        ];
+
+        for (input, expected) in inputs.into_iter() {
+            let program = test_parse(input);
+            assert_eq!(program.statements.len(), 1);
+
+            let stmt_expr = if let Stmt::ExprStmt(x) = &program.statements[0] {
+                x
+            } else {
+                panic!("Expect type is Stmt::ExprStmt.");
+            };
+
+            let closure = if let Expr::Closure(x) = &stmt_expr.expr {
+                x
+            } else {
+                panic!("Expect type is Expr::Closure.");
+            };
+
+            assert_eq!(closure.params.len(), expected.0.len());
+
+            for (i, (id, ty)) in expected.0.into_iter().enumerate() {
+                test_closure_param(&closure.params[i], id, &ty);
+            }
+            test_optional_type(&closure.return_type, &expected.1);
         }
     }
 
@@ -1315,14 +1536,15 @@ mod tests {
         );
     }
 
-    fn test_let_by_stmt(stmt: &ast::Stmt, id: &Id, v: &Val) {
+    fn test_let_by_stmt(stmt: &ast::Stmt, id: &Id, ty: &Option<ast::Type>, v: &Val) {
         let let_stmt = if let Stmt::Let(x) = stmt {
             x
         } else {
             panic!("Expect type is Stmt::Let");
         };
 
-        test_identifier(&let_stmt.name, id.0, &id.1);
+        test_identifier(&let_stmt.name, id.0);
+        test_optional_type(&let_stmt.r#type, ty);
         test_expr(&let_stmt.value, v);
     }
 
@@ -1336,7 +1558,7 @@ mod tests {
         test_expr(&return_stmt.return_value, v);
     }
 
-    fn test_identifier_by_stmt(stmt: &Stmt, literal: &str, ty: Option<ast::Type>) {
+    fn test_identifier_by_stmt(stmt: &Stmt, literal: &str) {
         let expr_stmt = if let Stmt::ExprStmt(x) = stmt {
             x
         } else {
@@ -1348,7 +1570,7 @@ mod tests {
         } else {
             panic!("Expect type is Expr::Identifier");
         };
-        test_identifier(identifier, literal, &ty);
+        test_identifier(identifier, literal);
     }
 
     fn test_interger_by_stmt(stmt: &Stmt, v: i64) {
@@ -1370,14 +1592,41 @@ mod tests {
         assert_eq!(*integer, ast::Integer { value: v });
     }
 
-    fn test_identifier(identifier: &ast::Identifier, literal: &str, ty: &Option<ast::Type>) {
+    fn test_identifier(identifier: &ast::Identifier, literal: &str) {
         assert_eq!(
             *identifier,
             ast::Identifier {
-                value: literal.into(),
-                mtype: ty.to_owned()
+                value: literal.into()
             }
         );
+    }
+
+    fn test_function_param(param: &ast::FunctionParam, literal: &str, ty: &Option<ast::Type>) {
+        assert_eq!(
+            *param,
+            ast::FunctionParam {
+                name: ast::Identifier {
+                    value: literal.into()
+                },
+                r#type: ty.to_owned()
+            }
+        );
+    }
+
+    fn test_closure_param(param: &ast::ClosureParam, literal: &str, ty: &Option<ast::Type>) {
+        assert_eq!(
+            *param,
+            ast::ClosureParam {
+                name: ast::Identifier {
+                    value: literal.into()
+                },
+                r#type: ty.to_owned()
+            }
+        );
+    }
+
+    fn test_optional_type(actual: &Option<ast::Type>, expected: &Option<ast::Type>) {
+        assert_eq!(actual, expected);
     }
 
     fn test_parse(input: &str) -> ast::Program {
@@ -1399,7 +1648,6 @@ mod tests {
                 *expr,
                 Expr::Identifier(ast::Identifier {
                     value: v.0.to_string(),
-                    mtype: v.1.clone()
                 })
             ),
             Val::I(v) => assert_eq!(*expr, Expr::Integer(ast::Integer { value: *v })),

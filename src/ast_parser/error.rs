@@ -32,4 +32,6 @@ pub enum ParserError {
     InvalidInteger(String),
     #[error("Convert error. try {0} into {1}")]
     Convert(String, String),
+    #[error("Invalid type. get {0}")]
+    InvalidType(String),
 }

@@ -4,13 +4,16 @@ use super::prelude::*;
 pub struct Let {
     pub name: Identifier,
     pub value: Expr,
+    pub r#type: Option<Type>,
 }
 
 impl Display for Let {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let out = format!("{} {} = {};", self.name, self.name, self.value);
-
-        write!(f, "{}", out)
+        if let Some(r#type) = &self.r#type {
+            write!(f, "{}: {} = {}", self.name, r#type, self.value)
+        } else {
+            write!(f, "{} = {}", self.name, self.value)
+        }
     }
 }
 

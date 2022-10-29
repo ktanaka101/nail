@@ -259,7 +259,7 @@ impl<'hir> HirParser<'hir> {
         self.scope.enter_scope();
 
         let name = self.hir_arena.alloc(hir::Symbol(func.name.clone()));
-        let params = self.parse_params(&func.params);
+        let params = self.parse_function_params(&func.params);
         for param in params.iter() {
             self.scope.define_into_current_scope(
                 param.name,
@@ -300,16 +300,16 @@ impl<'hir> HirParser<'hir> {
 
     fn parse_closure_params(
         &mut self,
-        identifiers: &[ast::Identifier],
+        closure_params: &[ast::ClosureParam],
     ) -> &'hir [hir::ClosureParam<'hir>] {
         let mut params: Vec<hir::ClosureParam<'hir>> = vec![];
 
-        for identifier in identifiers {
+        for param in closure_params {
             let param_id = self.resolver.next_id();
-            let name = self.hir_arena.alloc(hir::Symbol(identifier.value.clone()));
+            let name = self.hir_arena.alloc(hir::Symbol(param.name.value.clone()));
             let r#type = self.hir_arena.alloc(hir::Type {
                 id: self.resolver.next_id(),
-                kind: self.hir_arena.alloc(hir::TypeKind::Infer),
+                kind: self.hir_arena.alloc(self.parse_type(&param.r#type)),
             });
 
             params.push(hir::ClosureParam {
@@ -404,18 +404,18 @@ impl<'hir> HirParser<'hir> {
         })
     }
 
-    fn parse_params(
+    fn parse_function_params(
         &mut self,
-        identifiers: &[ast::Identifier],
+        function_params: &[ast::FunctionParam],
     ) -> &'hir [hir::FunctionParam<'hir>] {
         let mut params: Vec<hir::FunctionParam<'hir>> = vec![];
 
-        for identifier in identifiers {
+        for param in function_params {
             let param_id = self.resolver.next_id();
-            let name = self.hir_arena.alloc(hir::Symbol(identifier.value.clone()));
+            let name = self.hir_arena.alloc(hir::Symbol(param.name.value.clone()));
             let r#type = self.hir_arena.alloc(hir::Type {
                 id: self.resolver.next_id(),
-                kind: self.hir_arena.alloc(hir::TypeKind::Infer),
+                kind: self.hir_arena.alloc(self.parse_type(&param.r#type)),
             });
 
             params.push(hir::FunctionParam {
@@ -426,6 +426,10 @@ impl<'hir> HirParser<'hir> {
         }
 
         self.hir_arena.alloc_from_iter(params)
+    }
+
+    fn parse_type(&self, _ty: &Option<ast::Type>) -> hir::TypeKind {
+        hir::TypeKind::Infer
     }
 }
 
@@ -462,27 +466,25 @@ mod test {
                 ast::Stmt::Let(ast::Let {
                     name: ast::Identifier {
                         value: "x".to_string(),
-                        mtype: None,
                     },
                     value: ast::Expr::Integer(ast::Integer { value: 1 }),
+                    r#type: None,
                 }),
                 ast::Stmt::Let(ast::Let {
                     name: ast::Identifier {
                         value: "y".to_string(),
-                        mtype: None,
                     },
                     value: ast::Expr::Integer(ast::Integer { value: 2 }),
+                    r#type: None,
                 }),
                 ast::Stmt::ExprStmt(ast::ExprStmt {
                     expr: ast::Expr::InfixExpr(ast::InfixExpr {
                         left: Box::new(ast::Expr::Identifier(ast::Identifier {
                             value: "x".to_string(),
-                            mtype: None,
                         })),
                         ope: ast::Operator::Plus,
                         right: Box::new(ast::Expr::Identifier(ast::Identifier {
                             value: "y".to_string(),
-                            mtype: None,
                         })),
                     }),
                 }),
@@ -569,14 +571,13 @@ mod test {
                                 ast::Stmt::Let(ast::Let {
                                     name: ast::Identifier {
                                         value: "x".to_string(),
-                                        mtype: None,
                                     },
                                     value: ast::Expr::Integer(ast::Integer { value: 1 }),
+                                    r#type: None,
                                 }),
                                 ast::Stmt::ExprStmt(ast::ExprStmt {
                                     expr: ast::Expr::Identifier(ast::Identifier {
                                         value: "x".to_string(),
-                                        mtype: None,
                                     }),
                                 }),
                             ],
@@ -586,20 +587,18 @@ mod test {
                                 ast::Stmt::Let(ast::Let {
                                     name: ast::Identifier {
                                         value: "y".to_string(),
-                                        mtype: None,
                                     },
                                     value: ast::Expr::Integer(ast::Integer { value: 2 }),
+                                    r#type: None,
                                 }),
                                 ast::Stmt::ExprStmt(ast::ExprStmt {
                                     expr: ast::Expr::Identifier(ast::Identifier {
                                         value: "y".to_string(),
-                                        mtype: None,
                                     }),
                                 }),
                                 ast::Stmt::ExprStmt(ast::ExprStmt {
                                     expr: ast::Expr::Identifier(ast::Identifier {
                                         value: "x".to_string(),
-                                        mtype: None,
                                     }),
                                 }),
                             ],
@@ -610,13 +609,11 @@ mod test {
                 ast::Stmt::ExprStmt(ast::ExprStmt {
                     expr: ast::Expr::Identifier(ast::Identifier {
                         value: "x".to_string(),
-                        mtype: None,
                     }),
                 }),
                 ast::Stmt::ExprStmt(ast::ExprStmt {
                     expr: ast::Expr::Identifier(ast::Identifier {
                         value: "y".to_string(),
-                        mtype: None,
                     }),
                 }),
             ],
@@ -748,7 +745,6 @@ mod test {
         let mut parser = HirParser::new(&context.arena, &mut context.scope, &mut context.resolver);
         let identifier = ast::Identifier {
             value: "test".to_string(),
-            mtype: None,
         };
         let hir_identifier = parser.parse_identifier(&identifier);
         assert_eq!(hir_identifier.name, &hir::Symbol("test".to_string()));
@@ -770,7 +766,6 @@ mod test {
         let mut parser = HirParser::new(&context.arena, &mut context.scope, &mut context.resolver);
         let identifier = ast::Identifier {
             value: "test".to_string(),
-            mtype: None,
         };
 
         let hir_identifier = parser.parse_identifier(&identifier);
@@ -823,12 +818,10 @@ mod test {
         let call = ast::Call {
             func: ast::Expr::Identifier(ast::Identifier {
                 value: "test".to_string(),
-                mtype: None,
             })
             .into(),
             args: vec![ast::Expr::Identifier(ast::Identifier {
                 value: "argA".to_string(),
-                mtype: None,
             })],
         };
         let hir_call = parser.parse_call(&call);
@@ -861,10 +854,13 @@ mod test {
         let mut parser = HirParser::new(&context.arena, &mut context.scope, &mut context.resolver);
         let function = ast::Function {
             name: "test".to_string(),
-            params: vec![ast::Identifier {
-                value: "argA".to_string(),
-                mtype: None,
+            params: vec![ast::FunctionParam {
+                name: ast::Identifier {
+                    value: "argA".to_string(),
+                },
+                r#type: Some(ast::Type::Integer),
             }],
+            return_type: None,
             body: ast::Block {
                 statements: vec![ast::Stmt::Return(ast::Return {
                     return_value: ast::Expr::Integer(ast::Integer { value: 1 }),
@@ -908,15 +904,17 @@ mod test {
         let mut parser = HirParser::new(&context.arena, &mut context.scope, &mut context.resolver);
         let function = ast::Function {
             name: "test".to_string(),
-            params: vec![ast::Identifier {
-                value: "argA".to_string(),
-                mtype: None,
+            params: vec![ast::FunctionParam {
+                name: ast::Identifier {
+                    value: "argA".to_string(),
+                },
+                r#type: Some(ast::Type::Integer),
             }],
+            return_type: None,
             body: ast::Block {
                 statements: vec![ast::Stmt::Return(ast::Return {
                     return_value: ast::Expr::Identifier(ast::Identifier {
                         value: "argA".to_string(),
-                        mtype: None,
                     }),
                 })],
                 tokens: Default::default(),
@@ -970,33 +968,38 @@ mod test {
         let mut context = Context::new();
         let mut parser = HirParser::new(&context.arena, &mut context.scope, &mut context.resolver);
         let function = ast::Function {
-            params: vec![ast::Identifier {
-                value: "outer_arg_a".to_string(),
-                mtype: None,
+            params: vec![ast::FunctionParam {
+                name: ast::Identifier {
+                    value: "outer_arg_a".to_string(),
+                },
+                r#type: Some(ast::Type::Integer),
             }],
+            return_type: None,
             name: "outer_function".to_string(),
             body: ast::Block {
                 statements: vec![
                     ast::Stmt::ExprStmt(ast::ExprStmt {
                         expr: ast::Expr::Function(ast::Function {
                             name: "inner_function".to_string(),
-                            params: vec![ast::Identifier {
-                                value: "inner_arg_a".to_string(),
-                                mtype: None,
+                            params: vec![ast::FunctionParam {
+                                name: ast::Identifier {
+                                    value: "inner_arg_a".to_string(),
+                                },
+                                r#type: Some(ast::Type::Integer),
                             }],
+                            return_type: None,
                             body: ast::Block {
                                 statements: vec![
                                     ast::Stmt::Let(ast::Let {
                                         name: ast::Identifier {
                                             value: "x".to_string(),
-                                            mtype: None,
                                         },
                                         value: ast::Expr::Integer(ast::Integer { value: 1 }),
+                                        r#type: None,
                                     }),
                                     ast::Stmt::ExprStmt(ast::ExprStmt {
                                         expr: ast::Expr::Identifier(ast::Identifier {
                                             value: "x".to_string(),
-                                            mtype: None,
                                         }),
                                     }),
                                 ],
@@ -1007,7 +1010,6 @@ mod test {
                     ast::Stmt::ExprStmt(ast::ExprStmt {
                         expr: ast::Expr::Identifier(ast::Identifier {
                             value: "x".to_string(),
-                            mtype: None,
                         }),
                     }),
                 ],
@@ -1121,11 +1123,9 @@ mod test {
             pairs: vec![ast::Pair {
                 key: ast::Expr::Identifier(ast::Identifier {
                     value: "key".to_string(),
-                    mtype: None,
                 }),
                 value: ast::Expr::Identifier(ast::Identifier {
                     value: "value".to_string(),
-                    mtype: None,
                 }),
             }],
         };
@@ -1162,7 +1162,6 @@ mod test {
         let if_stmt = ast::If {
             cond: ast::Expr::Identifier(ast::Identifier {
                 value: "test".to_string(),
-                mtype: None,
             })
             .into(),
             consequence: ast::Block {
@@ -1226,7 +1225,6 @@ mod test {
         let index = ast::Index {
             left: ast::Expr::Identifier(ast::Identifier {
                 value: "test".to_string(),
-                mtype: None,
             })
             .into(),
             index: ast::Expr::Integer(ast::Integer { value: 1 }).into(),
@@ -1259,7 +1257,6 @@ mod test {
         let infix_expr = ast::InfixExpr {
             left: ast::Expr::Identifier(ast::Identifier {
                 value: "test".to_string(),
-                mtype: None,
             })
             .into(),
             ope: ast::Operator::Plus,
@@ -1389,11 +1386,11 @@ mod test {
         let let_stmt = ast::Let {
             name: ast::Identifier {
                 value: "test".to_string(),
-                mtype: None,
             },
             value: ast::Expr::StringLit(ast::StringLit {
                 value: "test_value".to_string(),
             }),
+            r#type: None,
         };
         let hir_let = parser.parse_let(&let_stmt);
 

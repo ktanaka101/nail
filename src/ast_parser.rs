@@ -1,6 +1,5 @@
 pub mod ast;
 pub mod error;
-pub mod tools;
 
 use std::str::FromStr;
 

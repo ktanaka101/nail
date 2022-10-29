@@ -184,7 +184,6 @@ fn lookup_ident(ident: &str, position: Position) -> Token {
         "if" => Token::if_with(position),
         "else" => Token::else_with(position),
         "return" => Token::return_with(position),
-        "macro" => Token::macro_with(position),
         id => Token::ident_with(id.into(), position),
     }
 }
@@ -276,7 +275,6 @@ mod tests {
             'a'
             [1, 2];
             {\"foo\": \"bar\"}
-            macro(x, y) { x + y; };
         ";
 
         let mut lexer = super::Lexer::new(input.to_string());
@@ -504,23 +502,7 @@ mod tests {
         }
 
         {
-            assert_token(Token::r#macro(), 783);
-            assert_token(Token::lparen(), 788);
-            assert_token(Token::ident_with("x".into(), Position::default()), 789);
-            assert_token(Token::comma(), 790);
-            assert_token(Token::ident_with("y".into(), Position::default()), 792);
-            assert_token(Token::rparen(), 793);
-            assert_token(Token::lbrace(), 795);
-            assert_token(Token::ident_with("x".into(), Position::default()), 797);
-            assert_token(Token::plus(), 799);
-            assert_token(Token::ident_with("y".into(), Position::default()), 801);
-            assert_token(Token::semicolon(), 802);
-            assert_token(Token::rbrace(), 804);
-            assert_token(Token::semicolon(), 805);
-        }
-
-        {
-            assert_token(Token::eof(), 815);
+            assert_token(Token::eof(), 779);
         }
     }
 }

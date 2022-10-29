@@ -187,7 +187,6 @@ impl<'hir> HirParser<'hir> {
             ast::Expr::PrefixExpr(prefix_expr) => {
                 hir::ExprKind::PrefixExpr(self.parse_prefix_expr(prefix_expr))
             }
-            ast::Expr::MacroLit(_) => unreachable!(),
         }
     }
 

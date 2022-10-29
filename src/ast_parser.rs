@@ -208,7 +208,6 @@ impl<T: Lexer> Parser<T> {
             | Token::Lbrace(_)
             | Token::Function(_)
             | Token::VerticalBar(_) => (),
-            Token::Macro(_) => (),
         }
 
         let mut left_expr = self.prefix_parse_fns(self.cur_token.clone())?;
@@ -526,16 +525,6 @@ impl<T: Lexer> Parser<T> {
         Ok(ast::Hash { pairs })
     }
 
-    fn parse_macro_literal(&mut self) -> Result<ast::MacroLit> {
-        self.expect_peek(Token::lparen())?;
-        let params = self.parse_function_params()?;
-
-        self.expect_peek(Token::lbrace())?;
-        let body = self.parse_block_statement()?;
-
-        Ok(ast::MacroLit { params, body })
-    }
-
     fn cur_token_is(&self, token_t: Token) -> bool {
         match token_t {
             Token::Illegal(_) => matches!(self.cur_token, Token::Illegal(_)),
@@ -583,7 +572,6 @@ impl<T: Lexer> Parser<T> {
             Token::Char(_) => Expr::Char(self.parse_char()?),
             Token::Lbracket(_) => Expr::Array(self.parse_array_literal()?),
             Token::Lbrace(_) => Expr::Hash(self.parse_hash_literal()?),
-            Token::Macro(_) => Expr::MacroLit(self.parse_macro_literal()?),
             t => return Err(ParserError::InvalidPrefix(format!("{:?}", t)).into()),
         })
     }
@@ -1225,35 +1213,6 @@ mod tests {
                 test_expr(&hash_expr.pairs[i].value, &expect.1);
             }
         }
-    }
-
-    #[test]
-    fn test_macro_literal_parsing() {
-        let input = "macro(x, y) { x + y; }";
-        let program = test_parse(input);
-        assert_eq!(program.statements.len(), 1);
-
-        let expr_stmt = match &program.statements[0] {
-            Stmt::ExprStmt(expr_stmt) => expr_stmt,
-            stmt => panic!("expect Stmt::ExprStmt. received {}", stmt),
-        };
-
-        let m_macro = match &expr_stmt.expr {
-            Expr::MacroLit(m) => m,
-            expr => panic!("expect Expr::MacroLiteral. received {}", expr),
-        };
-
-        assert_eq!(m_macro.params.len(), 2);
-        test_identifier(&m_macro.params[0], "x", &None);
-        test_identifier(&m_macro.params[1], "y", &None);
-
-        assert_eq!(m_macro.body.statements.len(), 1);
-        test_infix_by_stmt(
-            &m_macro.body.statements[0],
-            &Val::Id(Id("x", None)),
-            "+",
-            &Val::Id(Id("y", None)),
-        );
     }
 
     fn test_infix_by_expr(expr: &Expr, l: &Val, o: &str, r: &Val) {

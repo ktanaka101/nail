@@ -50,7 +50,6 @@ pub enum Token {
     If(PureToken),
     Else(PureToken),
     Return(PureToken),
-    Macro(PureToken),
 }
 
 impl<'a> Token {
@@ -84,7 +83,6 @@ impl<'a> Token {
             Self::Else(_) => "else".to_string(),
             Self::Return(_) => "return".to_string(),
             Self::Eof(_) => "".to_string(),
-            Self::Macro(_) => "macro".to_string(),
             Self::Illegal(t) | Self::Ident(t) | Self::Int(t) => t.input.to_string(),
             Self::StringLiteral(t) => format!("\"{}\"", t.input),
             Self::Char(t) => format!("'{}'", &t.input),
@@ -120,8 +118,7 @@ impl<'a> Token {
             | Self::If(t)
             | Self::Else(t)
             | Self::Return(t)
-            | Self::Eof(t)
-            | Self::Macro(t) => &t.position,
+            | Self::Eof(t) => &t.position,
             Self::Illegal(t)
             | Self::Ident(t)
             | Self::Int(t)
@@ -463,16 +460,6 @@ impl Token {
             position: position.into(),
         })
     }
-
-    pub fn r#macro() -> Self {
-        Token::Macro(Default::default())
-    }
-
-    pub fn macro_with(position: impl Into<Position>) -> Self {
-        Token::Macro(PureToken {
-            position: position.into(),
-        })
-    }
 }
 
 impl PartialEq for Token {
@@ -511,7 +498,6 @@ impl PartialEq for Token {
             (Token::If(_), Token::If(_)) => true,
             (Token::Else(_), Token::Else(_)) => true,
             (Token::Return(_), Token::Return(_)) => true,
-            (Token::Macro(_), Token::Macro(_)) => true,
             _ => false,
         }
     }

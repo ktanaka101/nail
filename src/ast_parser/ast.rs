@@ -10,8 +10,8 @@ mod prelude {
     pub use super::super::error::ParserError;
     pub use super::{
         Array, Block, Boolean, Call, Char, Closure, Expr, ExprStmt, Function, Hash, Identifier, If,
-        Index, InfixExpr, Integer, Let, MacroLit, Node, Operator, Pair, PrefixExpr, Program,
-        Return, Stmt, StringLit, Type,
+        Index, InfixExpr, Integer, Let, Node, Operator, Pair, PrefixExpr, Program, Return, Stmt,
+        StringLit, Type,
     };
 }
 
@@ -31,7 +31,6 @@ mod index;
 mod infix_expr;
 mod integer;
 mod r#let;
-mod macro_lit;
 mod node;
 mod operator;
 mod pair;
@@ -57,7 +56,6 @@ pub use identifier::Identifier;
 pub use index::Index;
 pub use infix_expr::InfixExpr;
 pub use integer::Integer;
-pub use macro_lit::MacroLit;
 pub use node::Node;
 pub use operator::Operator;
 pub use pair::Pair;

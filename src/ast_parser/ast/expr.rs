@@ -16,7 +16,6 @@ pub enum Expr {
     Array(Array),
     Index(Index),
     Hash(Hash),
-    MacroLit(MacroLit),
 }
 
 impl Display for Expr {
@@ -36,7 +35,6 @@ impl Display for Expr {
             Self::Array(e) => write!(f, "{}", e),
             Self::Index(e) => write!(f, "{}", e),
             Self::Hash(e) => write!(f, "{}", e),
-            Self::MacroLit(e) => write!(f, "{}", e),
         }
     }
 }

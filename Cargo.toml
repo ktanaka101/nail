@@ -9,7 +9,7 @@ license = "MIT"
 anyhow = "1.0"
 thiserror = "1.0"
 inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = [
-  "llvm11-0",
+  "llvm14-0",
 ] }
 termion = "2.0"
 nom = "7.1"

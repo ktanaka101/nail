@@ -275,6 +275,10 @@ mod tests {
             'a'
             [1, 2];
             {\"foo\": \"bar\"}
+
+            let a: int = 10;
+            fn a(x: char, y: string): int { 10 };
+            |x: char, y: string|: int { 10 };
         ";
 
         let mut lexer = super::Lexer::new(input.to_string());
@@ -502,7 +506,57 @@ mod tests {
         }
 
         {
-            assert_token(Token::eof(), 779);
+            assert_token(Token::r#let(), 784);
+            assert_token(Token::ident_with("a".into(), Position::default()), 788);
+            assert_token(Token::colon(), 789);
+            assert_token(Token::ident_with("int".into(), Position::default()), 791);
+            assert_token(Token::assign(), 795);
+            assert_token(Token::int_with("10".into(), Position::default()), 797);
+            assert_token(Token::semicolon(), 799);
+        }
+
+        // fn a(x: char, y: string): int { 10 };
+        {
+            assert_token(Token::function(), 813);
+            assert_token(Token::ident_with("a".into(), Position::default()), 816);
+            assert_token(Token::lparen(), 817);
+            assert_token(Token::ident_with("x".into(), Position::default()), 818);
+            assert_token(Token::colon(), 819);
+            assert_token(Token::ident_with("char".into(), Position::default()), 821);
+            assert_token(Token::comma(), 825);
+            assert_token(Token::ident_with("y".into(), Position::default()), 827);
+            assert_token(Token::colon(), 828);
+            assert_token(Token::ident_with("string".into(), Position::default()), 830);
+            assert_token(Token::rparen(), 836);
+            assert_token(Token::colon(), 837);
+            assert_token(Token::ident_with("int".into(), Position::default()), 839);
+            assert_token(Token::lbrace(), 843);
+            assert_token(Token::int_with("10".into(), Position::default()), 845);
+            assert_token(Token::rbrace(), 848);
+            assert_token(Token::semicolon(), 849);
+        }
+
+        // |x: char, y: string|: int { 10 };
+        {
+            assert_token(Token::vertical_bar(), 863);
+            assert_token(Token::ident_with("x".into(), Position::default()), 864);
+            assert_token(Token::colon(), 865);
+            assert_token(Token::ident_with("char".into(), Position::default()), 867);
+            assert_token(Token::comma(), 871);
+            assert_token(Token::ident_with("y".into(), Position::default()), 873);
+            assert_token(Token::colon(), 874);
+            assert_token(Token::ident_with("string".into(), Position::default()), 876);
+            assert_token(Token::vertical_bar(), 882);
+            assert_token(Token::colon(), 883);
+            assert_token(Token::ident_with("int".into(), Position::default()), 885);
+            assert_token(Token::lbrace(), 889);
+            assert_token(Token::int_with("10".into(), Position::default()), 891);
+            assert_token(Token::rbrace(), 894);
+            assert_token(Token::semicolon(), 895);
+        }
+
+        {
+            assert_token(Token::eof(), 905);
         }
     }
 }

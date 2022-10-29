@@ -1,6 +1,6 @@
 use super::prelude::*;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Identifier {
     pub value: String,
     pub mtype: Option<Type>,

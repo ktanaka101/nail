@@ -1,11 +1,11 @@
 use std::ops::Range;
 
-#[derive(Clone, PartialEq, Debug, Default)]
+#[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub struct PureToken {
     pub position: Position,
 }
 
-#[derive(Clone, PartialEq, Debug, Default)]
+#[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub struct TokenWithInput {
     pub input: String,
     pub position: Position,

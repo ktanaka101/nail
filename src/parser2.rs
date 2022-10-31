@@ -29,7 +29,7 @@ pub fn parse(input: &str) -> Parse {
 
 pub struct Parser<'l, 'input> {
     source: Source<'l, 'input>,
-    events: Vec<Event<'l>>,
+    events: Vec<Event>,
 }
 
 impl<'l, 'input> Parser<'l, 'input> {
@@ -40,7 +40,7 @@ impl<'l, 'input> Parser<'l, 'input> {
         }
     }
 
-    fn parse(mut self) -> Vec<Event<'l>> {
+    fn parse(mut self) -> Vec<Event> {
         let marker = self.start();
         expr(&mut self);
         marker.complete(&mut self, SyntaxKind::Root);
@@ -56,12 +56,8 @@ impl<'l, 'input> Parser<'l, 'input> {
     }
 
     fn bump(&mut self) {
-        let Token { kind, text } = self.source.next_token().unwrap();
-
-        self.events.push(Event::AddToken {
-            kind: *kind,
-            text: *text,
-        })
+        self.source.next_token().unwrap();
+        self.events.push(Event::AddToken)
     }
 
     fn peek(&mut self) -> Option<SyntaxKind> {

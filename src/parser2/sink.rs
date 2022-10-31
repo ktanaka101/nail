@@ -1,9 +1,6 @@
 use std::mem;
 
-use crate::{
-    lexer2::{SyntaxKind, Token},
-    syntax::NailLanguage,
-};
+use crate::{lexer2::Token, syntax::NailLanguage};
 
 use super::Event;
 
@@ -13,11 +10,11 @@ pub(super) struct Sink<'l, 'input> {
     builder: GreenNodeBuilder<'static>,
     tokens: &'l [Token<'input>],
     cursor: usize,
-    events: Vec<Event<'l>>,
+    events: Vec<Event>,
 }
 
 impl<'l, 'input> Sink<'l, 'input> {
-    pub(super) fn new(tokens: &'l [Token<'input>], events: Vec<Event<'input>>) -> Self {
+    pub(super) fn new(tokens: &'l [Token<'input>], events: Vec<Event>) -> Self {
         Self {
             builder: GreenNodeBuilder::new(),
             tokens,
@@ -58,7 +55,7 @@ impl<'l, 'input> Sink<'l, 'input> {
                         self.builder.start_node(NailLanguage::kind_to_raw(kind));
                     }
                 }
-                Event::AddToken { kind, text } => self.token(kind, text),
+                Event::AddToken => self.token(),
                 Event::FinishNode => self.builder.finish_node(),
                 Event::Placeholder => (),
             }
@@ -69,7 +66,9 @@ impl<'l, 'input> Sink<'l, 'input> {
         self.builder.finish()
     }
 
-    fn token(&mut self, kind: SyntaxKind, text: &'l str) {
+    fn token(&mut self) {
+        let Token { kind, text } = self.tokens[self.cursor];
+
         self.builder.token(NailLanguage::kind_to_raw(kind), text);
         self.cursor += 1;
     }
@@ -80,7 +79,7 @@ impl<'l, 'input> Sink<'l, 'input> {
                 break;
             }
 
-            self.token(token.kind, token.text);
+            self.token();
         }
     }
 }

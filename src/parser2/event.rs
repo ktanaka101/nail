@@ -1,15 +1,12 @@
 use crate::lexer2::SyntaxKind;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) enum Event<'a> {
+pub(super) enum Event {
     StartNode {
         kind: SyntaxKind,
         forward_parent: Option<usize>,
     },
-    AddToken {
-        kind: SyntaxKind,
-        text: &'a str,
-    },
+    AddToken,
     FinishNode,
     Placeholder,
 }

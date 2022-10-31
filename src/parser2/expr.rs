@@ -76,7 +76,7 @@ fn lhs(parser: &mut Parser) -> Option<CompletedMarker> {
 }
 
 fn literal(parser: &mut Parser) -> CompletedMarker {
-    assert_eq!(parser.peek(), Some(SyntaxKind::IntegerLiteral));
+    assert!(parser.at(SyntaxKind::IntegerLiteral));
 
     let marker = parser.start();
     parser.bump();
@@ -84,7 +84,7 @@ fn literal(parser: &mut Parser) -> CompletedMarker {
 }
 
 fn variable_ref(parser: &mut Parser) -> CompletedMarker {
-    assert_eq!(parser.peek(), Some(SyntaxKind::Ident));
+    assert!(parser.at(SyntaxKind::Ident));
 
     let marker = parser.start();
     parser.bump();
@@ -92,7 +92,7 @@ fn variable_ref(parser: &mut Parser) -> CompletedMarker {
 }
 
 fn prefix_expr(parser: &mut Parser) -> CompletedMarker {
-    assert_eq!(parser.peek(), Some(SyntaxKind::Minus));
+    assert!(parser.at(SyntaxKind::Minus));
 
     let marker = parser.start();
 
@@ -107,12 +107,14 @@ fn prefix_expr(parser: &mut Parser) -> CompletedMarker {
 }
 
 fn paren_expr(parser: &mut Parser) -> CompletedMarker {
+    assert!(parser.at(SyntaxKind::LParen));
+
     let marker = parser.start();
 
     parser.bump();
     expr_binding_power(parser, 0);
 
-    assert_eq!(parser.peek(), Some(SyntaxKind::RParen));
+    assert!(parser.at(SyntaxKind::RParen));
     parser.bump();
 
     marker.complete(parser, SyntaxKind::ParenExpr)

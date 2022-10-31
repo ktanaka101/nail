@@ -1,12 +1,12 @@
-use super::Parser;
+use super::{marker::CompletedMarker, Parser};
 use crate::lexer2::SyntaxKind;
 
 pub(super) fn expr(parser: &mut Parser) {
     expr_binding_power(parser, 0);
 }
 
-fn expr_binding_power(parser: &mut Parser, minimum_binding_power: u8) {
-    let mut lhs = match parser.peek() {
+fn lhs(parser: &mut Parser) -> Option<CompletedMarker> {
+    let cm = match parser.peek() {
         Some(SyntaxKind::IntegerLiteral) => {
             let marker = parser.start();
             parser.bump();
@@ -40,7 +40,17 @@ fn expr_binding_power(parser: &mut Parser, minimum_binding_power: u8) {
 
             marker.complete(parser, SyntaxKind::ParenExpr)
         }
-        _ => return,
+        _ => return None,
+    };
+
+    Some(cm)
+}
+
+fn expr_binding_power(parser: &mut Parser, minimum_binding_power: u8) {
+    let mut lhs = if let Some(lhs) = lhs(parser) {
+        lhs
+    } else {
+        return;
     };
 
     loop {

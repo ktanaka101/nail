@@ -1,64 +1,76 @@
+mod event;
 mod expr;
+mod sink;
 
-use std::iter::Peekable;
+use rowan::GreenNode;
 
-use self::expr::expr;
 use crate::{
     lexer2::{Lexer, SyntaxKind},
-    syntax::{NailLanguage, SyntaxNode},
+    syntax::SyntaxNode,
 };
-use rowan::{Checkpoint, GreenNode, GreenNodeBuilder, Language};
+use event::Event;
+use expr::expr;
+use sink::Sink;
 
-pub struct Parser<'a> {
-    lexer: Peekable<Lexer<'a>>,
-    builder: GreenNodeBuilder<'static>,
+pub fn parse(input: &str) -> Parse {
+    let lexemes: Vec<_> = Lexer::new(input).collect();
+    let parser = Parser::new(&lexemes);
+    let events = parser.parse();
+    let sink = Sink::new(&lexemes, events);
+
+    Parse {
+        green_node: sink.finish(),
+    }
 }
 
-impl<'a> Parser<'a> {
-    pub(crate) fn new(input: &'a str) -> Self {
+pub struct Parser<'l, 'input> {
+    lexemes: &'l [(SyntaxKind, &'input str)],
+    cursor: usize,
+    events: Vec<Event<'l>>,
+}
+
+impl<'l, 'input> Parser<'l, 'input> {
+    fn new(lexemes: &'l [(SyntaxKind, &'input str)]) -> Self {
         Self {
-            lexer: Lexer::new(input).peekable(),
-            builder: GreenNodeBuilder::new(),
+            lexemes,
+            cursor: 0,
+            events: vec![],
         }
     }
 
-    pub(crate) fn parse(mut self) -> Parse {
+    fn parse(mut self) -> Vec<Event<'l>> {
         self.start_node(SyntaxKind::Root);
-
         expr(&mut self);
-
         self.finish_node();
 
-        Parse {
-            green_node: self.builder.finish(),
-        }
+        self.events
     }
 
     fn start_node(&mut self, kind: SyntaxKind) {
-        self.builder.start_node(NailLanguage::kind_to_raw(kind));
+        self.events.push(Event::StartNode { kind });
     }
 
-    fn start_node_at(&mut self, checkpoint: Checkpoint, kind: SyntaxKind) {
-        self.builder
-            .start_node_at(checkpoint, NailLanguage::kind_to_raw(kind));
+    fn start_node_at(&mut self, checkpoint: usize, kind: SyntaxKind) {
+        self.events.push(Event::StartNodeAt { kind, checkpoint });
     }
 
     fn finish_node(&mut self) {
-        self.builder.finish_node();
+        self.events.push(Event::FinishNode);
     }
 
-    fn checkpoint(&self) -> Checkpoint {
-        self.builder.checkpoint()
+    fn checkpoint(&self) -> usize {
+        self.events.len()
     }
 
     fn peek(&mut self) -> Option<SyntaxKind> {
-        self.lexer.peek().map(|(kind, _)| *kind)
+        self.lexemes.get(self.cursor).map(|(kind, _)| *kind)
     }
 
     fn bump(&mut self) {
-        let (kind, text) = self.lexer.next().unwrap();
+        let (kind, text) = self.lexemes[self.cursor];
 
-        self.builder.token(NailLanguage::kind_to_raw(kind), text);
+        self.cursor += 1;
+        self.events.push(Event::AddToken { kind, text })
     }
 }
 
@@ -77,7 +89,7 @@ impl Parse {
 
 #[cfg(test)]
 fn check(input: &str, expected_tree: expect_test::Expect) {
-    let parse = Parser::new(input).parse();
+    let parse = parse(input);
     expected_tree.assert_eq(&parse.debug_tree());
 }
 

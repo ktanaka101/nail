@@ -29,7 +29,7 @@ fn expr_binding_power(parser: &mut Parser, minimum_binding_power: u8) {
 
         parser.bump();
 
-        parser.start_node_at(checkpoint, SyntaxKind::BinOp);
+        parser.start_node_at(checkpoint, SyntaxKind::BinaryExpr);
         expr_binding_power(parser, right_binding_power);
         parser.finish_node();
     }
@@ -82,7 +82,7 @@ mod tests {
             "1+2",
             expect![[r#"
                 Root@0..3
-                  BinOp@0..3
+                  BinaryExpr@0..3
                     IntegerLiteral@0..1 "1"
                     Plus@1..2 "+"
                     IntegerLiteral@2..3 "2""#]],
@@ -95,9 +95,9 @@ mod tests {
             "1+2+3+4",
             expect![[r#"
                 Root@0..7
-                  BinOp@0..7
-                    BinOp@0..5
-                      BinOp@0..3
+                  BinaryExpr@0..7
+                    BinaryExpr@0..5
+                      BinaryExpr@0..3
                         IntegerLiteral@0..1 "1"
                         Plus@1..2 "+"
                         IntegerLiteral@2..3 "2"
@@ -114,11 +114,11 @@ mod tests {
             "1+2*3-4",
             expect![[r#"
                 Root@0..7
-                  BinOp@0..7
-                    BinOp@0..5
+                  BinaryExpr@0..7
+                    BinaryExpr@0..5
                       IntegerLiteral@0..1 "1"
                       Plus@1..2 "+"
-                      BinOp@2..5
+                      BinaryExpr@2..5
                         IntegerLiteral@2..3 "2"
                         Asterisk@3..4 "*"
                         IntegerLiteral@4..5 "3"

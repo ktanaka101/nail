@@ -9,7 +9,7 @@ pub(crate) enum SyntaxKind {
     Root,
 
     // expressions
-    BinOp,
+    BinaryExpr,
 
     // keywords
     #[token("fn")]

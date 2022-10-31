@@ -11,7 +11,7 @@ pub(crate) enum SyntaxKind {
     // expressions
     Literal,
     ParenExpr,
-    BinaryExpr,
+    InfixExpr,
     PrefixExpr,
     VariableRef,
 

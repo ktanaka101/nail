@@ -14,10 +14,10 @@ fn expr_binding_power(parser: &mut Parser, minimum_binding_power: u8) {
 
     loop {
         let op = match parser.peek() {
-            Some(SyntaxKind::Plus) => InfixOp::Add,
-            Some(SyntaxKind::Minus) => InfixOp::Sub,
-            Some(SyntaxKind::Asterisk) => InfixOp::Mul,
-            Some(SyntaxKind::Slash) => InfixOp::Div,
+            Some(SyntaxKind::Plus) => BinaryOp::Add,
+            Some(SyntaxKind::Minus) => BinaryOp::Sub,
+            Some(SyntaxKind::Asterisk) => BinaryOp::Mul,
+            Some(SyntaxKind::Slash) => BinaryOp::Div,
             _ => return,
         };
 
@@ -31,18 +31,18 @@ fn expr_binding_power(parser: &mut Parser, minimum_binding_power: u8) {
 
         let marker = lhs.precede(parser);
         expr_binding_power(parser, right_binding_power);
-        lhs = marker.complete(parser, SyntaxKind::BinaryExpr);
+        lhs = marker.complete(parser, SyntaxKind::InfixExpr);
     }
 }
 
-enum InfixOp {
+enum BinaryOp {
     Add,
     Sub,
     Mul,
     Div,
 }
 
-impl InfixOp {
+impl BinaryOp {
     fn binding_power(&self) -> (u8, u8) {
         match self {
             Self::Add | Self::Sub => (1, 2),
@@ -153,7 +153,7 @@ mod tests {
             "1+2",
             expect![[r#"
                 Root@0..3
-                  BinaryExpr@0..3
+                  InfixExpr@0..3
                     Literal@0..1
                       IntegerLiteral@0..1 "1"
                     Plus@1..2 "+"
@@ -168,9 +168,9 @@ mod tests {
             "1+2+3+4",
             expect![[r#"
                 Root@0..7
-                  BinaryExpr@0..7
-                    BinaryExpr@0..5
-                      BinaryExpr@0..3
+                  InfixExpr@0..7
+                    InfixExpr@0..5
+                      InfixExpr@0..3
                         Literal@0..1
                           IntegerLiteral@0..1 "1"
                         Plus@1..2 "+"
@@ -191,12 +191,12 @@ mod tests {
             "1+2*3-4",
             expect![[r#"
                 Root@0..7
-                  BinaryExpr@0..7
-                    BinaryExpr@0..5
+                  InfixExpr@0..7
+                    InfixExpr@0..5
                       Literal@0..1
                         IntegerLiteral@0..1 "1"
                       Plus@1..2 "+"
-                      BinaryExpr@2..5
+                      InfixExpr@2..5
                         Literal@2..3
                           IntegerLiteral@2..3 "2"
                         Asterisk@3..4 "*"
@@ -227,7 +227,7 @@ mod tests {
             "-20+20",
             expect![[r#"
                 Root@0..6
-                  BinaryExpr@0..6
+                  InfixExpr@0..6
                     PrefixExpr@0..3
                       Minus@0..1 "-"
                       Literal@1..3
@@ -273,13 +273,13 @@ mod tests {
             "5*(2+1)",
             expect![[r#"
                 Root@0..7
-                  BinaryExpr@0..7
+                  InfixExpr@0..7
                     Literal@0..1
                       IntegerLiteral@0..1 "5"
                     Asterisk@1..2 "*"
                     ParenExpr@2..7
                       LParen@2..3 "("
-                      BinaryExpr@3..6
+                      InfixExpr@3..6
                         Literal@3..4
                           IntegerLiteral@3..4 "2"
                         Plus@4..5 "+"
@@ -333,13 +333,13 @@ mod tests {
             expect![[r#"
                 Root@0..12
                   Whitespace@0..1 " "
-                  BinaryExpr@1..12
+                  InfixExpr@1..12
                     Literal@1..3
                       IntegerLiteral@1..2 "1"
                       Whitespace@2..3 " "
                     Plus@3..4 "+"
                     Whitespace@4..7 "   "
-                    BinaryExpr@7..12
+                    InfixExpr@7..12
                       Literal@7..8
                         IntegerLiteral@7..8 "2"
                       Asterisk@8..9 "*"

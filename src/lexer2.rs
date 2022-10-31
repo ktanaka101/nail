@@ -84,8 +84,17 @@ pub(crate) enum SyntaxKind {
     #[regex(" +")]
     Whitespace,
 
+    #[regex("//.*")]
+    CommentSingle,
+
     #[error]
     Error,
+}
+
+impl SyntaxKind {
+    pub(crate) fn is_trivia(self) -> bool {
+        matches!(self, Self::Whitespace | Self::CommentSingle)
+    }
 }
 
 pub(crate) struct Lexer<'a> {
@@ -299,5 +308,10 @@ mod tests {
     #[test]
     fn lex_spaces() {
         check("   ", SyntaxKind::Whitespace);
+    }
+
+    #[test]
+    fn lex_comment() {
+        check("// foo", SyntaxKind::CommentSingle);
     }
 }

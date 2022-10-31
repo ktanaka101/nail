@@ -114,4 +114,27 @@ mod tests {
                   Whitespace@0..3 "   ""#]],
         );
     }
+
+    #[test]
+    fn parse_comment() {
+        check(
+            "// hello!",
+            expect![[r#"
+                Root@0..9
+                  CommentSingle@0..9 "// hello!""#]],
+        );
+    }
+
+    #[test]
+    fn parse_binary_expression_when_single_slash() {
+        check(
+            "/ hello",
+            expect![[r#"
+                Root@0..7
+                  BinaryExpr@0..7
+                    Slash@0..1 "/"
+                    Whitespace@1..2 " "
+                    Ident@2..7 "hello""#]],
+        );
+    }
 }

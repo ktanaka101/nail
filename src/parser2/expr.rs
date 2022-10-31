@@ -5,47 +5,6 @@ pub(super) fn expr(parser: &mut Parser) {
     expr_binding_power(parser, 0);
 }
 
-fn lhs(parser: &mut Parser) -> Option<CompletedMarker> {
-    let cm = match parser.peek() {
-        Some(SyntaxKind::IntegerLiteral) => {
-            let marker = parser.start();
-            parser.bump();
-            marker.complete(parser, SyntaxKind::Literal)
-        }
-        Some(SyntaxKind::Ident) => {
-            let marker = parser.start();
-            parser.bump();
-            marker.complete(parser, SyntaxKind::VariableRef)
-        }
-        Some(SyntaxKind::Minus) => {
-            let marker = parser.start();
-
-            let op = PrefixOp::Neg;
-            let ((), right_binding_power) = op.binding_power();
-
-            parser.bump();
-
-            expr_binding_power(parser, right_binding_power);
-
-            marker.complete(parser, SyntaxKind::PrefixExpr)
-        }
-        Some(SyntaxKind::LParen) => {
-            let marker = parser.start();
-
-            parser.bump();
-            expr_binding_power(parser, 0);
-
-            assert_eq!(parser.peek(), Some(SyntaxKind::RParen));
-            parser.bump();
-
-            marker.complete(parser, SyntaxKind::ParenExpr)
-        }
-        _ => return None,
-    };
-
-    Some(cm)
-}
-
 fn expr_binding_power(parser: &mut Parser, minimum_binding_power: u8) {
     let mut lhs = if let Some(lhs) = lhs(parser) {
         lhs
@@ -102,6 +61,61 @@ impl PrefixOp {
             Self::Neg => ((), 5),
         }
     }
+}
+
+fn lhs(parser: &mut Parser) -> Option<CompletedMarker> {
+    let cm = match parser.peek() {
+        Some(SyntaxKind::IntegerLiteral) => literal(parser),
+        Some(SyntaxKind::Ident) => variable_ref(parser),
+        Some(SyntaxKind::Minus) => prefix_expr(parser),
+        Some(SyntaxKind::LParen) => paren_expr(parser),
+        _ => return None,
+    };
+
+    Some(cm)
+}
+
+fn literal(parser: &mut Parser) -> CompletedMarker {
+    assert_eq!(parser.peek(), Some(SyntaxKind::IntegerLiteral));
+
+    let marker = parser.start();
+    parser.bump();
+    marker.complete(parser, SyntaxKind::Literal)
+}
+
+fn variable_ref(parser: &mut Parser) -> CompletedMarker {
+    assert_eq!(parser.peek(), Some(SyntaxKind::Ident));
+
+    let marker = parser.start();
+    parser.bump();
+    marker.complete(parser, SyntaxKind::VariableRef)
+}
+
+fn prefix_expr(parser: &mut Parser) -> CompletedMarker {
+    assert_eq!(parser.peek(), Some(SyntaxKind::Minus));
+
+    let marker = parser.start();
+
+    let op = PrefixOp::Neg;
+    let ((), right_binding_power) = op.binding_power();
+
+    parser.bump();
+
+    expr_binding_power(parser, right_binding_power);
+
+    marker.complete(parser, SyntaxKind::PrefixExpr)
+}
+
+fn paren_expr(parser: &mut Parser) -> CompletedMarker {
+    let marker = parser.start();
+
+    parser.bump();
+    expr_binding_power(parser, 0);
+
+    assert_eq!(parser.peek(), Some(SyntaxKind::RParen));
+    parser.bump();
+
+    marker.complete(parser, SyntaxKind::ParenExpr)
 }
 
 #[cfg(test)]

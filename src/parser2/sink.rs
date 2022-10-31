@@ -1,4 +1,4 @@
-use crate::{lexer2::SyntaxKind, syntax::NailLanguage};
+use crate::{lexer2::Lexeme, syntax::NailLanguage};
 
 use super::Event;
 
@@ -6,15 +6,12 @@ use rowan::{GreenNode, GreenNodeBuilder, Language};
 
 pub(super) struct Sink<'l, 'input> {
     builder: GreenNodeBuilder<'static>,
-    lexemes: &'l [(SyntaxKind, &'input str)],
+    lexemes: &'l [Lexeme<'input>],
     events: Vec<Event<'l>>,
 }
 
 impl<'l, 'input> Sink<'l, 'input> {
-    pub(super) fn new(
-        lexemes: &'l [(SyntaxKind, &'input str)],
-        events: Vec<Event<'input>>,
-    ) -> Self {
+    pub(super) fn new(lexemes: &'l [Lexeme<'input>], events: Vec<Event<'input>>) -> Self {
         Self {
             builder: GreenNodeBuilder::new(),
             lexemes,

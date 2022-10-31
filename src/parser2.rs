@@ -5,7 +5,7 @@ mod sink;
 use rowan::GreenNode;
 
 use crate::{
-    lexer2::{Lexer, SyntaxKind},
+    lexer2::{Lexeme, Lexer, SyntaxKind},
     syntax::SyntaxNode,
 };
 use event::Event;
@@ -24,13 +24,13 @@ pub fn parse(input: &str) -> Parse {
 }
 
 pub struct Parser<'l, 'input> {
-    lexemes: &'l [(SyntaxKind, &'input str)],
+    lexemes: &'l [Lexeme<'input>],
     cursor: usize,
     events: Vec<Event<'l>>,
 }
 
 impl<'l, 'input> Parser<'l, 'input> {
-    fn new(lexemes: &'l [(SyntaxKind, &'input str)]) -> Self {
+    fn new(lexemes: &'l [Lexeme<'input>]) -> Self {
         Self {
             lexemes,
             cursor: 0,
@@ -67,7 +67,7 @@ impl<'l, 'input> Parser<'l, 'input> {
     }
 
     fn bump(&mut self) {
-        let (kind, text) = self.lexemes[self.cursor];
+        let Lexeme { kind, text } = self.lexemes[self.cursor];
 
         self.cursor += 1;
         self.events.push(Event::AddToken { kind, text })

@@ -12,6 +12,8 @@ impl rowan::Language for NailLanguage {
     }
 
     fn kind_to_raw(kind: Self::Kind) -> rowan::SyntaxKind {
-        unimplemented!()
+        rowan::SyntaxKind(kind.to_u16().unwrap())
     }
 }
+
+pub(crate) type SyntaxNode = rowan::SyntaxNode<NailLanguage>;

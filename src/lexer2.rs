@@ -113,7 +113,7 @@ impl<'a> Lexer<'a> {
 }
 
 impl<'a> Iterator for Lexer<'a> {
-    type Item = Lexeme<'a>;
+    type Item = Token<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let kind = self.inner.next()?;
@@ -124,7 +124,7 @@ impl<'a> Iterator for Lexer<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) struct Lexeme<'a> {
+pub(crate) struct Token<'a> {
     pub(crate) kind: SyntaxKind,
     pub(crate) text: &'a str,
 }
@@ -135,7 +135,7 @@ mod tests {
 
     fn check(input: &str, kind: SyntaxKind) {
         let mut lexer = Lexer::new(input);
-        assert_eq!(lexer.next(), Some(Lexeme { kind, text: input }));
+        assert_eq!(lexer.next(), Some(Token { kind, text: input }));
     }
 
     #[test]

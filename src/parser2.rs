@@ -1,8 +1,11 @@
-use crate::{lexer2::SyntaxKind, syntax::NailLanguage};
+use crate::{
+    lexer2::SyntaxKind,
+    syntax::{NailLanguage, SyntaxNode},
+};
 use logos::Logos;
 use rowan::{GreenNode, GreenNodeBuilder, Language};
 
-pub(crate) struct Parser<'a> {
+pub struct Parser<'a> {
     lexer: logos::Lexer<'a, SyntaxKind>,
     builder: GreenNodeBuilder<'static>,
 }
@@ -33,8 +36,17 @@ impl<'a> Parser<'a> {
     }
 }
 
-pub(crate) struct Parse {
+pub struct Parse {
     green_node: GreenNode,
+}
+
+impl Parse {
+    pub fn debug_tree(&self) -> String {
+        let syntax_node = SyntaxNode::new_root(self.green_node.clone());
+        let formatted = format!("{:#?}", syntax_node);
+
+        formatted[0..formatted.len() - 1].to_string()
+    }
 }
 
 #[cfg(test)]

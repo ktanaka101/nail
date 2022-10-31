@@ -223,4 +223,59 @@ mod tests {
                     RParen@6..7 ")""#]],
         );
     }
+
+    #[test]
+    fn parse_integer_preceded_by_whitespace() {
+        check(
+            "   9876",
+            expect![[r#"
+                Root@0..7
+                  Whitespace@0..3 "   "
+                  IntegerLiteral@3..7 "9876""#]],
+        );
+    }
+
+    #[test]
+    fn parse_integer_followed_by_whitespace() {
+        check(
+            "999   ",
+            expect![[r#"
+                Root@0..6
+                  IntegerLiteral@0..3 "999"
+                  Whitespace@3..6 "   ""#]],
+        );
+    }
+
+    #[test]
+    fn parse_integer_surrounded_by_whitespace() {
+        check(
+            " 123     ",
+            expect![[r#"
+                Root@0..9
+                  Whitespace@0..1 " "
+                  IntegerLiteral@1..4 "123"
+                  Whitespace@4..9 "     ""#]],
+        );
+    }
+
+    #[test]
+    fn parse_binary_expression_with_whitespace() {
+        check(
+            " 1 +   2* 3 ",
+            expect![[r#"
+                Root@0..12
+                  Whitespace@0..1 " "
+                  BinaryExpr@1..12
+                    IntegerLiteral@1..2 "1"
+                    Whitespace@2..3 " "
+                    Plus@3..4 "+"
+                    Whitespace@4..7 "   "
+                    BinaryExpr@7..12
+                      IntegerLiteral@7..8 "2"
+                      Asterisk@8..9 "*"
+                      Whitespace@9..10 " "
+                      IntegerLiteral@10..11 "3"
+                      Whitespace@11..12 " ""#]],
+        );
+    }
 }

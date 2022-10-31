@@ -72,12 +72,16 @@ impl History {
 
 pub enum Executer {
     Llvm,
+    Dev,
 }
 
 pub fn start(executer: Executer) {
-    match executer {
-        Executer::Llvm => start_llvm(),
-    }
+    start_terminal(executer);
+}
+
+fn dev_run(code: &str) -> Result<String> {
+    let parse = crate::parser2::Parser::new(code).parse();
+    Ok(parse.debug_tree())
 }
 
 fn llvm_run(code: &str) -> Result<String> {
@@ -111,7 +115,12 @@ fn llvm_run(code: &str) -> Result<String> {
     Ok(result_string)
 }
 
-fn start_llvm() {
+fn start_terminal(executer: Executer) {
+    let run = match executer {
+        Executer::Llvm => llvm_run,
+        Executer::Dev => dev_run,
+    };
+
     let stdin = io::stdin();
     let stdout = io::stdout().into_raw_mode().unwrap();
 
@@ -157,7 +166,7 @@ fn start_llvm() {
                     line = "".to_string();
                     current_history.push(line.clone());
 
-                    match llvm_run(try_inputs.as_str()) {
+                    match run(try_inputs.as_str()) {
                         Ok(result_string) => {
                             term.next_line();
                             term.write(result_string.as_str());

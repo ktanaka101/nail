@@ -43,6 +43,7 @@ impl<'l, 'input> Sink<'l, 'input> {
                 Event::FinishNode => {
                     self.builder.finish_node();
                 }
+                Event::Placeholder => unreachable!(),
             }
 
             self.eat_trivia();

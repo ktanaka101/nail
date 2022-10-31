@@ -1,5 +1,6 @@
 mod event;
 mod expr;
+mod marker;
 mod sink;
 mod source;
 
@@ -11,6 +12,7 @@ use crate::{
 };
 use event::Event;
 use expr::expr;
+use marker::Marker;
 use sink::Sink;
 use source::Source;
 
@@ -39,15 +41,18 @@ impl<'l, 'input> Parser<'l, 'input> {
     }
 
     fn parse(mut self) -> Vec<Event<'l>> {
-        self.start_node(SyntaxKind::Root);
+        let marker = self.start();
         expr(&mut self);
-        self.finish_node();
+        marker.complete(&mut self, SyntaxKind::Root);
 
         self.events
     }
 
-    fn start_node(&mut self, kind: SyntaxKind) {
-        self.events.push(Event::StartNode { kind });
+    fn start(&mut self) -> Marker {
+        let pos = self.events.len();
+        self.events.push(Event::Placeholder);
+
+        Marker::new(pos)
     }
 
     fn start_node_at(&mut self, checkpoint: usize, kind: SyntaxKind) {

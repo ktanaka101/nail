@@ -81,7 +81,7 @@ pub(crate) enum SyntaxKind {
     VerticalBar,
 
     // trivias
-    #[regex(" +")]
+    #[regex("[ \n]+")]
     Whitespace,
 
     #[regex("//.*")]
@@ -313,5 +313,10 @@ mod tests {
     #[test]
     fn lex_comment() {
         check("// foo", SyntaxKind::CommentSingle);
+    }
+
+    #[test]
+    fn lex_spaces_and_newlines() {
+        check("  \n ", SyntaxKind::Whitespace);
     }
 }

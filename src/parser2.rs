@@ -22,7 +22,7 @@ impl<'a> Parser<'a> {
     pub(crate) fn parse(mut self) -> Parse {
         self.start_node(SyntaxKind::Root);
 
-        if self.peek() == Some(SyntaxKind::IntegerLiteral) {
+        if let Some(SyntaxKind::IntegerLiteral | SyntaxKind::Ident) = self.peek() {
             self.bump();
         }
 
@@ -92,5 +92,15 @@ mod tests {
                 Root@0..3
                   IntegerLiteral@0..3 "123""#]],
         );
+    }
+
+    #[test]
+    fn parse_binding_usage() {
+        check(
+            "counter",
+            expect![[r#"
+                Root@0..7
+                  Ident@0..7 "counter""#]],
+        )
     }
 }

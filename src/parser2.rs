@@ -1,5 +1,8 @@
+mod expr;
+
 use std::iter::Peekable;
 
+use self::expr::expr;
 use crate::{
     lexer2::{Lexer, SyntaxKind},
     syntax::{NailLanguage, SyntaxNode},
@@ -22,9 +25,7 @@ impl<'a> Parser<'a> {
     pub(crate) fn parse(mut self) -> Parse {
         self.start_node(SyntaxKind::Root);
 
-        if let Some(SyntaxKind::IntegerLiteral | SyntaxKind::Ident) = self.peek() {
-            self.bump();
-        }
+        expr(&mut self);
 
         self.finish_node();
 
@@ -66,41 +67,18 @@ impl Parse {
 }
 
 #[cfg(test)]
+fn check(input: &str, expected_tree: expect_test::Expect) {
+    let parse = Parser::new(input).parse();
+    expected_tree.assert_eq(&parse.debug_tree());
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
-    use crate::syntax::SyntaxNode;
-    use expect_test::{expect, Expect};
-
-    fn check(input: &str, expected_tree: Expect) {
-        let parse = Parser::new(input).parse();
-        let syntax_node = SyntaxNode::new_root(parse.green_node);
-
-        let actual_tree = format!("{:#?}", syntax_node);
-        expected_tree.assert_eq(&actual_tree[0..actual_tree.len() - 1]);
-    }
+    use expect_test::expect;
 
     #[test]
     fn parse_nothing() {
         check("", expect![[r#"Root@0..0"#]]);
-    }
-
-    #[test]
-    fn parse_integer() {
-        check(
-            "123",
-            expect![[r#"
-                Root@0..3
-                  IntegerLiteral@0..3 "123""#]],
-        );
-    }
-
-    #[test]
-    fn parse_binding_usage() {
-        check(
-            "counter",
-            expect![[r#"
-                Root@0..7
-                  Ident@0..7 "counter""#]],
-        )
     }
 }

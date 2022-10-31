@@ -255,12 +255,12 @@ mod tests {
     }
 
     #[test]
-    fn lex_left_paren() {
+    fn lex_left_parenthesis() {
         check("(", SyntaxKind::LParen);
     }
 
     #[test]
-    fn lex_right_paren() {
+    fn lex_right_parenthesis() {
         check(")", SyntaxKind::RParen);
     }
 

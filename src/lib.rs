@@ -13,5 +13,6 @@ pub mod lexer2;
 pub mod llvm;
 pub mod parser2;
 pub mod repl;
+pub mod syntax;
 pub mod token;
 pub mod type_checker;

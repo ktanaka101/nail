@@ -1,25 +1,31 @@
+use std::iter::Peekable;
+
 use crate::{
-    lexer2::SyntaxKind,
+    lexer2::{Lexer, SyntaxKind},
     syntax::{NailLanguage, SyntaxNode},
 };
-use logos::Logos;
 use rowan::{GreenNode, GreenNodeBuilder, Language};
 
 pub struct Parser<'a> {
-    lexer: logos::Lexer<'a, SyntaxKind>,
+    lexer: Peekable<Lexer<'a>>,
     builder: GreenNodeBuilder<'static>,
 }
 
 impl<'a> Parser<'a> {
     pub(crate) fn new(input: &'a str) -> Self {
         Self {
-            lexer: SyntaxKind::lexer(input),
+            lexer: Lexer::new(input).peekable(),
             builder: GreenNodeBuilder::new(),
         }
     }
 
     pub(crate) fn parse(mut self) -> Parse {
         self.start_node(SyntaxKind::Root);
+
+        if self.peek() == Some(SyntaxKind::IntegerLiteral) {
+            self.bump();
+        }
+
         self.finish_node();
 
         Parse {
@@ -33,6 +39,16 @@ impl<'a> Parser<'a> {
 
     fn finish_node(&mut self) {
         self.builder.finish_node();
+    }
+
+    fn peek(&mut self) -> Option<SyntaxKind> {
+        self.lexer.peek().map(|(kind, _)| *kind)
+    }
+
+    fn bump(&mut self) {
+        let (kind, text) = self.lexer.next().unwrap();
+
+        self.builder.token(NailLanguage::kind_to_raw(kind), text);
     }
 }
 
@@ -66,5 +82,15 @@ mod tests {
     #[test]
     fn parse_nothing() {
         check("", expect![[r#"Root@0..0"#]]);
+    }
+
+    #[test]
+    fn parse_integer() {
+        check(
+            "123",
+            expect![[r#"
+                Root@0..3
+                  IntegerLiteral@0..3 "123""#]],
+        );
     }
 }

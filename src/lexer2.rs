@@ -10,6 +10,7 @@ pub(crate) enum SyntaxKind {
 
     // expressions
     BinaryExpr,
+    PrefixExpr,
 
     // keywords
     #[token("fn")]

@@ -7,7 +7,7 @@ use crate::{
     lexer2::{Lexer, SyntaxKind},
     syntax::{NailLanguage, SyntaxNode},
 };
-use rowan::{GreenNode, GreenNodeBuilder, Language};
+use rowan::{Checkpoint, GreenNode, GreenNodeBuilder, Language};
 
 pub struct Parser<'a> {
     lexer: Peekable<Lexer<'a>>,
@@ -38,8 +38,17 @@ impl<'a> Parser<'a> {
         self.builder.start_node(NailLanguage::kind_to_raw(kind));
     }
 
+    fn start_node_at(&mut self, checkpoint: Checkpoint, kind: SyntaxKind) {
+        self.builder
+            .start_node_at(checkpoint, NailLanguage::kind_to_raw(kind));
+    }
+
     fn finish_node(&mut self) {
         self.builder.finish_node();
+    }
+
+    fn checkpoint(&self) -> Checkpoint {
+        self.builder.checkpoint()
     }
 
     fn peek(&mut self) -> Option<SyntaxKind> {

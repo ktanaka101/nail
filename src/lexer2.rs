@@ -8,6 +8,9 @@ pub(crate) enum SyntaxKind {
     // node
     Root,
 
+    // expressions
+    BinOp,
+
     // keywords
     #[token("fn")]
     FnKw,

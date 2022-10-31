@@ -9,8 +9,11 @@ pub(crate) enum SyntaxKind {
     Root,
 
     // expressions
+    Literal,
+    ParenExpr,
     BinaryExpr,
     PrefixExpr,
+    VariableRef,
 
     // keywords
     #[token("fn")]

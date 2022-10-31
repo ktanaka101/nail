@@ -17,14 +17,41 @@ impl Marker {
         }
     }
 
-    pub(super) fn complete(mut self, parser: &mut Parser, kind: SyntaxKind) {
+    pub(super) fn complete(mut self, parser: &mut Parser, kind: SyntaxKind) -> CompletedMarker {
         self.bomb_when_uncompleted.defuse();
 
         let event_at_pos = &mut parser.events[self.pos];
         assert_eq!(*event_at_pos, Event::Placeholder);
 
-        *event_at_pos = Event::StartNode { kind };
+        *event_at_pos = Event::StartNode {
+            kind,
+            forward_parent: None,
+        };
 
         parser.events.push(Event::FinishNode);
+
+        CompletedMarker { pos: self.pos }
+    }
+}
+
+pub(super) struct CompletedMarker {
+    pos: usize,
+}
+
+impl CompletedMarker {
+    pub(super) fn precede(self, parser: &mut Parser) -> Marker {
+        let new_marker = parser.start();
+
+        if let Event::StartNode {
+            ref mut forward_parent,
+            ..
+        } = parser.events[self.pos]
+        {
+            *forward_parent = Some(new_marker.pos - self.pos);
+        } else {
+            unreachable!();
+        }
+
+        new_marker
     }
 }

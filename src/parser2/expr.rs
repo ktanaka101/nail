@@ -6,29 +6,42 @@ pub(super) fn expr(parser: &mut Parser) {
 }
 
 fn expr_binding_power(parser: &mut Parser, minimum_binding_power: u8) {
-    let checkpoint = parser.checkpoint();
-
-    match parser.peek() {
-        Some(SyntaxKind::IntegerLiteral | SyntaxKind::Ident) => parser.bump(),
-        Some(SyntaxKind::LParen | SyntaxKind::RParen) => {
+    let mut lhs = match parser.peek() {
+        Some(SyntaxKind::IntegerLiteral) => {
+            let marker = parser.start();
             parser.bump();
-            expr_binding_power(parser, 0);
-
-            assert_eq!(parser.peek(), Some(SyntaxKind::RParen));
+            marker.complete(parser, SyntaxKind::Literal)
+        }
+        Some(SyntaxKind::Ident) => {
+            let marker = parser.start();
             parser.bump();
+            marker.complete(parser, SyntaxKind::VariableRef)
         }
         Some(SyntaxKind::Minus) => {
+            let marker = parser.start();
+
             let op = PrefixOp::Neg;
             let ((), right_binding_power) = op.binding_power();
 
             parser.bump();
 
-            parser.start_node_at(checkpoint, SyntaxKind::PrefixExpr);
             expr_binding_power(parser, right_binding_power);
-            parser.finish_node();
+
+            marker.complete(parser, SyntaxKind::PrefixExpr)
         }
-        _ => (),
-    }
+        Some(SyntaxKind::LParen) => {
+            let marker = parser.start();
+
+            parser.bump();
+            expr_binding_power(parser, 0);
+
+            assert_eq!(parser.peek(), Some(SyntaxKind::RParen));
+            parser.bump();
+
+            marker.complete(parser, SyntaxKind::ParenExpr)
+        }
+        _ => return,
+    };
 
     loop {
         let op = match parser.peek() {
@@ -47,9 +60,9 @@ fn expr_binding_power(parser: &mut Parser, minimum_binding_power: u8) {
 
         parser.bump();
 
-        parser.start_node_at(checkpoint, SyntaxKind::BinaryExpr);
+        let marker = lhs.precede(parser);
         expr_binding_power(parser, right_binding_power);
-        parser.finish_node();
+        lhs = marker.complete(parser, SyntaxKind::BinaryExpr);
     }
 }
 
@@ -92,7 +105,8 @@ mod tests {
             "123",
             expect![[r#"
                 Root@0..3
-                  IntegerLiteral@0..3 "123""#]],
+                  Literal@0..3
+                    IntegerLiteral@0..3 "123""#]],
         );
     }
 
@@ -102,7 +116,8 @@ mod tests {
             "counter",
             expect![[r#"
                 Root@0..7
-                  Ident@0..7 "counter""#]],
+                  VariableRef@0..7
+                    Ident@0..7 "counter""#]],
         )
     }
 
@@ -113,9 +128,11 @@ mod tests {
             expect![[r#"
                 Root@0..3
                   BinaryExpr@0..3
-                    IntegerLiteral@0..1 "1"
+                    Literal@0..1
+                      IntegerLiteral@0..1 "1"
                     Plus@1..2 "+"
-                    IntegerLiteral@2..3 "2""#]],
+                    Literal@2..3
+                      IntegerLiteral@2..3 "2""#]],
         );
     }
 
@@ -128,13 +145,17 @@ mod tests {
                   BinaryExpr@0..7
                     BinaryExpr@0..5
                       BinaryExpr@0..3
-                        IntegerLiteral@0..1 "1"
+                        Literal@0..1
+                          IntegerLiteral@0..1 "1"
                         Plus@1..2 "+"
-                        IntegerLiteral@2..3 "2"
+                        Literal@2..3
+                          IntegerLiteral@2..3 "2"
                       Plus@3..4 "+"
-                      IntegerLiteral@4..5 "3"
+                      Literal@4..5
+                        IntegerLiteral@4..5 "3"
                     Plus@5..6 "+"
-                    IntegerLiteral@6..7 "4""#]],
+                    Literal@6..7
+                      IntegerLiteral@6..7 "4""#]],
         );
     }
 
@@ -146,14 +167,18 @@ mod tests {
                 Root@0..7
                   BinaryExpr@0..7
                     BinaryExpr@0..5
-                      IntegerLiteral@0..1 "1"
+                      Literal@0..1
+                        IntegerLiteral@0..1 "1"
                       Plus@1..2 "+"
                       BinaryExpr@2..5
-                        IntegerLiteral@2..3 "2"
+                        Literal@2..3
+                          IntegerLiteral@2..3 "2"
                         Asterisk@3..4 "*"
-                        IntegerLiteral@4..5 "3"
+                        Literal@4..5
+                          IntegerLiteral@4..5 "3"
                     Minus@5..6 "-"
-                    IntegerLiteral@6..7 "4""#]],
+                    Literal@6..7
+                      IntegerLiteral@6..7 "4""#]],
         );
     }
 
@@ -165,7 +190,8 @@ mod tests {
                 Root@0..3
                   PrefixExpr@0..3
                     Minus@0..1 "-"
-                    IntegerLiteral@1..3 "10""#]],
+                    Literal@1..3
+                      IntegerLiteral@1..3 "10""#]],
         );
     }
 
@@ -178,9 +204,11 @@ mod tests {
                   BinaryExpr@0..6
                     PrefixExpr@0..3
                       Minus@0..1 "-"
-                      IntegerLiteral@1..3 "20"
+                      Literal@1..3
+                        IntegerLiteral@1..3 "20"
                     Plus@3..4 "+"
-                    IntegerLiteral@4..6 "20""#]],
+                    Literal@4..6
+                      IntegerLiteral@4..6 "20""#]],
         );
     }
 
@@ -190,19 +218,26 @@ mod tests {
             "((((((10))))))",
             expect![[r#"
                 Root@0..14
-                  LParen@0..1 "("
-                  LParen@1..2 "("
-                  LParen@2..3 "("
-                  LParen@3..4 "("
-                  LParen@4..5 "("
-                  LParen@5..6 "("
-                  IntegerLiteral@6..8 "10"
-                  RParen@8..9 ")"
-                  RParen@9..10 ")"
-                  RParen@10..11 ")"
-                  RParen@11..12 ")"
-                  RParen@12..13 ")"
-                  RParen@13..14 ")""#]],
+                  ParenExpr@0..14
+                    LParen@0..1 "("
+                    ParenExpr@1..13
+                      LParen@1..2 "("
+                      ParenExpr@2..12
+                        LParen@2..3 "("
+                        ParenExpr@3..11
+                          LParen@3..4 "("
+                          ParenExpr@4..10
+                            LParen@4..5 "("
+                            ParenExpr@5..9
+                              LParen@5..6 "("
+                              Literal@6..8
+                                IntegerLiteral@6..8 "10"
+                              RParen@8..9 ")"
+                            RParen@9..10 ")"
+                          RParen@10..11 ")"
+                        RParen@11..12 ")"
+                      RParen@12..13 ")"
+                    RParen@13..14 ")""#]],
         );
     }
 
@@ -213,14 +248,18 @@ mod tests {
             expect![[r#"
                 Root@0..7
                   BinaryExpr@0..7
-                    IntegerLiteral@0..1 "5"
+                    Literal@0..1
+                      IntegerLiteral@0..1 "5"
                     Asterisk@1..2 "*"
-                    LParen@2..3 "("
-                    BinaryExpr@3..6
-                      IntegerLiteral@3..4 "2"
-                      Plus@4..5 "+"
-                      IntegerLiteral@5..6 "1"
-                    RParen@6..7 ")""#]],
+                    ParenExpr@2..7
+                      LParen@2..3 "("
+                      BinaryExpr@3..6
+                        Literal@3..4
+                          IntegerLiteral@3..4 "2"
+                        Plus@4..5 "+"
+                        Literal@5..6
+                          IntegerLiteral@5..6 "1"
+                      RParen@6..7 ")""#]],
         );
     }
 
@@ -231,7 +270,8 @@ mod tests {
             expect![[r#"
                 Root@0..7
                   Whitespace@0..3 "   "
-                  IntegerLiteral@3..7 "9876""#]],
+                  Literal@3..7
+                    IntegerLiteral@3..7 "9876""#]],
         );
     }
 
@@ -241,8 +281,9 @@ mod tests {
             "999   ",
             expect![[r#"
                 Root@0..6
-                  IntegerLiteral@0..3 "999"
-                  Whitespace@3..6 "   ""#]],
+                  Literal@0..6
+                    IntegerLiteral@0..3 "999"
+                    Whitespace@3..6 "   ""#]],
         );
     }
 
@@ -253,8 +294,9 @@ mod tests {
             expect![[r#"
                 Root@0..9
                   Whitespace@0..1 " "
-                  IntegerLiteral@1..4 "123"
-                  Whitespace@4..9 "     ""#]],
+                  Literal@1..9
+                    IntegerLiteral@1..4 "123"
+                    Whitespace@4..9 "     ""#]],
         );
     }
 
@@ -266,16 +308,19 @@ mod tests {
                 Root@0..12
                   Whitespace@0..1 " "
                   BinaryExpr@1..12
-                    IntegerLiteral@1..2 "1"
-                    Whitespace@2..3 " "
+                    Literal@1..3
+                      IntegerLiteral@1..2 "1"
+                      Whitespace@2..3 " "
                     Plus@3..4 "+"
                     Whitespace@4..7 "   "
                     BinaryExpr@7..12
-                      IntegerLiteral@7..8 "2"
+                      Literal@7..8
+                        IntegerLiteral@7..8 "2"
                       Asterisk@8..9 "*"
                       Whitespace@9..10 " "
-                      IntegerLiteral@10..11 "3"
-                      Whitespace@11..12 " ""#]],
+                      Literal@10..12
+                        IntegerLiteral@10..11 "3"
+                        Whitespace@11..12 " ""#]],
         );
     }
 }

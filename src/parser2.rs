@@ -55,18 +55,6 @@ impl<'l, 'input> Parser<'l, 'input> {
         Marker::new(pos)
     }
 
-    fn start_node_at(&mut self, checkpoint: usize, kind: SyntaxKind) {
-        self.events.push(Event::StartNodeAt { kind, checkpoint });
-    }
-
-    fn finish_node(&mut self) {
-        self.events.push(Event::FinishNode);
-    }
-
-    fn checkpoint(&self) -> usize {
-        self.events.len()
-    }
-
     fn bump(&mut self) {
         let Lexeme { kind, text } = self.source.next_lexeme().unwrap();
 
@@ -132,15 +120,7 @@ mod tests {
 
     #[test]
     fn parse_binary_expression_when_single_slash() {
-        check(
-            "/ hello",
-            expect![[r#"
-                Root@0..7
-                  BinaryExpr@0..7
-                    Slash@0..1 "/"
-                    Whitespace@1..2 " "
-                    Ident@2..7 "hello""#]],
-        );
+        check("/ hello", expect!["Root@0..0"]);
     }
 
     #[test]
@@ -150,24 +130,27 @@ mod tests {
 1
   + 1 // Add one
   + 10 // Add ten",
-            expect![[r##"
+            expect![[r#"
                 Root@0..37
                   Whitespace@0..1 "\n"
                   BinaryExpr@1..37
                     BinaryExpr@1..22
-                      IntegerLiteral@1..2 "1"
-                      Whitespace@2..5 "\n  "
+                      Literal@1..5
+                        IntegerLiteral@1..2 "1"
+                        Whitespace@2..5 "\n  "
                       Plus@5..6 "+"
                       Whitespace@6..7 " "
-                      IntegerLiteral@7..8 "1"
-                      Whitespace@8..9 " "
-                      CommentSingle@9..19 "// Add one"
-                      Whitespace@19..22 "\n  "
+                      Literal@7..22
+                        IntegerLiteral@7..8 "1"
+                        Whitespace@8..9 " "
+                        CommentSingle@9..19 "// Add one"
+                        Whitespace@19..22 "\n  "
                     Plus@22..23 "+"
                     Whitespace@23..24 " "
-                    IntegerLiteral@24..26 "10"
-                    Whitespace@26..27 " "
-                    CommentSingle@27..37 "// Add ten""##]],
+                    Literal@24..37
+                      IntegerLiteral@24..26 "10"
+                      Whitespace@26..27 " "
+                      CommentSingle@27..37 "// Add ten""#]],
         );
     }
 }

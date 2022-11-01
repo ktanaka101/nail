@@ -57,7 +57,9 @@ impl<'l, 'input> Parser<'l, 'input> {
 
     pub(crate) fn error(&mut self) {
         if !self.at_set(&RECOVERY_SET) && !self.at_end() {
+            let marker = self.start();
             self.bump();
+            marker.complete(self, SyntaxKind::Error);
         }
     }
 

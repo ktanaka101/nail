@@ -110,12 +110,9 @@ fn paren_expr(parser: &mut Parser) -> CompletedMarker {
     assert!(parser.at(SyntaxKind::LParen));
 
     let marker = parser.start();
-
     parser.bump();
     expr_binding_power(parser, 0);
-
-    assert!(parser.at(SyntaxKind::RParen));
-    parser.bump();
+    parser.expect(SyntaxKind::RParen);
 
     marker.complete(parser, SyntaxKind::ParenExpr)
 }
@@ -347,6 +344,19 @@ mod tests {
                       Literal@10..12
                         IntegerLiteral@10..11 "3"
                         Whitespace@11..12 " ""#]],
+        );
+    }
+
+    #[test]
+    fn parse_unclosed_parentheses() {
+        check(
+            "(foo",
+            expect![[r#"
+                Root@0..4
+                  ParenExpr@0..4
+                    LParen@0..1 "("
+                    VariableRef@1..4
+                      Ident@1..4 "foo""#]],
         );
     }
 }

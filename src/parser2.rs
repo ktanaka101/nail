@@ -6,10 +6,9 @@ mod source;
 
 use rowan::GreenNode;
 
-use crate::{
-    lexer2::{Lexer, SyntaxKind, Token},
-    syntax::SyntaxNode,
-};
+use lexer::{Lexer, Token};
+
+use crate::syntax::{SyntaxKind, SyntaxNode};
 use event::Event;
 use expr::expr;
 use marker::Marker;

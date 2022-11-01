@@ -1,8 +1,9 @@
 use std::mem;
 
-use crate::{lexer2::Token, syntax::NailLanguage};
+use lexer::Token;
 
 use super::Event;
+use crate::syntax::{NailLanguage, SyntaxKind};
 
 use rowan::{GreenNode, GreenNodeBuilder, Language};
 
@@ -69,13 +70,14 @@ impl<'l, 'input> Sink<'l, 'input> {
     fn token(&mut self) {
         let Token { kind, text } = self.tokens[self.cursor];
 
-        self.builder.token(NailLanguage::kind_to_raw(kind), text);
+        self.builder
+            .token(NailLanguage::kind_to_raw(kind.into()), text);
         self.cursor += 1;
     }
 
     fn eat_trivia(&mut self) {
         while let Some(token) = self.tokens.get(self.cursor) {
-            if !token.kind.is_trivia() {
+            if !SyntaxKind::from(token.kind).is_trivia() {
                 break;
             }
 

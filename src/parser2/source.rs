@@ -1,4 +1,6 @@
-use crate::lexer2::{SyntaxKind, Token};
+use lexer::Token;
+
+use crate::syntax::SyntaxKind;
 
 pub(super) struct Source<'l, 'input> {
     tokens: &'l [Token<'input>],
@@ -35,6 +37,8 @@ impl<'l, 'input> Source<'l, 'input> {
     }
 
     fn peek_kind_raw(&self) -> Option<SyntaxKind> {
-        self.tokens.get(self.cursor).map(|Token { kind, .. }| *kind)
+        self.tokens
+            .get(self.cursor)
+            .map(|Token { kind, .. }| (*kind).into())
     }
 }

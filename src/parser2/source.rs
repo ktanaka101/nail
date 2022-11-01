@@ -1,6 +1,5 @@
 use lexer::Token;
-
-use crate::syntax::SyntaxKind;
+use syntax::SyntaxKind;
 
 pub(super) struct Source<'l, 'input> {
     tokens: &'l [Token<'input>],

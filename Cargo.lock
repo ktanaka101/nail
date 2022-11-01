@@ -205,9 +205,8 @@ dependencies = [
  "expect-test",
  "inkwell",
  "lexer",
- "num-derive",
- "num-traits",
  "rowan",
+ "syntax",
  "termion",
  "thiserror",
  "typed-arena",
@@ -374,6 +373,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-xid",
+]
+
+[[package]]
+name = "syntax"
+version = "0.1.0"
+dependencies = [
+ "lexer",
+ "num-derive",
+ "num-traits",
+ "rowan",
 ]
 
 [[package]]

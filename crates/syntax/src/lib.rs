@@ -4,7 +4,7 @@ use num_traits::{FromPrimitive, ToPrimitive};
 use lexer::TokenKind;
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
-pub(crate) enum NailLanguage {}
+pub enum NailLanguage {}
 
 impl rowan::Language for NailLanguage {
     type Kind = SyntaxKind;
@@ -19,7 +19,7 @@ impl rowan::Language for NailLanguage {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, FromPrimitive, ToPrimitive)]
-pub(crate) enum SyntaxKind {
+pub enum SyntaxKind {
     // node
     Root,
 
@@ -77,7 +77,7 @@ pub(crate) enum SyntaxKind {
 }
 
 impl SyntaxKind {
-    pub(crate) fn is_trivia(self) -> bool {
+    pub fn is_trivia(self) -> bool {
         matches!(self, Self::Whitespace | Self::CommentSingle)
     }
 }
@@ -127,4 +127,4 @@ impl From<TokenKind> for SyntaxKind {
     }
 }
 
-pub(crate) type SyntaxNode = rowan::SyntaxNode<NailLanguage>;
+pub type SyntaxNode = rowan::SyntaxNode<NailLanguage>;

@@ -7,8 +7,8 @@ mod source;
 use rowan::GreenNode;
 
 use lexer::{Lexer, Token};
+use syntax::{SyntaxKind, SyntaxNode};
 
-use crate::syntax::{SyntaxKind, SyntaxNode};
 use event::Event;
 use expr::expr;
 use marker::Marker;

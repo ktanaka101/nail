@@ -1,11 +1,11 @@
 use std::mem;
 
+use rowan::{GreenNode, GreenNodeBuilder, Language};
+
 use lexer::Token;
+use syntax::{NailLanguage, SyntaxKind};
 
 use super::Event;
-use crate::syntax::{NailLanguage, SyntaxKind};
-
-use rowan::{GreenNode, GreenNodeBuilder, Language};
 
 pub(super) struct Sink<'l, 'input> {
     builder: GreenNodeBuilder<'static>,

@@ -12,6 +12,8 @@ pub(crate) struct Parser<'l, 'input> {
     events: Vec<Event>,
 }
 
+const RECOVERY_SET: [SyntaxKind; 1] = [SyntaxKind::LetKw];
+
 impl<'l, 'input> Parser<'l, 'input> {
     pub(crate) fn new(source: Source<'l, 'input>) -> Self {
         Self {
@@ -43,5 +45,27 @@ impl<'l, 'input> Parser<'l, 'input> {
 
     pub(crate) fn at(&mut self, kind: SyntaxKind) -> bool {
         self.peek() == Some(kind)
+    }
+
+    pub(crate) fn expect(&mut self, kind: SyntaxKind) {
+        if self.at(kind) {
+            self.bump();
+        } else {
+            self.error();
+        }
+    }
+
+    pub(crate) fn error(&mut self) {
+        if !self.at_set(&RECOVERY_SET) && !self.at_end() {
+            self.bump();
+        }
+    }
+
+    pub(crate) fn at_end(&mut self) -> bool {
+        self.peek().is_none()
+    }
+
+    fn at_set(&mut self, set: &[SyntaxKind]) -> bool {
+        self.peek().map_or(false, |k| set.contains(&k))
     }
 }

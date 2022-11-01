@@ -66,7 +66,10 @@ fn lhs(parser: &mut Parser) -> Option<CompletedMarker> {
         Some(SyntaxKind::Ident) => variable_ref(parser),
         Some(SyntaxKind::Minus) => prefix_expr(parser),
         Some(SyntaxKind::LParen) => paren_expr(parser),
-        _ => return None,
+        _ => {
+            parser.error();
+            return None;
+        }
     };
 
     Some(cm)

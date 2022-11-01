@@ -29,6 +29,7 @@ pub enum SyntaxKind {
     InfixExpr,
     PrefixExpr,
     VariableRef,
+    VariableDef,
 
     // keywords
     FnKw,

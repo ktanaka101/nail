@@ -1,4 +1,5 @@
 mod expr;
+mod stmt;
 
 use syntax::SyntaxKind;
 
@@ -7,7 +8,7 @@ use crate::parser::Parser;
 
 pub(crate) fn root(parser: &mut Parser) -> CompletedMarker {
     let marker = parser.start();
-    expr::expr(parser);
+    stmt::stmt(parser);
 
     marker.complete(parser, SyntaxKind::Root)
 }

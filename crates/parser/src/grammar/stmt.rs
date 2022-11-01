@@ -1,9 +1,10 @@
 use super::*;
 
 pub(super) fn stmt(parser: &mut Parser) -> Option<CompletedMarker> {
-    match parser.peek() {
-        Some(SyntaxKind::LetKw) => Some(variable_def(parser)),
-        _ => expr::expr(parser),
+    if parser.at(SyntaxKind::LetKw) {
+        Some(variable_def(parser))
+    } else {
+        expr::expr(parser)
     }
 }
 
@@ -64,7 +65,8 @@ mod tests {
                     Equals@14..15 "="
                     Whitespace@15..16 " "
                     VariableRef@16..17
-                      Ident@16..17 "a""#]],
+                      Ident@16..17 "a"
+                error at 8..11: expected integerLiteral, identifier, '-' or '(', but found 'let'"#]],
         );
     }
 

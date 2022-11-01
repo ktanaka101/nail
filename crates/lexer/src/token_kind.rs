@@ -1,4 +1,5 @@
 use logos::Logos;
+use text_size::TextRange;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Logos)]
 pub enum TokenKind {
@@ -84,16 +85,20 @@ pub enum TokenKind {
 pub struct Token<'a> {
     pub kind: TokenKind,
     pub text: &'a str,
+    pub range: TextRange,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Lexer, Token};
+    use crate::Lexer;
 
     fn check(input: &str, kind: TokenKind) {
         let mut lexer = Lexer::new(input);
-        assert_eq!(lexer.next(), Some(Token { kind, text: input }));
+
+        let token = lexer.next().unwrap();
+        assert_eq!(token.kind, kind);
+        assert_eq!(token.text, input);
     }
 
     #[test]

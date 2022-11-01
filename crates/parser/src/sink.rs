@@ -1,17 +1,18 @@
 use std::mem;
 
-use rowan::{GreenNode, GreenNodeBuilder, Language};
+use rowan::{GreenNodeBuilder, Language};
 
 use lexer::Token;
 use syntax::{NailLanguage, SyntaxKind};
 
-use crate::event::Event;
+use crate::{event::Event, parser::ParseError, Parse};
 
 pub(crate) struct Sink<'l, 'input> {
     builder: GreenNodeBuilder<'static>,
     tokens: &'l [Token<'input>],
     cursor: usize,
     events: Vec<Event>,
+    errors: Vec<ParseError>,
 }
 
 impl<'l, 'input> Sink<'l, 'input> {
@@ -21,10 +22,11 @@ impl<'l, 'input> Sink<'l, 'input> {
             tokens,
             cursor: 0,
             events,
+            errors: vec![],
         }
     }
 
-    pub(crate) fn finish(mut self) -> GreenNode {
+    pub(crate) fn finish(mut self) -> Parse {
         for idx in 0..self.events.len() {
             match mem::replace(&mut self.events[idx], Event::Placeholder) {
                 Event::StartNode {
@@ -58,17 +60,21 @@ impl<'l, 'input> Sink<'l, 'input> {
                 }
                 Event::AddToken => self.token(),
                 Event::FinishNode => self.builder.finish_node(),
+                Event::Error(error) => self.errors.push(error),
                 Event::Placeholder => (),
             }
 
             self.eat_trivia();
         }
 
-        self.builder.finish()
+        Parse {
+            green_node: self.builder.finish(),
+            errors: self.errors,
+        }
     }
 
     fn token(&mut self) {
-        let Token { kind, text } = self.tokens[self.cursor];
+        let Token { kind, text, .. } = self.tokens[self.cursor];
 
         self.builder
             .token(NailLanguage::kind_to_raw(kind.into()), text);

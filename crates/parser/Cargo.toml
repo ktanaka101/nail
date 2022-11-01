@@ -6,8 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rowan = "0.15"
 drop_bomb = "0.1"
+rowan = "0.15"
+text-size = "1.0"
 
 lexer = { path = "../lexer" }
 syntax = { path = "../syntax" }

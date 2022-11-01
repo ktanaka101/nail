@@ -8,12 +8,16 @@ fn expr_binding_power(parser: &mut Parser, minimum_binding_power: u8) -> Option<
     let mut lhs = lhs(parser)?;
 
     loop {
-        let op = match parser.peek() {
-            Some(SyntaxKind::Plus) => BinaryOp::Add,
-            Some(SyntaxKind::Minus) => BinaryOp::Sub,
-            Some(SyntaxKind::Asterisk) => BinaryOp::Mul,
-            Some(SyntaxKind::Slash) => BinaryOp::Div,
-            _ => break,
+        let op = if parser.at(SyntaxKind::Plus) {
+            BinaryOp::Add
+        } else if parser.at(SyntaxKind::Minus) {
+            BinaryOp::Sub
+        } else if parser.at(SyntaxKind::Asterisk) {
+            BinaryOp::Mul
+        } else if parser.at(SyntaxKind::Slash) {
+            BinaryOp::Div
+        } else {
+            break;
         };
 
         let (left_binding_power, right_binding_power) = op.binding_power();
@@ -61,15 +65,17 @@ impl PrefixOp {
 }
 
 fn lhs(parser: &mut Parser) -> Option<CompletedMarker> {
-    let cm = match parser.peek() {
-        Some(SyntaxKind::IntegerLiteral) => literal(parser),
-        Some(SyntaxKind::Ident) => variable_ref(parser),
-        Some(SyntaxKind::Minus) => prefix_expr(parser),
-        Some(SyntaxKind::LParen) => paren_expr(parser),
-        _ => {
-            parser.error();
-            return None;
-        }
+    let cm = if parser.at(SyntaxKind::IntegerLiteral) {
+        literal(parser)
+    } else if parser.at(SyntaxKind::Ident) {
+        variable_ref(parser)
+    } else if parser.at(SyntaxKind::Minus) {
+        prefix_expr(parser)
+    } else if parser.at(SyntaxKind::LParen) {
+        paren_expr(parser)
+    } else {
+        parser.error();
+        return None;
     };
 
     Some(cm)
@@ -356,7 +362,8 @@ mod tests {
                   ParenExpr@0..4
                     LParen@0..1 "("
                     VariableRef@1..4
-                      Ident@1..4 "foo""#]],
+                      Ident@1..4 "foo"
+                error at 1..4: expected '+', '-', '*', '/' or ')'"#]],
         );
     }
 }

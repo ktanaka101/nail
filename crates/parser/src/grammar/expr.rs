@@ -4,12 +4,8 @@ pub(super) fn expr(parser: &mut Parser) {
     expr_binding_power(parser, 0);
 }
 
-fn expr_binding_power(parser: &mut Parser, minimum_binding_power: u8) {
-    let mut lhs = if let Some(lhs) = lhs(parser) {
-        lhs
-    } else {
-        return;
-    };
+fn expr_binding_power(parser: &mut Parser, minimum_binding_power: u8) -> Option<CompletedMarker> {
+    let mut lhs = lhs(parser)?;
 
     loop {
         let op = match parser.peek() {
@@ -17,13 +13,13 @@ fn expr_binding_power(parser: &mut Parser, minimum_binding_power: u8) {
             Some(SyntaxKind::Minus) => BinaryOp::Sub,
             Some(SyntaxKind::Asterisk) => BinaryOp::Mul,
             Some(SyntaxKind::Slash) => BinaryOp::Div,
-            _ => return,
+            _ => return None,
         };
 
         let (left_binding_power, right_binding_power) = op.binding_power();
 
         if left_binding_power < minimum_binding_power {
-            return;
+            break;
         }
 
         parser.bump();
@@ -32,6 +28,8 @@ fn expr_binding_power(parser: &mut Parser, minimum_binding_power: u8) {
         expr_binding_power(parser, right_binding_power);
         lhs = marker.complete(parser, SyntaxKind::InfixExpr);
     }
+
+    Some(lhs)
 }
 
 enum BinaryOp {

@@ -19,7 +19,7 @@ pub enum TokenKind {
     ReturnKw,
 
     // identifier
-    #[regex("[A-Za-z_][A-Za-z0-9_]+")]
+    #[regex("[A-Za-z_][A-Za-z0-9_]*")]
     Ident,
 
     // literals
@@ -134,6 +134,11 @@ mod tests {
     #[test]
     fn lex_alphabetic_identifier() {
         check("abcd", TokenKind::Ident);
+    }
+
+    #[test]
+    fn lex_char_identifier() {
+        check("a", TokenKind::Ident);
     }
 
     #[test]

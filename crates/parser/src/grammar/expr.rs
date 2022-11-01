@@ -29,8 +29,12 @@ fn expr_binding_power(parser: &mut Parser, minimum_binding_power: u8) -> Option<
         parser.bump();
 
         let marker = lhs.precede(parser);
-        expr_binding_power(parser, right_binding_power);
+        let parsed_rhs = expr_binding_power(parser, right_binding_power);
         lhs = marker.complete(parser, SyntaxKind::InfixExpr);
+
+        if parsed_rhs.is_none() {
+            break;
+        }
     }
 
     Some(lhs)
@@ -364,6 +368,23 @@ mod tests {
                     VariableRef@1..4
                       Ident@1..4 "foo"
                 error at 1..4: expected '+', '-', '*', '/' or ')'"#]],
+        );
+    }
+
+    #[test]
+    fn parse_multi_recover() {
+        check(
+            "(1+",
+            expect![[r#"
+                Root@0..3
+                  ParenExpr@0..3
+                    LParen@0..1 "("
+                    InfixExpr@1..3
+                      Literal@1..2
+                        IntegerLiteral@1..2 "1"
+                      Plus@2..3 "+"
+                error at 2..3: expected integerLiteral, identifier, '-' or '('
+                error at 2..3: expected ')'"#]],
         );
     }
 }

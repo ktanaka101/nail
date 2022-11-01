@@ -13,12 +13,10 @@ inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", feat
 ] }
 termion = "2.0"
 typed-arena = "2.0"
-rowan = "0.15"
-expect-test = "1.4"
-drop_bomb = "0.1"
 
 lexer = { path = "crates/lexer" }
 syntax = { path = "crates/syntax" }
+parser = { path = "crates/parser" }
 
 [workspace]
 members = ["crates/*"]

@@ -80,7 +80,7 @@ pub fn start(executer: Executer) {
 }
 
 fn dev_run(code: &str) -> Result<String> {
-    let parse = crate::parser2::parse(code);
+    let parse = parser::parse(code);
     Ok(parse.debug_tree())
 }
 

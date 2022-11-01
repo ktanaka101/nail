@@ -1,21 +1,24 @@
 use drop_bomb::DropBomb;
 
-use super::{event::Event, Parser, SyntaxKind};
+use syntax::SyntaxKind;
 
-pub(super) struct Marker {
+use crate::event::Event;
+use crate::parser::Parser;
+
+pub(crate) struct Marker {
     pos: usize,
     bomb_when_uncompleted: DropBomb,
 }
 
 impl Marker {
-    pub(super) fn new(pos: usize) -> Self {
+    pub(crate) fn new(pos: usize) -> Self {
         Self {
             pos,
             bomb_when_uncompleted: DropBomb::new("Markers need to be completed"),
         }
     }
 
-    pub(super) fn complete(mut self, parser: &mut Parser, kind: SyntaxKind) -> CompletedMarker {
+    pub(crate) fn complete(mut self, parser: &mut Parser, kind: SyntaxKind) -> CompletedMarker {
         self.bomb_when_uncompleted.defuse();
 
         let event_at_pos = &mut parser.events[self.pos];
@@ -32,12 +35,12 @@ impl Marker {
     }
 }
 
-pub(super) struct CompletedMarker {
+pub(crate) struct CompletedMarker {
     pos: usize,
 }
 
 impl CompletedMarker {
-    pub(super) fn precede(self, parser: &mut Parser) -> Marker {
+    pub(crate) fn precede(self, parser: &mut Parser) -> Marker {
         let new_marker = parser.start();
 
         if let Event::StartNode {

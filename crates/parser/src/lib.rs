@@ -1,19 +1,16 @@
 mod event;
 mod expr;
-mod marker;
+mod parser;
 mod sink;
 mod source;
 
 use rowan::GreenNode;
 
-use lexer::{Lexer, Token};
-use syntax::{SyntaxKind, SyntaxNode};
+use lexer::Lexer;
+use syntax::SyntaxNode;
 
-use event::Event;
-use expr::expr;
-use marker::Marker;
+use crate::parser::Parser;
 use sink::Sink;
-use source::Source;
 
 pub fn parse(input: &str) -> Parse {
     let tokens: Vec<_> = Lexer::new(input).collect();
@@ -23,48 +20,6 @@ pub fn parse(input: &str) -> Parse {
 
     Parse {
         green_node: sink.finish(),
-    }
-}
-
-pub struct Parser<'l, 'input> {
-    source: Source<'l, 'input>,
-    events: Vec<Event>,
-}
-
-impl<'l, 'input> Parser<'l, 'input> {
-    fn new(tokens: &'l [Token<'input>]) -> Self {
-        Self {
-            source: Source::new(tokens),
-            events: vec![],
-        }
-    }
-
-    fn parse(mut self) -> Vec<Event> {
-        let marker = self.start();
-        expr(&mut self);
-        marker.complete(&mut self, SyntaxKind::Root);
-
-        self.events
-    }
-
-    fn start(&mut self) -> Marker {
-        let pos = self.events.len();
-        self.events.push(Event::Placeholder);
-
-        Marker::new(pos)
-    }
-
-    fn bump(&mut self) {
-        self.source.next_token().unwrap();
-        self.events.push(Event::AddToken)
-    }
-
-    fn peek(&mut self) -> Option<SyntaxKind> {
-        self.source.peek_kind()
-    }
-
-    fn at(&mut self, kind: SyntaxKind) -> bool {
-        self.peek() == Some(kind)
     }
 }
 

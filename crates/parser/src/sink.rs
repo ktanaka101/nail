@@ -5,9 +5,9 @@ use rowan::{GreenNode, GreenNodeBuilder, Language};
 use lexer::Token;
 use syntax::{NailLanguage, SyntaxKind};
 
-use super::Event;
+use crate::event::Event;
 
-pub(super) struct Sink<'l, 'input> {
+pub(crate) struct Sink<'l, 'input> {
     builder: GreenNodeBuilder<'static>,
     tokens: &'l [Token<'input>],
     cursor: usize,
@@ -15,7 +15,7 @@ pub(super) struct Sink<'l, 'input> {
 }
 
 impl<'l, 'input> Sink<'l, 'input> {
-    pub(super) fn new(tokens: &'l [Token<'input>], events: Vec<Event>) -> Self {
+    pub(crate) fn new(tokens: &'l [Token<'input>], events: Vec<Event>) -> Self {
         Self {
             builder: GreenNodeBuilder::new(),
             tokens,
@@ -24,7 +24,7 @@ impl<'l, 'input> Sink<'l, 'input> {
         }
     }
 
-    pub(super) fn finish(mut self) -> GreenNode {
+    pub(crate) fn finish(mut self) -> GreenNode {
         for idx in 0..self.events.len() {
             match mem::replace(&mut self.events[idx], Event::Placeholder) {
                 Event::StartNode {

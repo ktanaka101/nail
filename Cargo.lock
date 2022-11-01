@@ -201,11 +201,9 @@ name = "nail"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "drop_bomb",
- "expect-test",
  "inkwell",
  "lexer",
- "rowan",
+ "parser",
  "syntax",
  "termion",
  "thiserror",
@@ -265,6 +263,17 @@ dependencies = [
  "redox_syscall 0.2.10",
  "smallvec",
  "windows-sys",
+]
+
+[[package]]
+name = "parser"
+version = "0.1.0"
+dependencies = [
+ "drop_bomb",
+ "expect-test",
+ "lexer",
+ "rowan",
+ "syntax",
 ]
 
 [[package]]

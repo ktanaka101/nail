@@ -76,7 +76,12 @@ mod tests {
 
     #[test]
     fn parse_binary_expression_when_single_slash() {
-        check("/ hello", expect!["Root@0..0"]);
+        check("/ hello", expect![[r#"
+            Root@0..7
+              Slash@0..1 "/"
+              Whitespace@1..2 " "
+              VariableRef@2..7
+                Ident@2..7 "hello""#]]);
     }
 
     #[test]

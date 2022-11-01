@@ -11,10 +11,12 @@ use syntax::SyntaxNode;
 
 use crate::parser::Parser;
 use sink::Sink;
+use source::Source;
 
 pub fn parse(input: &str) -> Parse {
     let tokens: Vec<_> = Lexer::new(input).collect();
-    let parser = Parser::new(&tokens);
+    let source = Source::new(&tokens);
+    let parser = Parser::new(source);
     let events = parser.parse();
     let sink = Sink::new(&tokens, events);
 

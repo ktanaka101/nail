@@ -1,9 +1,6 @@
-use syntax::SyntaxKind;
+use super::*;
 
-use crate::parser::marker::CompletedMarker;
-use crate::parser::Parser;
-
-pub(crate) fn expr(parser: &mut Parser) {
+pub(super) fn expr(parser: &mut Parser) {
     expr_binding_power(parser, 0);
 }
 
@@ -124,7 +121,7 @@ fn paren_expr(parser: &mut Parser) -> CompletedMarker {
 
 #[cfg(test)]
 mod tests {
-    use super::super::check;
+    use crate::check;
     use expect_test::expect;
 
     #[test]

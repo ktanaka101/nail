@@ -1,5 +1,5 @@
 mod event;
-mod expr;
+mod grammar;
 mod parser;
 mod sink;
 mod source;

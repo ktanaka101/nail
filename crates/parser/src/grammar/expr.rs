@@ -1,7 +1,7 @@
 use super::*;
 
-pub(super) fn expr(parser: &mut Parser) {
-    expr_binding_power(parser, 0);
+pub(super) fn expr(parser: &mut Parser) -> Option<CompletedMarker> {
+    expr_binding_power(parser, 0)
 }
 
 fn expr_binding_power(parser: &mut Parser, minimum_binding_power: u8) -> Option<CompletedMarker> {

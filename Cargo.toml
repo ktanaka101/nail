@@ -17,6 +17,7 @@ typed-arena = "2.0"
 lexer = { path = "crates/lexer" }
 syntax = { path = "crates/syntax" }
 parser = { path = "crates/parser" }
+ast = { path = "crates/ast" }
 
 [workspace]
 members = ["crates/*"]

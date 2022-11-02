@@ -1,3 +1,5 @@
+use std::fmt;
+
 use logos::Logos;
 use text_size::TextRange;
 
@@ -79,6 +81,51 @@ pub enum TokenKind {
 
     #[error]
     Error,
+}
+
+impl TokenKind {
+    pub fn is_trivia(self) -> bool {
+        matches!(self, Self::Whitespace | Self::CommentSingle)
+    }
+}
+
+impl fmt::Display for TokenKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Whitespace => "whitespace",
+            Self::FnKw => "'fn'",
+            Self::LetKw => "'let'",
+            Self::TrueKw => "'true'",
+            Self::FalseKw => "'false'",
+            Self::IfKw => "'if'",
+            Self::ElseKw => "'else'",
+            Self::ReturnKw => "'return'",
+            Self::Ident => "identifier",
+            Self::IntegerLiteral => "integerLiteral",
+            Self::StringLiteral => "stringLiteral",
+            Self::CharLiteral => "charLiteral",
+            Self::Plus => "'+'",
+            Self::Minus => "'-'",
+            Self::Asterisk => "'*'",
+            Self::Slash => "'/'",
+            Self::Bang => "'!'",
+            Self::Equals => "'='",
+            Self::Lt => "'<'",
+            Self::Gt => "'>'",
+            Self::Comma => "','",
+            Self::Colon => "':'",
+            Self::Semicolon => "';'",
+            Self::LParen => "'('",
+            Self::RParen => "')'",
+            Self::LBrace => "'['",
+            Self::RBrace => "']'",
+            Self::LCurly => "'{'",
+            Self::RCurly => "'}'",
+            Self::VerticalBar => "'|'",
+            Self::CommentSingle => "comment",
+            Self::Error => "an unrecognized token",
+        })
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]

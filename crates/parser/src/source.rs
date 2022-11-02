@@ -1,7 +1,6 @@
 use text_size::TextRange;
 
-use lexer::Token;
-use syntax::SyntaxKind;
+use lexer::{Token, TokenKind};
 
 pub(crate) struct Source<'l, 'input> {
     tokens: &'l [Token<'input>],
@@ -22,7 +21,7 @@ impl<'l, 'input> Source<'l, 'input> {
         Some(token)
     }
 
-    pub(crate) fn peek_kind(&mut self) -> Option<SyntaxKind> {
+    pub(crate) fn peek_kind(&mut self) -> Option<TokenKind> {
         self.eat_trivia();
         self.peek_kind_raw()
     }
@@ -43,12 +42,11 @@ impl<'l, 'input> Source<'l, 'input> {
     }
 
     fn at_trivia(&self) -> bool {
-        self.peek_kind_raw().map_or(false, SyntaxKind::is_trivia)
+        self.peek_kind_raw().map_or(false, TokenKind::is_trivia)
     }
 
-    fn peek_kind_raw(&self) -> Option<SyntaxKind> {
-        self.peek_token_raw()
-            .map(|Token { kind, .. }| (*kind).into())
+    fn peek_kind_raw(&self) -> Option<TokenKind> {
+        self.peek_token_raw().map(|Token { kind, .. }| *kind)
     }
 
     fn peek_token_raw(&self) -> Option<&Token> {

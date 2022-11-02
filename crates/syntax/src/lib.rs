@@ -1,5 +1,3 @@
-use std::fmt;
-
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::{FromPrimitive, ToPrimitive};
 
@@ -79,12 +77,6 @@ pub enum SyntaxKind {
     Error,
 }
 
-impl SyntaxKind {
-    pub fn is_trivia(self) -> bool {
-        matches!(self, Self::Whitespace | Self::CommentSingle)
-    }
-}
-
 impl From<TokenKind> for SyntaxKind {
     fn from(token_kind: TokenKind) -> Self {
         match token_kind {
@@ -127,32 +119,6 @@ impl From<TokenKind> for SyntaxKind {
 
             TokenKind::Error => Self::Error,
         }
-    }
-}
-
-impl fmt::Display for SyntaxKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            SyntaxKind::Whitespace => "whitespace",
-            SyntaxKind::FnKw => "'fn'",
-            SyntaxKind::LetKw => "'let'",
-            SyntaxKind::Ident => "identifier",
-            SyntaxKind::IntegerLiteral => "integerLiteral",
-            SyntaxKind::Plus => "'+'",
-            SyntaxKind::Minus => "'-'",
-            SyntaxKind::Asterisk => "'*'",
-            SyntaxKind::Slash => "'/'",
-            SyntaxKind::Bang => "'!'",
-            SyntaxKind::Equals => "'='",
-            SyntaxKind::LParen => "'('",
-            SyntaxKind::RParen => "')'",
-            SyntaxKind::LBrace => "'['",
-            SyntaxKind::RBrace => "']'",
-            SyntaxKind::LCurly => "'{'",
-            SyntaxKind::RCurly => "'}'",
-            SyntaxKind::CommentSingle => "comment",
-            _ => unimplemented!(),
-        })
     }
 }
 

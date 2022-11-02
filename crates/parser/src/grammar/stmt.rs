@@ -1,7 +1,13 @@
-use super::*;
+use lexer::TokenKind;
+use syntax::SyntaxKind;
+
+use crate::parser::marker::CompletedMarker;
+use crate::parser::Parser;
+
+use super::expr;
 
 pub(super) fn stmt(parser: &mut Parser) -> Option<CompletedMarker> {
-    if parser.at(SyntaxKind::LetKw) {
+    if parser.at(TokenKind::LetKw) {
         Some(variable_def(parser))
     } else {
         expr::expr(parser)
@@ -9,12 +15,12 @@ pub(super) fn stmt(parser: &mut Parser) -> Option<CompletedMarker> {
 }
 
 fn variable_def(parser: &mut Parser) -> CompletedMarker {
-    assert!(parser.at(SyntaxKind::LetKw));
+    assert!(parser.at(TokenKind::LetKw));
     let marker = parser.start();
     parser.bump();
 
-    parser.expect(SyntaxKind::Ident);
-    parser.expect(SyntaxKind::Equals);
+    parser.expect(TokenKind::Ident);
+    parser.expect(TokenKind::Equals);
 
     expr::expr(parser);
 

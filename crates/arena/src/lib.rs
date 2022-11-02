@@ -8,7 +8,7 @@ pub struct Arena<T> {
 #[derive(Debug)]
 pub struct Idx<T> {
     raw: u32,
-    _phantom: PhantomData<T>,
+    _phantom: PhantomData<fn() -> T>,
 }
 
 impl<T> Default for Arena<T> {

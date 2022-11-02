@@ -18,6 +18,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "216261ddc8289130e551ddcd5ce8a064710c0d064a4d2895c67151c92b5443f6"
 
 [[package]]
+name = "arena"
+version = "0.1.0"
+
+[[package]]
 name = "ast"
 version = "0.1.0"
 dependencies = [
@@ -104,6 +108,7 @@ checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 name = "hir"
 version = "0.1.0"
 dependencies = [
+ "arena",
  "ast",
  "syntax",
 ]
@@ -218,6 +223,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ast",
+ "hir",
  "inkwell",
  "lexer",
  "parser",

@@ -115,4 +115,110 @@ mod tests {
             },
         );
     }
+
+    #[test]
+    fn lower_variable_def_without_name() {
+        let root = parse("let = 10");
+        let ast = root.stmts().next().unwrap();
+        assert!(Database::default().lower_stmt(ast).is_none());
+    }
+
+    #[test]
+    fn lower_variable_def_without_value() {
+        check_stmt(
+            "let a =",
+            Stmt::VariableDef {
+                name: "a".into(),
+                value: Expr::Missing,
+            },
+        );
+    }
+
+    #[test]
+    fn lower_expr_stmt() {
+        check_stmt("123", Stmt::Expr(Expr::Literal { n: 123 }));
+    }
+
+    #[test]
+    fn lower_binary_expr() {
+        let mut exprs = Arena::new();
+        let lhs = exprs.alloc(Expr::Literal { n: 1 });
+        let rhs = exprs.alloc(Expr::Literal { n: 2 });
+
+        check_expr(
+            "1 + 2",
+            Expr::Binary {
+                lhs,
+                rhs,
+                op: BinaryOp::Add,
+            },
+            Database { exprs },
+        );
+    }
+
+    #[test]
+    fn lower_binary_expr_without_rhs() {
+        let mut exprs = Arena::new();
+
+        check_expr(
+            "10 -",
+            Expr::Binary {
+                lhs: exprs.alloc(Expr::Literal { n: 10 }),
+                rhs: exprs.alloc(Expr::Missing),
+                op: BinaryOp::Sub,
+            },
+            Database { exprs },
+        );
+    }
+
+    #[test]
+    fn lower_literal() {
+        check_expr("999", Expr::Literal { n: 999 }, Database::default());
+    }
+
+    #[test]
+    fn lower_paren_expr() {
+        check_expr(
+            "((((((abc))))))",
+            Expr::VariableRef { var: "abc".into() },
+            Database::default(),
+        );
+    }
+
+    #[test]
+    fn lower_unary_expr() {
+        let mut exprs = Arena::new();
+
+        check_expr(
+            "-10",
+            Expr::Unary {
+                expr: exprs.alloc(Expr::Literal { n: 10 }),
+                op: UnaryOp::Neg,
+            },
+            Database { exprs },
+        );
+    }
+
+    #[test]
+    fn lower_unary_expr_without_expr() {
+        let mut exprs = Arena::new();
+
+        check_expr(
+            "-",
+            Expr::Unary {
+                expr: exprs.alloc(Expr::Missing),
+                op: UnaryOp::Neg,
+            },
+            Database { exprs },
+        );
+    }
+
+    #[test]
+    fn lower_variable_ref() {
+        check_expr(
+            "foo",
+            Expr::VariableRef { var: "foo".into() },
+            Database::default(),
+        );
+    }
 }

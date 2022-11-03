@@ -1,0 +1,17 @@
+[package]
+name = "parser"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+drop_bomb = "0.1"
+rowan = "0.15"
+text-size = "1.0"
+
+lexer = { path = "../lexer" }
+syntax = { path = "../syntax" }
+
+[dev-dependencies]
+expect-test = "1.4"

@@ -1,0 +1,14 @@
+[package]
+name = "ast"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+text-size = "1.1"
+
+syntax = { path = "../syntax" }
+
+[dev-dependencies]
+parser = { path = "../parser" }

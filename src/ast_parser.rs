@@ -7,7 +7,7 @@ use crate::token::Token;
 
 use anyhow::Result;
 
-use ast::{Expr, Stmt};
+use self::ast::{Expr, Stmt};
 use error::ParserError;
 
 #[derive(PartialOrd, PartialEq, Debug)]

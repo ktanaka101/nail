@@ -1,6 +1,6 @@
 mod database;
 
-use arena::Idx;
+use la_arena::Idx;
 
 pub use database::Database;
 

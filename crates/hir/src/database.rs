@@ -1,7 +1,7 @@
 use syntax::SyntaxKind;
 
 use crate::{BinaryOp, Expr, Stmt, UnaryOp};
-use arena::Arena;
+use la_arena::Arena;
 
 #[derive(Debug, Default)]
 pub struct Database {

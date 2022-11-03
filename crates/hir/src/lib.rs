@@ -1,6 +1,7 @@
 mod database;
 
 use la_arena::Idx;
+use smol_str::SmolStr;
 
 pub use database::Database;
 
@@ -12,7 +13,7 @@ pub fn lower(ast: ast::Root) -> (Database, Vec<Stmt>) {
 
 #[derive(Debug)]
 pub enum Stmt {
-    VariableDef { name: String, value: Expr },
+    VariableDef { name: SmolStr, value: Expr },
     Expr(Expr),
 }
 
@@ -33,7 +34,7 @@ pub enum Expr {
         expr: ExprIdx,
     },
     VariableRef {
-        var: String,
+        var: SmolStr,
     },
     Missing,
 }

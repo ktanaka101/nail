@@ -80,8 +80,22 @@ pub fn start(executer: Executer) {
 }
 
 fn dev_run(code: &str) -> Result<String> {
+    let mut message = "".to_string();
+
     let parse = parser::parse(code);
-    Ok(parse.debug_tree())
+    message.push_str(parse.debug_tree().as_str());
+
+    let syntax = parse.syntax();
+
+    for error in ast::validation::validate(&syntax) {
+        message.push_str(format!("\n{}", error).as_str());
+    }
+
+    let root = ast::Root::cast(syntax).unwrap();
+    let hir = hir::lower(root);
+    message.push_str(format!("\n{:?}", hir).as_str());
+
+    Ok(message)
 }
 
 fn llvm_run(code: &str) -> Result<String> {

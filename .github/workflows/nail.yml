@@ -17,8 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: docker.io/ktanaka101/nail-builder:latest
-      env:
-        CARGO_BUILD_TARGET_DIR: /tmp/target
 
     steps:
       - uses: actions/checkout@v3

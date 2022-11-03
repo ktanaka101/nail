@@ -43,12 +43,20 @@ ENV LLVM_SYS_140_PREFIX=/usr/lib/llvm-14
 
 
 # for development
+
 FROM base AS development
 
 RUN apt-get install -y git
+
+# using by cargo-fuzz
+RUN apt-get install -y g++
+RUN cargo install cargo-fuzz
+
 RUN rustup component add rustfmt clippy rls rust-analysis rust-src
 
+
 # for CI
+
 FROM base AS ci
 
 RUN rustup component add rustfmt clippy

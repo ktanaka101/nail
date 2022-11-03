@@ -6,4 +6,5 @@
 .DS_STORE
 
 /fuzz/artifacts
-/fuzz/corpus
+/fuzz/corpus/main/*
+!/fuzz/corpus/main/example

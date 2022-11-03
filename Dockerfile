@@ -34,9 +34,6 @@ RUN apt install -y zlib1g-dev
 
 ENV PATH $PATH:/usr/lib/llvm-14/bin/
 
-# fast build by the rust in docker
-ENV CARGO_BUILD_TARGET_DIR=/tmp/target
-
 # llvm
 ENV LLVM_SYS_140_STRICT_VERSIONING=140
 ENV LLVM_SYS_140_PREFIX=/usr/lib/llvm-14
@@ -47,6 +44,9 @@ ENV LLVM_SYS_140_PREFIX=/usr/lib/llvm-14
 FROM base AS development
 
 RUN apt-get install -y git
+
+# fast build by the rust in docker
+ENV CARGO_BUILD_TARGET_DIR=/tmp/target
 
 # using by cargo-fuzz
 RUN apt-get install -y g++

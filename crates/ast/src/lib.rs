@@ -137,8 +137,8 @@ impl UnaryExpr {
 pub struct VariableRef(SyntaxNode);
 
 impl VariableRef {
-    pub fn name(&self) -> String {
-        self.0.first_token().unwrap().text().to_owned()
+    pub fn name(&self) -> Option<SyntaxToken> {
+        self.0.first_token()
     }
 }
 

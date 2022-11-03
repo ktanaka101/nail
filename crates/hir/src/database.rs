@@ -3,7 +3,7 @@ use syntax::SyntaxKind;
 use crate::{BinaryOp, Expr, Stmt, UnaryOp};
 use la_arena::Arena;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub struct Database {
     pub exprs: Arena<Expr>,
 }
@@ -72,5 +72,47 @@ impl Database {
         Expr::VariableRef {
             var: ast.name().unwrap().text().into(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse(input: &str) -> ast::Root {
+        ast::Root::cast(parser::parse(input).syntax()).unwrap()
+    }
+
+    fn check_stmt(input: &str, expected_hir: Stmt) {
+        let root = parse(input);
+        let ast = root.stmts().next().unwrap();
+        let hir = Database::default().lower_stmt(ast).unwrap();
+
+        assert_eq!(hir, expected_hir);
+    }
+
+    fn check_expr(input: &str, expected_hir: Expr, expected_database: Database) {
+        let root = parse(input);
+        let first_stmt = root.stmts().next().unwrap();
+        let ast = match first_stmt {
+            ast::Stmt::Expr(ast) => ast,
+            _ => unreachable!(),
+        };
+        let mut database = Database::default();
+        let hir = database.lower_expr(Some(ast));
+
+        assert_eq!(hir, expected_hir);
+        assert_eq!(database, expected_database);
+    }
+
+    #[test]
+    fn lower_variable_def() {
+        check_stmt(
+            "let foo = bar",
+            Stmt::VariableDef {
+                name: "foo".into(),
+                value: Expr::VariableRef { var: "bar".into() },
+            },
+        );
     }
 }

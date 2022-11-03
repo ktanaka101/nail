@@ -4,3 +4,6 @@
 /output/*.output
 .envrc
 .DS_STORE
+
+/fuzz/artifacts
+/fuzz/corpus

@@ -22,3 +22,12 @@ hir = { path = "crates/hir" }
 
 [workspace]
 members = ["crates/*"]
+
+[profile.dev]
+debug = 0
+
+[profile.dev.package]
+logos.opt-level = 3
+rowan.opt-level = 3
+smol_str.opt-level = 3
+text-size.opt-level = 3

@@ -21,7 +21,7 @@ jobs:
         CARGO_BUILD_TARGET_DIR: /tmp/target
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - uses: actions/cache@v2
         with:

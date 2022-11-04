@@ -50,7 +50,10 @@ impl<'l, 'input> Parser<'l, 'input> {
 
     pub(crate) fn at(&mut self, kind: TokenKind) -> bool {
         self.expected_kinds.push(kind);
-        self.peek() == Some(kind)
+        match (self.peek(), kind) {
+            (Some(TokenKind::CharLiteral(_)), TokenKind::CharLiteral(_)) => true,
+            (peek_kind, kind) => peek_kind == Some(kind),
+        }
     }
 
     pub(crate) fn expect(&mut self, kind: TokenKind) {

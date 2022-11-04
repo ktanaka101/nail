@@ -95,7 +95,7 @@ mod tests {
                     Whitespace@1..2 " "
                   VariableRef@2..7
                     Ident@2..7 "hello"
-                error at 0..1: expected 'let', integerLiteral, identifier, '-' or '(', but found '/'"#]],
+                error at 0..1: expected 'let', integerLiteral, charLiteral, identifier, '-' or '(', but found '/'"#]],
         );
     }
 

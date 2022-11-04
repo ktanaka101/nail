@@ -86,6 +86,9 @@ pub enum TokenKind {
 
     #[error]
     Error,
+
+    // only token validation
+    SingleQuote,
 }
 
 impl TokenKind {
@@ -128,6 +131,7 @@ impl fmt::Display for TokenKind {
             Self::RCurly => "'}'",
             Self::Pipe => "'|'",
             Self::CommentSingle => "comment",
+            Self::SingleQuote => "\''\'",
             Self::Error => "an unrecognized token",
         })
     }

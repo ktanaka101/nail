@@ -118,6 +118,9 @@ impl From<TokenKind> for SyntaxKind {
             TokenKind::CommentSingle => Self::CommentSingle,
 
             TokenKind::Error => Self::Error,
+
+            // only token validation
+            TokenKind::SingleQuote => unreachable!(),
         }
     }
 }

@@ -73,7 +73,7 @@ impl PrefixOp {
 }
 
 fn lhs(parser: &mut Parser) -> Option<CompletedMarker> {
-    let cm = if parser.at(TokenKind::IntegerLiteral) {
+    let cm = if parser.at(TokenKind::IntegerLiteral) || parser.at(TokenKind::CharLiteral(false)) {
         literal(parser)
     } else if parser.at(TokenKind::Ident) {
         variable_ref(parser)
@@ -90,7 +90,10 @@ fn lhs(parser: &mut Parser) -> Option<CompletedMarker> {
 }
 
 fn literal(parser: &mut Parser) -> CompletedMarker {
-    assert!(parser.at(TokenKind::IntegerLiteral));
+    assert!(matches!(
+        parser.peek(),
+        Some(TokenKind::IntegerLiteral | TokenKind::CharLiteral(_))
+    ));
 
     let marker = parser.start();
     parser.bump();
@@ -338,6 +341,17 @@ mod tests {
     }
 
     #[test]
+    fn parse_char() {
+        check(
+            "'a'",
+            expect![[r#"
+                SourceFile@0..3
+                  Literal@0..3
+                    CharLiteral@0..3 "'a'""#]],
+        );
+    }
+
+    #[test]
     fn parse_binary_expression_with_whitespace() {
         check(
             " 1 +   2* 3 ",
@@ -387,7 +401,7 @@ mod tests {
                       Literal@1..2
                         IntegerLiteral@1..2 "1"
                       Plus@2..3 "+"
-                error at 2..3: expected integerLiteral, identifier, '-' or '('
+                error at 2..3: expected integerLiteral, charLiteral, identifier, '-' or '('
                 error at 2..3: expected ')'"#]],
         );
     }

@@ -92,7 +92,7 @@ impl From<TokenKind> for SyntaxKind {
 
             TokenKind::IntegerLiteral => Self::IntegerLiteral,
             TokenKind::StringLiteral => Self::StringLiteral,
-            TokenKind::CharLiteral => Self::CharLiteral,
+            TokenKind::CharLiteral(_) => Self::CharLiteral,
 
             TokenKind::Plus => Self::Plus,
             TokenKind::Minus => Self::Minus,

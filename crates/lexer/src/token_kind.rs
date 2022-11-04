@@ -1,7 +1,12 @@
 use std::fmt;
 
-use logos::Logos;
+use logos::{Lexer, Logos};
 use text_size::TextRange;
+
+fn lex_char(lex: &mut Lexer<TokenKind>) -> Option<bool> {
+    let slice = lex.slice();
+    Some(slice.ends_with('\''))
+}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Logos)]
 pub enum TokenKind {
@@ -30,8 +35,8 @@ pub enum TokenKind {
     IntegerLiteral,
     #[regex(r#""[^"]*""#)]
     StringLiteral,
-    #[regex("'[^']*'")]
-    CharLiteral,
+    #[regex("'[^']*'?", lex_char)]
+    CharLiteral(bool),
 
     // symbols
     #[token("+")]
@@ -103,7 +108,7 @@ impl fmt::Display for TokenKind {
             Self::Ident => "identifier",
             Self::IntegerLiteral => "integerLiteral",
             Self::StringLiteral => "stringLiteral",
-            Self::CharLiteral => "charLiteral",
+            Self::CharLiteral(_) => "charLiteral",
             Self::Plus => "'+'",
             Self::Minus => "'-'",
             Self::Star => "'*'",
@@ -224,13 +229,28 @@ mod tests {
     }
 
     #[test]
+    fn lex_string_literal_with_new_line() {
+        check("\"  aa  \n  bb  \n  cc\"", TokenKind::StringLiteral);
+    }
+
+    #[test]
     fn lex_char_literal() {
-        check("'a'", TokenKind::CharLiteral);
+        check("'a'", TokenKind::CharLiteral(true));
     }
 
     #[test]
     fn lex_char_literal_empty() {
-        check("''", TokenKind::CharLiteral);
+        check("''", TokenKind::CharLiteral(true));
+    }
+
+    #[test]
+    fn lex_char_literal_with_new_line() {
+        check("'\n'", TokenKind::CharLiteral(true));
+    }
+
+    #[test]
+    fn lex_char_literal_missing_to_terminate() {
+        check("'a", TokenKind::CharLiteral(false));
     }
 
     #[test]

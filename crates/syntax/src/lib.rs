@@ -55,8 +55,8 @@ pub enum SyntaxKind {
     Slash,
     Bang,
     Equals,
-    Lt,
-    Gt,
+    LAngle,
+    RAngle,
 
     // delimiters
     Comma,
@@ -100,8 +100,8 @@ impl From<TokenKind> for SyntaxKind {
             TokenKind::Slash => Self::Slash,
             TokenKind::Bang => Self::Bang,
             TokenKind::Equals => Self::Equals,
-            TokenKind::Lt => Self::Lt,
-            TokenKind::Gt => Self::Gt,
+            TokenKind::LAngle => Self::LAngle,
+            TokenKind::RAngle => Self::RAngle,
 
             TokenKind::Comma => Self::Comma,
             TokenKind::Colon => Self::Colon,

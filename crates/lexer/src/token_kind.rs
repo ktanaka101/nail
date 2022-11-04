@@ -47,9 +47,9 @@ pub enum TokenKind {
     #[token("=")]
     Equals,
     #[token("<")]
-    Lt,
+    LAngle,
     #[token(">")]
-    Gt,
+    RAngle,
 
     // delimiters
     #[token(",")]
@@ -110,8 +110,8 @@ impl fmt::Display for TokenKind {
             Self::Slash => "'/'",
             Self::Bang => "'!'",
             Self::Equals => "'='",
-            Self::Lt => "'<'",
-            Self::Gt => "'>'",
+            Self::LAngle => "'<'",
+            Self::RAngle => "'>'",
             Self::Comma => "','",
             Self::Colon => "':'",
             Self::Semicolon => "';'",
@@ -264,13 +264,13 @@ mod tests {
     }
 
     #[test]
-    fn lex_lt() {
-        check("<", TokenKind::Lt);
+    fn lex_left_angle() {
+        check("<", TokenKind::LAngle);
     }
 
     #[test]
-    fn lex_gt() {
-        check(">", TokenKind::Gt);
+    fn lex_right_angle() {
+        check(">", TokenKind::RAngle);
     }
 
     #[test]

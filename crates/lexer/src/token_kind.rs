@@ -39,7 +39,7 @@ pub enum TokenKind {
     #[token("-")]
     Minus,
     #[token("*")]
-    Asterisk,
+    Star,
     #[token("/")]
     Slash,
     #[token("!")]
@@ -106,7 +106,7 @@ impl fmt::Display for TokenKind {
             Self::CharLiteral => "charLiteral",
             Self::Plus => "'+'",
             Self::Minus => "'-'",
-            Self::Asterisk => "'*'",
+            Self::Star => "'*'",
             Self::Slash => "'/'",
             Self::Bang => "'!'",
             Self::Equals => "'='",
@@ -244,8 +244,8 @@ mod tests {
     }
 
     #[test]
-    fn lex_astersisk() {
-        check("*", TokenKind::Asterisk);
+    fn lex_star() {
+        check("*", TokenKind::Star);
     }
 
     #[test]

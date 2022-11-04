@@ -16,7 +16,7 @@ fn expr_binding_power(parser: &mut Parser, minimum_binding_power: u8) -> Option<
             BinaryOp::Add
         } else if parser.at(TokenKind::Minus) {
             BinaryOp::Sub
-        } else if parser.at(TokenKind::Asterisk) {
+        } else if parser.at(TokenKind::Star) {
             BinaryOp::Mul
         } else if parser.at(TokenKind::Slash) {
             BinaryOp::Div
@@ -210,7 +210,7 @@ mod tests {
                       InfixExpr@2..5
                         Literal@2..3
                           IntegerLiteral@2..3 "2"
-                        Asterisk@3..4 "*"
+                        Star@3..4 "*"
                         Literal@4..5
                           IntegerLiteral@4..5 "3"
                     Minus@5..6 "-"
@@ -287,7 +287,7 @@ mod tests {
                   InfixExpr@0..7
                     Literal@0..1
                       IntegerLiteral@0..1 "5"
-                    Asterisk@1..2 "*"
+                    Star@1..2 "*"
                     ParenExpr@2..7
                       LParen@2..3 "("
                       InfixExpr@3..6
@@ -353,7 +353,7 @@ mod tests {
                     InfixExpr@7..12
                       Literal@7..8
                         IntegerLiteral@7..8 "2"
-                      Asterisk@8..9 "*"
+                      Star@8..9 "*"
                       Whitespace@9..10 " "
                       Literal@10..12
                         IntegerLiteral@10..11 "3"

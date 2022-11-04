@@ -51,7 +51,7 @@ pub enum SyntaxKind {
     // symbols
     Plus,
     Minus,
-    Asterisk,
+    Star,
     Slash,
     Bang,
     Equals,
@@ -96,7 +96,7 @@ impl From<TokenKind> for SyntaxKind {
 
             TokenKind::Plus => Self::Plus,
             TokenKind::Minus => Self::Minus,
-            TokenKind::Asterisk => Self::Asterisk,
+            TokenKind::Star => Self::Star,
             TokenKind::Slash => Self::Slash,
             TokenKind::Bang => Self::Bang,
             TokenKind::Equals => Self::Equals,

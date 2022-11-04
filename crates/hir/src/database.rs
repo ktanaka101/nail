@@ -39,7 +39,7 @@ impl Database {
         let op = match ast.op().unwrap().kind() {
             SyntaxKind::Plus => BinaryOp::Add,
             SyntaxKind::Minus => BinaryOp::Sub,
-            SyntaxKind::Asterisk => BinaryOp::Mul,
+            SyntaxKind::Star => BinaryOp::Mul,
             SyntaxKind::Slash => BinaryOp::Div,
             _ => unreachable!(),
         };

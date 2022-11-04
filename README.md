@@ -6,7 +6,7 @@ Nail is a programming language for me.
 
 ## Supports
 
-- language futures
+- language features
   - [ ] primitives
   - [ ] module
   - [ ] function

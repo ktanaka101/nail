@@ -91,8 +91,8 @@ fn dev_run(code: &str) -> Result<String> {
         message.push_str(format!("\n{}", error).as_str());
     }
 
-    let root = ast::Root::cast(syntax).unwrap();
-    let hir = hir::lower(root);
+    let source_file = ast::SourceFile::cast(syntax).unwrap();
+    let hir = hir::lower(source_file);
     message.push_str(format!("\n{:?}", hir).as_str());
 
     Ok(message)

@@ -141,7 +141,7 @@ mod tests {
         check(
             "123",
             expect![[r#"
-                Root@0..3
+                SourceFile@0..3
                   Literal@0..3
                     IntegerLiteral@0..3 "123""#]],
         );
@@ -152,7 +152,7 @@ mod tests {
         check(
             "counter",
             expect![[r#"
-                Root@0..7
+                SourceFile@0..7
                   VariableRef@0..7
                     Ident@0..7 "counter""#]],
         )
@@ -163,7 +163,7 @@ mod tests {
         check(
             "1+2",
             expect![[r#"
-                Root@0..3
+                SourceFile@0..3
                   InfixExpr@0..3
                     Literal@0..1
                       IntegerLiteral@0..1 "1"
@@ -178,7 +178,7 @@ mod tests {
         check(
             "1+2+3+4",
             expect![[r#"
-                Root@0..7
+                SourceFile@0..7
                   InfixExpr@0..7
                     InfixExpr@0..5
                       InfixExpr@0..3
@@ -201,7 +201,7 @@ mod tests {
         check(
             "1+2*3-4",
             expect![[r#"
-                Root@0..7
+                SourceFile@0..7
                   InfixExpr@0..7
                     InfixExpr@0..5
                       Literal@0..1
@@ -224,7 +224,7 @@ mod tests {
         check(
             "-10",
             expect![[r#"
-                Root@0..3
+                SourceFile@0..3
                   PrefixExpr@0..3
                     Minus@0..1 "-"
                     Literal@1..3
@@ -237,7 +237,7 @@ mod tests {
         check(
             "-20+20",
             expect![[r#"
-                Root@0..6
+                SourceFile@0..6
                   InfixExpr@0..6
                     PrefixExpr@0..3
                       Minus@0..1 "-"
@@ -254,7 +254,7 @@ mod tests {
         check(
             "((((((10))))))",
             expect![[r#"
-                Root@0..14
+                SourceFile@0..14
                   ParenExpr@0..14
                     LParen@0..1 "("
                     ParenExpr@1..13
@@ -283,7 +283,7 @@ mod tests {
         check(
             "5*(2+1)",
             expect![[r#"
-                Root@0..7
+                SourceFile@0..7
                   InfixExpr@0..7
                     Literal@0..1
                       IntegerLiteral@0..1 "5"
@@ -305,7 +305,7 @@ mod tests {
         check(
             "   9876",
             expect![[r#"
-                Root@0..7
+                SourceFile@0..7
                   Whitespace@0..3 "   "
                   Literal@3..7
                     IntegerLiteral@3..7 "9876""#]],
@@ -317,7 +317,7 @@ mod tests {
         check(
             "999   ",
             expect![[r#"
-                Root@0..6
+                SourceFile@0..6
                   Literal@0..6
                     IntegerLiteral@0..3 "999"
                     Whitespace@3..6 "   ""#]],
@@ -329,7 +329,7 @@ mod tests {
         check(
             " 123     ",
             expect![[r#"
-                Root@0..9
+                SourceFile@0..9
                   Whitespace@0..1 " "
                   Literal@1..9
                     IntegerLiteral@1..4 "123"
@@ -342,7 +342,7 @@ mod tests {
         check(
             " 1 +   2* 3 ",
             expect![[r#"
-                Root@0..12
+                SourceFile@0..12
                   Whitespace@0..1 " "
                   InfixExpr@1..12
                     Literal@1..3
@@ -366,7 +366,7 @@ mod tests {
         check(
             "(foo",
             expect![[r#"
-                Root@0..4
+                SourceFile@0..4
                   ParenExpr@0..4
                     LParen@0..1 "("
                     VariableRef@1..4
@@ -380,7 +380,7 @@ mod tests {
         check(
             "(1+",
             expect![[r#"
-                Root@0..3
+                SourceFile@0..3
                   ParenExpr@0..3
                     LParen@0..1 "("
                     InfixExpr@1..3

@@ -3,11 +3,11 @@ pub mod validation;
 use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
 #[derive(Debug)]
-pub struct Root(SyntaxNode);
+pub struct SourceFile(SyntaxNode);
 
-impl Root {
+impl SourceFile {
     pub fn cast(node: SyntaxNode) -> Option<Self> {
-        if node.kind() == SyntaxKind::Root {
+        if node.kind() == SyntaxKind::SourceFile {
             Some(Self(node))
         } else {
             None

@@ -7,7 +7,7 @@ fuzz_target!(|data: &[u8]| {
         let parse = parser::parse(s);
         let syntax = parse.syntax();
         let _validation_errors = ast::validation::validate(&syntax);
-        let root = ast::Root::cast(syntax).unwrap();
-        let (_database, _stmts) = hir::lower(root);
+        let source_file = ast::SourceFile::cast(syntax).unwrap();
+        let (_database, _stmts) = hir::lower(source_file);
     }
 });

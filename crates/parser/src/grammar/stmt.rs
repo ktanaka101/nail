@@ -37,7 +37,7 @@ mod tests {
         check(
             "let foo = bar",
             expect![[r#"
-                Root@0..13
+                SourceFile@0..13
                   VariableDef@0..13
                     LetKw@0..3 "let"
                     Whitespace@3..4 " "
@@ -55,7 +55,7 @@ mod tests {
         check(
             "let a =\nlet b = a",
             expect![[r#"
-                Root@0..17
+                SourceFile@0..17
                   VariableDef@0..8
                     LetKw@0..3 "let"
                     Whitespace@3..4 " "
@@ -81,7 +81,7 @@ mod tests {
         check(
             "let a = 1\na",
             expect![[r#"
-                Root@0..11
+                SourceFile@0..11
                   VariableDef@0..10
                     LetKw@0..3 "let"
                     Whitespace@3..4 " "

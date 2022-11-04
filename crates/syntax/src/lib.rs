@@ -21,7 +21,7 @@ impl rowan::Language for NailLanguage {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, FromPrimitive, ToPrimitive)]
 pub enum SyntaxKind {
     // node
-    Root,
+    SourceFile,
 
     // expressions
     Literal,

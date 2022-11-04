@@ -61,7 +61,7 @@ mod tests {
 
     #[test]
     fn parse_nothing() {
-        check("", expect![[r#"Root@0..0"#]]);
+        check("", expect![[r#"SourceFile@0..0"#]]);
     }
 
     #[test]
@@ -69,7 +69,7 @@ mod tests {
         check(
             "   ",
             expect![[r#"
-                Root@0..3
+                SourceFile@0..3
                   Whitespace@0..3 "   ""#]],
         );
     }
@@ -79,7 +79,7 @@ mod tests {
         check(
             "// hello!",
             expect![[r#"
-                Root@0..9
+                SourceFile@0..9
                   CommentSingle@0..9 "// hello!""#]],
         );
     }
@@ -89,7 +89,7 @@ mod tests {
         check(
             "/ hello",
             expect![[r#"
-                Root@0..7
+                SourceFile@0..7
                   Error@0..2
                     Slash@0..1 "/"
                     Whitespace@1..2 " "
@@ -107,7 +107,7 @@ mod tests {
   + 1 // Add one
   + 10 // Add ten",
             expect![[r#"
-                Root@0..37
+                SourceFile@0..37
                   Whitespace@0..1 "\n"
                   InfixExpr@1..37
                     InfixExpr@1..22

@@ -31,7 +31,7 @@ impl<'l, 'input> Parser<'l, 'input> {
     }
 
     pub(crate) fn parse(mut self) -> Vec<Event> {
-        grammar::root(&mut self);
+        grammar::source_file(&mut self);
         self.events
     }
 

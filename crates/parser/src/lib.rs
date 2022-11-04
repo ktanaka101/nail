@@ -9,7 +9,7 @@ use rowan::GreenNode;
 use lexer::Lexer;
 use syntax::SyntaxNode;
 
-use crate::parser::{ParseError, Parser};
+use crate::parser::{Parser, ParserError};
 use sink::Sink;
 use source::Source;
 
@@ -25,7 +25,7 @@ pub fn parse(input: &str) -> Parse {
 
 pub struct Parse {
     green_node: GreenNode,
-    errors: Vec<ParseError>,
+    errors: Vec<ParserError>,
 }
 
 impl Parse {

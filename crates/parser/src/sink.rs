@@ -5,14 +5,14 @@ use rowan::{GreenNodeBuilder, Language};
 use lexer::Token;
 use syntax::NailLanguage;
 
-use crate::{event::Event, parser::ParseError, Parse};
+use crate::{event::Event, parser::ParserError, Parse};
 
 pub(crate) struct Sink<'l, 'input> {
     builder: GreenNodeBuilder<'static>,
     tokens: &'l [Token<'input>],
     cursor: usize,
     events: Vec<Event>,
-    errors: Vec<ParseError>,
+    errors: Vec<ParserError>,
 }
 
 impl<'l, 'input> Sink<'l, 'input> {

@@ -11,7 +11,7 @@ use crate::event::Event;
 use crate::grammar;
 use crate::source::Source;
 use marker::Marker;
-pub(crate) use parse_error::ParseError;
+pub(crate) use parse_error::{ParseError, ParserError, TokenError};
 
 pub(crate) struct Parser<'l, 'input> {
     source: Source<'l, 'input>,
@@ -69,11 +69,12 @@ impl<'l, 'input> Parser<'l, 'input> {
         } else {
             (None, self.source.last_token_range().unwrap())
         };
-        self.events.push(Event::Error(ParseError {
-            expected: mem::take(&mut self.expected_kinds),
-            found,
-            range,
-        }));
+        self.events
+            .push(Event::Error(ParserError::ParseError(ParseError {
+                expected: mem::take(&mut self.expected_kinds),
+                found,
+                range,
+            })));
 
         if !self.at_set(&RECOVERY_SET) && !self.at_end() {
             let marker = self.start();

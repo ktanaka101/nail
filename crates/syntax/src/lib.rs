@@ -54,7 +54,7 @@ pub enum SyntaxKind {
     Star,
     Slash,
     Bang,
-    Equals,
+    Eq,
     LAngle,
     RAngle,
 
@@ -99,7 +99,7 @@ impl From<TokenKind> for SyntaxKind {
             TokenKind::Star => Self::Star,
             TokenKind::Slash => Self::Slash,
             TokenKind::Bang => Self::Bang,
-            TokenKind::Equals => Self::Equals,
+            TokenKind::Eq => Self::Eq,
             TokenKind::LAngle => Self::LAngle,
             TokenKind::RAngle => Self::RAngle,
 

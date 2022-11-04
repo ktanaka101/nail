@@ -69,7 +69,7 @@ mod tests {
     #[test]
     fn one_expected_did_find() {
         check(
-            vec![TokenKind::Equals],
+            vec![TokenKind::Eq],
             Some(TokenKind::Ident),
             10..20,
             "error at 10..20: expected '=', but found identifier",
@@ -105,7 +105,7 @@ mod tests {
     fn two_expected_did_find() {
         check(
             vec![TokenKind::Plus, TokenKind::Minus],
-            Some(TokenKind::Equals),
+            Some(TokenKind::Eq),
             0..1,
             "error at 0..1: expected '+' or '-', but found '='",
         );

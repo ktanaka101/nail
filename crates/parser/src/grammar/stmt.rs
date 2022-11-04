@@ -20,7 +20,7 @@ fn variable_def(parser: &mut Parser) -> CompletedMarker {
     parser.bump();
 
     parser.expect(TokenKind::Ident);
-    parser.expect(TokenKind::Equals);
+    parser.expect(TokenKind::Eq);
 
     expr::expr(parser);
 
@@ -43,7 +43,7 @@ mod tests {
                     Whitespace@3..4 " "
                     Ident@4..7 "foo"
                     Whitespace@7..8 " "
-                    Equals@8..9 "="
+                    Eq@8..9 "="
                     Whitespace@9..10 " "
                     VariableRef@10..13
                       Ident@10..13 "bar""#]],
@@ -61,14 +61,14 @@ mod tests {
                     Whitespace@3..4 " "
                     Ident@4..5 "a"
                     Whitespace@5..6 " "
-                    Equals@6..7 "="
+                    Eq@6..7 "="
                     Whitespace@7..8 "\n"
                   VariableDef@8..17
                     LetKw@8..11 "let"
                     Whitespace@11..12 " "
                     Ident@12..13 "b"
                     Whitespace@13..14 " "
-                    Equals@14..15 "="
+                    Eq@14..15 "="
                     Whitespace@15..16 " "
                     VariableRef@16..17
                       Ident@16..17 "a"
@@ -87,7 +87,7 @@ mod tests {
                     Whitespace@3..4 " "
                     Ident@4..5 "a"
                     Whitespace@5..6 " "
-                    Equals@6..7 "="
+                    Eq@6..7 "="
                     Whitespace@7..8 " "
                     Literal@8..10
                       IntegerLiteral@8..9 "1"

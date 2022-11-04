@@ -68,7 +68,7 @@ pub enum SyntaxKind {
     RBrace,
     LCurly,
     RCurly,
-    VerticalBar,
+    Pipe,
 
     // trivias
     Whitespace,
@@ -112,7 +112,7 @@ impl From<TokenKind> for SyntaxKind {
             TokenKind::RBrace => Self::RBrace,
             TokenKind::LCurly => Self::LCurly,
             TokenKind::RCurly => Self::RCurly,
-            TokenKind::VerticalBar => Self::VerticalBar,
+            TokenKind::Pipe => Self::Pipe,
 
             TokenKind::Whitespace => Self::Whitespace,
             TokenKind::CommentSingle => Self::CommentSingle,

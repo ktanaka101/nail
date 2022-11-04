@@ -71,7 +71,7 @@ pub enum TokenKind {
     #[token("}")]
     RCurly,
     #[token("|")]
-    VerticalBar,
+    Pipe,
 
     // trivias
     #[regex("[ \n]+")]
@@ -121,7 +121,7 @@ impl fmt::Display for TokenKind {
             Self::RBrace => "']'",
             Self::LCurly => "'{'",
             Self::RCurly => "'}'",
-            Self::VerticalBar => "'|'",
+            Self::Pipe => "'|'",
             Self::CommentSingle => "comment",
             Self::Error => "an unrecognized token",
         })
@@ -319,8 +319,8 @@ mod tests {
     }
 
     #[test]
-    fn lex_vertical_bar() {
-        check("|", TokenKind::VerticalBar);
+    fn lex_pipe() {
+        check("|", TokenKind::Pipe);
     }
 
     #[test]

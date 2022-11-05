@@ -20,7 +20,7 @@ pub fn write_message(writer: &mut impl Write, message: &Message) -> Result<()> {
 }
 
 fn read_content(reader: &mut impl BufRead, header: &Header) -> Result<Message> {
-    let mut buf = vec![0; header.content_length.try_into()?];
+    let mut buf = Vec::with_capacity(header.content_length.try_into()?);
     let slice = buf.as_mut_slice();
     reader.read_exact(slice)?;
 

@@ -35,7 +35,7 @@ pub enum TokenKind {
     IntegerLiteral,
     #[regex(r#""[^"]*""#)]
     StringLiteral,
-    #[regex("'[^']*'?", lex_char)]
+    #[regex("'[^']?'?", lex_char)]
     CharLiteral(bool),
 
     // symbols

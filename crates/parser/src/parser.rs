@@ -86,6 +86,22 @@ impl<'l, 'input> Parser<'l, 'input> {
         }
     }
 
+    pub(crate) fn error_in_token(&mut self, expected_kinds: Vec<TokenKind>) {
+        let current_token = self.source.peek_token();
+        let (found, range) = if let Some(Token { kind, range, .. }) = current_token {
+            (*kind, *range)
+        } else {
+            panic!("Bug: called latest token.");
+        };
+
+        self.events
+            .push(Event::Error(ParserError::TokenError(TokenError {
+                expected: expected_kinds,
+                actual: found,
+                range,
+            })));
+    }
+
     pub(crate) fn at_end(&mut self) -> bool {
         self.peek().is_none()
     }
@@ -94,7 +110,7 @@ impl<'l, 'input> Parser<'l, 'input> {
         self.peek().map_or(false, |k| set.contains(&k))
     }
 
-    fn peek(&mut self) -> Option<TokenKind> {
+    pub(crate) fn peek(&mut self) -> Option<TokenKind> {
         self.source.peek_kind()
     }
 }

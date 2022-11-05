@@ -95,9 +95,25 @@ fn literal(parser: &mut Parser) -> CompletedMarker {
         Some(TokenKind::IntegerLiteral | TokenKind::CharLiteral(_))
     ));
 
+    validate_literal(parser);
+
     let marker = parser.start();
     parser.bump();
     marker.complete(parser, SyntaxKind::Literal)
+}
+
+fn validate_literal(parser: &mut Parser) {
+    assert!(matches!(
+        parser.peek(),
+        Some(TokenKind::IntegerLiteral | TokenKind::CharLiteral(_))
+    ));
+
+    let current_kind = parser.peek();
+    if let Some(TokenKind::CharLiteral(terminated)) = current_kind {
+        if !terminated {
+            parser.error_in_token(vec![TokenKind::SingleQuote]);
+        }
+    }
 }
 
 fn variable_ref(parser: &mut Parser) -> CompletedMarker {
@@ -348,6 +364,40 @@ mod tests {
                 SourceFile@0..3
                   Literal@0..3
                     CharLiteral@0..3 "'a'""#]],
+        );
+    }
+
+    #[test]
+    fn parse_unterminated_char() {
+        check(
+            "'a",
+            expect![[r#"
+                SourceFile@0..2
+                  Literal@0..2
+                    CharLiteral@0..2 "'a"
+                error at 0..2: expected ''', in charLiteral"#]],
+        );
+    }
+
+    #[test]
+    fn parse_unterminated_char_with_statement() {
+        check(
+            "'a let b = 10",
+            expect![[r#"
+                SourceFile@0..13
+                  Literal@0..3
+                    CharLiteral@0..2 "'a"
+                    Whitespace@2..3 " "
+                  VariableDef@3..13
+                    LetKw@3..6 "let"
+                    Whitespace@6..7 " "
+                    Ident@7..8 "b"
+                    Whitespace@8..9 " "
+                    Eq@9..10 "="
+                    Whitespace@10..11 " "
+                    Literal@11..13
+                      IntegerLiteral@11..13 "10"
+                error at 0..2: expected ''', in charLiteral"#]],
         );
     }
 

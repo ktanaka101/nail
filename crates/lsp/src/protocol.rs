@@ -1,11 +1,22 @@
 /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#baseProtocol
 use crate::message::Message;
 use anyhow::Result;
-use std::io::BufRead;
+use std::io::{BufRead, Write};
 
 pub fn read_message(reader: &mut impl BufRead) -> Result<Message> {
     let header = read_header(reader)?;
     read_content(reader, &header)
+}
+
+pub fn write_message(writer: &mut impl Write, message: &Message) -> Result<()> {
+    let serialized = serde_json::to_string(message).unwrap();
+
+    writer.write_all(
+        format!("Content-Length: {}\r\n\r\n{}", serialized.len(), serialized).as_bytes(),
+    )?;
+    writer.flush()?;
+
+    Ok(())
 }
 
 fn read_content(reader: &mut impl BufRead, header: &Header) -> Result<Message> {

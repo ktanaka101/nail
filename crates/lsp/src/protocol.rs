@@ -89,7 +89,7 @@ struct HeaderField<'a> {
     value: &'a str,
 }
 
-fn read_header_field<'a>(buf: &'a mut str) -> Result<HeaderField<'a>> {
+fn read_header_field(buf: &mut str) -> Result<HeaderField> {
     let field = match buf.strip_suffix("\r\n") {
         Some(field) => field,
         None => anyhow::bail!("invalid header."),

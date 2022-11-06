@@ -106,6 +106,11 @@ mod tests {
 
     use super::*;
 
+    fn check_read(actual: &str, expected_message: Message) {
+        let message = read_message(&mut actual.as_bytes()).unwrap();
+        assert_eq!(message, expected_message);
+    }
+
     fn check_write(actual: Message, expected_content: &str) {
         let expected = {
             let expected_content = expected_content.replace(' ', "").replace('\n', "");
@@ -135,16 +140,15 @@ mod tests {
 }"#;
         let input = format!("Content-Length: 123\r\n\r\n{}", content);
 
-        let message = read_message(&mut input.as_bytes()).unwrap();
-        assert_eq!(
-            message,
+        check_read(
+            input.as_str(),
             Message::Request(Request {
                 id: RequestId::Integer(1),
                 method: "textDocument/didOpen".to_string(),
                 params: serde_json::json!({
                     "key1": "value1",
                 }),
-            })
+            }),
         );
     }
 
@@ -157,13 +161,12 @@ mod tests {
 }"#;
         let input = format!("Content-Length: 55\r\n\r\n{}", content);
 
-        let message = read_message(&mut input.as_bytes()).unwrap();
-        assert_eq!(
-            message,
+        check_read(
+            input.as_str(),
             Message::Response(Response::Success {
                 id: RequestId::Integer(2),
                 result: serde_json::json!(10),
-            })
+            }),
         );
     }
 
@@ -179,9 +182,8 @@ mod tests {
 }"#;
         let input = format!("Content-Length: 121\r\n\r\n{}", content);
 
-        let message = read_message(&mut input.as_bytes()).unwrap();
-        assert_eq!(
-            message,
+        check_read(
+            input.as_str(),
             Message::Response(Response::Error {
                 id: RequestId::Integer(3),
                 error: ResponseError {
@@ -189,7 +191,7 @@ mod tests {
                     message: "Method not found".to_string(),
                     data: None,
                 },
-            })
+            }),
         );
     }
 
@@ -202,13 +204,12 @@ mod tests {
 }"#;
         let input = format!("Content-Length: 72\r\n\r\n{}", content);
 
-        let message = read_message(&mut input.as_bytes()).unwrap();
-        assert_eq!(
-            message,
+        check_read(
+            input.as_str(),
             Message::Notification(Notification {
                 method: "Method A".to_string(),
                 params: serde_json::json!([1, 2]),
-            })
+            }),
         );
     }
 

@@ -6,8 +6,8 @@ use std::io;
 use anyhow::Result;
 
 pub fn server() -> Result<()> {
-    let stdin = io::stdin().lock();
-    let stdout = io::stdout().lock();
+    let _stdin = io::stdin().lock();
+    let _stdout = io::stdout().lock();
 
     Ok(())
 }

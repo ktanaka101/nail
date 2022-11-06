@@ -4,8 +4,8 @@ use text_size::TextRange;
 
 use lexer::TokenKind;
 
-#[derive(Debug, PartialEq)]
-pub(crate) enum ParserError {
+#[derive(Debug, PartialEq, Eq)]
+pub enum ParserError {
     ParseError(ParseError),
     TokenError(TokenError),
 }
@@ -19,11 +19,17 @@ impl fmt::Display for ParserError {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub(crate) struct TokenError {
+#[derive(Debug, PartialEq, Eq)]
+pub struct TokenError {
     pub(super) expected: Vec<TokenKind>,
     pub(super) actual: TokenKind,
     pub(super) range: TextRange,
+}
+
+impl TokenError {
+    pub fn range(&self) -> TextRange {
+        self.range
+    }
 }
 
 impl fmt::Display for TokenError {
@@ -55,11 +61,17 @@ impl fmt::Display for TokenError {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub(crate) struct ParseError {
+#[derive(Debug, PartialEq, Eq)]
+pub struct ParseError {
     pub(super) expected: Vec<TokenKind>,
     pub(super) found: Option<TokenKind>,
     pub(super) range: TextRange,
+}
+
+impl ParseError {
+    pub fn range(&self) -> TextRange {
+        self.range
+    }
 }
 
 impl fmt::Display for ParseError {

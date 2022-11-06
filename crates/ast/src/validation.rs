@@ -11,6 +11,12 @@ pub struct ValidationError {
     range: TextRange,
 }
 
+impl ValidationError {
+    pub fn range(&self) -> TextRange {
+        self.range
+    }
+}
+
 impl fmt::Display for ValidationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(

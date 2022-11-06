@@ -238,10 +238,13 @@ name = "lsp"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "ast",
  "lsp-types",
+ "parser",
  "serde",
  "serde_json",
  "serde_repr",
+ "text-size",
  "thiserror",
 ]
 

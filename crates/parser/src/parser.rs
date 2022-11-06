@@ -11,7 +11,7 @@ use crate::event::Event;
 use crate::grammar;
 use crate::source::Source;
 use marker::Marker;
-pub(crate) use parse_error::{ParseError, ParserError, TokenError};
+pub use parse_error::{ParseError, ParserError, TokenError};
 
 pub(crate) struct Parser<'l, 'input> {
     source: Source<'l, 'input>,

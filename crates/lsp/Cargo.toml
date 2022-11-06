@@ -11,4 +11,8 @@ lsp-types = "0.93"
 serde = "1.0"
 serde_json = "1.0"
 serde_repr = "0.1"
+text-size = "1.0"
 thiserror = "1.0"
+
+parser = { path = "../parser" }
+ast = { path = "../ast" }

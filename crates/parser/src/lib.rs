@@ -11,7 +11,9 @@ use rowan::GreenNode;
 use lexer::Lexer;
 use syntax::SyntaxNode;
 
-use crate::parser::{Parser, ParserError};
+use crate::parser::Parser;
+pub use crate::parser::{ParseError, ParserError, TokenError};
+
 use sink::Sink;
 use source::Source;
 
@@ -53,6 +55,10 @@ impl Parse {
 
     pub fn syntax(&self) -> SyntaxNode {
         SyntaxNode::new_root(self.green_node.clone())
+    }
+
+    pub fn errors(&self) -> &[ParserError] {
+        &self.errors
     }
 }
 

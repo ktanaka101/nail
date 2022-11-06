@@ -102,7 +102,7 @@ fn read_header_field(buf: &str) -> Result<HeaderField> {
 
 #[cfg(test)]
 mod tests {
-    use crate::message::{ErrorCode, Request, RequestId, Response, ResponseError};
+    use crate::message::{ErrorCode, Notification, Request, RequestId, Response, ResponseError};
 
     use super::*;
 
@@ -172,6 +172,25 @@ mod tests {
                     message: "Method not found".to_string(),
                     data: None,
                 },
+            })
+        );
+    }
+
+    #[test]
+    fn test_read_notification() {
+        let content = r#"{
+    "jsonrpc": "2.0",
+    "method": "Method A",
+    "params": [1, 2]
+}"#;
+        let input = format!("Content-Length: 72\r\n\r\n{}", content);
+
+        let message = read_message(&mut input.as_bytes()).unwrap();
+        assert_eq!(
+            message,
+            Message::Notification(Notification {
+                method: "Method A".to_string(),
+                params: serde_json::json!([1, 2]),
             })
         );
     }

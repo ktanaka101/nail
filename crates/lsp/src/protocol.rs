@@ -106,6 +106,23 @@ mod tests {
 
     use super::*;
 
+    fn check_write(actual: Message, expected_content: &str) {
+        let expected = {
+            let expected_content = expected_content.replace(' ', "").replace('\n', "");
+            let expected_content_length = expected_content.bytes().len();
+
+            format!(
+                "Content-Length: {}\r\n\r\n{}",
+                expected_content_length, expected_content
+            )
+        };
+
+        let mut buf = vec![];
+        write_message(&mut buf, &actual).unwrap();
+
+        assert_eq!(buf, expected.as_bytes());
+    }
+
     #[test]
     fn test_read_request() {
         let content = r#"{
@@ -193,23 +210,6 @@ mod tests {
                 params: serde_json::json!([1, 2]),
             })
         );
-    }
-
-    fn check_write(actual: Message, expected_content: &str) {
-        let expected = {
-            let expected_content = expected_content.replace(' ', "").replace('\n', "");
-            let expected_content_length = expected_content.bytes().len();
-
-            format!(
-                "Content-Length: {}\r\n\r\n{}",
-                expected_content_length, expected_content
-            )
-        };
-
-        let mut buf = vec![];
-        write_message(&mut buf, &actual).unwrap();
-
-        assert_eq!(buf, expected.as_bytes());
     }
 
     #[test]

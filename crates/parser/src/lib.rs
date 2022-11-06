@@ -4,6 +4,8 @@ mod parser;
 mod sink;
 mod source;
 
+use std::fmt;
+
 use rowan::GreenNode;
 
 use lexer::Lexer;
@@ -26,6 +28,12 @@ pub fn parse(input: &str) -> Parse {
 pub struct Parse {
     green_node: GreenNode,
     errors: Vec<ParserError>,
+}
+
+impl fmt::Debug for Parse {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.debug_tree())
+    }
 }
 
 impl Parse {

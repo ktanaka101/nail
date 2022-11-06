@@ -125,7 +125,7 @@ mod tests {
         let mut buf = vec![];
         write_message(&mut buf, &actual).unwrap();
 
-        assert_eq!(buf, expected.as_bytes());
+        assert_eq!(String::from_utf8(buf), Ok(expected));
     }
 
     #[test]
@@ -232,6 +232,58 @@ mod tests {
                     "key1": "value1",
                     "key2": "value2"
                 }
+            }"#,
+        );
+    }
+
+    #[test]
+    fn test_write_success_response() {
+        check_write(
+            Message::Response(Response::Success {
+                id: RequestId::Integer(2),
+                result: serde_json::json!(10),
+            }),
+            r#"{
+                "jsonrpc": "2.0",
+                "id": 2,
+                "result": 10
+            }"#,
+        );
+    }
+
+    #[test]
+    fn test_write_error_response() {
+        check_write(
+            Message::Response(Response::Error {
+                id: RequestId::Integer(3),
+                error: ResponseError {
+                    code: ErrorCode::MethodNotFound,
+                    message: "MethodNotFound".to_string(),
+                    data: None,
+                },
+            }),
+            r#"{
+                "jsonrpc": "2.0",
+                "id": 3,
+                "error": {
+                    "code": -32601,
+                    "message": "MethodNotFound"
+                }
+            }"#,
+        );
+    }
+
+    #[test]
+    fn test_write_notification() {
+        check_write(
+            Message::Notification(Notification {
+                method: "MethodA".to_string(),
+                params: serde_json::json!([1, 2]),
+            }),
+            r#"{
+                "jsonrpc": "2.0",
+                "method": "MethodA",
+                "params": [1,2]
             }"#,
         );
     }

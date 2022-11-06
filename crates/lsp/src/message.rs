@@ -79,6 +79,7 @@ pub enum Response {
 pub struct ResponseError {
     pub code: ErrorCode,
     pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<serde_json::Value>,
 }
 

@@ -1,5 +1,5 @@
-mod message;
-mod protocol;
+pub mod message;
+pub mod protocol;
 
 use std::io;
 

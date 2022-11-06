@@ -20,7 +20,7 @@ pub fn write_message(writer: &mut impl Write, message: &Message) -> Result<()> {
 }
 
 fn read_content(reader: &mut impl BufRead, header: &Header) -> Result<Message> {
-    let mut buf = Vec::with_capacity(header.content_length.try_into()?);
+    let mut buf = vec![0; header.content_length.try_into()?];
     let slice = buf.as_mut_slice();
     reader.read_exact(slice)?;
 
@@ -47,8 +47,7 @@ fn read_header(reader: &mut impl BufRead) -> Result<Header> {
                 break;
             }
 
-            let field = read_header_field(&mut buf)?;
-
+            let field = read_header_field(&buf)?;
             match field.name {
                 "Content-Length" => {
                     if content_length.is_some() {
@@ -89,14 +88,91 @@ struct HeaderField<'a> {
     value: &'a str,
 }
 
-fn read_header_field(buf: &mut str) -> Result<HeaderField> {
+fn read_header_field(buf: &str) -> Result<HeaderField> {
     let field = match buf.strip_suffix("\r\n") {
         Some(field) => field,
-        None => anyhow::bail!("invalid header."),
+        None => anyhow::bail!("invalid header. missing CRLF"),
     };
 
     match field.split_once(": ") {
         Some((name, value)) => Ok(HeaderField { name, value }),
-        None => anyhow::bail!("invalid header."),
+        None => anyhow::bail!("invalid header. missing colon"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::message::{ErrorCode, Request, RequestId, Response, ResponseError};
+
+    use super::*;
+
+    #[test]
+    fn test_read_request() {
+        let content = r#"{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "textDocument/didOpen",
+    "params": {
+        "key1": "value1"
+    }
+}"#;
+        let input = format!("Content-Length: 123\r\n\r\n{}", content);
+
+        let message = read_message(&mut input.as_bytes()).unwrap();
+        assert_eq!(
+            message,
+            Message::Request(Request {
+                id: RequestId::Integer(1),
+                method: "textDocument/didOpen".to_string(),
+                params: serde_json::json!({
+                    "key1": "value1",
+                }),
+            })
+        );
+    }
+
+    #[test]
+    fn test_read_success_response() {
+        let content = r#"{
+    "jsonrpc": "2.0",
+    "id": 2,
+    "result": 10
+}"#;
+        let input = format!("Content-Length: 55\r\n\r\n{}", content);
+
+        let message = read_message(&mut input.as_bytes()).unwrap();
+        assert_eq!(
+            message,
+            Message::Response(Response::Success {
+                id: RequestId::Integer(2),
+                result: serde_json::json!(10),
+            })
+        );
+    }
+
+    #[test]
+    fn test_read_error_response() {
+        let content = r#"{
+    "jsonrpc": "2.0",
+    "id": 3,
+    "error": {
+        "code": -32601,
+        "message": "Method not found"
+    }
+}"#;
+        let input = format!("Content-Length: 121\r\n\r\n{}", content);
+
+        let message = read_message(&mut input.as_bytes()).unwrap();
+        assert_eq!(
+            message,
+            Message::Response(Response::Error {
+                id: RequestId::Integer(3),
+                error: ResponseError {
+                    code: ErrorCode::MethodNotFound,
+                    message: "Method not found".to_string(),
+                    data: None,
+                },
+            })
+        );
     }
 }

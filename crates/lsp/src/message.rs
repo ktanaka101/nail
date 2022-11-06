@@ -1,6 +1,7 @@
 use serde::{ser::SerializeStruct, Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Deserialize)]
 #[serde(untagged)]
 pub enum Message {
     Request(Request),
@@ -53,41 +54,49 @@ impl Serialize for Message {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Deserialize)]
 pub struct Request {
     pub id: RequestId,
     pub method: String,
     pub params: serde_json::Value,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Deserialize)]
+#[serde(untagged)]
 pub enum Response {
-    Success { id: RequestId, result: String },
-    Error { id: RequestId, error: ResponseError },
+    Success {
+        id: RequestId,
+        result: serde_json::Value,
+    },
+    Error {
+        id: RequestId,
+        error: ResponseError,
+    },
 }
 
 /// see: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#responseMessage
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ResponseError {
-    code: i32,
-    message: String,
-    data: Option<serde_json::Value>,
+    pub code: ErrorCode,
+    pub message: String,
+    pub data: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum RequestId {
     Integer(i32),
     String(String),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Notification {
     pub method: String,
     pub params: serde_json::Value,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Serialize_repr, Deserialize_repr)]
+#[repr(i32)]
 pub enum ErrorCode {
     ParseError = -32700,
     InvalidRequest = -32600,

@@ -1,5 +1,6 @@
 # Use cargo-make
 # https://github.com/sagiegurari/cargo-make
+# Usage: cargo make --makefile tasks.toml <task>
 
 [tasks.format]
 install_crate = "rustfmt"

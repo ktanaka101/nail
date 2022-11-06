@@ -194,4 +194,44 @@ mod tests {
             })
         );
     }
+
+    fn check_write(actual: Message, expected_content: &str) {
+        let expected = {
+            let expected_content = expected_content.replace(' ', "").replace('\n', "");
+            let expected_content_length = expected_content.bytes().len();
+
+            format!(
+                "Content-Length: {}\r\n\r\n{}",
+                expected_content_length, expected_content
+            )
+        };
+
+        let mut buf = vec![];
+        write_message(&mut buf, &actual).unwrap();
+
+        assert_eq!(buf, expected.as_bytes());
+    }
+
+    #[test]
+    fn test_write_request() {
+        check_write(
+            Message::Request(Request {
+                id: RequestId::Integer(1),
+                method: "textDocument/didOpen".to_string(),
+                params: serde_json::json!({
+                    "key1": "value1",
+                    "key2": "value2"
+                }),
+            }),
+            r#"{
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "textDocument/didOpen",
+                "params": {
+                    "key1": "value1",
+                    "key2": "value2"
+                }
+            }"#,
+        );
+    }
 }

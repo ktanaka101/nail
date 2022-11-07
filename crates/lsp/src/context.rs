@@ -4,15 +4,18 @@ use std::fs;
 use std::path;
 
 use anyhow::Result;
-use ast::validation::ValidationError;
 use lsp_types::TextDocumentContentChangeEvent;
 use lsp_types::TextDocumentIdentifier;
 use lsp_types::TextDocumentItem;
 use lsp_types::Url;
 use lsp_types::VersionedTextDocumentIdentifier;
+use text_size::TextRange;
+
+use ast::validation::ValidationError;
 use parser::ParseError;
 use parser::TokenError;
-use text_size::TextRange;
+
+use crate::line_index;
 
 #[derive(Debug, Default)]
 pub struct Context {
@@ -63,16 +66,19 @@ pub struct Analysis {
     pub uri: Url,
     pub content: String,
     pub parsed: parser::Parse,
+    pub line_index: line_index::LineIndex,
 }
 
 impl Analysis {
     pub fn new(uri: Url, content: String) -> Self {
         let parsed = parser::parse(content.as_str());
+        let line_index = line_index::LineIndex::new(content.as_str());
 
         Self {
             uri,
             content,
             parsed,
+            line_index,
         }
     }
 
@@ -108,18 +114,35 @@ impl Diagnostic {
         Self::Validation(error)
     }
 
-    pub fn display(&self) -> String {
-        let range = self.range();
+    pub fn display(&self, line_index: &line_index::LineIndex) -> String {
+        let range = line_index::PositionRange::from_text_range(self.text_range(), line_index);
 
-        format!("{} at {}:{}: {}", self.severity(), 0, 0, self.message())
+        format!(
+            "{} at {}:{}: {}",
+            self.severity(),
+            range.start().line_number(),
+            range.start().col_number(),
+            self.message()
+        )
     }
 
     pub const fn severity(&self) -> Severity {
         Severity::Error
     }
 
-    pub fn range(&self) -> lsp_types::Range {
-        todo!()
+    pub fn range(&self, line_index: &line_index::LineIndex) -> lsp_types::Range {
+        let range = line_index::PositionRange::from_text_range(self.text_range(), line_index);
+
+        lsp_types::Range {
+            start: lsp_types::Position {
+                line: range.start().line_number().0.into(),
+                character: range.start().col_number().0.into(),
+            },
+            end: lsp_types::Position {
+                line: range.end().line_number().0.into(),
+                character: range.end().col_number().0.into(),
+            },
+        }
     }
 
     fn message(&self) -> String {

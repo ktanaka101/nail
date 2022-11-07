@@ -100,7 +100,10 @@ fn publish_all_diagnostics(context: &context::Context, out: &mut io::StdoutLock)
         let diagnostics = diagnostics
             .iter()
             .map(|diagnostic| {
-                lsp_types::Diagnostic::new_simple(diagnostic.range(), diagnostic.display())
+                lsp_types::Diagnostic::new_simple(
+                    diagnostic.range(&analysis.line_index),
+                    diagnostic.display(&analysis.line_index),
+                )
             })
             .collect::<Vec<_>>();
 

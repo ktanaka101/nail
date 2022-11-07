@@ -12,6 +12,10 @@ pub struct ValidationError {
 }
 
 impl ValidationError {
+    pub fn kind(&self) -> ValidationErrorKind {
+        self.kind
+    }
+
     pub fn range(&self) -> TextRange {
         self.range
     }
@@ -30,7 +34,7 @@ impl fmt::Display for ValidationError {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ValidationErrorKind {
+pub enum ValidationErrorKind {
     IntegerLiteralTooLarge,
 }
 

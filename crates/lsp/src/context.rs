@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt;
 use std::fs;
 use std::path;
 
@@ -109,15 +110,24 @@ impl Diagnostic {
 
     pub fn display(&self) -> String {
         let range = self.range();
-        todo!()
+
+        format!("{} at {}:{}: {}", self.severity(), 0, 0, self.message())
     }
 
-    pub fn severity(&self) -> Severity {
+    pub const fn severity(&self) -> Severity {
         Severity::Error
     }
 
     pub fn range(&self) -> lsp_types::Range {
         todo!()
+    }
+
+    fn message(&self) -> String {
+        match self {
+            Self::Token(err) => todo!(),
+            Self::Parsing(err) => todo!(),
+            Self::Validation(err) => todo!(),
+        };
     }
 
     fn text_range(&self) -> TextRange {
@@ -129,6 +139,15 @@ impl Diagnostic {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Severity {
     Error,
+}
+
+impl fmt::Display for Severity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Error => write!(f, "error"),
+        }
+    }
 }

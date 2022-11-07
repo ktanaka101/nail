@@ -1,4 +1,5 @@
 pub mod context;
+mod line_index;
 pub mod message;
 pub mod protocol;
 

@@ -1,9 +1,11 @@
+use std::fmt;
 use std::iter;
 
+use text_size::TextRange;
 use text_size::TextSize;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct LineIndex {
+pub struct LineIndex {
     line_starts: Vec<TextSize>,
 }
 
@@ -33,26 +35,62 @@ impl LineIndex {
     }
 }
 
-pub(crate) struct Position {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PositionRange {
+    start: Position,
+    end: Position,
+}
+
+impl PositionRange {
+    pub fn from_text_range(text_range: TextRange, line_index: &LineIndex) -> Self {
+        Self {
+            start: line_index.line_col(text_range.start()),
+            end: line_index.line_col(text_range.end()),
+        }
+    }
+
+    pub fn start(&self) -> Position {
+        self.start
+    }
+
+    pub fn end(&self) -> Position {
+        self.end
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Position {
     line_number: LineNumber,
     col_number: ColNumber,
 }
 
 impl Position {
-    pub(crate) fn line_number(&self) -> LineNumber {
+    pub fn line_number(&self) -> LineNumber {
         self.line_number
     }
 
-    pub(crate) fn col_number(&self) -> ColNumber {
+    pub fn col_number(&self) -> ColNumber {
         self.col_number
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct LineNumber(TextSize);
+pub struct LineNumber(pub TextSize);
+
+impl fmt::Display for LineNumber {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", u32::from(self.0) + 1)
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct ColNumber(TextSize);
+pub struct ColNumber(pub TextSize);
+
+impl fmt::Display for ColNumber {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", u32::from(self.0) + 1)
+    }
+}
 
 #[cfg(test)]
 mod tests {

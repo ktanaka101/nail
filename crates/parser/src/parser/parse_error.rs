@@ -27,6 +27,14 @@ pub struct TokenError {
 }
 
 impl TokenError {
+    pub fn expected(&self) -> &[TokenKind] {
+        &self.expected
+    }
+
+    pub fn actual(&self) -> TokenKind {
+        self.actual
+    }
+
     pub fn range(&self) -> TextRange {
         self.range
     }
@@ -69,6 +77,14 @@ pub struct ParseError {
 }
 
 impl ParseError {
+    pub fn expected(&self) -> &[TokenKind] {
+        &self.expected
+    }
+
+    pub fn found(&self) -> Option<TokenKind> {
+        self.found
+    }
+
     pub fn range(&self) -> TextRange {
         self.range
     }

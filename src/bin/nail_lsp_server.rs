@@ -1,5 +1,4 @@
-use anyhow::Result;
-
-fn main() -> Result<()> {
-    lsp::server()
+#[tokio::main]
+async fn main() {
+    new_lsp::run_server().await
 }

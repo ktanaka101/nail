@@ -444,6 +444,7 @@ dependencies = [
  "syntax",
  "termion",
  "thiserror",
+ "tokio",
  "typed-arena",
 ]
 

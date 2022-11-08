@@ -12,6 +12,7 @@ inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", feat
   "llvm14-0",
 ] }
 termion = "2.0"
+tokio = { version = "1.17.0", features = ["full"] }
 typed-arena = "2.0"
 
 lexer = { path = "crates/lexer" }
@@ -21,6 +22,7 @@ ast = { path = "crates/ast" }
 hir = { path = "crates/hir" }
 lsp = { path = "crates/lsp" }
 new_lsp = { path = "crates/new_lsp" }
+
 
 [workspace]
 members = ["crates/*"]

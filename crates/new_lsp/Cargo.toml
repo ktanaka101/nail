@@ -1,0 +1,16 @@
+[package]
+name = "new_lsp"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0"
+text-size = "1.0"
+thiserror = "1.0"
+tokio = { version = "1.17.0", features = ["full"] }
+tower-lsp = "0.17"
+
+parser = { path = "../parser" }
+ast = { path = "../ast" }

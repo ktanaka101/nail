@@ -133,16 +133,7 @@ impl Diagnostic {
     pub fn range(&self, line_index: &line_index::LineIndex) -> lsp_types::Range {
         let range = line_index::PositionRange::from_text_range(self.text_range(), line_index);
 
-        lsp_types::Range {
-            start: lsp_types::Position {
-                line: range.start().line_number().0.into(),
-                character: range.start().col_number().0.into(),
-            },
-            end: lsp_types::Position {
-                line: range.end().line_number().0.into(),
-                character: range.end().col_number().0.into(),
-            },
-        }
+        range.into()
     }
 
     fn message(&self) -> String {

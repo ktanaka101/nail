@@ -58,6 +58,21 @@ impl PositionRange {
     }
 }
 
+impl From<PositionRange> for lsp_types::Range {
+    fn from(range: PositionRange) -> lsp_types::Range {
+        lsp_types::Range {
+            start: lsp_types::Position {
+                line: range.start().line_number().0.into(),
+                character: range.start().col_number().0.into(),
+            },
+            end: lsp_types::Position {
+                line: range.end().line_number().0.into(),
+                character: range.end().col_number().0.into(),
+            },
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Position {
     line_number: LineNumber,

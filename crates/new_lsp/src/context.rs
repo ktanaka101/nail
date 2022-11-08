@@ -52,10 +52,6 @@ impl Context {
 
         Ok(())
     }
-
-    pub fn analyses(&self) -> Vec<&Analysis> {
-        self.analyses.values().collect::<Vec<_>>()
-    }
 }
 
 #[derive(Debug)]

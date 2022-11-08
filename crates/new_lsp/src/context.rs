@@ -5,7 +5,6 @@ use std::path;
 
 use anyhow::Result;
 use ast::validation::ValidationErrorKind;
-use lsp_types::TextDocumentContentChangeEvent;
 use lsp_types::TextDocumentIdentifier;
 use lsp_types::TextDocumentItem;
 use lsp_types::Url;

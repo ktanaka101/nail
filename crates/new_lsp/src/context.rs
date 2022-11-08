@@ -29,27 +29,23 @@ impl Context {
         Self::default()
     }
 
-    pub fn add_file(&mut self, text_document: TextDocumentItem) -> Result<()> {
-        self.analyses.insert(
-            text_document.uri.clone(),
-            Analysis::new(text_document.uri, text_document.text),
-        );
+    pub fn add_file(&mut self, text_document: TextDocumentItem) -> Result<&Analysis> {
+        let analysis = Analysis::new(text_document.uri, text_document.text);
 
-        Ok(())
+        let uri = analysis.uri.clone();
+        self.analyses.insert(uri.clone(), analysis);
+
+        Ok(self.analyses.get(&uri).unwrap())
     }
 
-    pub fn update_file(
-        &mut self,
-        id: &VersionedTextDocumentIdentifier,
-        _changes: &[TextDocumentContentChangeEvent],
-    ) -> Result<()> {
+    pub fn update_file(&mut self, id: &VersionedTextDocumentIdentifier) -> Result<&Analysis> {
         let path = path::Path::new(id.uri.path());
         let content = fs::read_to_string(path)?;
         let analysis = Analysis::new(id.uri.clone(), content);
 
         self.analyses.insert(id.uri.clone(), analysis);
 
-        Ok(())
+        Ok(self.analyses.get(&id.uri).unwrap())
     }
 
     pub fn remove_file(&mut self, text_document: TextDocumentIdentifier) -> Result<()> {

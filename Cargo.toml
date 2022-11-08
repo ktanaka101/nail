@@ -19,6 +19,7 @@ syntax = { path = "crates/syntax" }
 parser = { path = "crates/parser" }
 ast = { path = "crates/ast" }
 hir = { path = "crates/hir" }
+lsp = { path = "crates/lsp" }
 
 [workspace]
 members = ["crates/*"]

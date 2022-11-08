@@ -285,6 +285,7 @@ dependencies = [
  "hir",
  "inkwell",
  "lexer",
+ "lsp",
  "parser",
  "syntax",
  "termion",

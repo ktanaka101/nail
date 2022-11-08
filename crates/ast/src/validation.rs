@@ -5,7 +5,7 @@ use text_size::TextRange;
 use crate::Literal;
 use syntax::SyntaxNode;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValidationError {
     kind: ValidationErrorKind,
     range: TextRange,

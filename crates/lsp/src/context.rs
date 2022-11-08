@@ -4,6 +4,7 @@ use std::fs;
 use std::path;
 
 use anyhow::Result;
+use ast::validation::ValidationErrorKind;
 use lsp_types::TextDocumentContentChangeEvent;
 use lsp_types::TextDocumentIdentifier;
 use lsp_types::TextDocumentItem;
@@ -138,10 +139,34 @@ impl Diagnostic {
 
     fn message(&self) -> String {
         match self {
-            Self::Token(err) => todo!(),
-            Self::Parsing(err) => todo!(),
-            Self::Validation(err) => todo!(),
-        };
+            Self::Token(err) => {
+                let mut message = String::new();
+                message.push_str(format!("actual: {}", err.actual()).as_str());
+                message.push_str(" expected ");
+                for expected in err.expected() {
+                    message.push_str(format!("{}, ", expected).as_str());
+                }
+
+                message
+            }
+            Self::Parsing(err) => {
+                let mut message = String::new();
+                if let Some(token) = err.found() {
+                    message.push_str(format!("actual: {}", token).as_str());
+                }
+                message.push_str(" expected ");
+                for expected in err.expected() {
+                    message.push_str(format!("{}, ", expected).as_str());
+                }
+
+                message
+            }
+            Self::Validation(err) => match err.kind() {
+                ValidationErrorKind::IntegerLiteralTooLarge => {
+                    "Integer literal too large".to_string()
+                }
+            },
+        }
     }
 
     fn text_range(&self) -> TextRange {

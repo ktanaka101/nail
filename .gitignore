@@ -8,3 +8,5 @@
 /fuzz/artifacts
 /fuzz/corpus/main/*
 !/fuzz/corpus/main/example
+
+node_modules

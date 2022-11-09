@@ -648,8 +648,8 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
     }
 
     fn gen_infix_expr(&mut self, infix_expr: &ast::InfixExpr) -> Result<BasicValueEnum<'ctx>> {
-        let lvalue = self.gen_expr(&*infix_expr.left)?;
-        let rvalue = self.gen_expr(&*infix_expr.right)?;
+        let lvalue = self.gen_expr(&infix_expr.left)?;
+        let rvalue = self.gen_expr(&infix_expr.right)?;
 
         Ok(match (lvalue, rvalue) {
             (BasicValueEnum::IntValue(lv), BasicValueEnum::IntValue(rv)) => {
@@ -684,7 +684,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
     fn gen_prefix_expr(&mut self, prefix_expr: &ast::PrefixExpr) -> Result<BasicValueEnum<'ctx>> {
         Ok(match &prefix_expr.ope {
             ast::Operator::Bang => {
-                let expr = self.gen_expr(&*prefix_expr.right)?;
+                let expr = self.gen_expr(&prefix_expr.right)?;
                 if !expr.is_int_value() {
                     return Err(Error::DifferentType(
                         "IntValue".to_string(),
@@ -711,7 +711,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                     .into()
             }
             ast::Operator::Minus => {
-                let expr = self.gen_expr(&*prefix_expr.right)?;
+                let expr = self.gen_expr(&prefix_expr.right)?;
                 if !expr.is_int_value() {
                     return Err(Error::DifferentType(
                         "IntValue".to_string(),
@@ -730,7 +730,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         let parent = self.fn_value();
         let zero = self.context.i64_type().const_zero();
 
-        let cond = self.gen_expr(&*if_expr.cond)?;
+        let cond = self.gen_expr(&if_expr.cond)?;
         if !cond.is_int_value() {
             return Err(
                 Error::DifferentType("IntValue".to_string(), get_type_string(&cond)).into(),

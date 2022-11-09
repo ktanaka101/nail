@@ -1,11 +1,13 @@
 {
   "name": "nail-language-client",
   "description": "The client of a language server for VSCode",
+  "author": "ktanaka101",
   "license": "MIT",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.73.0"
   },
+  "main": "./out/extension",
   "contributes": {
     "languages": [
       {
@@ -19,6 +21,9 @@
       }
     ]
   },
+  "activationEvents": [
+    "onLanguage:nail"
+  ],
   "dependencies": {
     "vscode-languageclient": "^8.0.2"
   },
@@ -26,6 +31,11 @@
     "@types/node": "^18.11.9",
     "@types/vscode": "~1.73.0",
     "@vscode/test-electron": "^2.2.0"
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -b",
+    "watch": "tsc -b -w"
   },
   "volta": {
     "node": "18.12.1",

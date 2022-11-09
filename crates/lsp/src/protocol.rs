@@ -113,7 +113,7 @@ mod tests {
 
     fn check_write(actual: Message, expected_content: &str) {
         let expected = {
-            let expected_content = expected_content.replace(' ', "").replace('\n', "");
+            let expected_content = expected_content.replace([' ', '\n'], "");
             let expected_content_length = expected_content.bytes().len();
 
             format!(

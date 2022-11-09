@@ -6,6 +6,19 @@
   "engines": {
     "vscode": "^1.73.0"
   },
+  "contributes": {
+    "languages": [
+      {
+        "id": "nail",
+        "extensions": [
+          ".nail"
+        ],
+        "aliases": [
+          "Nail"
+        ]
+      }
+    ]
+  },
   "dependencies": {
     "vscode-languageclient": "^8.0.2"
   },

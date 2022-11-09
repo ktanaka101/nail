@@ -5,6 +5,7 @@ RUN apt-get update && apt-get -y upgrade
 # See: https://apt.llvm.org/
 RUN apt-get install -y gnupg2
 RUN apt-get install -y wget
+RUN apt-get install -y curl
 
 RUN wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
 
@@ -38,6 +39,9 @@ ENV PATH $PATH:/usr/lib/llvm-14/bin/
 ENV LLVM_SYS_140_STRICT_VERSIONING=140
 ENV LLVM_SYS_140_PREFIX=/usr/lib/llvm-14
 
+# Node.js for VSCode extension
+RUN curl -sL https://deb.nodesource.com/setup_18.x | bash -
+RUN apt install -y nodejs
 
 # for development
 

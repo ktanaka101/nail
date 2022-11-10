@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::fmt;
 use std::fs;
 use std::path;
 
@@ -119,7 +118,7 @@ impl Diagnostic {
 
         format!(
             "{} at {}:{}~{}:{} {}",
-            self.severity(),
+            self.title(),
             range.start().line_number(),
             range.start().col_number(),
             range.end().line_number(),
@@ -128,8 +127,12 @@ impl Diagnostic {
         )
     }
 
-    pub const fn severity(&self) -> Severity {
-        Severity::Error
+    pub fn title(&self) -> String {
+        match self {
+            Self::Token(_) => "token error".to_string(),
+            Self::Parsing(_) => "syntax error".to_string(),
+            Self::Validation(_) => "validation error".to_string(),
+        }
     }
 
     pub fn range(&self, line_index: &line_index::LineIndex) -> lsp_types::Range {
@@ -175,19 +178,6 @@ impl Diagnostic {
             Self::Token(err) => err.range(),
             Self::Parsing(err) => err.range(),
             Self::Validation(err) => err.range(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Severity {
-    Error,
-}
-
-impl fmt::Display for Severity {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Error => write!(f, "error"),
         }
     }
 }

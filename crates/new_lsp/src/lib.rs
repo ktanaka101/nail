@@ -64,20 +64,25 @@ struct Backend {
 
 impl Backend {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
+        self.info("server initialize!").await;
         Ok(InitializeResult::default())
     }
 
     async fn initialized(&self, _: InitializedParams) {
-        self.client
-            .log_message(MessageType::INFO, "server initialized!")
-            .await;
+        self.info("server initialized!").await;
     }
 
     async fn shutdown(&self) -> Result<()> {
+        self.info("server shutdown!").await;
         Ok(())
     }
 
     async fn did_open(&mut self, params: DidOpenTextDocumentParams) {
+        self.info(&format!(
+            "server did open! get uri: {}",
+            params.text_document.uri
+        ))
+        .await;
         match self.context.add_file(params.text_document) {
             Ok(analysis) => {
                 let diagnostics = get_diagnostics(analysis);
@@ -90,6 +95,11 @@ impl Backend {
     }
 
     async fn did_change(&mut self, params: DidChangeTextDocumentParams) {
+        self.info(&format!(
+            "server did change! get uri: {}",
+            params.text_document.uri
+        ))
+        .await;
         match self.context.update_file(&params.text_document) {
             Ok(analysis) => {
                 let diagnostics = get_diagnostics(analysis);
@@ -102,9 +112,18 @@ impl Backend {
     }
 
     async fn did_close(&mut self, params: DidCloseTextDocumentParams) {
+        self.info(&format!(
+            "server did close! get uri: {}",
+            params.text_document.uri
+        ))
+        .await;
         if let Err(e) = self.context.remove_file(params.text_document) {
             self.client.show_message(MessageType::LOG, e).await;
         }
+    }
+
+    async fn info(&self, message: &str) {
+        self.client.log_message(MessageType::INFO, message).await;
     }
 }
 

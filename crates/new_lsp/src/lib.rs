@@ -65,7 +65,18 @@ struct Backend {
 impl Backend {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
         self.info("server initialize!").await;
-        Ok(InitializeResult::default())
+        Ok(InitializeResult {
+            capabilities: ServerCapabilities {
+                text_document_sync: Some(TextDocumentSyncCapability::Kind(
+                    TextDocumentSyncKind::FULL,
+                )),
+                ..ServerCapabilities::default()
+            },
+            server_info: Some(ServerInfo {
+                name: "nail-language-server".to_string(),
+                version: Some(env!("CARGO_PKG_VERSION").to_string()),
+            }),
+        })
     }
 
     async fn initialized(&self, _: InitializedParams) {

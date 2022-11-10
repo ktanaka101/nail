@@ -10,7 +10,7 @@ import {
 let client: LanguageClient;
 
 export function activate(_context: ExtensionContext) {
-	const command = process.env.SERVER_PATH || "nail-language-server";
+	const command = process.env.NAIL_LANGUAGE_SERVER_PATH || "nail-language-server";
   const run: Executable = {
     command,
     options: {

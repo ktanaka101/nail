@@ -27,7 +27,7 @@ impl LineIndex {
         let line = LineNumber(TextSize::try_from(line).expect("line number overflow"));
 
         let line_start_offset = offset - self.line_starts[usize::from(line.0)];
-        let col = ColNumber(offset - line_start_offset);
+        let col = ColNumber(line_start_offset);
 
         Position {
             line_number: line,
@@ -139,5 +139,59 @@ mod tests {
     #[test]
     fn two() {
         check("foo\nbar", [0, 4]);
+    }
+}
+
+#[cfg(test)]
+mod tests_line_col {
+    use super::*;
+
+    fn check_line_col(text: &str, actual_offset: u32, expected_line: u32, expected_col: u32) {
+        let line_index = LineIndex::new(text);
+        let offset = TextSize::from(actual_offset);
+        let line = LineNumber(TextSize::from(expected_line));
+        let col = ColNumber(TextSize::from(expected_col));
+        assert_eq!(
+            line_index.line_col(offset),
+            Position {
+                line_number: line,
+                col_number: col
+            }
+        );
+    }
+
+    #[test]
+    fn index0() {
+        check_line_col("foo\nbar\n", 0, 0, 0);
+    }
+
+    #[test]
+    fn index1() {
+        check_line_col("foo\nbar\n", 1, 0, 1);
+    }
+
+    #[test]
+    fn index_prev_new_line() {
+        check_line_col("foo\nbar\n", 2, 0, 2);
+    }
+
+    #[test]
+    fn index_new_line() {
+        check_line_col("foo\nbar\n", 3, 0, 3);
+    }
+
+    #[test]
+    fn index_next_new_line() {
+        check_line_col("foo\nbar\n", 4, 1, 0);
+    }
+
+    #[test]
+    fn index_prev_two_new_line() {
+        check_line_col("foo\nbar\n", 6, 1, 2);
+    }
+
+    #[test]
+    fn last_index() {
+        check_line_col("foo\nbar\n", 7, 1, 3);
     }
 }

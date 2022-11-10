@@ -111,6 +111,10 @@ impl Backend {
             params.text_document.uri
         ))
         .await;
+
+        // FIXME: this is a hack to get the uri. Do not read from the file system in Context::upadte_file.
+        tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+
         match self.context.update_file(&params.text_document) {
             Ok(analysis) => {
                 let diagnostics = get_diagnostics(analysis);

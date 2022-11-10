@@ -52,7 +52,7 @@ RUN apt-get install -y git
 # fast build by the rust in docker
 ENV CARGO_BUILD_TARGET_DIR=/tmp/target
 
-ENV NAIL_LANGUAGE_SERVER_PATH=/tmp/target/debug/nail_lsp_server
+ENV NAIL_LANGUAGE_SERVER_PATH=/tmp/target/debug/nail-language-server
 
 # using by cargo-fuzz
 RUN apt-get install -y g++

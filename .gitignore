@@ -1,6 +1,5 @@
 /target
 **/*.rs.bk
-.vscode
 /output/*.output
 .envrc
 .DS_STORE

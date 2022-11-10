@@ -380,13 +380,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ast",
- "lsp-types",
  "parser",
- "serde",
- "serde_json",
- "serde_repr",
  "text-size",
  "thiserror",
+ "tokio",
+ "tower-lsp",
 ]
 
 [[package]]
@@ -439,26 +437,12 @@ dependencies = [
  "inkwell",
  "lexer",
  "lsp",
- "new_lsp",
  "parser",
  "syntax",
  "termion",
  "thiserror",
  "tokio",
  "typed-arena",
-]
-
-[[package]]
-name = "new_lsp"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "ast",
- "parser",
- "text-size",
- "thiserror",
- "tokio",
- "tower-lsp",
 ]
 
 [[package]]

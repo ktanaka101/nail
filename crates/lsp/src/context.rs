@@ -118,10 +118,12 @@ impl Diagnostic {
         let range = line_index::PositionRange::from_text_range(self.text_range(), line_index);
 
         format!(
-            "{} at {}:{}: {}",
+            "{} at {}:{}~{}:{} {}",
             self.severity(),
             range.start().line_number(),
             range.start().col_number(),
+            range.end().line_number(),
+            range.end().col_number(),
             self.message()
         )
     }

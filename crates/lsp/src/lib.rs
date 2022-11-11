@@ -184,12 +184,21 @@ impl Backend {
         &self,
         params: SemanticTokensParams,
     ) -> Result<Option<SemanticTokensResult>> {
-        todo!()
+        if let Some(analysis) = self.context.get_analysis_from_cache(params.text_document) {
+            let tokens = get_semantic_tokens(analysis);
+            Ok(Some(SemanticTokensResult::Tokens(tokens)))
+        } else {
+            Ok(None)
+        }
     }
 
     async fn info(&self, message: &str) {
         self.client.log_message(MessageType::INFO, message).await;
     }
+}
+
+fn get_semantic_tokens(analysis: &Analysis) -> SemanticTokens {
+    todo!()
 }
 
 fn get_diagnostics(analysis: &Analysis) -> Vec<Diagnostic> {

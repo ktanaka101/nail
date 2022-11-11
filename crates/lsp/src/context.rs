@@ -27,6 +27,13 @@ impl Context {
         Self::default()
     }
 
+    pub fn get_analysis_from_cache(
+        &self,
+        text_document: TextDocumentIdentifier,
+    ) -> Option<&Analysis> {
+        self.analyses.get(&text_document.uri)
+    }
+
     pub fn add_file(&mut self, text_document: TextDocumentItem) -> Result<&Analysis> {
         let analysis = Analysis::new(text_document.uri, text_document.text);
 

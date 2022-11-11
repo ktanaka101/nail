@@ -186,7 +186,10 @@ impl Backend {
     ) -> Result<Option<SemanticTokensResult>> {
         if let Some(analysis) = self.context.get_analysis_from_cache(params.text_document) {
             let tokens = get_semantic_tokens(analysis);
-            Ok(Some(SemanticTokensResult::Tokens(tokens)))
+            Ok(Some(SemanticTokensResult::Tokens(SemanticTokens {
+                result_id: None,
+                data: tokens,
+            })))
         } else {
             Ok(None)
         }
@@ -197,7 +200,7 @@ impl Backend {
     }
 }
 
-fn get_semantic_tokens(analysis: &Analysis) -> SemanticTokens {
+fn get_semantic_tokens(analysis: &Analysis) -> Vec<SemanticToken> {
     todo!()
 }
 

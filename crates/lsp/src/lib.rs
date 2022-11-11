@@ -54,6 +54,13 @@ impl LanguageServer for NailLanguageServer {
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
         self.0.lock().await.did_close(params).await
     }
+
+    async fn semantic_tokens_full(
+        &self,
+        params: SemanticTokensParams,
+    ) -> Result<Option<SemanticTokensResult>> {
+        self.0.lock().await.semantic_tokens_full(params).await
+    }
 }
 
 #[derive(Debug)]
@@ -171,6 +178,13 @@ impl Backend {
         if let Err(e) = self.context.remove_file(params.text_document) {
             self.client.show_message(MessageType::LOG, e).await;
         }
+    }
+
+    async fn semantic_tokens_full(
+        &self,
+        params: SemanticTokensParams,
+    ) -> Result<Option<SemanticTokensResult>> {
+        todo!()
     }
 
     async fn info(&self, message: &str) {

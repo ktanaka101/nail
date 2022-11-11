@@ -1,0 +1,50 @@
+{
+  "scopeName": "source.nail",
+  "foldingStartMarker": "\\{\\s*$",
+  "foldingEndMarker": "\\s*\\}$",
+  "patterns": [
+    {
+      "include": "#expression"
+    }
+  ],
+  "repository": {
+    "expression": {
+      "patterns": [
+        {
+          "include": "#letter"
+        },
+        {
+          "include": "#paren-expression"
+        }
+      ]
+    },
+    "function": {
+      "match": "fn",
+      "name": "keyword."
+    },
+    "letter": {
+      "match": "a|b|c",
+      "name": "keyword.letter"
+    },
+    "paren-expression": {
+      "begin": "\\(",
+      "end": "\\)",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.paren.open"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.paren.close"
+        }
+      },
+      "name": "expression.group",
+      "patterns": [
+        {
+          "include": "#expression"
+        }
+      ]
+    }
+  }
+}

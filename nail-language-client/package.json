@@ -19,6 +19,13 @@
           "Nail"
         ]
       }
+    ],
+    "grammars": [
+      {
+        "language": "nail",
+        "scopeName": "source.nail",
+        "path": "./nail.tmGrammar.json"
+      }
     ]
   },
   "activationEvents": [

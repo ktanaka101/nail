@@ -381,6 +381,8 @@ dependencies = [
  "anyhow",
  "ast",
  "parser",
+ "rowan",
+ "syntax",
  "text-size",
  "thiserror",
  "tokio",

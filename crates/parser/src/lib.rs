@@ -29,7 +29,6 @@ pub fn parse(input: &str) -> Parse {
 
 pub struct Parse {
     green_node: GreenNode,
-    events: Vec<event::Event>,
     errors: Vec<ParserError>,
 }
 
@@ -56,10 +55,6 @@ impl Parse {
 
     pub fn syntax(&self) -> SyntaxNode {
         SyntaxNode::new_root(self.green_node.clone())
-    }
-
-    pub fn events(&self) -> &[event::Event] {
-        &self.events
     }
 
     pub fn errors(&self) -> &[ParserError] {

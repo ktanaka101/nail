@@ -69,7 +69,6 @@ impl<'l, 'input> Sink<'l, 'input> {
 
         Parse {
             green_node: self.builder.finish(),
-            events: self.events,
             errors: self.errors,
         }
     }

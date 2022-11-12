@@ -215,139 +215,80 @@ impl Backend {
     }
 }
 
-fn get_semantic_tokens(analysis: &Analysis) -> Vec<SemanticToken> {
-    let mut prev_line = TextSize::from(0);
-    let mut prev_col = TextSize::from(0);
+struct SemanticTokensBuilder {
+    tokens: Vec<SemanticToken>,
+    prev_line: TextSize,
+    prev_col: TextSize,
+}
+impl SemanticTokensBuilder {
+    fn new() -> Self {
+        Self {
+            tokens: vec![],
+            prev_line: 0.into(),
+            prev_col: 0.into(),
+        }
+    }
 
-    let mut tokens = vec![];
+    fn push(
+        &mut self,
+        node: rowan::NodeOrToken<syntax::SyntaxNode, syntax::SyntaxToken>,
+        token_type: SemanticTokenType,
+        line_index: &line_index::LineIndex,
+    ) {
+        let range = node.text_range();
+        let pos = line_index.line_col(range.start());
+        let line = pos.line_number().0;
+        let col = pos.col_number().0;
+        let delta_line: u32 = (line - self.prev_line).into();
+        let delta_start: u32 = if delta_line == 0 {
+            (col - self.prev_col).into()
+        } else {
+            col.into()
+        };
+
+        let token = SemanticToken {
+            delta_line,
+            delta_start,
+            length: range.len().into(),
+            token_type: raw_semantic_token(token_type),
+            token_modifiers_bitset: 0,
+        };
+        self.prev_line = line;
+        self.prev_col = col;
+        self.tokens.push(token);
+    }
+
+    fn finish(self) -> Vec<SemanticToken> {
+        self.tokens
+    }
+}
+
+fn get_semantic_tokens(analysis: &Analysis) -> Vec<SemanticToken> {
+    let mut builder = SemanticTokensBuilder::new();
     let line_index = &analysis.line_index;
 
     for event in analysis.parsed.syntax().preorder_with_tokens() {
         use rowan::WalkEvent;
         match event {
-            WalkEvent::Enter(node) => match node.kind() {
-                SyntaxKind::LetKw => {
-                    let range = node.text_range();
-                    let pos = line_index.line_col(range.start());
-                    let line = pos.line_number().0;
-                    let col = pos.col_number().0;
-                    let delta_line: u32 = (line - prev_line).into();
-                    let delta_start: u32 = if delta_line == 0 {
-                        (col - prev_col).into()
-                    } else {
-                        col.into()
-                    };
+            WalkEvent::Enter(node) => {
+                let token_type = match node.kind() {
+                    SyntaxKind::LetKw => Some(SemanticTokenType::KEYWORD),
+                    SyntaxKind::Ident => Some(SemanticTokenType::VARIABLE),
+                    SyntaxKind::Eq => Some(SemanticTokenType::OPERATOR),
+                    SyntaxKind::IntegerLiteral => Some(SemanticTokenType::NUMBER),
+                    SyntaxKind::CommentSingle => Some(SemanticTokenType::COMMENT),
+                    _ => None,
+                };
 
-                    let token = SemanticToken {
-                        delta_line,
-                        delta_start,
-                        length: range.len().into(),
-                        token_type: raw_semantic_token(SemanticTokenType::KEYWORD),
-                        token_modifiers_bitset: 0,
-                    };
-                    prev_line = line;
-                    prev_col = col;
-                    tokens.push(token);
+                if let Some(token_type) = token_type {
+                    builder.push(node, token_type, line_index);
                 }
-                SyntaxKind::Ident => {
-                    let range = node.text_range();
-                    let pos = line_index.line_col(range.start());
-                    let line = pos.line_number().0;
-                    let col = pos.col_number().0;
-                    let delta_line: u32 = (line - prev_line).into();
-                    let delta_start: u32 = if delta_line == 0 {
-                        (col - prev_col).into()
-                    } else {
-                        col.into()
-                    };
-
-                    let token = SemanticToken {
-                        delta_line,
-                        delta_start,
-                        length: range.len().into(),
-                        token_type: raw_semantic_token(SemanticTokenType::VARIABLE),
-                        token_modifiers_bitset: 0,
-                    };
-                    prev_line = line;
-                    prev_col = col;
-                    tokens.push(token);
-                }
-                SyntaxKind::Eq => {
-                    let range = node.text_range();
-                    let pos = line_index.line_col(range.start());
-                    let line = pos.line_number().0;
-                    let col = pos.col_number().0;
-                    let delta_line: u32 = (line - prev_line).into();
-                    let delta_start: u32 = if delta_line == 0 {
-                        (col - prev_col).into()
-                    } else {
-                        col.into()
-                    };
-
-                    let token = SemanticToken {
-                        delta_line,
-                        delta_start,
-                        length: range.len().into(),
-                        token_type: raw_semantic_token(SemanticTokenType::OPERATOR),
-                        token_modifiers_bitset: 0,
-                    };
-                    prev_line = line;
-                    prev_col = col;
-                    tokens.push(token);
-                }
-                SyntaxKind::IntegerLiteral => {
-                    let range = node.text_range();
-                    let pos = line_index.line_col(range.start());
-                    let line = pos.line_number().0;
-                    let col = pos.col_number().0;
-                    let delta_line: u32 = (line - prev_line).into();
-                    let delta_start: u32 = if delta_line == 0 {
-                        (col - prev_col).into()
-                    } else {
-                        col.into()
-                    };
-
-                    let token = SemanticToken {
-                        delta_line,
-                        delta_start,
-                        length: range.len().into(),
-                        token_type: raw_semantic_token(SemanticTokenType::NUMBER),
-                        token_modifiers_bitset: 0,
-                    };
-                    prev_line = line;
-                    prev_col = col;
-                    tokens.push(token);
-                }
-                SyntaxKind::CommentSingle => {
-                    let range = node.text_range();
-                    let pos = line_index.line_col(range.start());
-                    let line = pos.line_number().0;
-                    let col = pos.col_number().0;
-                    let delta_line: u32 = (line - prev_line).into();
-                    let delta_start: u32 = if delta_line == 0 {
-                        (col - prev_col).into()
-                    } else {
-                        col.into()
-                    };
-
-                    let token = SemanticToken {
-                        delta_line,
-                        delta_start,
-                        length: range.len().into(),
-                        token_type: raw_semantic_token(SemanticTokenType::COMMENT),
-                        token_modifiers_bitset: 0,
-                    };
-                    prev_line = line;
-                    prev_col = col;
-                    tokens.push(token);
-                }
-                _ => (),
-            },
+            }
             WalkEvent::Leave(_) => (),
         }
     }
 
-    tokens
+    builder.finish()
 }
 
 fn get_diagnostics(analysis: &Analysis) -> Vec<Diagnostic> {

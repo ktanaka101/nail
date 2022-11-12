@@ -318,6 +318,29 @@ fn get_semantic_tokens(analysis: &Analysis) -> Vec<SemanticToken> {
                     prev_col = col;
                     tokens.push(token);
                 }
+                SyntaxKind::CommentSingle => {
+                    let range = node.text_range();
+                    let pos = line_index.line_col(range.start());
+                    let line = pos.line_number().0;
+                    let col = pos.col_number().0;
+                    let delta_line: u32 = (line - prev_line).into();
+                    let delta_start: u32 = if delta_line == 0 {
+                        (col - prev_col).into()
+                    } else {
+                        col.into()
+                    };
+
+                    let token = SemanticToken {
+                        delta_line,
+                        delta_start,
+                        length: range.len().into(),
+                        token_type: raw_semantic_token(SemanticTokenType::COMMENT),
+                        token_modifiers_bitset: 0,
+                    };
+                    prev_line = line;
+                    prev_col = col;
+                    tokens.push(token);
+                }
                 _ => (),
             },
             WalkEvent::Leave(_) => (),

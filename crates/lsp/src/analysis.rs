@@ -32,7 +32,7 @@ impl Analysis {
         }
     }
 
-    pub fn diagnostics(&self) -> Vec<Diagnostic> {
+    pub fn diagnostics(&self) -> Vec<lsp_types::Diagnostic> {
         let parsing_errors = self
             .parsed
             .errors()
@@ -44,7 +44,15 @@ impl Analysis {
             .iter()
             .map(|e| Diagnostic::from_validation_error(e.clone()));
 
-        parsing_errors.chain(validation_errors).collect()
+        parsing_errors
+            .chain(validation_errors)
+            .map(|diagnostic| {
+                lsp_types::Diagnostic::new_simple(
+                    diagnostic.range(&self.line_index),
+                    diagnostic.display(&self.line_index),
+                )
+            })
+            .collect::<Vec<_>>()
     }
 
     pub fn semantic_tokens(&self) -> Vec<SemanticToken> {

@@ -4,7 +4,6 @@ use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer};
 
-use crate::analysis::Analysis;
 use crate::context::Context;
 use crate::semantic_tokens::SEMANTIC_TOKEN_TYPES;
 
@@ -121,7 +120,7 @@ impl Backend {
         .await;
         match self.context.add_file(params.text_document) {
             Ok(analysis) => {
-                let diagnostics = get_diagnostics(analysis);
+                let diagnostics = analysis.diagnostics();
                 self.client
                     .publish_diagnostics(analysis.uri.clone(), diagnostics, None)
                     .await;
@@ -142,7 +141,7 @@ impl Backend {
 
         match self.context.update_file(&params.text_document) {
             Ok(analysis) => {
-                let diagnostics = get_diagnostics(analysis);
+                let diagnostics = analysis.diagnostics();
                 self.client
                     .publish_diagnostics(analysis.uri.clone(), diagnostics, None)
                     .await;
@@ -186,17 +185,4 @@ impl Backend {
     async fn info(&self, message: &str) {
         self.client.log_message(MessageType::INFO, message).await;
     }
-}
-
-fn get_diagnostics(analysis: &Analysis) -> Vec<Diagnostic> {
-    let diagnostics = analysis.diagnostics();
-    diagnostics
-        .iter()
-        .map(|diagnostic| {
-            Diagnostic::new_simple(
-                diagnostic.range(&analysis.line_index),
-                diagnostic.display(&analysis.line_index),
-            )
-        })
-        .collect::<Vec<_>>()
 }

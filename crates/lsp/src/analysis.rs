@@ -3,7 +3,7 @@ use tower_lsp::lsp_types;
 
 use ast::validation::ValidationError;
 
-use crate::context::Diagnostic;
+use crate::diagnostic::Diagnostic;
 use crate::line_index;
 
 #[derive(Debug)]

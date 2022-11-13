@@ -46,12 +46,7 @@ impl Analysis {
 
         parsing_errors
             .chain(validation_errors)
-            .map(|diagnostic| {
-                lsp_types::Diagnostic::new_simple(
-                    diagnostic.range(&self.line_index),
-                    diagnostic.display(&self.line_index),
-                )
-            })
+            .map(|diagnostic| diagnostic.to_lsp_diagnostic(&self.line_index))
             .collect::<Vec<_>>()
     }
 

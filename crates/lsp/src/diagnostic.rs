@@ -26,7 +26,11 @@ impl Diagnostic {
         Self::Validation(error)
     }
 
-    pub fn display(&self, line_index: &line_index::LineIndex) -> String {
+    pub fn to_lsp_diagnostic(&self, line_index: &line_index::LineIndex) -> lsp_types::Diagnostic {
+        lsp_types::Diagnostic::new_simple(self.range(line_index), self.display(line_index))
+    }
+
+    fn display(&self, line_index: &line_index::LineIndex) -> String {
         let range = line_index::PositionRange::from_text_range(self.text_range(), line_index);
 
         format!(
@@ -40,7 +44,7 @@ impl Diagnostic {
         )
     }
 
-    pub fn title(&self) -> String {
+    fn title(&self) -> String {
         match self {
             Self::Token(_) => "token error".to_string(),
             Self::Parsing(_) => "syntax error".to_string(),
@@ -48,7 +52,7 @@ impl Diagnostic {
         }
     }
 
-    pub fn range(&self, line_index: &line_index::LineIndex) -> lsp_types::Range {
+    fn range(&self, line_index: &line_index::LineIndex) -> lsp_types::Range {
         let range = line_index::PositionRange::from_text_range(self.text_range(), line_index);
 
         range.into()

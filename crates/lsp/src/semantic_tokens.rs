@@ -1,7 +1,9 @@
+use rowan::WalkEvent;
+use syntax::{SyntaxKind, SyntaxNode};
 use text_size::TextSize;
 use tower_lsp::lsp_types::{SemanticToken, SemanticTokenType};
 
-use crate::line_index;
+use crate::line_index::{self, LineIndex};
 
 pub(crate) const SEMANTIC_TOKEN_TYPES: &[SemanticTokenType] = &[
     SemanticTokenType::COMMENT,
@@ -11,6 +13,32 @@ pub(crate) const SEMANTIC_TOKEN_TYPES: &[SemanticTokenType] = &[
     SemanticTokenType::VARIABLE,
     SemanticTokenType::OPERATOR,
 ];
+
+pub(crate) fn traverse(node: &SyntaxNode, line_index: &LineIndex) -> Vec<SemanticToken> {
+    let mut builder = SemanticTokensBuilder::new();
+
+    for event in node.preorder_with_tokens() {
+        match event {
+            WalkEvent::Enter(node) => {
+                let token_type = match node.kind() {
+                    SyntaxKind::LetKw => Some(SemanticTokenType::KEYWORD),
+                    SyntaxKind::Ident => Some(SemanticTokenType::VARIABLE),
+                    SyntaxKind::Eq => Some(SemanticTokenType::OPERATOR),
+                    SyntaxKind::IntegerLiteral => Some(SemanticTokenType::NUMBER),
+                    SyntaxKind::CommentSingle => Some(SemanticTokenType::COMMENT),
+                    _ => None,
+                };
+
+                if let Some(token_type) = token_type {
+                    builder.push(node, token_type, line_index);
+                }
+            }
+            WalkEvent::Leave(_) => (),
+        }
+    }
+
+    builder.finish()
+}
 
 pub(crate) fn raw_semantic_token(token_type: SemanticTokenType) -> u32 {
     SEMANTIC_TOKEN_TYPES
@@ -64,5 +92,134 @@ impl SemanticTokensBuilder {
 
     pub(crate) fn finish(self) -> Vec<SemanticToken> {
         self.tokens
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::semantic_tokens::raw_semantic_token;
+
+    fn check(text: String, expected: Vec<SemanticToken>) {
+        let parsed = parser::parse(text.as_str());
+        let line_index = line_index::LineIndex::new(text.as_str());
+        let node = parsed.syntax();
+        let tokens = traverse(&node, &line_index);
+
+        assert_eq!(tokens, expected);
+    }
+
+    #[test]
+    fn test_get_semantic_tokens() {
+        check(
+            "let a = 10".to_string(),
+            vec![
+                SemanticToken {
+                    delta_line: 0,
+                    delta_start: 0,
+                    length: 3,
+                    token_type: raw_semantic_token(SemanticTokenType::KEYWORD),
+                    token_modifiers_bitset: 0,
+                },
+                SemanticToken {
+                    delta_line: 0,
+                    delta_start: 4,
+                    length: 1,
+                    token_type: raw_semantic_token(SemanticTokenType::VARIABLE),
+                    token_modifiers_bitset: 0,
+                },
+                SemanticToken {
+                    delta_line: 0,
+                    delta_start: 2,
+                    length: 1,
+                    token_type: raw_semantic_token(SemanticTokenType::OPERATOR),
+                    token_modifiers_bitset: 0,
+                },
+                SemanticToken {
+                    delta_line: 0,
+                    delta_start: 2,
+                    length: 2,
+                    token_type: raw_semantic_token(SemanticTokenType::NUMBER),
+                    token_modifiers_bitset: 0,
+                },
+            ],
+        );
+    }
+
+    #[test]
+    fn test_get_semantic_tokens_with_newline() {
+        check(
+            r#"
+let a = 1
+let b = 10
+  100
+"#
+            .to_string(),
+            vec![
+                SemanticToken {
+                    delta_line: 1,
+                    delta_start: 0,
+                    length: 3,
+                    token_type: raw_semantic_token(SemanticTokenType::KEYWORD),
+                    token_modifiers_bitset: 0,
+                },
+                SemanticToken {
+                    delta_line: 0,
+                    delta_start: 4,
+                    length: 1,
+                    token_type: raw_semantic_token(SemanticTokenType::VARIABLE),
+                    token_modifiers_bitset: 0,
+                },
+                SemanticToken {
+                    delta_line: 0,
+                    delta_start: 2,
+                    length: 1,
+                    token_type: raw_semantic_token(SemanticTokenType::OPERATOR),
+                    token_modifiers_bitset: 0,
+                },
+                SemanticToken {
+                    delta_line: 0,
+                    delta_start: 2,
+                    length: 1,
+                    token_type: raw_semantic_token(SemanticTokenType::NUMBER),
+                    token_modifiers_bitset: 0,
+                },
+                SemanticToken {
+                    delta_line: 1,
+                    delta_start: 0,
+                    length: 3,
+                    token_type: raw_semantic_token(SemanticTokenType::KEYWORD),
+                    token_modifiers_bitset: 0,
+                },
+                SemanticToken {
+                    delta_line: 0,
+                    delta_start: 4,
+                    length: 1,
+                    token_type: raw_semantic_token(SemanticTokenType::VARIABLE),
+                    token_modifiers_bitset: 0,
+                },
+                SemanticToken {
+                    delta_line: 0,
+                    delta_start: 2,
+                    length: 1,
+                    token_type: raw_semantic_token(SemanticTokenType::OPERATOR),
+                    token_modifiers_bitset: 0,
+                },
+                SemanticToken {
+                    delta_line: 0,
+                    delta_start: 2,
+                    length: 2,
+                    token_type: raw_semantic_token(SemanticTokenType::NUMBER),
+                    token_modifiers_bitset: 0,
+                },
+                SemanticToken {
+                    delta_line: 1,
+                    delta_start: 2,
+                    length: 3,
+                    token_type: raw_semantic_token(SemanticTokenType::NUMBER),
+                    token_modifiers_bitset: 0,
+                },
+            ],
+        );
     }
 }

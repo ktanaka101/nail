@@ -76,6 +76,7 @@ fn lhs(parser: &mut Parser) -> Option<CompletedMarker> {
     let cm = if parser.at(TokenKind::IntegerLiteral)
         || parser.at(TokenKind::CharLiteral(false))
         || parser.at(TokenKind::StringLiteral)
+        || parser.at(TokenKind::TrueKw)
     {
         literal(parser)
     } else if parser.at(TokenKind::Ident) {
@@ -95,7 +96,12 @@ fn lhs(parser: &mut Parser) -> Option<CompletedMarker> {
 fn literal(parser: &mut Parser) -> CompletedMarker {
     assert!(matches!(
         parser.peek(),
-        Some(TokenKind::IntegerLiteral | TokenKind::CharLiteral(_) | TokenKind::StringLiteral)
+        Some(
+            TokenKind::IntegerLiteral
+                | TokenKind::CharLiteral(_)
+                | TokenKind::StringLiteral
+                | TokenKind::TrueKw
+        )
     ));
 
     validate_literal(parser);
@@ -108,7 +114,12 @@ fn literal(parser: &mut Parser) -> CompletedMarker {
 fn validate_literal(parser: &mut Parser) {
     assert!(matches!(
         parser.peek(),
-        Some(TokenKind::IntegerLiteral | TokenKind::CharLiteral(_) | TokenKind::StringLiteral)
+        Some(
+            TokenKind::IntegerLiteral
+                | TokenKind::CharLiteral(_)
+                | TokenKind::StringLiteral
+                | TokenKind::TrueKw
+        )
     ));
 
     let current_kind = parser.peek();
@@ -382,6 +393,17 @@ mod tests {
     }
 
     #[test]
+    fn parse_true() {
+        check(
+            r#"true"#,
+            expect![[r#"
+                SourceFile@0..4
+                  Literal@0..4
+                    TrueKw@0..4 "true""#]],
+        );
+    }
+
+    #[test]
     fn parse_unterminated_char() {
         check(
             "'a",
@@ -465,7 +487,7 @@ mod tests {
                       Literal@1..2
                         IntegerLiteral@1..2 "1"
                       Plus@2..3 "+"
-                error at 2..3: expected integerLiteral, charLiteral, stringLiteral, identifier, '-' or '('
+                error at 2..3: expected integerLiteral, charLiteral, stringLiteral, 'true', identifier, '-' or '('
                 error at 2..3: expected ')'"#]],
         );
     }

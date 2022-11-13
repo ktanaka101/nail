@@ -6,8 +6,7 @@ use tower_lsp::{Client, LanguageServer};
 
 use crate::analysis::Analysis;
 use crate::context::Context;
-use crate::semantic_tokens::{SemanticTokensBuilder, SEMANTIC_TOKEN_TYPES};
-use syntax::SyntaxKind;
+use crate::semantic_tokens::SEMANTIC_TOKEN_TYPES;
 
 #[derive(Debug, Clone)]
 pub struct NailLanguageServer(Arc<tokio::sync::Mutex<Backend>>);
@@ -174,7 +173,7 @@ impl Backend {
         .await;
 
         if let Some(analysis) = self.context.get_analysis_from_cache(params.text_document) {
-            let tokens = get_semantic_tokens(analysis);
+            let tokens = analysis.semantic_tokens();
             Ok(Some(SemanticTokensResult::Tokens(SemanticTokens {
                 result_id: None,
                 data: tokens,
@@ -189,34 +188,6 @@ impl Backend {
     }
 }
 
-fn get_semantic_tokens(analysis: &Analysis) -> Vec<SemanticToken> {
-    let mut builder = SemanticTokensBuilder::new();
-    let line_index = &analysis.line_index;
-
-    for event in analysis.parsed.syntax().preorder_with_tokens() {
-        use rowan::WalkEvent;
-        match event {
-            WalkEvent::Enter(node) => {
-                let token_type = match node.kind() {
-                    SyntaxKind::LetKw => Some(SemanticTokenType::KEYWORD),
-                    SyntaxKind::Ident => Some(SemanticTokenType::VARIABLE),
-                    SyntaxKind::Eq => Some(SemanticTokenType::OPERATOR),
-                    SyntaxKind::IntegerLiteral => Some(SemanticTokenType::NUMBER),
-                    SyntaxKind::CommentSingle => Some(SemanticTokenType::COMMENT),
-                    _ => None,
-                };
-
-                if let Some(token_type) = token_type {
-                    builder.push(node, token_type, line_index);
-                }
-            }
-            WalkEvent::Leave(_) => (),
-        }
-    }
-
-    builder.finish()
-}
-
 fn get_diagnostics(analysis: &Analysis) -> Vec<Diagnostic> {
     let diagnostics = analysis.diagnostics();
     diagnostics
@@ -228,132 +199,4 @@ fn get_diagnostics(analysis: &Analysis) -> Vec<Diagnostic> {
             )
         })
         .collect::<Vec<_>>()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::semantic_tokens::raw_semantic_token;
-
-    fn check(text: String, expected: Vec<SemanticToken>) {
-        let url = Url::parse("https://example.net/a/b.html").unwrap();
-        let analysis = Analysis::new(url, text);
-        let tokens = get_semantic_tokens(&analysis);
-
-        assert_eq!(tokens, expected);
-    }
-
-    #[test]
-    fn test_get_semantic_tokens() {
-        check(
-            "let a = 10".to_string(),
-            vec![
-                SemanticToken {
-                    delta_line: 0,
-                    delta_start: 0,
-                    length: 3,
-                    token_type: raw_semantic_token(SemanticTokenType::KEYWORD),
-                    token_modifiers_bitset: 0,
-                },
-                SemanticToken {
-                    delta_line: 0,
-                    delta_start: 4,
-                    length: 1,
-                    token_type: raw_semantic_token(SemanticTokenType::VARIABLE),
-                    token_modifiers_bitset: 0,
-                },
-                SemanticToken {
-                    delta_line: 0,
-                    delta_start: 2,
-                    length: 1,
-                    token_type: raw_semantic_token(SemanticTokenType::OPERATOR),
-                    token_modifiers_bitset: 0,
-                },
-                SemanticToken {
-                    delta_line: 0,
-                    delta_start: 2,
-                    length: 2,
-                    token_type: raw_semantic_token(SemanticTokenType::NUMBER),
-                    token_modifiers_bitset: 0,
-                },
-            ],
-        );
-    }
-
-    #[test]
-    fn test_get_semantic_tokens_with_newline() {
-        check(
-            r#"
-let a = 1
-let b = 10
-  100
-"#
-            .to_string(),
-            vec![
-                SemanticToken {
-                    delta_line: 1,
-                    delta_start: 0,
-                    length: 3,
-                    token_type: raw_semantic_token(SemanticTokenType::KEYWORD),
-                    token_modifiers_bitset: 0,
-                },
-                SemanticToken {
-                    delta_line: 0,
-                    delta_start: 4,
-                    length: 1,
-                    token_type: raw_semantic_token(SemanticTokenType::VARIABLE),
-                    token_modifiers_bitset: 0,
-                },
-                SemanticToken {
-                    delta_line: 0,
-                    delta_start: 2,
-                    length: 1,
-                    token_type: raw_semantic_token(SemanticTokenType::OPERATOR),
-                    token_modifiers_bitset: 0,
-                },
-                SemanticToken {
-                    delta_line: 0,
-                    delta_start: 2,
-                    length: 1,
-                    token_type: raw_semantic_token(SemanticTokenType::NUMBER),
-                    token_modifiers_bitset: 0,
-                },
-                SemanticToken {
-                    delta_line: 1,
-                    delta_start: 0,
-                    length: 3,
-                    token_type: raw_semantic_token(SemanticTokenType::KEYWORD),
-                    token_modifiers_bitset: 0,
-                },
-                SemanticToken {
-                    delta_line: 0,
-                    delta_start: 4,
-                    length: 1,
-                    token_type: raw_semantic_token(SemanticTokenType::VARIABLE),
-                    token_modifiers_bitset: 0,
-                },
-                SemanticToken {
-                    delta_line: 0,
-                    delta_start: 2,
-                    length: 1,
-                    token_type: raw_semantic_token(SemanticTokenType::OPERATOR),
-                    token_modifiers_bitset: 0,
-                },
-                SemanticToken {
-                    delta_line: 0,
-                    delta_start: 2,
-                    length: 2,
-                    token_type: raw_semantic_token(SemanticTokenType::NUMBER),
-                    token_modifiers_bitset: 0,
-                },
-                SemanticToken {
-                    delta_line: 1,
-                    delta_start: 2,
-                    length: 3,
-                    token_type: raw_semantic_token(SemanticTokenType::NUMBER),
-                    token_modifiers_bitset: 0,
-                },
-            ],
-        );
-    }
 }

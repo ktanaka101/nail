@@ -1,9 +1,9 @@
 mod context;
+mod language_server;
 mod line_index;
 mod semantic_tokens;
-mod server;
 
-use server::NailLanguageServer;
+use language_server::NailLanguageServer;
 use tower_lsp::{LspService, Server};
 
 pub async fn run_server() {

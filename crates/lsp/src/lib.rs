@@ -1,3 +1,4 @@
+mod analysis;
 mod context;
 mod language_server;
 mod line_index;

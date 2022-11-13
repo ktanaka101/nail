@@ -4,7 +4,8 @@ use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer};
 
-use crate::context::{Analysis, Context};
+use crate::analysis::Analysis;
+use crate::context::Context;
 use crate::semantic_tokens::{SemanticTokensBuilder, SEMANTIC_TOKEN_TYPES};
 use syntax::SyntaxKind;
 

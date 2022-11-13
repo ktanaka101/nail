@@ -40,14 +40,14 @@ pub(crate) fn traverse(node: &SyntaxNode, line_index: &LineIndex) -> Vec<Semanti
     builder.finish()
 }
 
-pub(crate) fn raw_semantic_token(token_type: SemanticTokenType) -> u32 {
+fn raw_semantic_token(token_type: SemanticTokenType) -> u32 {
     SEMANTIC_TOKEN_TYPES
         .iter()
         .position(|t| *t == token_type)
         .unwrap() as u32
 }
 
-pub(crate) struct SemanticTokensBuilder {
+struct SemanticTokensBuilder {
     tokens: Vec<SemanticToken>,
     prev_line: TextSize,
     prev_col: TextSize,

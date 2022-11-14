@@ -77,6 +77,7 @@ fn lhs(parser: &mut Parser) -> Option<CompletedMarker> {
         || parser.at(TokenKind::CharLiteral(false))
         || parser.at(TokenKind::StringLiteral)
         || parser.at(TokenKind::TrueKw)
+        || parser.at(TokenKind::FalseKw)
     {
         literal(parser)
     } else if parser.at(TokenKind::Ident) {
@@ -101,6 +102,7 @@ fn literal(parser: &mut Parser) -> CompletedMarker {
                 | TokenKind::CharLiteral(_)
                 | TokenKind::StringLiteral
                 | TokenKind::TrueKw
+                | TokenKind::FalseKw
         )
     ));
 
@@ -119,6 +121,7 @@ fn validate_literal(parser: &mut Parser) {
                 | TokenKind::CharLiteral(_)
                 | TokenKind::StringLiteral
                 | TokenKind::TrueKw
+                | TokenKind::FalseKw
         )
     ));
 
@@ -404,6 +407,17 @@ mod tests {
     }
 
     #[test]
+    fn parse_false() {
+        check(
+            r#"false"#,
+            expect![[r#"
+                SourceFile@0..5
+                  Literal@0..5
+                    FalseKw@0..5 "false""#]],
+        );
+    }
+
+    #[test]
     fn parse_unterminated_char() {
         check(
             "'a",
@@ -487,7 +501,7 @@ mod tests {
                       Literal@1..2
                         IntegerLiteral@1..2 "1"
                       Plus@2..3 "+"
-                error at 2..3: expected integerLiteral, charLiteral, stringLiteral, 'true', identifier, '-' or '('
+                error at 2..3: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-' or '('
                 error at 2..3: expected ')'"#]],
         );
     }

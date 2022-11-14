@@ -20,15 +20,18 @@ pub enum Stmt {
 type ExprIdx = Idx<Expr>;
 
 #[derive(Debug, PartialEq, Eq)]
+pub enum Literal {
+    Integer(i64),
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum Expr {
     Binary {
         op: BinaryOp,
         lhs: ExprIdx,
         rhs: ExprIdx,
     },
-    Literal {
-        n: Option<u64>,
-    },
+    Literal(Literal),
     Unary {
         op: UnaryOp,
         expr: ExprIdx,

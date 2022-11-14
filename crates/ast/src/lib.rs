@@ -101,20 +101,50 @@ impl BinaryExpr {
     }
 }
 
+pub struct Integer {
+    syntax: SyntaxToken,
+}
+impl Integer {
+    pub fn cast(syntax: SyntaxToken) -> Option<Self> {
+        if syntax.kind() == SyntaxKind::IntegerLiteral {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+
+    pub fn value(&self) -> Option<i64> {
+        self.syntax.text().parse().ok()
+    }
+}
+
+pub enum LiteralKind {
+    Integer(Integer),
+}
+
 #[derive(Debug)]
 pub struct Literal(SyntaxNode);
 
 impl Literal {
+    pub fn token(&self) -> SyntaxToken {
+        self.0.first_token().unwrap()
+    }
+
+    pub fn kind(&self) -> LiteralKind {
+        let token = self.token();
+        if let Some(t) = Integer::cast(token) {
+            LiteralKind::Integer(t)
+        } else {
+            panic!("unknown literal kind");
+        }
+    }
+
     pub fn cast(node: SyntaxNode) -> Option<Self> {
         if node.kind() == SyntaxKind::Literal {
             Some(Self(node))
         } else {
             None
         }
-    }
-
-    pub fn parse(&self) -> Option<u64> {
-        self.0.first_token().unwrap().text().parse().ok()
     }
 }
 

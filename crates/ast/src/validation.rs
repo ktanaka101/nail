@@ -2,7 +2,7 @@ use std::fmt;
 
 use text_size::TextRange;
 
-use crate::Literal;
+use crate::{Literal, LiteralKind};
 use syntax::SyntaxNode;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -63,11 +63,13 @@ pub fn validate(node: &SyntaxNode) -> Vec<ValidationError> {
 }
 
 fn validate_literal(literal: Literal, errors: &mut Vec<ValidationError>) {
-    if literal.parse().is_none() {
-        errors.push(ValidationError {
-            kind: ValidationErrorKind::IntegerLiteralTooLarge,
-            range: literal.0.first_token().unwrap().text_range(),
-        });
+    if let LiteralKind::Integer(int) = literal.kind() {
+        if int.value().is_none() {
+            errors.push(ValidationError {
+                kind: ValidationErrorKind::IntegerLiteralTooLarge,
+                range: int.syntax.text_range(),
+            });
+        }
     }
 }
 

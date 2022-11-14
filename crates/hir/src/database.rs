@@ -1,6 +1,6 @@
 use syntax::SyntaxKind;
 
-use crate::{BinaryOp, Expr, Stmt, UnaryOp};
+use crate::{BinaryOp, Expr, Literal, Stmt, UnaryOp};
 use la_arena::Arena;
 
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -25,13 +25,25 @@ impl Database {
         if let Some(ast) = ast {
             match ast {
                 ast::Expr::BinaryExpr(ast) => self.lower_binary(ast),
-                ast::Expr::Literal(ast) => Expr::Literal { n: ast.parse() },
+                ast::Expr::Literal(ast) => self.lower_literal(ast),
                 ast::Expr::ParenExpr(ast) => self.lower_expr(ast.expr()),
                 ast::Expr::UnaryExpr(ast) => self.lower_unary(ast),
                 ast::Expr::VariableRef(ast) => self.lower_variable_ref(ast),
             }
         } else {
             Expr::Missing
+        }
+    }
+
+    fn lower_literal(&self, ast: ast::Literal) -> Expr {
+        match ast.kind() {
+            ast::LiteralKind::Integer(int) => {
+                if let Some(value) = int.value() {
+                    Expr::Literal(Literal::Integer(value))
+                } else {
+                    Expr::Missing
+                }
+            }
         }
     }
 
@@ -136,14 +148,14 @@ mod tests {
 
     #[test]
     fn lower_expr_stmt() {
-        check_stmt("123", Stmt::Expr(Expr::Literal { n: Some(123) }));
+        check_stmt("123", Stmt::Expr(Expr::Literal(Literal::Integer(123))));
     }
 
     #[test]
     fn lower_binary_expr() {
         let mut exprs = Arena::new();
-        let lhs = exprs.alloc(Expr::Literal { n: Some(1) });
-        let rhs = exprs.alloc(Expr::Literal { n: Some(2) });
+        let lhs = exprs.alloc(Expr::Literal(Literal::Integer(1)));
+        let rhs = exprs.alloc(Expr::Literal(Literal::Integer(2)));
 
         check_expr(
             "1 + 2",
@@ -163,7 +175,7 @@ mod tests {
         check_expr(
             "10 -",
             Expr::Binary {
-                lhs: exprs.alloc(Expr::Literal { n: Some(10) }),
+                lhs: exprs.alloc(Expr::Literal(Literal::Integer(10))),
                 rhs: exprs.alloc(Expr::Missing),
                 op: BinaryOp::Sub,
             },
@@ -173,7 +185,11 @@ mod tests {
 
     #[test]
     fn lower_literal() {
-        check_expr("999", Expr::Literal { n: Some(999) }, Database::default());
+        check_expr(
+            "999",
+            Expr::Literal(Literal::Integer(999)),
+            Database::default(),
+        );
     }
 
     #[test]
@@ -192,7 +208,7 @@ mod tests {
         check_expr(
             "-10",
             Expr::Unary {
-                expr: exprs.alloc(Expr::Literal { n: Some(10) }),
+                expr: exprs.alloc(Expr::Literal(Literal::Integer(10))),
                 op: UnaryOp::Neg,
             },
             Database { exprs },

@@ -24,6 +24,7 @@ pub enum Literal {
     Integer(i64),
     String(String),
     Char(char),
+    Bool(bool),
 }
 
 #[derive(Debug, PartialEq, Eq)]

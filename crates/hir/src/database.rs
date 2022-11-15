@@ -58,6 +58,13 @@ impl Database {
                     Expr::Missing
                 }
             }
+            ast::LiteralKind::Bool(bool) => {
+                if let Some(value) = bool.value() {
+                    Expr::Literal(Literal::Bool(value))
+                } else {
+                    Expr::Missing
+                }
+            }
         }
     }
 
@@ -220,6 +227,21 @@ mod tests {
         check_expr(
             "'a'",
             Expr::Literal(Literal::Char('a')),
+            Database::default(),
+        );
+    }
+
+    #[test]
+    fn lower_bool_literal() {
+        check_expr(
+            "true",
+            Expr::Literal(Literal::Bool(true)),
+            Database::default(),
+        );
+
+        check_expr(
+            "false",
+            Expr::Literal(Literal::Bool(false)),
             Database::default(),
         );
     }

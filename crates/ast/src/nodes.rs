@@ -88,6 +88,7 @@ pub enum LiteralKind {
     Integer(tokens::Integer),
     String(tokens::String),
     Char(tokens::Char),
+    Bool(tokens::Bool),
 }
 
 #[derive(Debug)]
@@ -104,8 +105,10 @@ impl Literal {
             LiteralKind::Integer(t)
         } else if let Some(t) = tokens::String::cast(token.clone()) {
             LiteralKind::String(t)
-        } else if let Some(t) = tokens::Char::cast(token) {
+        } else if let Some(t) = tokens::Char::cast(token.clone()) {
             LiteralKind::Char(t)
+        } else if let Some(t) = tokens::Bool::cast(token) {
+            LiteralKind::Bool(t)
         } else {
             panic!("unknown literal kind");
         }

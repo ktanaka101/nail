@@ -57,3 +57,25 @@ impl Char {
         text.chars().next()
     }
 }
+
+pub struct Bool {
+    pub syntax: SyntaxToken,
+}
+
+impl Bool {
+    pub fn cast(syntax: SyntaxToken) -> Option<Self> {
+        match syntax.kind() {
+            SyntaxKind::TrueKw | SyntaxKind::FalseKw => Some(Self { syntax }),
+            _ => None,
+        }
+    }
+
+    pub fn value(&self) -> Option<bool> {
+        let text = self.syntax.text();
+        match text {
+            "true" => Some(true),
+            "false" => Some(false),
+            _ => None,
+        }
+    }
+}

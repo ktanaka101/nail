@@ -1,3 +1,4 @@
+pub mod tokens;
 pub mod validation;
 
 use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
@@ -101,25 +102,8 @@ impl BinaryExpr {
     }
 }
 
-pub struct Integer {
-    syntax: SyntaxToken,
-}
-impl Integer {
-    pub fn cast(syntax: SyntaxToken) -> Option<Self> {
-        if syntax.kind() == SyntaxKind::IntegerLiteral {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-
-    pub fn value(&self) -> Option<i64> {
-        self.syntax.text().parse().ok()
-    }
-}
-
 pub enum LiteralKind {
-    Integer(Integer),
+    Integer(tokens::Integer),
 }
 
 #[derive(Debug)]
@@ -132,7 +116,7 @@ impl Literal {
 
     pub fn kind(&self) -> LiteralKind {
         let token = self.token();
-        if let Some(t) = Integer::cast(token) {
+        if let Some(t) = tokens::Integer::cast(token) {
             LiteralKind::Integer(t)
         } else {
             panic!("unknown literal kind");

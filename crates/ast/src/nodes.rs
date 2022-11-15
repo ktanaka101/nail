@@ -86,6 +86,7 @@ impl BinaryExpr {
 
 pub enum LiteralKind {
     Integer(tokens::Integer),
+    String(tokens::String),
 }
 
 #[derive(Debug)]
@@ -98,8 +99,10 @@ impl Literal {
 
     pub fn kind(&self) -> LiteralKind {
         let token = self.token();
-        if let Some(t) = tokens::Integer::cast(token) {
+        if let Some(t) = tokens::Integer::cast(token.clone()) {
             LiteralKind::Integer(t)
+        } else if let Some(t) = tokens::String::cast(token) {
+            LiteralKind::String(t)
         } else {
             panic!("unknown literal kind");
         }

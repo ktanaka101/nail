@@ -22,6 +22,7 @@ type ExprIdx = Idx<Expr>;
 #[derive(Debug, PartialEq, Eq)]
 pub enum Literal {
     Integer(i64),
+    String(String),
 }
 
 #[derive(Debug, PartialEq, Eq)]

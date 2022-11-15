@@ -44,6 +44,13 @@ impl Database {
                     Expr::Missing
                 }
             }
+            ast::LiteralKind::String(string) => {
+                if let Some(value) = string.value() {
+                    Expr::Literal(Literal::String(value))
+                } else {
+                    Expr::Missing
+                }
+            }
         }
     }
 
@@ -184,10 +191,19 @@ mod tests {
     }
 
     #[test]
-    fn lower_literal() {
+    fn lower_integer_literal() {
         check_expr(
             "999",
             Expr::Literal(Literal::Integer(999)),
+            Database::default(),
+        );
+    }
+
+    #[test]
+    fn lower_string_literal() {
+        check_expr(
+            "\"aaa\"",
+            Expr::Literal(Literal::String("aaa".to_string())),
             Database::default(),
         );
     }

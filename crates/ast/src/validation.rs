@@ -2,8 +2,9 @@ use std::fmt;
 
 use text_size::TextRange;
 
-use crate::{Literal, LiteralKind};
 use syntax::SyntaxNode;
+
+use crate::nodes::{Literal, LiteralKind};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValidationError {

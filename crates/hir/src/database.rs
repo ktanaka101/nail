@@ -51,6 +51,13 @@ impl Database {
                     Expr::Missing
                 }
             }
+            ast::LiteralKind::Char(char) => {
+                if let Some(c) = char.value() {
+                    Expr::Literal(Literal::Char(c))
+                } else {
+                    Expr::Missing
+                }
+            }
         }
     }
 
@@ -204,6 +211,15 @@ mod tests {
         check_expr(
             "\"aaa\"",
             Expr::Literal(Literal::String("aaa".to_string())),
+            Database::default(),
+        );
+    }
+
+    #[test]
+    fn lower_char_literal() {
+        check_expr(
+            "'a'",
+            Expr::Literal(Literal::Char('a')),
             Database::default(),
         );
     }

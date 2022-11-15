@@ -37,3 +37,23 @@ impl String {
         Some(text.to_string())
     }
 }
+
+pub struct Char {
+    pub syntax: SyntaxToken,
+}
+
+impl Char {
+    pub fn cast(syntax: SyntaxToken) -> Option<Self> {
+        if syntax.kind() == SyntaxKind::CharLiteral {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+
+    pub fn value(&self) -> Option<char> {
+        let text = self.syntax.text();
+        let text = text.trim_matches('\'');
+        text.chars().next()
+    }
+}

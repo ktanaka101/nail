@@ -71,10 +71,9 @@ impl Bool {
     }
 
     pub fn value(&self) -> Option<bool> {
-        let text = self.syntax.text();
-        match text {
-            "true" => Some(true),
-            "false" => Some(false),
+        match self.syntax.kind() {
+            SyntaxKind::TrueKw => Some(true),
+            SyntaxKind::FalseKw => Some(false),
             _ => None,
         }
     }

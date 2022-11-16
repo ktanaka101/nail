@@ -20,6 +20,7 @@ syntax = { path = "crates/syntax" }
 parser = { path = "crates/parser" }
 ast = { path = "crates/ast" }
 hir = { path = "crates/hir" }
+hir_ty = { path = "crates/hir_ty" }
 lsp = { path = "crates/lsp" }
 
 

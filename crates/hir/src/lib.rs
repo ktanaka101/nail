@@ -17,7 +17,7 @@ pub enum Stmt {
     Expr(Expr),
 }
 
-type ExprIdx = Idx<Expr>;
+pub type ExprIdx = Idx<Expr>;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Literal {

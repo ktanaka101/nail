@@ -11,11 +11,17 @@ pub struct Database {
 impl Database {
     pub(super) fn lower_stmt(&mut self, ast: ast::Stmt) -> Option<Stmt> {
         let result = match ast {
-            ast::Stmt::VariableDef(ast) => Stmt::VariableDef {
-                name: ast.name()?.text().into(),
-                value: self.lower_expr(ast.value()),
-            },
-            ast::Stmt::Expr(ast) => Stmt::Expr(self.lower_expr(Some(ast))),
+            ast::Stmt::VariableDef(ast) => {
+                let expr = self.lower_expr(ast.value());
+                Stmt::VariableDef {
+                    name: ast.name()?.text().into(),
+                    value: self.exprs.alloc(expr),
+                }
+            }
+            ast::Stmt::Expr(ast) => {
+                let expr = self.lower_expr(Some(ast));
+                Stmt::Expr(self.exprs.alloc(expr))
+            }
         };
 
         Some(result)
@@ -116,12 +122,14 @@ mod tests {
         ast::SourceFile::cast(parser::parse(input).syntax()).unwrap()
     }
 
-    fn check_stmt(input: &str, expected_hir: Stmt) {
+    fn check_stmt(input: &str, expected_hir: Stmt, expected_database: Database) {
         let source_file = parse(input);
         let ast = source_file.stmts().next().unwrap();
-        let hir = Database::default().lower_stmt(ast).unwrap();
+        let mut database = Database::default();
+        let hir = database.lower_stmt(ast).unwrap();
 
         assert_eq!(hir, expected_hir);
+        assert_eq!(database, expected_database);
     }
 
     fn check_expr(input: &str, expected_hir: Expr, expected_database: Database) {
@@ -140,12 +148,16 @@ mod tests {
 
     #[test]
     fn lower_variable_def() {
+        let mut exprs = Arena::new();
+        let expr = exprs.alloc(Expr::VariableRef { var: "bar".into() });
+
         check_stmt(
             "let foo = bar",
             Stmt::VariableDef {
                 name: "foo".into(),
-                value: Expr::VariableRef { var: "bar".into() },
+                value: expr,
             },
+            Database { exprs },
         );
     }
 
@@ -158,18 +170,25 @@ mod tests {
 
     #[test]
     fn lower_variable_def_without_value() {
+        let mut exprs = Arena::new();
+        let expr = exprs.alloc(Expr::Missing);
+
         check_stmt(
             "let a =",
             Stmt::VariableDef {
                 name: "a".into(),
-                value: Expr::Missing,
+                value: expr,
             },
+            Database { exprs },
         );
     }
 
     #[test]
     fn lower_expr_stmt() {
-        check_stmt("123", Stmt::Expr(Expr::Literal(Literal::Integer(123))));
+        let mut exprs = Arena::new();
+        let expr = exprs.alloc(Expr::Literal(Literal::Integer(123)));
+
+        check_stmt("123", Stmt::Expr(expr), Database { exprs });
     }
 
     #[test]

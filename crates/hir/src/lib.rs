@@ -13,8 +13,8 @@ pub fn lower(ast: ast::SourceFile) -> (Database, Vec<Stmt>) {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Stmt {
-    VariableDef { name: SmolStr, value: Expr },
-    Expr(Expr),
+    VariableDef { name: SmolStr, value: Idx<Expr> },
+    Expr(Idx<Expr>),
 }
 
 pub type ExprIdx = Idx<Expr>;

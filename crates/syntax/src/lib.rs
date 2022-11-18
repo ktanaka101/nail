@@ -29,6 +29,7 @@ pub enum SyntaxKind {
     InfixExpr,
     PrefixExpr,
     VariableRef,
+    Block,
 
     // statement nodes
     VariableDef,

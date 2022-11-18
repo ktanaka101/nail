@@ -44,10 +44,22 @@ fn function_def(parser: &mut Parser) -> CompletedMarker {
             parser.expect(TokenKind::Ident);
         }
     }
-
     parser.expect(TokenKind::RParen);
-    parser.expect(TokenKind::LCurly);
-    parser.expect(TokenKind::RCurly);
+
+    // block
+    {
+        if parser.at(TokenKind::LCurly) {
+            let marker = parser.start();
+            parser.bump();
+
+            while !parser.at(TokenKind::RCurly) && !parser.at_end() {
+                stmt(parser);
+            }
+            parser.expect(TokenKind::RCurly);
+
+            marker.complete(parser, SyntaxKind::Block);
+        }
+    }
 
     marker.complete(parser, SyntaxKind::FunctionDef)
 }
@@ -122,11 +134,10 @@ mod tests {
                     LParen@10..11 "("
                     RParen@11..12 ")"
                     Whitespace@12..13 " "
-                    LCurly@13..14 "{"
-                    RCurly@14..15 "}"
+                    Block@13..15
+                      LCurly@13..14 "{"
+                      RCurly@14..15 "}"
                 error at 6..8: expected identifier or ')', but found 'fn'
-                error at 6..8: expected '{', but found 'fn'
-                error at 6..8: expected '}', but found 'fn'
             "#]],
         );
     }
@@ -166,8 +177,9 @@ mod tests {
                     LParen@6..7 "("
                     RParen@7..8 ")"
                     Whitespace@8..9 " "
-                    LCurly@9..10 "{"
-                    RCurly@10..11 "}"
+                    Block@9..11
+                      LCurly@9..10 "{"
+                      RCurly@10..11 "}"
             "#]],
         );
     }
@@ -189,8 +201,39 @@ mod tests {
                     Ident@10..11 "b"
                     RParen@11..12 ")"
                     Whitespace@12..13 " "
-                    LCurly@13..14 "{"
-                    RCurly@14..15 "}"
+                    Block@13..15
+                      LCurly@13..14 "{"
+                      RCurly@14..15 "}"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_function_with_block_definition() {
+        check(
+            "fn foo() { 10 + 20 }",
+            expect![[r#"
+                SourceFile@0..20
+                  FunctionDef@0..20
+                    FnKw@0..2 "fn"
+                    Whitespace@2..3 " "
+                    Ident@3..6 "foo"
+                    LParen@6..7 "("
+                    RParen@7..8 ")"
+                    Whitespace@8..9 " "
+                    Block@9..20
+                      LCurly@9..10 "{"
+                      Whitespace@10..11 " "
+                      InfixExpr@11..19
+                        Literal@11..14
+                          IntegerLiteral@11..13 "10"
+                          Whitespace@13..14 " "
+                        Plus@14..15 "+"
+                        Whitespace@15..16 " "
+                        Literal@16..19
+                          IntegerLiteral@16..18 "20"
+                          Whitespace@18..19 " "
+                      RCurly@19..20 "}"
             "#]],
         );
     }

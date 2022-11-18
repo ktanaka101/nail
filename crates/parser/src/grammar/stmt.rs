@@ -36,15 +36,18 @@ fn function_def(parser: &mut Parser) -> CompletedMarker {
 
     parser.expect(TokenKind::Ident);
 
-    parser.expect(TokenKind::LParen);
-    if parser.at(TokenKind::Ident) {
-        parser.bump();
-        while parser.at(TokenKind::Comma) {
+    // params
+    {
+        parser.expect(TokenKind::LParen);
+        if parser.at(TokenKind::Ident) {
             parser.bump();
-            parser.expect(TokenKind::Ident);
+            while parser.at(TokenKind::Comma) {
+                parser.bump();
+                parser.expect(TokenKind::Ident);
+            }
         }
+        parser.expect(TokenKind::RParen);
     }
-    parser.expect(TokenKind::RParen);
 
     // block
     {

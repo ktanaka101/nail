@@ -104,6 +104,34 @@ mod tests {
     }
 
     #[test]
+    fn recover_on_fn_token() {
+        check(
+            "fn a(\nfn b() {}",
+            expect![[r#"
+                SourceFile@0..15
+                  FunctionDef@0..6
+                    FnKw@0..2 "fn"
+                    Whitespace@2..3 " "
+                    Ident@3..4 "a"
+                    LParen@4..5 "("
+                    Whitespace@5..6 "\n"
+                  FunctionDef@6..15
+                    FnKw@6..8 "fn"
+                    Whitespace@8..9 " "
+                    Ident@9..10 "b"
+                    LParen@10..11 "("
+                    RParen@11..12 ")"
+                    Whitespace@12..13 " "
+                    LCurly@13..14 "{"
+                    RCurly@14..15 "}"
+                error at 6..8: expected identifier or ')', but found 'fn'
+                error at 6..8: expected '{', but found 'fn'
+                error at 6..8: expected '}', but found 'fn'
+            "#]],
+        );
+    }
+
+    #[test]
     fn parse_multiple_statements() {
         check(
             "let a = 1\na",

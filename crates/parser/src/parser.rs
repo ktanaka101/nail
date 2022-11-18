@@ -19,7 +19,7 @@ pub(crate) struct Parser<'l, 'input> {
     expected_kinds: Vec<TokenKind>,
 }
 
-const RECOVERY_SET: [TokenKind; 1] = [TokenKind::LetKw];
+const RECOVERY_SET: [TokenKind; 2] = [TokenKind::LetKw, TokenKind::FnKw];
 
 impl<'l, 'input> Parser<'l, 'input> {
     pub(crate) fn new(source: Source<'l, 'input>) -> Self {

@@ -20,16 +20,19 @@ impl rowan::Language for NailLanguage {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, FromPrimitive, ToPrimitive)]
 pub enum SyntaxKind {
-    // node
+    // root node
     SourceFile,
 
-    // expressions
+    // expression nodes
     Literal,
     ParenExpr,
     InfixExpr,
     PrefixExpr,
     VariableRef,
+
+    // statement nodes
     VariableDef,
+    FunctionDef,
 
     // keywords
     FnKw,

@@ -38,6 +38,8 @@ fn function_def(parser: &mut Parser) -> CompletedMarker {
 
     // params
     {
+        let marker = parser.start();
+
         parser.expect(TokenKind::LParen);
         if parser.at(TokenKind::Ident) {
             parser.bump();
@@ -47,6 +49,8 @@ fn function_def(parser: &mut Parser) -> CompletedMarker {
             }
         }
         parser.expect(TokenKind::RParen);
+
+        marker.complete(parser, SyntaxKind::ParamList);
     }
 
     // block
@@ -128,15 +132,17 @@ mod tests {
                     FnKw@0..2 "fn"
                     Whitespace@2..3 " "
                     Ident@3..4 "a"
-                    LParen@4..5 "("
-                    Whitespace@5..6 "\n"
+                    ParamList@4..6
+                      LParen@4..5 "("
+                      Whitespace@5..6 "\n"
                   FunctionDef@6..15
                     FnKw@6..8 "fn"
                     Whitespace@8..9 " "
                     Ident@9..10 "b"
-                    LParen@10..11 "("
-                    RParen@11..12 ")"
-                    Whitespace@12..13 " "
+                    ParamList@10..13
+                      LParen@10..11 "("
+                      RParen@11..12 ")"
+                      Whitespace@12..13 " "
                     Block@13..15
                       LCurly@13..14 "{"
                       RCurly@14..15 "}"
@@ -177,9 +183,10 @@ mod tests {
                     FnKw@0..2 "fn"
                     Whitespace@2..3 " "
                     Ident@3..6 "foo"
-                    LParen@6..7 "("
-                    RParen@7..8 ")"
-                    Whitespace@8..9 " "
+                    ParamList@6..9
+                      LParen@6..7 "("
+                      RParen@7..8 ")"
+                      Whitespace@8..9 " "
                     Block@9..11
                       LCurly@9..10 "{"
                       RCurly@10..11 "}"
@@ -197,13 +204,14 @@ mod tests {
                     FnKw@0..2 "fn"
                     Whitespace@2..3 " "
                     Ident@3..6 "foo"
-                    LParen@6..7 "("
-                    Ident@7..8 "a"
-                    Comma@8..9 ","
-                    Whitespace@9..10 " "
-                    Ident@10..11 "b"
-                    RParen@11..12 ")"
-                    Whitespace@12..13 " "
+                    ParamList@6..13
+                      LParen@6..7 "("
+                      Ident@7..8 "a"
+                      Comma@8..9 ","
+                      Whitespace@9..10 " "
+                      Ident@10..11 "b"
+                      RParen@11..12 ")"
+                      Whitespace@12..13 " "
                     Block@13..15
                       LCurly@13..14 "{"
                       RCurly@14..15 "}"
@@ -221,9 +229,10 @@ mod tests {
                     FnKw@0..2 "fn"
                     Whitespace@2..3 " "
                     Ident@3..6 "foo"
-                    LParen@6..7 "("
-                    RParen@7..8 ")"
-                    Whitespace@8..9 " "
+                    ParamList@6..9
+                      LParen@6..7 "("
+                      RParen@7..8 ")"
+                      Whitespace@8..9 " "
                     Block@9..20
                       LCurly@9..10 "{"
                       Whitespace@10..11 " "

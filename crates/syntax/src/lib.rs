@@ -35,6 +35,9 @@ pub enum SyntaxKind {
     VariableDef,
     FunctionDef,
 
+    // part nodes
+    ParamList,
+
     // keywords
     FnKw,
     LetKw,

@@ -17,8 +17,10 @@ impl InferenceResult {
     #[cfg(test)]
     fn debug(&self) -> String {
         let mut msg = "".to_string();
-        for (expr, ty) in &self.mapping {
-            msg.push_str(&format!("{:?}: {:?}\n", expr.into_raw(), ty));
+        let mut indexes = self.mapping.keys().collect::<Vec<_>>();
+        indexes.sort_by_cached_key(|idx| idx.into_raw());
+        for idx in indexes {
+            msg.push_str(&format!("{:?}: {:?}\n", idx.into_raw(), self.mapping[idx]));
         }
 
         msg

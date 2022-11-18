@@ -5,3 +5,9 @@ edition = "2021"
 
 [dependencies]
 hir = { path = "../hir" }
+
+[dev-dependencies]
+expect-test = "1.4"
+
+ast = { path = "../ast" }
+parser = { path = "../parser" }

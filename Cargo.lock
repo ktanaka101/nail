@@ -252,7 +252,10 @@ dependencies = [
 name = "hir_ty"
 version = "0.1.0"
 dependencies = [
+ "ast",
+ "expect-test",
  "hir",
+ "parser",
 ]
 
 [[package]]

@@ -38,7 +38,7 @@ fn function_def(parser: &mut Parser) -> CompletedMarker {
     parser.expect(TokenKind::LParen);
 
     if parser.at(TokenKind::Ident) {
-        parser.expect(TokenKind::Ident);
+        parser.bump();
         while parser.at(TokenKind::Comma) {
             parser.bump();
             parser.expect(TokenKind::Ident);

@@ -49,25 +49,6 @@ mod tests {
     use expect_test::expect;
 
     #[test]
-    fn parse_function_definition() {
-        check(
-            "fn foo() {}",
-            expect![[r#"
-                SourceFile@0..11
-                  FunctionDef@0..11
-                    FnKw@0..2 "fn"
-                    Whitespace@2..3 " "
-                    Ident@3..6 "foo"
-                    LParen@6..7 "("
-                    RParen@7..8 ")"
-                    Whitespace@8..9 " "
-                    LCurly@9..10 "{"
-                    RCurly@10..11 "}"
-            "#]],
-        );
-    }
-
-    #[test]
     fn parse_variable_definition() {
         check(
             "let foo = bar",
@@ -131,6 +112,25 @@ mod tests {
                       Whitespace@9..10 "\n"
                   VariableRef@10..11
                     Ident@10..11 "a"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_function_definition() {
+        check(
+            "fn foo() {}",
+            expect![[r#"
+                SourceFile@0..11
+                  FunctionDef@0..11
+                    FnKw@0..2 "fn"
+                    Whitespace@2..3 " "
+                    Ident@3..6 "foo"
+                    LParen@6..7 "("
+                    RParen@7..8 ")"
+                    Whitespace@8..9 " "
+                    LCurly@9..10 "{"
+                    RCurly@10..11 "}"
             "#]],
         );
     }

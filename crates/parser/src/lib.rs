@@ -45,9 +45,10 @@ impl Parse {
         let tree = format!("{:#?}", self.syntax());
 
         s.push_str(&tree[0..tree.len() - 1]);
+        s.push('\n');
 
         for error in &self.errors {
-            s.push_str(&format!("\n{}", error));
+            s.push_str(&format!("{}\n", error));
         }
 
         s
@@ -75,7 +76,12 @@ mod tests {
 
     #[test]
     fn parse_nothing() {
-        check("", expect![[r#"SourceFile@0..0"#]]);
+        check(
+            "",
+            expect![[r#"
+                SourceFile@0..0
+            "#]],
+        );
     }
 
     #[test]
@@ -84,7 +90,8 @@ mod tests {
             "   ",
             expect![[r#"
                 SourceFile@0..3
-                  Whitespace@0..3 "   ""#]],
+                  Whitespace@0..3 "   "
+            "#]],
         );
     }
 
@@ -94,7 +101,8 @@ mod tests {
             "// hello!",
             expect![[r#"
                 SourceFile@0..9
-                  CommentSingle@0..9 "// hello!""#]],
+                  CommentSingle@0..9 "// hello!"
+            "#]],
         );
     }
 
@@ -109,7 +117,8 @@ mod tests {
                     Whitespace@1..2 " "
                   VariableRef@2..7
                     Ident@2..7 "hello"
-                error at 0..1: expected 'let', 'fn', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-' or '(', but found '/'"#]],
+                error at 0..1: expected 'let', 'fn', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-' or '(', but found '/'
+            "#]],
         );
     }
 
@@ -140,7 +149,8 @@ mod tests {
                     Literal@24..37
                       IntegerLiteral@24..26 "10"
                       Whitespace@26..27 " "
-                      CommentSingle@27..37 "// Add ten""#]],
+                      CommentSingle@27..37 "// Add ten"
+            "#]],
         );
     }
 }

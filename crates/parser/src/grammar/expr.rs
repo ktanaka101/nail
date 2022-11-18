@@ -179,7 +179,8 @@ mod tests {
             expect![[r#"
                 SourceFile@0..3
                   Literal@0..3
-                    IntegerLiteral@0..3 "123""#]],
+                    IntegerLiteral@0..3 "123"
+            "#]],
         );
     }
 
@@ -190,7 +191,8 @@ mod tests {
             expect![[r#"
                 SourceFile@0..7
                   VariableRef@0..7
-                    Ident@0..7 "counter""#]],
+                    Ident@0..7 "counter"
+            "#]],
         )
     }
 
@@ -205,7 +207,8 @@ mod tests {
                       IntegerLiteral@0..1 "1"
                     Plus@1..2 "+"
                     Literal@2..3
-                      IntegerLiteral@2..3 "2""#]],
+                      IntegerLiteral@2..3 "2"
+            "#]],
         );
     }
 
@@ -228,7 +231,8 @@ mod tests {
                         IntegerLiteral@4..5 "3"
                     Plus@5..6 "+"
                     Literal@6..7
-                      IntegerLiteral@6..7 "4""#]],
+                      IntegerLiteral@6..7 "4"
+            "#]],
         );
     }
 
@@ -251,7 +255,8 @@ mod tests {
                           IntegerLiteral@4..5 "3"
                     Minus@5..6 "-"
                     Literal@6..7
-                      IntegerLiteral@6..7 "4""#]],
+                      IntegerLiteral@6..7 "4"
+            "#]],
         );
     }
 
@@ -264,7 +269,8 @@ mod tests {
                   PrefixExpr@0..3
                     Minus@0..1 "-"
                     Literal@1..3
-                      IntegerLiteral@1..3 "10""#]],
+                      IntegerLiteral@1..3 "10"
+            "#]],
         );
     }
 
@@ -281,7 +287,8 @@ mod tests {
                         IntegerLiteral@1..3 "20"
                     Plus@3..4 "+"
                     Literal@4..6
-                      IntegerLiteral@4..6 "20""#]],
+                      IntegerLiteral@4..6 "20"
+            "#]],
         );
     }
 
@@ -310,7 +317,8 @@ mod tests {
                           RParen@10..11 ")"
                         RParen@11..12 ")"
                       RParen@12..13 ")"
-                    RParen@13..14 ")""#]],
+                    RParen@13..14 ")"
+            "#]],
         );
     }
 
@@ -332,7 +340,8 @@ mod tests {
                         Plus@4..5 "+"
                         Literal@5..6
                           IntegerLiteral@5..6 "1"
-                      RParen@6..7 ")""#]],
+                      RParen@6..7 ")"
+            "#]],
         );
     }
 
@@ -344,7 +353,8 @@ mod tests {
                 SourceFile@0..7
                   Whitespace@0..3 "   "
                   Literal@3..7
-                    IntegerLiteral@3..7 "9876""#]],
+                    IntegerLiteral@3..7 "9876"
+            "#]],
         );
     }
 
@@ -356,7 +366,8 @@ mod tests {
                 SourceFile@0..6
                   Literal@0..6
                     IntegerLiteral@0..3 "999"
-                    Whitespace@3..6 "   ""#]],
+                    Whitespace@3..6 "   "
+            "#]],
         );
     }
 
@@ -369,7 +380,8 @@ mod tests {
                   Whitespace@0..1 " "
                   Literal@1..9
                     IntegerLiteral@1..4 "123"
-                    Whitespace@4..9 "     ""#]],
+                    Whitespace@4..9 "     "
+            "#]],
         );
     }
 
@@ -380,7 +392,8 @@ mod tests {
             expect![[r#"
                 SourceFile@0..3
                   Literal@0..3
-                    CharLiteral@0..3 "'a'""#]],
+                    CharLiteral@0..3 "'a'"
+            "#]],
         );
     }
 
@@ -391,7 +404,8 @@ mod tests {
             expect![[r#"
                 SourceFile@0..5
                   Literal@0..5
-                    StringLiteral@0..5 "\"aaa\"""#]],
+                    StringLiteral@0..5 "\"aaa\""
+            "#]],
         );
     }
 
@@ -402,7 +416,8 @@ mod tests {
             expect![[r#"
                 SourceFile@0..4
                   Literal@0..4
-                    TrueKw@0..4 "true""#]],
+                    TrueKw@0..4 "true"
+            "#]],
         );
     }
 
@@ -413,7 +428,8 @@ mod tests {
             expect![[r#"
                 SourceFile@0..5
                   Literal@0..5
-                    FalseKw@0..5 "false""#]],
+                    FalseKw@0..5 "false"
+            "#]],
         );
     }
 
@@ -425,7 +441,8 @@ mod tests {
                 SourceFile@0..2
                   Literal@0..2
                     CharLiteral@0..2 "'a"
-                error at 0..2: expected ''', in charLiteral"#]],
+                error at 0..2: expected ''', in charLiteral
+            "#]],
         );
     }
 
@@ -447,7 +464,8 @@ mod tests {
                     Whitespace@10..11 " "
                     Literal@11..13
                       IntegerLiteral@11..13 "10"
-                error at 0..2: expected ''', in charLiteral"#]],
+                error at 0..2: expected ''', in charLiteral
+            "#]],
         );
     }
 
@@ -471,7 +489,8 @@ mod tests {
                       Whitespace@9..10 " "
                       Literal@10..12
                         IntegerLiteral@10..11 "3"
-                        Whitespace@11..12 " ""#]],
+                        Whitespace@11..12 " "
+            "#]],
         );
     }
 
@@ -485,7 +504,8 @@ mod tests {
                     LParen@0..1 "("
                     VariableRef@1..4
                       Ident@1..4 "foo"
-                error at 1..4: expected '+', '-', '*', '/' or ')'"#]],
+                error at 1..4: expected '+', '-', '*', '/' or ')'
+            "#]],
         );
     }
 
@@ -502,7 +522,8 @@ mod tests {
                         IntegerLiteral@1..2 "1"
                       Plus@2..3 "+"
                 error at 2..3: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-' or '('
-                error at 2..3: expected ')'"#]],
+                error at 2..3: expected ')'
+            "#]],
         );
     }
 }

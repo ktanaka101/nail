@@ -62,7 +62,8 @@ mod tests {
                     RParen@7..8 ")"
                     Whitespace@8..9 " "
                     LCurly@9..10 "{"
-                    RCurly@10..11 "}""#]],
+                    RCurly@10..11 "}"
+            "#]],
         );
     }
 
@@ -80,7 +81,8 @@ mod tests {
                     Eq@8..9 "="
                     Whitespace@9..10 " "
                     VariableRef@10..13
-                      Ident@10..13 "bar""#]],
+                      Ident@10..13 "bar"
+            "#]],
         );
     }
 
@@ -106,7 +108,8 @@ mod tests {
                     Whitespace@15..16 " "
                     VariableRef@16..17
                       Ident@16..17 "a"
-                error at 8..11: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-' or '(', but found 'let'"#]],
+                error at 8..11: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-' or '(', but found 'let'
+            "#]],
         );
     }
 
@@ -127,7 +130,8 @@ mod tests {
                       IntegerLiteral@8..9 "1"
                       Whitespace@9..10 "\n"
                   VariableRef@10..11
-                    Ident@10..11 "a""#]],
+                    Ident@10..11 "a"
+            "#]],
         );
     }
 }

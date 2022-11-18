@@ -36,6 +36,15 @@ fn function_def(parser: &mut Parser) -> CompletedMarker {
 
     parser.expect(TokenKind::Ident);
     parser.expect(TokenKind::LParen);
+
+    if parser.at(TokenKind::Ident) {
+        parser.expect(TokenKind::Ident);
+        while parser.at(TokenKind::Comma) {
+            parser.bump();
+            parser.expect(TokenKind::Ident);
+        }
+    }
+
     parser.expect(TokenKind::RParen);
     parser.expect(TokenKind::LCurly);
     parser.expect(TokenKind::RCurly);
@@ -131,6 +140,29 @@ mod tests {
                     Whitespace@8..9 " "
                     LCurly@9..10 "{"
                     RCurly@10..11 "}"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_function_with_params_definition() {
+        check(
+            "fn foo(a, b) {}",
+            expect![[r#"
+                SourceFile@0..15
+                  FunctionDef@0..15
+                    FnKw@0..2 "fn"
+                    Whitespace@2..3 " "
+                    Ident@3..6 "foo"
+                    LParen@6..7 "("
+                    Ident@7..8 "a"
+                    Comma@8..9 ","
+                    Whitespace@9..10 " "
+                    Ident@10..11 "b"
+                    RParen@11..12 ")"
+                    Whitespace@12..13 " "
+                    LCurly@13..14 "{"
+                    RCurly@14..15 "}"
             "#]],
         );
     }

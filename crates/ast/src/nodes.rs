@@ -42,13 +42,13 @@ pub enum Expr {
     VariableRef(VariableRef),
 }
 impl Expr {
-    pub fn cast(node: SyntaxNode) -> Option<Self> {
-        let result = match node.kind() {
-            SyntaxKind::BinaryExpr => Self::BinaryExpr(BinaryExpr { syntax: node }),
-            SyntaxKind::Literal => Self::Literal(Literal { syntax: node }),
-            SyntaxKind::ParenExpr => Self::ParenExpr(ParenExpr { syntax: node }),
-            SyntaxKind::UnaryExpr => Self::UnaryExpr(UnaryExpr { syntax: node }),
-            SyntaxKind::VariableRef => Self::VariableRef(VariableRef { syntax: node }),
+    pub fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let result = match syntax.kind() {
+            SyntaxKind::BinaryExpr => Self::BinaryExpr(BinaryExpr { syntax }),
+            SyntaxKind::Literal => Self::Literal(Literal { syntax }),
+            SyntaxKind::ParenExpr => Self::ParenExpr(ParenExpr { syntax }),
+            SyntaxKind::UnaryExpr => Self::UnaryExpr(UnaryExpr { syntax }),
+            SyntaxKind::VariableRef => Self::VariableRef(VariableRef { syntax }),
             _ => return None,
         };
 
@@ -61,10 +61,10 @@ pub enum Stmt {
     Expr(Expr),
 }
 impl Stmt {
-    pub fn cast(node: SyntaxNode) -> Option<Self> {
-        let result = match node.kind() {
-            SyntaxKind::VariableDef => Self::VariableDef(VariableDef { syntax: node }),
-            _ => Self::Expr(Expr::cast(node)?),
+    pub fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let result = match syntax.kind() {
+            SyntaxKind::VariableDef => Self::VariableDef(VariableDef { syntax }),
+            _ => Self::Expr(Expr::cast(syntax)?),
         };
 
         Some(result)

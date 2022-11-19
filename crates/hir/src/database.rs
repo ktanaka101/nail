@@ -19,7 +19,7 @@ impl Database {
             ast::Stmt::VariableDef(ast) => {
                 let expr = self.lower_expr(ast.value());
                 let idx = self.exprs.alloc(expr);
-                let name: SmolStr = ast.name()?.text().into();
+                let name = SmolStr::from(ast.name()?.text());
                 self.mapping.insert(name.clone(), idx);
                 Stmt::VariableDef { name, value: idx }
             }

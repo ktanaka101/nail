@@ -1,36 +1,32 @@
 use syntax::{SyntaxKind, SyntaxToken};
 
-pub struct Integer {
-    pub syntax: SyntaxToken,
+macro_rules! def_ast_token {
+    ($kind:ident) => {
+        #[derive(Clone, PartialEq, Eq, Hash)]
+        pub struct $kind {
+            pub syntax: SyntaxToken,
+        }
+
+        impl $kind {
+            pub fn cast(syntax: SyntaxToken) -> Option<Self> {
+                match syntax.kind() {
+                    SyntaxKind::$kind => Some(Self { syntax }),
+                    _ => None,
+                }
+            }
+        }
+    };
 }
 
+def_ast_token!(Integer);
 impl Integer {
-    pub fn cast(syntax: SyntaxToken) -> Option<Self> {
-        if syntax.kind() == SyntaxKind::Integer {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-
     pub fn value(&self) -> Option<i64> {
         self.syntax.text().parse().ok()
     }
 }
 
-pub struct String {
-    pub syntax: SyntaxToken,
-}
-
+def_ast_token!(String);
 impl String {
-    pub fn cast(syntax: SyntaxToken) -> Option<Self> {
-        if syntax.kind() == SyntaxKind::String {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-
     pub fn value(&self) -> Option<std::string::String> {
         let text = self.syntax.text();
         let text = text.trim_matches('"');
@@ -38,19 +34,8 @@ impl String {
     }
 }
 
-pub struct Char {
-    pub syntax: SyntaxToken,
-}
-
+def_ast_token!(Char);
 impl Char {
-    pub fn cast(syntax: SyntaxToken) -> Option<Self> {
-        if syntax.kind() == SyntaxKind::Char {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-
     pub fn value(&self) -> Option<char> {
         let text = self.syntax.text();
         let text = text.trim_matches('\'');
@@ -61,7 +46,6 @@ impl Char {
 pub struct Bool {
     pub syntax: SyntaxToken,
 }
-
 impl Bool {
     pub fn cast(syntax: SyntaxToken) -> Option<Self> {
         match syntax.kind() {

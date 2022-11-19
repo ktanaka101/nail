@@ -1,8 +1,10 @@
 mod nodes;
+mod operators;
 mod tokens;
 pub mod validation;
 
 pub use nodes::*;
+pub use operators::*;
 pub use tokens::*;
 
 use syntax::{SyntaxKind, SyntaxNode};

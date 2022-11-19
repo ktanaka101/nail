@@ -219,7 +219,7 @@ mod tests {
             expect![[r#"
 
                 ---
-                0: missing
+                0: 10
             "#]],
         );
     }

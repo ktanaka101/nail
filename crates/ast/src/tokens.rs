@@ -76,3 +76,16 @@ impl Ident {
         self.syntax.text()
     }
 }
+
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub enum UnaryOp {
+    Neg,
+}
+impl UnaryOp {
+    pub fn cast(syntax: SyntaxToken) -> Option<Self> {
+        match syntax.kind() {
+            SyntaxKind::UnaryExpr => Some(Self::Neg),
+            _ => None,
+        }
+    }
+}

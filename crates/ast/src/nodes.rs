@@ -133,30 +133,17 @@ impl ParenExpr {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub enum UnaryOp {
-    Neg,
-}
-impl UnaryOp {
-    pub fn cast(syntax: SyntaxToken) -> Option<Self> {
-        match syntax.kind() {
-            SyntaxKind::UnaryExpr => Some(Self::Neg),
-            _ => None,
-        }
-    }
-}
-
 def_ast_node!(UnaryExpr);
 impl UnaryExpr {
     pub fn expr(&self) -> Option<Expr> {
         self.syntax.children().find_map(Expr::cast)
     }
 
-    pub fn op(&self) -> Option<UnaryOp> {
+    pub fn op(&self) -> Option<tokens::UnaryOp> {
         self.syntax
             .children_with_tokens()
             .filter_map(SyntaxElement::into_token)
-            .find_map(UnaryOp::cast)
+            .find_map(tokens::UnaryOp::cast)
     }
 }
 

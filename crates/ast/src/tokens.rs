@@ -84,7 +84,7 @@ pub enum UnaryOp {
 impl UnaryOp {
     pub fn cast(syntax: SyntaxToken) -> Option<Self> {
         match syntax.kind() {
-            SyntaxKind::UnaryExpr => Some(Self::Neg),
+            SyntaxKind::Minus => Some(Self::Neg),
             _ => None,
         }
     }

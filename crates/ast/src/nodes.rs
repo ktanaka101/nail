@@ -41,15 +41,14 @@ pub enum Expr {
     UnaryExpr(UnaryExpr),
     VariableRef(VariableRef),
 }
-
 impl Expr {
     pub fn cast(node: SyntaxNode) -> Option<Self> {
         let result = match node.kind() {
-            SyntaxKind::InfixExpr => Self::BinaryExpr(BinaryExpr(node)),
-            SyntaxKind::Literal => Self::Literal(Literal(node)),
-            SyntaxKind::ParenExpr => Self::ParenExpr(ParenExpr(node)),
-            SyntaxKind::PrefixExpr => Self::UnaryExpr(UnaryExpr(node)),
-            SyntaxKind::VariableRef => Self::VariableRef(VariableRef(node)),
+            SyntaxKind::InfixExpr => Self::BinaryExpr(BinaryExpr { syntax: node }),
+            SyntaxKind::Literal => Self::Literal(Literal { syntax: node }),
+            SyntaxKind::ParenExpr => Self::ParenExpr(ParenExpr { syntax: node }),
+            SyntaxKind::PrefixExpr => Self::UnaryExpr(UnaryExpr { syntax: node }),
+            SyntaxKind::VariableRef => Self::VariableRef(VariableRef { syntax: node }),
             _ => return None,
         };
 
@@ -61,7 +60,6 @@ pub enum Stmt {
     VariableDef(VariableDef),
     Expr(Expr),
 }
-
 impl Stmt {
     pub fn cast(node: SyntaxNode) -> Option<Self> {
         let result = match node.kind() {
@@ -73,19 +71,20 @@ impl Stmt {
     }
 }
 
-pub struct BinaryExpr(SyntaxNode);
-
+pub struct BinaryExpr {
+    syntax: SyntaxNode,
+}
 impl BinaryExpr {
     pub fn lhs(&self) -> Option<Expr> {
-        self.0.children().find_map(Expr::cast)
+        self.syntax.children().find_map(Expr::cast)
     }
 
     pub fn rhs(&self) -> Option<Expr> {
-        self.0.children().filter_map(Expr::cast).nth(1)
+        self.syntax.children().filter_map(Expr::cast).nth(1)
     }
 
     pub fn op(&self) -> Option<SyntaxToken> {
-        self.0
+        self.syntax
             .children_with_tokens()
             .filter_map(SyntaxElement::into_token)
             .find(|token| {
@@ -104,11 +103,10 @@ pub enum LiteralKind {
     Bool(tokens::Bool),
 }
 
-pub struct Literal(SyntaxNode);
-
+def_ast_node!(Literal);
 impl Literal {
     pub fn token(&self) -> SyntaxToken {
-        self.0.first_token().unwrap()
+        self.syntax.first_token().unwrap()
     }
 
     pub fn kind(&self) -> LiteralKind {
@@ -125,43 +123,34 @@ impl Literal {
             panic!("unknown literal kind");
         }
     }
-
-    pub fn cast(node: SyntaxNode) -> Option<Self> {
-        if node.kind() == SyntaxKind::Literal {
-            Some(Self(node))
-        } else {
-            None
-        }
-    }
 }
 
-pub struct ParenExpr(SyntaxNode);
-
+def_ast_node!(ParenExpr);
 impl ParenExpr {
     pub fn expr(&self) -> Option<Expr> {
-        self.0.children().find_map(Expr::cast)
+        self.syntax.children().find_map(Expr::cast)
     }
 }
 
-pub struct UnaryExpr(SyntaxNode);
-
+pub struct UnaryExpr {
+    syntax: SyntaxNode,
+}
 impl UnaryExpr {
     pub fn expr(&self) -> Option<Expr> {
-        self.0.children().find_map(Expr::cast)
+        self.syntax.children().find_map(Expr::cast)
     }
 
     pub fn op(&self) -> Option<SyntaxToken> {
-        self.0
+        self.syntax
             .children_with_tokens()
             .filter_map(SyntaxElement::into_token)
             .find(|token| token.kind() == SyntaxKind::Minus)
     }
 }
 
-pub struct VariableRef(SyntaxNode);
-
+def_ast_node!(VariableRef);
 impl VariableRef {
     pub fn name(&self) -> Option<SyntaxToken> {
-        self.0.first_token()
+        self.syntax.first_token()
     }
 }

@@ -43,6 +43,7 @@ impl Char {
     }
 }
 
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Bool {
     pub syntax: SyntaxToken,
 }

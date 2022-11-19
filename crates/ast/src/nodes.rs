@@ -34,6 +34,7 @@ impl VariableDef {
     }
 }
 
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Expr {
     BinaryExpr(BinaryExpr),
     Literal(Literal),
@@ -56,6 +57,7 @@ impl Expr {
     }
 }
 
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Stmt {
     VariableDef(VariableDef),
     Expr(Expr),
@@ -94,6 +96,7 @@ impl BinaryExpr {
     }
 }
 
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum LiteralKind {
     Integer(tokens::Integer),
     String(tokens::String),

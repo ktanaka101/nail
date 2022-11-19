@@ -53,7 +53,7 @@ pub enum SyntaxKind {
     // literals
     Integer,
     String,
-    CharLiteral,
+    Char,
 
     // symbols
     Plus,
@@ -99,7 +99,7 @@ impl From<TokenKind> for SyntaxKind {
 
             TokenKind::IntegerLiteral => Self::Integer,
             TokenKind::StringLiteral => Self::String,
-            TokenKind::CharLiteral(_) => Self::CharLiteral,
+            TokenKind::CharLiteral(_) => Self::Char,
 
             TokenKind::Plus => Self::Plus,
             TokenKind::Minus => Self::Minus,

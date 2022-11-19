@@ -392,7 +392,7 @@ mod tests {
             expect![[r#"
                 SourceFile@0..3
                   Literal@0..3
-                    CharLiteral@0..3 "'a'"
+                    Char@0..3 "'a'"
             "#]],
         );
     }
@@ -440,7 +440,7 @@ mod tests {
             expect![[r#"
                 SourceFile@0..2
                   Literal@0..2
-                    CharLiteral@0..2 "'a"
+                    Char@0..2 "'a"
                 error at 0..2: expected ''', in charLiteral
             "#]],
         );
@@ -453,7 +453,7 @@ mod tests {
             expect![[r#"
                 SourceFile@0..13
                   Literal@0..3
-                    CharLiteral@0..2 "'a"
+                    Char@0..2 "'a"
                     Whitespace@2..3 " "
                   VariableDef@3..13
                     LetKw@3..6 "let"

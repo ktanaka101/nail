@@ -44,7 +44,7 @@ pub struct Char {
 
 impl Char {
     pub fn cast(syntax: SyntaxToken) -> Option<Self> {
-        if syntax.kind() == SyntaxKind::CharLiteral {
+        if syntax.kind() == SyntaxKind::Char {
             Some(Self { syntax })
         } else {
             None

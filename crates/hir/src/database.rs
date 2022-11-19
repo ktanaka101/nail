@@ -137,10 +137,10 @@ mod tests {
         for stmt in body {
             match stmt {
                 Stmt::VariableDef { name, value } => {
-                    msg.push_str(&format!("let {} = idx:{}\n", name, value.into_raw()));
+                    msg.push_str(&format!("let {} = %{}\n", name, value.into_raw()));
                 }
                 Stmt::Expr(expr) => {
-                    msg.push_str(&format!("idx:{}\n", expr.into_raw()));
+                    msg.push_str(&format!("%{}\n", expr.into_raw()));
                 }
             }
         }
@@ -170,15 +170,15 @@ mod tests {
                     BinaryOp::Mul => "*",
                     BinaryOp::Div => "/",
                 };
-                format!("idx:{} {} idx:{}", lhs.into_raw(), op, rhs.into_raw())
+                format!("%{} {} %{}", lhs.into_raw(), op, rhs.into_raw())
             }
             Expr::Unary { op, expr } => {
                 let op = match op {
                     UnaryOp::Neg => "-",
                 };
-                format!("{}idx:{}", op, expr.into_raw())
+                format!("{}%{}", op, expr.into_raw())
             }
-            Expr::VariableRef { var } => format!("idx:{}", var.into_raw()),
+            Expr::VariableRef { var } => format!("%{}", var.into_raw()),
             Expr::Missing => "missing".to_string(),
         }
     }
@@ -201,11 +201,11 @@ mod tests {
                 let foo = bar
             "#,
             expect![[r#"
-                let foo = idx:1
+                let foo = %1
 
                 ---
                 0: missing
-                1: idx:0
+                1: %0
             "#]],
         );
     }
@@ -231,7 +231,7 @@ mod tests {
                 let a =
             "#,
             expect![[r#"
-                let a = idx:0
+                let a = %0
 
                 ---
                 0: missing
@@ -246,7 +246,7 @@ mod tests {
                 123
             "#,
             expect![[r#"
-                idx:0
+                %0
 
                 ---
                 0: 123
@@ -261,12 +261,12 @@ mod tests {
                 1 + 2
             "#,
             expect![[r#"
-                idx:2
+                %2
 
                 ---
                 0: 1
                 1: 2
-                2: idx:0 + idx:1
+                2: %0 + %1
             "#]],
         );
     }
@@ -278,12 +278,12 @@ mod tests {
                 10 -
             "#,
             expect![[r#"
-                idx:2
+                %2
 
                 ---
                 0: 10
                 1: missing
-                2: idx:0 - idx:1
+                2: %0 - %1
             "#]],
         );
     }
@@ -295,7 +295,7 @@ mod tests {
                 999
             "#,
             expect![[r#"
-                idx:0
+                %0
 
                 ---
                 0: 999
@@ -310,7 +310,7 @@ mod tests {
                 "aaa"
             "#,
             expect![[r#"
-                idx:0
+                %0
 
                 ---
                 0: "aaa"
@@ -325,7 +325,7 @@ mod tests {
                 'a'
             "#,
             expect![[r#"
-                idx:0
+                %0
 
                 ---
                 0: 'a'
@@ -340,7 +340,7 @@ mod tests {
                 true
             "#,
             expect![[r#"
-                idx:0
+                %0
 
                 ---
                 0: true
@@ -355,7 +355,7 @@ mod tests {
                 false
             "#,
             expect![[r#"
-                idx:0
+                %0
 
                 ---
                 0: false
@@ -370,11 +370,11 @@ mod tests {
                 ((((((abc))))))
             "#,
             expect![[r#"
-                idx:1
+                %1
 
                 ---
                 0: missing
-                1: idx:0
+                1: %0
             "#]],
         );
     }
@@ -386,11 +386,11 @@ mod tests {
                 -10
             "#,
             expect![[r#"
-                idx:1
+                %1
 
                 ---
                 0: 10
-                1: -idx:0
+                1: -%0
             "#]],
         );
     }
@@ -402,11 +402,11 @@ mod tests {
                 -
             "#,
             expect![[r#"
-                idx:1
+                %1
 
                 ---
                 0: missing
-                1: -idx:0
+                1: -%0
             "#]],
         );
     }
@@ -418,11 +418,11 @@ mod tests {
                 foo
             "#,
             expect![[r#"
-                idx:1
+                %1
 
                 ---
                 0: missing
-                1: idx:0
+                1: %0
             "#]],
         );
     }
@@ -435,12 +435,12 @@ mod tests {
                 foo
             "#,
             expect![[r#"
-                let foo = idx:0
-                idx:1
+                let foo = %0
+                %1
 
                 ---
                 0: 10
-                1: idx:0
+                1: %0
             "#]],
         );
     }

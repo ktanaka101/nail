@@ -71,9 +71,7 @@ impl Stmt {
     }
 }
 
-pub struct BinaryExpr {
-    syntax: SyntaxNode,
-}
+def_ast_node!(BinaryExpr);
 impl BinaryExpr {
     pub fn lhs(&self) -> Option<Expr> {
         self.syntax.children().find_map(Expr::cast)

@@ -96,6 +96,27 @@ mod tests {
     }
 
     #[test]
+    fn parse_varialbe_def_without_name() {
+        check(
+            "let = 10",
+            expect![[r#"
+                SourceFile@0..8
+                  VariableDef@0..8
+                    LetKw@0..3 "let"
+                    Whitespace@3..4 " "
+                    Error@4..6
+                      Eq@4..5 "="
+                      Whitespace@5..6 " "
+                    Error@6..8
+                      IntegerLiteral@6..8 "10"
+                error at 4..5: expected identifier, but found '='
+                error at 6..8: expected '=', but found integerLiteral
+                error at 6..8: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-' or '('
+            "#]],
+        )
+    }
+
+    #[test]
     fn recover_on_let_token() {
         check(
             "let a =\nlet b = a",

@@ -71,4 +71,8 @@ impl Ident {
     pub fn name(&self) -> StdString {
         self.syntax.text().into()
     }
+
+    pub fn ref_name(&self) -> &str {
+        self.syntax.text()
+    }
 }

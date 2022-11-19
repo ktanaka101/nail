@@ -112,7 +112,9 @@ impl Database {
     }
 
     fn lower_variable_ref(&mut self, ast: ast::VariableRef) -> Expr {
-        let expr = if let Some(expr) = self.mapping.get(&SmolStr::from(ast.name().unwrap().name()))
+        let expr = if let Some(expr) = self
+            .mapping
+            .get(&SmolStr::from(ast.name().unwrap().ref_name()))
         {
             *expr
         } else {

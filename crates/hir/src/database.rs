@@ -1,11 +1,16 @@
+use std::collections::HashMap;
+
+use la_arena::Arena;
+use smol_str::SmolStr;
+
 use syntax::SyntaxKind;
 
-use crate::{BinaryOp, Expr, Literal, Stmt, UnaryOp};
-use la_arena::Arena;
+use crate::{BinaryOp, Expr, ExprIdx, Literal, Stmt, UnaryOp};
 
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct Database {
     pub exprs: Arena<Expr>,
+    pub mapping: HashMap<SmolStr, ExprIdx>,
 }
 
 impl Database {
@@ -13,10 +18,10 @@ impl Database {
         let result = match ast {
             ast::Stmt::VariableDef(ast) => {
                 let expr = self.lower_expr(ast.value());
-                Stmt::VariableDef {
-                    name: ast.name()?.text().into(),
-                    value: self.exprs.alloc(expr),
-                }
+                let idx = self.exprs.alloc(expr);
+                let name: SmolStr = ast.name()?.text().into();
+                self.mapping.insert(name.clone(), idx);
+                Stmt::VariableDef { name, value: idx }
             }
             ast::Stmt::Expr(ast) => {
                 let expr = self.lower_expr(Some(ast));
@@ -108,206 +113,335 @@ impl Database {
     }
 
     fn lower_variable_ref(&mut self, ast: ast::VariableRef) -> Expr {
-        Expr::VariableRef {
-            var: ast.name().unwrap().text().into(),
-        }
+        let expr = if let Some(expr) = self.mapping.get(ast.name().unwrap().text()) {
+            *expr
+        } else {
+            self.exprs.alloc(Expr::Missing)
+        };
+
+        Expr::VariableRef { var: expr }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use expect_test::{expect, Expect};
+
+    use crate::lower;
+
     use super::*;
+
+    fn debug_ref(body: &[Stmt], db: &Database) -> String {
+        let mut msg = "".to_string();
+
+        for stmt in body {
+            match stmt {
+                Stmt::VariableDef { name, value } => {
+                    msg.push_str(&format!("let {} = idx:{}\n", name, value.into_raw()));
+                }
+                Stmt::Expr(expr) => {
+                    msg.push_str(&format!("idx:{}\n", expr.into_raw()));
+                }
+            }
+        }
+
+        msg.push('\n');
+        msg.push_str("---\n");
+
+        for expr in db.exprs.iter() {
+            msg.push_str(&format!("{}: {}\n", expr.0.into_raw(), debug_expr(expr.1)));
+        }
+
+        msg
+    }
+
+    fn debug_expr(expr: &Expr) -> String {
+        match expr {
+            Expr::Literal(literal) => match literal {
+                Literal::Bool(b) => b.to_string(),
+                Literal::Char(c) => format!("'{}'", c),
+                Literal::String(s) => format!("\"{}\"", s),
+                Literal::Integer(i) => i.to_string(),
+            },
+            Expr::Binary { op, lhs, rhs } => {
+                let op = match op {
+                    BinaryOp::Add => "+",
+                    BinaryOp::Sub => "-",
+                    BinaryOp::Mul => "*",
+                    BinaryOp::Div => "/",
+                };
+                format!("idx:{} {} idx:{}", lhs.into_raw(), op, rhs.into_raw())
+            }
+            Expr::Unary { op, expr } => {
+                let op = match op {
+                    UnaryOp::Neg => "-",
+                };
+                format!("{}idx:{}", op, expr.into_raw())
+            }
+            Expr::VariableRef { var } => format!("idx:{}", var.into_raw()),
+            Expr::Missing => "missing".to_string(),
+        }
+    }
 
     fn parse(input: &str) -> ast::SourceFile {
         ast::SourceFile::cast(parser::parse(input).syntax()).unwrap()
     }
 
-    fn check_stmt(input: &str, expected_hir: Stmt, expected_database: Database) {
+    fn check(input: &str, expected: Expect) {
         let source_file = parse(input);
-        let ast = source_file.stmts().next().unwrap();
-        let mut database = Database::default();
-        let hir = database.lower_stmt(ast).unwrap();
+        let result = lower(source_file);
 
-        assert_eq!(hir, expected_hir);
-        assert_eq!(database, expected_database);
-    }
-
-    fn check_expr(input: &str, expected_hir: Expr, expected_database: Database) {
-        let source_file = parse(input);
-        let first_stmt = source_file.stmts().next().unwrap();
-        let ast = match first_stmt {
-            ast::Stmt::Expr(ast) => ast,
-            _ => unreachable!(),
-        };
-        let mut database = Database::default();
-        let hir = database.lower_expr(Some(ast));
-
-        assert_eq!(hir, expected_hir);
-        assert_eq!(database, expected_database);
+        expected.assert_eq(&debug_ref(&result.1, &result.0));
     }
 
     #[test]
     fn lower_variable_def() {
-        let mut exprs = Arena::new();
-        let expr = exprs.alloc(Expr::VariableRef { var: "bar".into() });
+        check(
+            r#"
+                let foo = bar
+            "#,
+            expect![[r#"
+                let foo = idx:1
 
-        check_stmt(
-            "let foo = bar",
-            Stmt::VariableDef {
-                name: "foo".into(),
-                value: expr,
-            },
-            Database { exprs },
+                ---
+                0: missing
+                1: idx:0
+            "#]],
         );
     }
 
     #[test]
     fn lower_variable_def_without_name() {
-        let source_file = parse("let = 10");
-        let ast = source_file.stmts().next().unwrap();
-        assert!(Database::default().lower_stmt(ast).is_none());
+        check(
+            r#"
+                let = 10
+            "#,
+            expect![[r#"
+
+                ---
+                0: missing
+            "#]],
+        );
     }
 
     #[test]
     fn lower_variable_def_without_value() {
-        let mut exprs = Arena::new();
-        let expr = exprs.alloc(Expr::Missing);
+        check(
+            r#"
+                let a =
+            "#,
+            expect![[r#"
+                let a = idx:0
 
-        check_stmt(
-            "let a =",
-            Stmt::VariableDef {
-                name: "a".into(),
-                value: expr,
-            },
-            Database { exprs },
+                ---
+                0: missing
+            "#]],
         );
     }
 
     #[test]
     fn lower_expr_stmt() {
-        let mut exprs = Arena::new();
-        let expr = exprs.alloc(Expr::Literal(Literal::Integer(123)));
+        check(
+            r#"
+                123
+            "#,
+            expect![[r#"
+                idx:0
 
-        check_stmt("123", Stmt::Expr(expr), Database { exprs });
+                ---
+                0: 123
+            "#]],
+        );
     }
 
     #[test]
     fn lower_binary_expr() {
-        let mut exprs = Arena::new();
-        let lhs = exprs.alloc(Expr::Literal(Literal::Integer(1)));
-        let rhs = exprs.alloc(Expr::Literal(Literal::Integer(2)));
+        check(
+            r#"
+                1 + 2
+            "#,
+            expect![[r#"
+                idx:2
 
-        check_expr(
-            "1 + 2",
-            Expr::Binary {
-                lhs,
-                rhs,
-                op: BinaryOp::Add,
-            },
-            Database { exprs },
+                ---
+                0: 1
+                1: 2
+                2: idx:0 + idx:1
+            "#]],
         );
     }
 
     #[test]
     fn lower_binary_expr_without_rhs() {
-        let mut exprs = Arena::new();
+        check(
+            r#"
+                10 -
+            "#,
+            expect![[r#"
+                idx:2
 
-        check_expr(
-            "10 -",
-            Expr::Binary {
-                lhs: exprs.alloc(Expr::Literal(Literal::Integer(10))),
-                rhs: exprs.alloc(Expr::Missing),
-                op: BinaryOp::Sub,
-            },
-            Database { exprs },
+                ---
+                0: 10
+                1: missing
+                2: idx:0 - idx:1
+            "#]],
         );
     }
 
     #[test]
     fn lower_integer_literal() {
-        check_expr(
-            "999",
-            Expr::Literal(Literal::Integer(999)),
-            Database::default(),
+        check(
+            r#"
+                999
+            "#,
+            expect![[r#"
+                idx:0
+
+                ---
+                0: 999
+            "#]],
         );
     }
 
     #[test]
     fn lower_string_literal() {
-        check_expr(
-            "\"aaa\"",
-            Expr::Literal(Literal::String("aaa".to_string())),
-            Database::default(),
+        check(
+            r#"
+                "aaa"
+            "#,
+            expect![[r#"
+                idx:0
+
+                ---
+                0: "aaa"
+            "#]],
         );
     }
 
     #[test]
     fn lower_char_literal() {
-        check_expr(
-            "'a'",
-            Expr::Literal(Literal::Char('a')),
-            Database::default(),
+        check(
+            r#"
+                'a'
+            "#,
+            expect![[r#"
+                idx:0
+
+                ---
+                0: 'a'
+            "#]],
         );
     }
 
     #[test]
-    fn lower_bool_literal() {
-        check_expr(
-            "true",
-            Expr::Literal(Literal::Bool(true)),
-            Database::default(),
-        );
+    fn lower_bool_literal_true() {
+        check(
+            r#"
+                true
+            "#,
+            expect![[r#"
+                idx:0
 
-        check_expr(
-            "false",
-            Expr::Literal(Literal::Bool(false)),
-            Database::default(),
+                ---
+                0: true
+            "#]],
+        );
+    }
+
+    #[test]
+    fn lower_bool_literal_false() {
+        check(
+            r#"
+                false
+            "#,
+            expect![[r#"
+                idx:0
+
+                ---
+                0: false
+            "#]],
         );
     }
 
     #[test]
     fn lower_paren_expr() {
-        check_expr(
-            "((((((abc))))))",
-            Expr::VariableRef { var: "abc".into() },
-            Database::default(),
+        check(
+            r#"
+                ((((((abc))))))
+            "#,
+            expect![[r#"
+                idx:1
+
+                ---
+                0: missing
+                1: idx:0
+            "#]],
         );
     }
 
     #[test]
     fn lower_unary_expr() {
-        let mut exprs = Arena::new();
+        check(
+            r#"
+                -10
+            "#,
+            expect![[r#"
+                idx:1
 
-        check_expr(
-            "-10",
-            Expr::Unary {
-                expr: exprs.alloc(Expr::Literal(Literal::Integer(10))),
-                op: UnaryOp::Neg,
-            },
-            Database { exprs },
+                ---
+                0: 10
+                1: -idx:0
+            "#]],
         );
     }
 
     #[test]
     fn lower_unary_expr_without_expr() {
-        let mut exprs = Arena::new();
+        check(
+            r#"
+                -
+            "#,
+            expect![[r#"
+                idx:1
 
-        check_expr(
-            "-",
-            Expr::Unary {
-                expr: exprs.alloc(Expr::Missing),
-                op: UnaryOp::Neg,
-            },
-            Database { exprs },
+                ---
+                0: missing
+                1: -idx:0
+            "#]],
         );
     }
 
     #[test]
     fn lower_variable_ref() {
-        check_expr(
-            "foo",
-            Expr::VariableRef { var: "foo".into() },
-            Database::default(),
+        check(
+            r#"
+                foo
+            "#,
+            expect![[r#"
+                idx:1
+
+                ---
+                0: missing
+                1: idx:0
+            "#]],
+        );
+    }
+
+    #[test]
+    fn lookup_variable_ref() {
+        check(
+            r#"
+                let foo = 10
+                foo
+            "#,
+            expect![[r#"
+                let foo = idx:0
+                idx:1
+
+                ---
+                0: 10
+                1: idx:0
+            "#]],
         );
     }
 }

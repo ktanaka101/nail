@@ -40,7 +40,7 @@ pub enum Expr {
         expr: ExprIdx,
     },
     VariableRef {
-        var: SmolStr,
+        var: ExprIdx,
     },
     Missing,
 }

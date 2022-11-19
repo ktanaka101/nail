@@ -13,4 +13,6 @@ ast = { path = "../ast" }
 syntax = { path = "../syntax" }
 
 [dev-dependencies]
+expect-test = "1.4"
+
 parser = { path = "../parser" }

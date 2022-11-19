@@ -99,9 +99,8 @@ impl Database {
     }
 
     fn lower_unary(&mut self, ast: ast::UnaryExpr) -> Expr {
-        let op = match ast.op().unwrap().kind() {
-            SyntaxKind::Minus => UnaryOp::Neg,
-            _ => unreachable!(),
+        let op = match ast.op().unwrap() {
+            ast::UnaryOp::Minus => UnaryOp::Neg,
         };
 
         let expr = self.lower_expr(ast.expr());
@@ -113,7 +112,8 @@ impl Database {
     }
 
     fn lower_variable_ref(&mut self, ast: ast::VariableRef) -> Expr {
-        let expr = if let Some(expr) = self.mapping.get(ast.name().unwrap().text()) {
+        let expr = if let Some(expr) = self.mapping.get(&SmolStr::from(ast.name().unwrap().name()))
+        {
             *expr
         } else {
             self.exprs.alloc(Expr::Missing)

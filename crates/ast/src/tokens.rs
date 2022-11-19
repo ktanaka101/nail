@@ -24,7 +24,7 @@ pub struct String {
 
 impl String {
     pub fn cast(syntax: SyntaxToken) -> Option<Self> {
-        if syntax.kind() == SyntaxKind::StringLiteral {
+        if syntax.kind() == SyntaxKind::String {
             Some(Self { syntax })
         } else {
             None

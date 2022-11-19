@@ -404,7 +404,7 @@ mod tests {
             expect![[r#"
                 SourceFile@0..5
                   Literal@0..5
-                    StringLiteral@0..5 "\"aaa\""
+                    String@0..5 "\"aaa\""
             "#]],
         );
     }

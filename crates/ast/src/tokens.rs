@@ -4,6 +4,11 @@ use syntax::{SyntaxKind, SyntaxToken};
 
 type StdString = std::string::String;
 
+pub trait AstToken: Sized {
+    fn cast(syntax: SyntaxToken) -> Option<Self>;
+    fn range(&self) -> TextRange;
+}
+
 macro_rules! def_ast_token {
     ($kind:ident) => {
         #[derive(Clone, PartialEq, Eq, Hash)]
@@ -11,15 +16,15 @@ macro_rules! def_ast_token {
             syntax: SyntaxToken,
         }
 
-        impl $kind {
-            pub fn cast(syntax: SyntaxToken) -> Option<Self> {
+        impl AstToken for $kind {
+            fn cast(syntax: SyntaxToken) -> Option<Self> {
                 match syntax.kind() {
                     SyntaxKind::$kind => Some(Self { syntax }),
                     _ => None,
                 }
             }
 
-            pub fn range(&self) -> TextRange {
+            fn range(&self) -> TextRange {
                 self.syntax.text_range()
             }
         }
@@ -55,14 +60,19 @@ impl Char {
 pub struct Bool {
     syntax: SyntaxToken,
 }
-impl Bool {
-    pub fn cast(syntax: SyntaxToken) -> Option<Self> {
+impl AstToken for Bool {
+    fn cast(syntax: SyntaxToken) -> Option<Self> {
         match syntax.kind() {
             SyntaxKind::TrueKw | SyntaxKind::FalseKw => Some(Self { syntax }),
             _ => None,
         }
     }
 
+    fn range(&self) -> TextRange {
+        self.syntax.text_range()
+    }
+}
+impl Bool {
     pub fn value(&self) -> Option<bool> {
         match self.syntax.kind() {
             SyntaxKind::TrueKw => Some(true),

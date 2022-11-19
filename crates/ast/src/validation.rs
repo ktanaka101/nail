@@ -4,7 +4,10 @@ use text_size::TextRange;
 
 use syntax::SyntaxNode;
 
-use crate::nodes::{Literal, LiteralKind};
+use crate::{
+    nodes::{Literal, LiteralKind},
+    AstToken,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValidationError {

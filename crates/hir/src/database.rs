@@ -5,20 +5,58 @@ use smol_str::SmolStr;
 
 use crate::{BinaryOp, Expr, ExprIdx, Literal, Stmt, UnaryOp};
 
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug)]
+struct Scopes {
+    inner: Vec<HashMap<SmolStr, ExprIdx>>,
+}
+impl Scopes {
+    pub(crate) fn new() -> Self {
+        let mut scopes = Self { inner: Vec::new() };
+        scopes.enter();
+
+        scopes
+    }
+
+    pub(crate) fn get(&self, key: &SmolStr) -> Option<ExprIdx> {
+        for scope in self.inner.iter().rev() {
+            if let Some(idx) = scope.get(key) {
+                return Some(idx.to_owned());
+            }
+        }
+
+        None
+    }
+
+    pub(crate) fn push(&mut self, key: SmolStr, value: ExprIdx) {
+        self.inner.last_mut().unwrap().insert(key, value);
+    }
+
+    pub(crate) fn enter(&mut self) {
+        self.inner.push(HashMap::default());
+    }
+}
+
+#[derive(Debug)]
 pub struct Database {
     pub exprs: Arena<Expr>,
-    pub mapping: HashMap<SmolStr, ExprIdx>,
+    scopes: Scopes,
 }
 
 impl Database {
+    pub(super) fn new() -> Self {
+        Self {
+            exprs: Arena::new(),
+            scopes: Scopes::new(),
+        }
+    }
+
     pub(super) fn lower_stmt(&mut self, ast: ast::Stmt) -> Option<Stmt> {
         let result = match ast {
             ast::Stmt::VariableDef(def) => {
                 let expr = self.lower_expr(def.value());
                 let idx = self.exprs.alloc(expr);
                 let name = SmolStr::from(def.name()?.name());
-                self.mapping.insert(name.clone(), idx);
+                self.scopes.push(name.clone(), idx);
                 Stmt::VariableDef { name, value: idx }
             }
             ast::Stmt::Expr(ast) => {
@@ -110,10 +148,10 @@ impl Database {
 
     fn lower_variable_ref(&mut self, ast: ast::VariableRef) -> Expr {
         let expr = if let Some(expr) = self
-            .mapping
+            .scopes
             .get(&SmolStr::from(ast.name().unwrap().ref_name()))
         {
-            *expr
+            expr
         } else {
             self.exprs.alloc(Expr::Missing)
         };

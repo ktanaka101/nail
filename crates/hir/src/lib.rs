@@ -6,7 +6,7 @@ use smol_str::SmolStr;
 pub use database::Database;
 
 pub fn lower(ast: ast::SourceFile) -> (Database, Vec<Stmt>) {
-    let mut db = Database::default();
+    let mut db = Database::new();
     let stmts = ast.stmts().filter_map(|stmt| db.lower_stmt(stmt)).collect();
     (db, stmts)
 }

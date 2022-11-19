@@ -1,5 +1,7 @@
 use syntax::{SyntaxKind, SyntaxToken};
 
+type StdString = std::string::String;
+
 macro_rules! def_ast_token {
     ($kind:ident) => {
         #[derive(Clone, PartialEq, Eq, Hash)]
@@ -27,7 +29,7 @@ impl Integer {
 
 def_ast_token!(String);
 impl String {
-    pub fn value(&self) -> Option<std::string::String> {
+    pub fn value(&self) -> Option<StdString> {
         let text = self.syntax.text();
         let text = text.trim_matches('"');
         Some(text.to_string())
@@ -61,5 +63,12 @@ impl Bool {
             SyntaxKind::FalseKw => Some(false),
             _ => None,
         }
+    }
+}
+
+def_ast_token!(Ident);
+impl Ident {
+    pub fn name(&self) -> StdString {
+        self.syntax.text().into()
     }
 }

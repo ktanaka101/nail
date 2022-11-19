@@ -135,12 +135,12 @@ impl ParenExpr {
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum UnaryOp {
-    Minus,
+    Neg,
 }
 impl UnaryOp {
     pub fn cast(syntax: SyntaxToken) -> Option<Self> {
         match syntax.kind() {
-            SyntaxKind::UnaryExpr => Some(Self::Minus),
+            SyntaxKind::UnaryExpr => Some(Self::Neg),
             _ => None,
         }
     }

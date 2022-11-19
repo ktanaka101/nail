@@ -100,7 +100,7 @@ impl Database {
 
     fn lower_unary(&mut self, ast: ast::UnaryExpr) -> Expr {
         let op = match ast.op().unwrap() {
-            ast::UnaryOp::Minus => UnaryOp::Neg,
+            ast::UnaryOp::Neg => UnaryOp::Neg,
         };
 
         let expr = self.lower_expr(ast.expr());

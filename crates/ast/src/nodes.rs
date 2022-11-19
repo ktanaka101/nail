@@ -47,7 +47,7 @@ impl Expr {
             SyntaxKind::BinaryExpr => Self::BinaryExpr(BinaryExpr { syntax: node }),
             SyntaxKind::Literal => Self::Literal(Literal { syntax: node }),
             SyntaxKind::ParenExpr => Self::ParenExpr(ParenExpr { syntax: node }),
-            SyntaxKind::PrefixExpr => Self::UnaryExpr(UnaryExpr { syntax: node }),
+            SyntaxKind::UnaryExpr => Self::UnaryExpr(UnaryExpr { syntax: node }),
             SyntaxKind::VariableRef => Self::VariableRef(VariableRef { syntax: node }),
             _ => return None,
         };

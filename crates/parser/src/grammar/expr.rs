@@ -153,7 +153,7 @@ fn prefix_expr(parser: &mut Parser) -> CompletedMarker {
 
     expr_binding_power(parser, right_binding_power);
 
-    marker.complete(parser, SyntaxKind::PrefixExpr)
+    marker.complete(parser, SyntaxKind::UnaryExpr)
 }
 
 fn paren_expr(parser: &mut Parser) -> CompletedMarker {
@@ -266,7 +266,7 @@ mod tests {
             "-10",
             expect![[r#"
                 SourceFile@0..3
-                  PrefixExpr@0..3
+                  UnaryExpr@0..3
                     Minus@0..1 "-"
                     Literal@1..3
                       Integer@1..3 "10"
@@ -281,7 +281,7 @@ mod tests {
             expect![[r#"
                 SourceFile@0..6
                   BinaryExpr@0..6
-                    PrefixExpr@0..3
+                    UnaryExpr@0..3
                       Minus@0..1 "-"
                       Literal@1..3
                         Integer@1..3 "20"

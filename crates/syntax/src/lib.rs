@@ -27,7 +27,7 @@ pub enum SyntaxKind {
     Literal,
     ParenExpr,
     BinaryExpr,
-    PrefixExpr,
+    UnaryExpr,
     VariableRef,
     Block,
 

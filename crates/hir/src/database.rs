@@ -16,10 +16,10 @@ pub struct Database {
 impl Database {
     pub(super) fn lower_stmt(&mut self, ast: ast::Stmt) -> Option<Stmt> {
         let result = match ast {
-            ast::Stmt::VariableDef(ast) => {
-                let expr = self.lower_expr(ast.value());
+            ast::Stmt::VariableDef(def) => {
+                let expr = self.lower_expr(def.value());
                 let idx = self.exprs.alloc(expr);
-                let name = SmolStr::from(ast.name()?.text());
+                let name = SmolStr::from(def.name()?.name());
                 self.mapping.insert(name.clone(), idx);
                 Stmt::VariableDef { name, value: idx }
             }

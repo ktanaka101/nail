@@ -22,11 +22,11 @@ macro_rules! def_ast_node {
 
 def_ast_node!(VariableDef);
 impl VariableDef {
-    pub fn name(&self) -> Option<SyntaxToken> {
+    pub fn name(&self) -> Option<tokens::Ident> {
         self.syntax
             .children_with_tokens()
             .filter_map(SyntaxElement::into_token)
-            .find(|token| token.kind() == SyntaxKind::Ident)
+            .find_map(tokens::Ident::cast)
     }
 
     pub fn value(&self) -> Option<Expr> {

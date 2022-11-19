@@ -60,7 +60,7 @@ impl<'l, 'input> Parser<'l, 'input> {
         if self.at(kind) {
             self.bump();
         } else {
-            self.error();
+            self.error_with_recovery_set_only_default();
         }
     }
 
@@ -70,10 +70,6 @@ impl<'l, 'input> Parser<'l, 'input> {
         } else {
             self.error_with_recovery_set_default(recovery_set)
         }
-    }
-
-    pub(crate) fn error(&mut self) {
-        self.error_with_recovery_set_only_default();
     }
 
     pub(crate) fn error_in_token(&mut self, expected_kinds: Vec<TokenKind>) {
@@ -92,15 +88,15 @@ impl<'l, 'input> Parser<'l, 'input> {
             })));
     }
 
-    fn error_with_recovery_set_only_default(&mut self) {
+    pub(crate) fn error_with_recovery_set_only_default(&mut self) {
         self.error_with_recovery_set_no_default(&RECOVERY_SET);
     }
 
-    fn error_with_recovery_set_default(&mut self, recovery_set: &[TokenKind]) {
+    pub(crate) fn error_with_recovery_set_default(&mut self, recovery_set: &[TokenKind]) {
         self.error_with_recovery_set_no_default(&[recovery_set, &RECOVERY_SET].concat());
     }
 
-    fn error_with_recovery_set_no_default(&mut self, recovery_set: &[TokenKind]) {
+    pub(crate) fn error_with_recovery_set_no_default(&mut self, recovery_set: &[TokenKind]) {
         let current_token = self.source.peek_token();
 
         let (found, range) = if let Some(Token { kind, range, .. }) = current_token {

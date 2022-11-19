@@ -87,7 +87,7 @@ fn lhs(parser: &mut Parser) -> Option<CompletedMarker> {
     } else if parser.at(TokenKind::LParen) {
         paren_expr(parser)
     } else {
-        parser.error();
+        parser.error_with_recovery_set_only_default();
         return None;
     };
 

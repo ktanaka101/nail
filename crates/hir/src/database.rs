@@ -3,8 +3,6 @@ use std::collections::HashMap;
 use la_arena::Arena;
 use smol_str::SmolStr;
 
-use syntax::SyntaxKind;
-
 use crate::{BinaryOp, Expr, ExprIdx, Literal, Stmt, UnaryOp};
 
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -80,12 +78,11 @@ impl Database {
     }
 
     fn lower_binary(&mut self, ast: ast::BinaryExpr) -> Expr {
-        let op = match ast.op().unwrap().kind() {
-            SyntaxKind::Plus => BinaryOp::Add,
-            SyntaxKind::Minus => BinaryOp::Sub,
-            SyntaxKind::Star => BinaryOp::Mul,
-            SyntaxKind::Slash => BinaryOp::Div,
-            _ => unreachable!(),
+        let op = match ast.op().unwrap() {
+            ast::BinaryOp::Add => BinaryOp::Add,
+            ast::BinaryOp::Sub => BinaryOp::Sub,
+            ast::BinaryOp::Mul => BinaryOp::Mul,
+            ast::BinaryOp::Div => BinaryOp::Div,
         };
 
         let lhs = self.lower_expr(ast.lhs());

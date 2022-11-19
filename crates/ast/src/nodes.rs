@@ -83,16 +83,11 @@ impl BinaryExpr {
         self.syntax.children().filter_map(Expr::cast).nth(1)
     }
 
-    pub fn op(&self) -> Option<SyntaxToken> {
+    pub fn op(&self) -> Option<tokens::BinaryOp> {
         self.syntax
             .children_with_tokens()
             .filter_map(SyntaxElement::into_token)
-            .find(|token| {
-                matches!(
-                    token.kind(),
-                    SyntaxKind::Plus | SyntaxKind::Minus | SyntaxKind::Star | SyntaxKind::Slash
-                )
-            })
+            .find_map(tokens::BinaryOp::cast)
     }
 }
 

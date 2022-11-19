@@ -2,23 +2,38 @@ use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
 use crate::tokens;
 
-#[derive(Debug)]
-pub struct VariableDef(SyntaxNode);
+macro_rules! def_ast_node {
+    ($kind:ident) => {
+        #[derive(Clone, PartialEq, Eq, Hash)]
+        pub struct $kind {
+            pub syntax: SyntaxNode,
+        }
 
+        impl $kind {
+            pub fn cast(syntax: SyntaxNode) -> Option<Self> {
+                match syntax.kind() {
+                    SyntaxKind::$kind => Some(Self { syntax }),
+                    _ => None,
+                }
+            }
+        }
+    };
+}
+
+def_ast_node!(VariableDef);
 impl VariableDef {
     pub fn name(&self) -> Option<SyntaxToken> {
-        self.0
+        self.syntax
             .children_with_tokens()
             .filter_map(SyntaxElement::into_token)
             .find(|token| token.kind() == SyntaxKind::Ident)
     }
 
     pub fn value(&self) -> Option<Expr> {
-        self.0.children().find_map(Expr::cast)
+        self.syntax.children().find_map(Expr::cast)
     }
 }
 
-#[derive(Debug)]
 pub enum Expr {
     BinaryExpr(BinaryExpr),
     Literal(Literal),
@@ -42,7 +57,6 @@ impl Expr {
     }
 }
 
-#[derive(Debug)]
 pub enum Stmt {
     VariableDef(VariableDef),
     Expr(Expr),
@@ -51,7 +65,7 @@ pub enum Stmt {
 impl Stmt {
     pub fn cast(node: SyntaxNode) -> Option<Self> {
         let result = match node.kind() {
-            SyntaxKind::VariableDef => Self::VariableDef(VariableDef(node)),
+            SyntaxKind::VariableDef => Self::VariableDef(VariableDef { syntax: node }),
             _ => Self::Expr(Expr::cast(node)?),
         };
 
@@ -59,7 +73,6 @@ impl Stmt {
     }
 }
 
-#[derive(Debug)]
 pub struct BinaryExpr(SyntaxNode);
 
 impl BinaryExpr {
@@ -91,7 +104,6 @@ pub enum LiteralKind {
     Bool(tokens::Bool),
 }
 
-#[derive(Debug)]
 pub struct Literal(SyntaxNode);
 
 impl Literal {
@@ -123,7 +135,6 @@ impl Literal {
     }
 }
 
-#[derive(Debug)]
 pub struct ParenExpr(SyntaxNode);
 
 impl ParenExpr {
@@ -132,7 +143,6 @@ impl ParenExpr {
     }
 }
 
-#[derive(Debug)]
 pub struct UnaryExpr(SyntaxNode);
 
 impl UnaryExpr {
@@ -148,7 +158,6 @@ impl UnaryExpr {
     }
 }
 
-#[derive(Debug)]
 pub struct VariableRef(SyntaxNode);
 
 impl VariableRef {

@@ -68,7 +68,7 @@ fn validate_literal(literal: Literal, errors: &mut Vec<ValidationError>) {
         if int.value().is_none() {
             errors.push(ValidationError {
                 kind: ValidationErrorKind::IntegerLiteralTooLarge,
-                range: int.syntax.text_range(),
+                range: int.range(),
             });
         }
     }

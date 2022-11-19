@@ -1,3 +1,5 @@
+use text_size::TextRange;
+
 use syntax::{SyntaxKind, SyntaxToken};
 
 type StdString = std::string::String;
@@ -6,7 +8,7 @@ macro_rules! def_ast_token {
     ($kind:ident) => {
         #[derive(Clone, PartialEq, Eq, Hash)]
         pub struct $kind {
-            pub syntax: SyntaxToken,
+            syntax: SyntaxToken,
         }
 
         impl $kind {
@@ -15,6 +17,10 @@ macro_rules! def_ast_token {
                     SyntaxKind::$kind => Some(Self { syntax }),
                     _ => None,
                 }
+            }
+
+            pub fn range(&self) -> TextRange {
+                self.syntax.text_range()
             }
         }
     };
@@ -47,7 +53,7 @@ impl Char {
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Bool {
-    pub syntax: SyntaxToken,
+    syntax: SyntaxToken,
 }
 impl Bool {
     pub fn cast(syntax: SyntaxToken) -> Option<Self> {

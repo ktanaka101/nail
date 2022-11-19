@@ -130,9 +130,7 @@ impl ParenExpr {
     }
 }
 
-pub struct UnaryExpr {
-    syntax: SyntaxNode,
-}
+def_ast_node!(UnaryExpr);
 impl UnaryExpr {
     pub fn expr(&self) -> Option<Expr> {
         self.syntax.children().find_map(Expr::cast)

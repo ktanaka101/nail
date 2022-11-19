@@ -225,6 +225,21 @@ mod tests {
     }
 
     #[test]
+    fn lower_variable_def_without_eq() {
+        check(
+            r#"
+                let foo 10
+            "#,
+            expect![[r#"
+                let foo = %0
+
+                ---
+                0: missing
+            "#]],
+        );
+    }
+
+    #[test]
     fn lower_variable_def_without_value() {
         check(
             r#"

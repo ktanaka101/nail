@@ -96,6 +96,25 @@ mod tests {
     }
 
     #[test]
+    fn parse_varialbe_def_without_eq() {
+        check(
+            "let foo 10",
+            expect![[r#"
+                SourceFile@0..10
+                  VariableDef@0..10
+                    LetKw@0..3 "let"
+                    Whitespace@3..4 " "
+                    Ident@4..7 "foo"
+                    Whitespace@7..8 " "
+                    Error@8..10
+                      IntegerLiteral@8..10 "10"
+                error at 8..10: expected '=', but found integerLiteral
+                error at 8..10: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-' or '('
+            "#]],
+        )
+    }
+
+    #[test]
     fn parse_varialbe_def_without_name() {
         check(
             "let = 10",

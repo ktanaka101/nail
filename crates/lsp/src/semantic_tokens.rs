@@ -24,7 +24,7 @@ pub(crate) fn traverse(node: &SyntaxNode, line_index: &LineIndex) -> Vec<Semanti
                     SyntaxKind::LetKw => Some(SemanticTokenType::KEYWORD),
                     SyntaxKind::Ident => Some(SemanticTokenType::VARIABLE),
                     SyntaxKind::Eq => Some(SemanticTokenType::OPERATOR),
-                    SyntaxKind::IntegerLiteral => Some(SemanticTokenType::NUMBER),
+                    SyntaxKind::Integer => Some(SemanticTokenType::NUMBER),
                     SyntaxKind::CommentSingle => Some(SemanticTokenType::COMMENT),
                     _ => None,
                 };

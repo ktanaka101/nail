@@ -107,7 +107,7 @@ mod tests {
                     Ident@4..7 "foo"
                     Whitespace@7..8 " "
                     Error@8..10
-                      IntegerLiteral@8..10 "10"
+                      Integer@8..10 "10"
                 error at 8..10: expected '=', but found integerLiteral
                 error at 8..10: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-' or '('
             "#]],
@@ -126,7 +126,7 @@ mod tests {
                     Eq@4..5 "="
                     Whitespace@5..6 " "
                     Literal@6..8
-                      IntegerLiteral@6..8 "10"
+                      Integer@6..8 "10"
                 error at 4..5: expected identifier, but found '='
             "#]],
         )
@@ -202,7 +202,7 @@ mod tests {
                     Eq@6..7 "="
                     Whitespace@7..8 " "
                     Literal@8..10
-                      IntegerLiteral@8..9 "1"
+                      Integer@8..9 "1"
                       Whitespace@9..10 "\n"
                   VariableRef@10..11
                     Ident@10..11 "a"
@@ -275,12 +275,12 @@ mod tests {
                       Whitespace@10..11 " "
                       InfixExpr@11..19
                         Literal@11..14
-                          IntegerLiteral@11..13 "10"
+                          Integer@11..13 "10"
                           Whitespace@13..14 " "
                         Plus@14..15 "+"
                         Whitespace@15..16 " "
                         Literal@16..19
-                          IntegerLiteral@16..18 "20"
+                          Integer@16..18 "20"
                           Whitespace@18..19 " "
                       RCurly@19..20 "}"
             "#]],

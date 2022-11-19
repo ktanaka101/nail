@@ -135,19 +135,19 @@ mod tests {
                   InfixExpr@1..37
                     InfixExpr@1..22
                       Literal@1..5
-                        IntegerLiteral@1..2 "1"
+                        Integer@1..2 "1"
                         Whitespace@2..5 "\n  "
                       Plus@5..6 "+"
                       Whitespace@6..7 " "
                       Literal@7..22
-                        IntegerLiteral@7..8 "1"
+                        Integer@7..8 "1"
                         Whitespace@8..9 " "
                         CommentSingle@9..19 "// Add one"
                         Whitespace@19..22 "\n  "
                     Plus@22..23 "+"
                     Whitespace@23..24 " "
                     Literal@24..37
-                      IntegerLiteral@24..26 "10"
+                      Integer@24..26 "10"
                       Whitespace@26..27 " "
                       CommentSingle@27..37 "// Add ten"
             "#]],

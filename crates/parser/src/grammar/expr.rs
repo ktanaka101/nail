@@ -179,7 +179,7 @@ mod tests {
             expect![[r#"
                 SourceFile@0..3
                   Literal@0..3
-                    IntegerLiteral@0..3 "123"
+                    Integer@0..3 "123"
             "#]],
         );
     }
@@ -204,10 +204,10 @@ mod tests {
                 SourceFile@0..3
                   InfixExpr@0..3
                     Literal@0..1
-                      IntegerLiteral@0..1 "1"
+                      Integer@0..1 "1"
                     Plus@1..2 "+"
                     Literal@2..3
-                      IntegerLiteral@2..3 "2"
+                      Integer@2..3 "2"
             "#]],
         );
     }
@@ -222,16 +222,16 @@ mod tests {
                     InfixExpr@0..5
                       InfixExpr@0..3
                         Literal@0..1
-                          IntegerLiteral@0..1 "1"
+                          Integer@0..1 "1"
                         Plus@1..2 "+"
                         Literal@2..3
-                          IntegerLiteral@2..3 "2"
+                          Integer@2..3 "2"
                       Plus@3..4 "+"
                       Literal@4..5
-                        IntegerLiteral@4..5 "3"
+                        Integer@4..5 "3"
                     Plus@5..6 "+"
                     Literal@6..7
-                      IntegerLiteral@6..7 "4"
+                      Integer@6..7 "4"
             "#]],
         );
     }
@@ -245,17 +245,17 @@ mod tests {
                   InfixExpr@0..7
                     InfixExpr@0..5
                       Literal@0..1
-                        IntegerLiteral@0..1 "1"
+                        Integer@0..1 "1"
                       Plus@1..2 "+"
                       InfixExpr@2..5
                         Literal@2..3
-                          IntegerLiteral@2..3 "2"
+                          Integer@2..3 "2"
                         Star@3..4 "*"
                         Literal@4..5
-                          IntegerLiteral@4..5 "3"
+                          Integer@4..5 "3"
                     Minus@5..6 "-"
                     Literal@6..7
-                      IntegerLiteral@6..7 "4"
+                      Integer@6..7 "4"
             "#]],
         );
     }
@@ -269,7 +269,7 @@ mod tests {
                   PrefixExpr@0..3
                     Minus@0..1 "-"
                     Literal@1..3
-                      IntegerLiteral@1..3 "10"
+                      Integer@1..3 "10"
             "#]],
         );
     }
@@ -284,10 +284,10 @@ mod tests {
                     PrefixExpr@0..3
                       Minus@0..1 "-"
                       Literal@1..3
-                        IntegerLiteral@1..3 "20"
+                        Integer@1..3 "20"
                     Plus@3..4 "+"
                     Literal@4..6
-                      IntegerLiteral@4..6 "20"
+                      Integer@4..6 "20"
             "#]],
         );
     }
@@ -311,7 +311,7 @@ mod tests {
                             ParenExpr@5..9
                               LParen@5..6 "("
                               Literal@6..8
-                                IntegerLiteral@6..8 "10"
+                                Integer@6..8 "10"
                               RParen@8..9 ")"
                             RParen@9..10 ")"
                           RParen@10..11 ")"
@@ -330,16 +330,16 @@ mod tests {
                 SourceFile@0..7
                   InfixExpr@0..7
                     Literal@0..1
-                      IntegerLiteral@0..1 "5"
+                      Integer@0..1 "5"
                     Star@1..2 "*"
                     ParenExpr@2..7
                       LParen@2..3 "("
                       InfixExpr@3..6
                         Literal@3..4
-                          IntegerLiteral@3..4 "2"
+                          Integer@3..4 "2"
                         Plus@4..5 "+"
                         Literal@5..6
-                          IntegerLiteral@5..6 "1"
+                          Integer@5..6 "1"
                       RParen@6..7 ")"
             "#]],
         );
@@ -353,7 +353,7 @@ mod tests {
                 SourceFile@0..7
                   Whitespace@0..3 "   "
                   Literal@3..7
-                    IntegerLiteral@3..7 "9876"
+                    Integer@3..7 "9876"
             "#]],
         );
     }
@@ -365,7 +365,7 @@ mod tests {
             expect![[r#"
                 SourceFile@0..6
                   Literal@0..6
-                    IntegerLiteral@0..3 "999"
+                    Integer@0..3 "999"
                     Whitespace@3..6 "   "
             "#]],
         );
@@ -379,7 +379,7 @@ mod tests {
                 SourceFile@0..9
                   Whitespace@0..1 " "
                   Literal@1..9
-                    IntegerLiteral@1..4 "123"
+                    Integer@1..4 "123"
                     Whitespace@4..9 "     "
             "#]],
         );
@@ -463,7 +463,7 @@ mod tests {
                     Eq@9..10 "="
                     Whitespace@10..11 " "
                     Literal@11..13
-                      IntegerLiteral@11..13 "10"
+                      Integer@11..13 "10"
                 error at 0..2: expected ''', in charLiteral
             "#]],
         );
@@ -478,17 +478,17 @@ mod tests {
                   Whitespace@0..1 " "
                   InfixExpr@1..12
                     Literal@1..3
-                      IntegerLiteral@1..2 "1"
+                      Integer@1..2 "1"
                       Whitespace@2..3 " "
                     Plus@3..4 "+"
                     Whitespace@4..7 "   "
                     InfixExpr@7..12
                       Literal@7..8
-                        IntegerLiteral@7..8 "2"
+                        Integer@7..8 "2"
                       Star@8..9 "*"
                       Whitespace@9..10 " "
                       Literal@10..12
-                        IntegerLiteral@10..11 "3"
+                        Integer@10..11 "3"
                         Whitespace@11..12 " "
             "#]],
         );
@@ -519,7 +519,7 @@ mod tests {
                     LParen@0..1 "("
                     InfixExpr@1..3
                       Literal@1..2
-                        IntegerLiteral@1..2 "1"
+                        Integer@1..2 "1"
                       Plus@2..3 "+"
                 error at 2..3: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-' or '('
                 error at 2..3: expected ')'

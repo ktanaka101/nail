@@ -6,7 +6,7 @@ pub struct Integer {
 
 impl Integer {
     pub fn cast(syntax: SyntaxToken) -> Option<Self> {
-        if syntax.kind() == SyntaxKind::IntegerLiteral {
+        if syntax.kind() == SyntaxKind::Integer {
             Some(Self { syntax })
         } else {
             None

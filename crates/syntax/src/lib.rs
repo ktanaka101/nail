@@ -51,7 +51,7 @@ pub enum SyntaxKind {
     Ident,
 
     // literals
-    IntegerLiteral,
+    Integer,
     StringLiteral,
     CharLiteral,
 
@@ -97,7 +97,7 @@ impl From<TokenKind> for SyntaxKind {
 
             TokenKind::Ident => Self::Ident,
 
-            TokenKind::IntegerLiteral => Self::IntegerLiteral,
+            TokenKind::IntegerLiteral => Self::Integer,
             TokenKind::StringLiteral => Self::StringLiteral,
             TokenKind::CharLiteral(_) => Self::CharLiteral,
 

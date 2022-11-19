@@ -101,7 +101,7 @@ pub enum LiteralKind {
 
 def_ast_node!(Literal);
 impl Literal {
-    pub fn token(&self) -> SyntaxToken {
+    fn token(&self) -> SyntaxToken {
         self.syntax.first_token().unwrap()
     }
 

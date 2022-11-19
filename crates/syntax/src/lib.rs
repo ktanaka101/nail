@@ -26,7 +26,7 @@ pub enum SyntaxKind {
     // expression nodes
     Literal,
     ParenExpr,
-    InfixExpr,
+    BinaryExpr,
     PrefixExpr,
     VariableRef,
     Block,

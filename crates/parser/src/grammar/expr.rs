@@ -34,7 +34,7 @@ fn expr_binding_power(parser: &mut Parser, minimum_binding_power: u8) -> Option<
 
         let marker = lhs.precede(parser);
         let parsed_rhs = expr_binding_power(parser, right_binding_power);
-        lhs = marker.complete(parser, SyntaxKind::InfixExpr);
+        lhs = marker.complete(parser, SyntaxKind::BinaryExpr);
 
         if parsed_rhs.is_none() {
             break;
@@ -202,7 +202,7 @@ mod tests {
             "1+2",
             expect![[r#"
                 SourceFile@0..3
-                  InfixExpr@0..3
+                  BinaryExpr@0..3
                     Literal@0..1
                       Integer@0..1 "1"
                     Plus@1..2 "+"
@@ -218,9 +218,9 @@ mod tests {
             "1+2+3+4",
             expect![[r#"
                 SourceFile@0..7
-                  InfixExpr@0..7
-                    InfixExpr@0..5
-                      InfixExpr@0..3
+                  BinaryExpr@0..7
+                    BinaryExpr@0..5
+                      BinaryExpr@0..3
                         Literal@0..1
                           Integer@0..1 "1"
                         Plus@1..2 "+"
@@ -242,12 +242,12 @@ mod tests {
             "1+2*3-4",
             expect![[r#"
                 SourceFile@0..7
-                  InfixExpr@0..7
-                    InfixExpr@0..5
+                  BinaryExpr@0..7
+                    BinaryExpr@0..5
                       Literal@0..1
                         Integer@0..1 "1"
                       Plus@1..2 "+"
-                      InfixExpr@2..5
+                      BinaryExpr@2..5
                         Literal@2..3
                           Integer@2..3 "2"
                         Star@3..4 "*"
@@ -280,7 +280,7 @@ mod tests {
             "-20+20",
             expect![[r#"
                 SourceFile@0..6
-                  InfixExpr@0..6
+                  BinaryExpr@0..6
                     PrefixExpr@0..3
                       Minus@0..1 "-"
                       Literal@1..3
@@ -328,13 +328,13 @@ mod tests {
             "5*(2+1)",
             expect![[r#"
                 SourceFile@0..7
-                  InfixExpr@0..7
+                  BinaryExpr@0..7
                     Literal@0..1
                       Integer@0..1 "5"
                     Star@1..2 "*"
                     ParenExpr@2..7
                       LParen@2..3 "("
-                      InfixExpr@3..6
+                      BinaryExpr@3..6
                         Literal@3..4
                           Integer@3..4 "2"
                         Plus@4..5 "+"
@@ -476,13 +476,13 @@ mod tests {
             expect![[r#"
                 SourceFile@0..12
                   Whitespace@0..1 " "
-                  InfixExpr@1..12
+                  BinaryExpr@1..12
                     Literal@1..3
                       Integer@1..2 "1"
                       Whitespace@2..3 " "
                     Plus@3..4 "+"
                     Whitespace@4..7 "   "
-                    InfixExpr@7..12
+                    BinaryExpr@7..12
                       Literal@7..8
                         Integer@7..8 "2"
                       Star@8..9 "*"
@@ -517,7 +517,7 @@ mod tests {
                 SourceFile@0..3
                   ParenExpr@0..3
                     LParen@0..1 "("
-                    InfixExpr@1..3
+                    BinaryExpr@1..3
                       Literal@1..2
                         Integer@1..2 "1"
                       Plus@2..3 "+"

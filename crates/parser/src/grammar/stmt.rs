@@ -273,7 +273,7 @@ mod tests {
                     Block@9..20
                       LCurly@9..10 "{"
                       Whitespace@10..11 " "
-                      InfixExpr@11..19
+                      BinaryExpr@11..19
                         Literal@11..14
                           Integer@11..13 "10"
                           Whitespace@13..14 " "

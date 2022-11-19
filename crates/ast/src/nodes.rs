@@ -44,7 +44,7 @@ pub enum Expr {
 impl Expr {
     pub fn cast(node: SyntaxNode) -> Option<Self> {
         let result = match node.kind() {
-            SyntaxKind::InfixExpr => Self::BinaryExpr(BinaryExpr { syntax: node }),
+            SyntaxKind::BinaryExpr => Self::BinaryExpr(BinaryExpr { syntax: node }),
             SyntaxKind::Literal => Self::Literal(Literal { syntax: node }),
             SyntaxKind::ParenExpr => Self::ParenExpr(ParenExpr { syntax: node }),
             SyntaxKind::PrefixExpr => Self::UnaryExpr(UnaryExpr { syntax: node }),

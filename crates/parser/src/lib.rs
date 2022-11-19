@@ -132,8 +132,8 @@ mod tests {
             expect![[r#"
                 SourceFile@0..37
                   Whitespace@0..1 "\n"
-                  InfixExpr@1..37
-                    InfixExpr@1..22
+                  BinaryExpr@1..37
+                    BinaryExpr@1..22
                       Literal@1..5
                         Integer@1..2 "1"
                         Whitespace@2..5 "\n  "

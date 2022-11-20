@@ -35,6 +35,7 @@ impl LowerContext {
                 let expr = self.lower_expr(Some(ast));
                 Stmt::Expr(self.exprs.alloc(expr))
             }
+            ast::Stmt::FunctionDef(_) => return None,
         };
 
         Some(result)

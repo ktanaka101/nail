@@ -63,6 +63,7 @@ impl Expr {
 pub enum Stmt {
     VariableDef(VariableDef),
     Expr(Expr),
+    FunctionDef(FunctionDef),
 }
 impl Stmt {
     pub fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -172,5 +173,22 @@ impl FunctionDef {
 
     pub fn body(&self) -> Option<Block> {
         self.syntax.children().find_map(Block::cast)
+    }
+}
+
+def_ast_node!(ParamList);
+impl ParamList {
+    pub fn params(&self) -> impl Iterator<Item = Param> {
+        self.syntax.children().filter_map(Param::cast)
+    }
+}
+
+def_ast_node!(Param);
+impl Param {
+    pub fn name(&self) -> Option<tokens::Ident> {
+        self.syntax
+            .children_with_tokens()
+            .filter_map(SyntaxElement::into_token)
+            .find_map(tokens::Ident::cast)
     }
 }

@@ -12,8 +12,8 @@ impl Name {
         self.0
     }
 }
-impl From<Key> for Name {
-    fn from(key: Key) -> Self {
+impl Name {
+    fn from_key(key: Key) -> Self {
         Self(key)
     }
 }
@@ -74,7 +74,7 @@ impl Database {
             ast::Stmt::VariableDef(def) => {
                 let expr = self.lower_expr(def.value());
                 let idx = self.exprs.alloc(expr);
-                let name = Name::from(self.interner.intern(def.name()?.name()));
+                let name = Name::from_key(self.interner.intern(def.name()?.name()));
                 self.scopes.push(name, idx);
                 Stmt::VariableDef { name, value: idx }
             }
@@ -166,7 +166,7 @@ impl Database {
     }
 
     fn lower_variable_ref(&mut self, ast: ast::VariableRef) -> Expr {
-        let name = Name::from(self.interner.intern(ast.name().unwrap().name()));
+        let name = Name::from_key(self.interner.intern(ast.name().unwrap().name()));
         let expr = if let Some(expr) = self.scopes.get(name) {
             expr
         } else {

@@ -1,8 +1,8 @@
 mod interner;
 mod lower_context;
 
+use interner::Key;
 use la_arena::Idx;
-use lower_context::Name;
 
 pub use lower_context::LowerContext;
 
@@ -10,6 +10,18 @@ pub fn lower(ast: ast::SourceFile) -> (LowerContext, Vec<Stmt>) {
     let mut db = LowerContext::new();
     let stmts = ast.stmts().filter_map(|stmt| db.lower_stmt(stmt)).collect();
     (db, stmts)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Name(Key);
+impl Name {
+    pub fn key(&self) -> Key {
+        self.0
+    }
+
+    fn from_key(key: Key) -> Self {
+        Self(key)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]

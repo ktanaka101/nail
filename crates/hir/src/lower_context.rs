@@ -1,56 +1,10 @@
-use std::collections::HashMap;
+mod scopes;
 
 use la_arena::Arena;
 
-use crate::interner::{Interner, Key};
-use crate::{BinaryOp, Expr, ExprIdx, Literal, Stmt, UnaryOp};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Name(Key);
-impl Name {
-    pub fn key(&self) -> Key {
-        self.0
-    }
-
-    fn from_key(key: Key) -> Self {
-        Self(key)
-    }
-}
-
-#[derive(Debug)]
-struct Scopes {
-    inner: Vec<HashMap<Name, ExprIdx>>,
-}
-impl Scopes {
-    pub(crate) fn new() -> Self {
-        let mut scopes = Self { inner: Vec::new() };
-        scopes.enter();
-
-        scopes
-    }
-
-    pub(crate) fn get(&self, name: Name) -> Option<ExprIdx> {
-        assert!(!self.inner.is_empty());
-
-        for scope in self.inner.iter().rev() {
-            if let Some(idx) = scope.get(&name) {
-                return Some(idx.to_owned());
-            }
-        }
-
-        None
-    }
-
-    pub(crate) fn push(&mut self, name: Name, value: ExprIdx) {
-        assert!(!self.inner.is_empty());
-
-        self.inner.last_mut().unwrap().insert(name, value);
-    }
-
-    pub(crate) fn enter(&mut self) {
-        self.inner.push(HashMap::default());
-    }
-}
+use crate::interner::Interner;
+use crate::lower_context::scopes::Scopes;
+use crate::{BinaryOp, Expr, Literal, Name, Stmt, UnaryOp};
 
 #[derive(Debug)]
 pub struct LowerContext {

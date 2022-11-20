@@ -576,4 +576,39 @@ mod tests {
             "#]],
         );
     }
+
+    #[test]
+    fn parse_nested_block() {
+        check(
+            r#"{
+  let a = 10
+  { 1 }
+}"#,
+            expect![[r#"
+                SourceFile@0..24
+                  Block@0..24
+                    LCurly@0..1 "{"
+                    Whitespace@1..4 "\n  "
+                    VariableDef@4..17
+                      LetKw@4..7 "let"
+                      Whitespace@7..8 " "
+                      Ident@8..9 "a"
+                      Whitespace@9..10 " "
+                      Eq@10..11 "="
+                      Whitespace@11..12 " "
+                      Literal@12..17
+                        Integer@12..14 "10"
+                        Whitespace@14..17 "\n  "
+                    Block@17..23
+                      LCurly@17..18 "{"
+                      Whitespace@18..19 " "
+                      Literal@19..21
+                        Integer@19..20 "1"
+                        Whitespace@20..21 " "
+                      RCurly@21..22 "}"
+                      Whitespace@22..23 "\n"
+                    RCurly@23..24 "}"
+            "#]],
+        );
+    }
 }

@@ -1,8 +1,8 @@
-mod interner;
 mod lower_context;
+mod string_interner;
 
-use interner::Key;
 use la_arena::Idx;
+use string_interner::Key;
 
 pub use lower_context::LowerContext;
 

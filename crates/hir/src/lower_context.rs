@@ -2,8 +2,8 @@ mod scopes;
 
 use la_arena::Arena;
 
-use crate::interner::Interner;
 use crate::lower_context::scopes::Scopes;
+use crate::string_interner::Interner;
 use crate::{BinaryOp, Expr, Literal, Name, Stmt, UnaryOp};
 
 #[derive(Debug)]

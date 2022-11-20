@@ -1,13 +1,13 @@
 use std::fmt;
 
-use rowan::ast::AstNode;
 use text_size::TextRange;
 
 use syntax::SyntaxNode;
 
 use crate::{
+    ast_node::AstNode,
     nodes::{Literal, LiteralKind},
-    AstToken,
+    tokens::AstToken,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]

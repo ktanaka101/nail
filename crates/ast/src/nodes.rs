@@ -1,7 +1,8 @@
-use rowan::ast::AstNode;
-use syntax::{NailLanguage, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
+use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
-use crate::{operators, tokens, AstToken};
+use crate::ast_node::AstNode;
+use crate::tokens::AstToken;
+use crate::{operators, tokens};
 
 macro_rules! def_ast_node {
     ($kind:ident) => {
@@ -11,8 +12,6 @@ macro_rules! def_ast_node {
         }
 
         impl AstNode for $kind {
-            type Language = NailLanguage;
-
             fn can_cast(kind: SyntaxKind) -> bool {
                 kind == SyntaxKind::$kind
             }

@@ -1,7 +1,6 @@
 use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
-use crate::ast_node::AstNode;
-use crate::tokens::AstToken;
+use crate::ast_node::{AstNode, AstToken};
 use crate::{operators, tokens};
 
 macro_rules! def_ast_node {

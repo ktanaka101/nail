@@ -1,13 +1,8 @@
-use text_size::TextRange;
-
 use syntax::{SyntaxKind, SyntaxToken};
 
-type StdString = std::string::String;
+use crate::ast_node::AstToken;
 
-pub trait AstToken: Sized {
-    fn cast(syntax: SyntaxToken) -> Option<Self>;
-    fn range(&self) -> TextRange;
-}
+type StdString = std::string::String;
 
 macro_rules! def_ast_token {
     ($kind:ident) => {
@@ -17,15 +12,20 @@ macro_rules! def_ast_token {
         }
 
         impl AstToken for $kind {
+            fn can_cast(kind: SyntaxKind) -> bool {
+                kind == SyntaxKind::$kind
+            }
+
             fn cast(syntax: SyntaxToken) -> Option<Self> {
-                match syntax.kind() {
-                    SyntaxKind::$kind => Some(Self { syntax }),
-                    _ => None,
+                if Self::can_cast(syntax.kind()) {
+                    Some(Self { syntax })
+                } else {
+                    None
                 }
             }
 
-            fn range(&self) -> TextRange {
-                self.syntax.text_range()
+            fn syntax(&self) -> &SyntaxToken {
+                &self.syntax
             }
         }
     };
@@ -61,15 +61,20 @@ pub struct Bool {
     syntax: SyntaxToken,
 }
 impl AstToken for Bool {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::TrueKw | SyntaxKind::FalseKw)
+    }
+
     fn cast(syntax: SyntaxToken) -> Option<Self> {
-        match syntax.kind() {
-            SyntaxKind::TrueKw | SyntaxKind::FalseKw => Some(Self { syntax }),
-            _ => None,
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
         }
     }
 
-    fn range(&self) -> TextRange {
-        self.syntax.text_range()
+    fn syntax(&self) -> &SyntaxToken {
+        &self.syntax
     }
 }
 impl Bool {

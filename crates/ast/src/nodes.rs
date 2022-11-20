@@ -41,6 +41,7 @@ pub enum Expr {
     ParenExpr(ParenExpr),
     UnaryExpr(UnaryExpr),
     VariableRef(VariableRef),
+    Block(Block),
 }
 impl Expr {
     pub fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -50,6 +51,7 @@ impl Expr {
             SyntaxKind::ParenExpr => Self::ParenExpr(ParenExpr { syntax }),
             SyntaxKind::UnaryExpr => Self::UnaryExpr(UnaryExpr { syntax }),
             SyntaxKind::VariableRef => Self::VariableRef(VariableRef { syntax }),
+            SyntaxKind::Block => Self::Block(Block { syntax }),
             _ => return None,
         };
 
@@ -149,5 +151,12 @@ impl VariableRef {
             .children_with_tokens()
             .filter_map(SyntaxElement::into_token)
             .find_map(tokens::Ident::cast)
+    }
+}
+
+def_ast_node!(Block);
+impl Block {
+    pub fn stmts(&self) -> Vec<Stmt> {
+        self.syntax.children().filter_map(Stmt::cast).collect()
     }
 }

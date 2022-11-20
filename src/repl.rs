@@ -6,6 +6,7 @@ use std::io;
 use std::os::raw::c_char;
 
 use anyhow::Result;
+use ast::AstNode;
 use inkwell::context::Context;
 use inkwell::OptimizationLevel;
 use termion::event::Key;

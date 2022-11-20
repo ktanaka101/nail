@@ -1,10 +1,10 @@
-mod database;
 mod interner;
+mod lower_context;
 
-use database::Name;
 use la_arena::Idx;
+use lower_context::Name;
 
-pub use database::LowerContext;
+pub use lower_context::LowerContext;
 
 pub fn lower(ast: ast::SourceFile) -> (LowerContext, Vec<Stmt>) {
     let mut db = LowerContext::new();

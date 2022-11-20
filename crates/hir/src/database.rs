@@ -5,9 +5,22 @@ use la_arena::Arena;
 use crate::interner::{Interner, Key};
 use crate::{BinaryOp, Expr, ExprIdx, Literal, Stmt, UnaryOp};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Name(Key);
+impl Name {
+    pub fn key(&self) -> Key {
+        self.0
+    }
+}
+impl From<Key> for Name {
+    fn from(key: Key) -> Self {
+        Self(key)
+    }
+}
+
 #[derive(Debug)]
 struct Scopes {
-    inner: Vec<HashMap<Key, ExprIdx>>,
+    inner: Vec<HashMap<Name, ExprIdx>>,
 }
 impl Scopes {
     pub(crate) fn new() -> Self {
@@ -17,11 +30,11 @@ impl Scopes {
         scopes
     }
 
-    pub(crate) fn get(&self, key: Key) -> Option<ExprIdx> {
+    pub(crate) fn get(&self, name: Name) -> Option<ExprIdx> {
         assert!(!self.inner.is_empty());
 
         for scope in self.inner.iter().rev() {
-            if let Some(idx) = scope.get(&key) {
+            if let Some(idx) = scope.get(&name) {
                 return Some(idx.to_owned());
             }
         }
@@ -29,10 +42,10 @@ impl Scopes {
         None
     }
 
-    pub(crate) fn push(&mut self, key: Key, value: ExprIdx) {
+    pub(crate) fn push(&mut self, name: Name, value: ExprIdx) {
         assert!(!self.inner.is_empty());
 
-        self.inner.last_mut().unwrap().insert(key, value);
+        self.inner.last_mut().unwrap().insert(name, value);
     }
 
     pub(crate) fn enter(&mut self) {
@@ -61,7 +74,7 @@ impl Database {
             ast::Stmt::VariableDef(def) => {
                 let expr = self.lower_expr(def.value());
                 let idx = self.exprs.alloc(expr);
-                let name = self.interner.intern(def.name()?.name());
+                let name = Name::from(self.interner.intern(def.name()?.name()));
                 self.scopes.push(name, idx);
                 Stmt::VariableDef { name, value: idx }
             }
@@ -153,10 +166,8 @@ impl Database {
     }
 
     fn lower_variable_ref(&mut self, ast: ast::VariableRef) -> Expr {
-        let expr = if let Some(expr) = self
-            .scopes
-            .get(self.interner.intern(ast.name().unwrap().name()))
-        {
+        let name = Name::from(self.interner.intern(ast.name().unwrap().name()));
+        let expr = if let Some(expr) = self.scopes.get(name) {
             expr
         } else {
             self.exprs.alloc(Expr::Missing)
@@ -180,7 +191,7 @@ mod tests {
         for stmt in body {
             match stmt {
                 Stmt::VariableDef { name, value } => {
-                    let name = db.interner.lookup(*name);
+                    let name = db.interner.lookup(name.key());
                     msg.push_str(&format!("let {} = %{}\n", name, value.into_raw()));
                 }
                 Stmt::Expr(expr) => {

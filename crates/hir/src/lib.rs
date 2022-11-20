@@ -1,7 +1,7 @@
 mod database;
 mod interner;
 
-use interner::Key;
+use database::Name;
 use la_arena::Idx;
 
 pub use database::Database;
@@ -14,7 +14,7 @@ pub fn lower(ast: ast::SourceFile) -> (Database, Vec<Stmt>) {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Stmt {
-    VariableDef { name: Key, value: Idx<Expr> },
+    VariableDef { name: Name, value: Idx<Expr> },
     Expr(Idx<Expr>),
 }
 

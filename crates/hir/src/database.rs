@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
 use la_arena::Arena;
-use smol_str::SmolStr;
 
+use crate::interner::{Interner, Key};
 use crate::{BinaryOp, Expr, ExprIdx, Literal, Stmt, UnaryOp};
 
 #[derive(Debug)]
 struct Scopes {
-    inner: Vec<HashMap<SmolStr, ExprIdx>>,
+    inner: Vec<HashMap<Key, ExprIdx>>,
 }
 impl Scopes {
     pub(crate) fn new() -> Self {
@@ -17,9 +17,9 @@ impl Scopes {
         scopes
     }
 
-    pub(crate) fn get(&self, key: &SmolStr) -> Option<ExprIdx> {
+    pub(crate) fn get(&self, key: Key) -> Option<ExprIdx> {
         for scope in self.inner.iter().rev() {
-            if let Some(idx) = scope.get(key) {
+            if let Some(idx) = scope.get(&key) {
                 return Some(idx.to_owned());
             }
         }
@@ -27,7 +27,7 @@ impl Scopes {
         None
     }
 
-    pub(crate) fn push(&mut self, key: SmolStr, value: ExprIdx) {
+    pub(crate) fn push(&mut self, key: Key, value: ExprIdx) {
         self.inner.last_mut().unwrap().insert(key, value);
     }
 
@@ -40,6 +40,7 @@ impl Scopes {
 pub struct Database {
     pub exprs: Arena<Expr>,
     scopes: Scopes,
+    interner: Interner,
 }
 
 impl Database {
@@ -47,6 +48,7 @@ impl Database {
         Self {
             exprs: Arena::new(),
             scopes: Scopes::new(),
+            interner: Interner::new(),
         }
     }
 
@@ -55,8 +57,8 @@ impl Database {
             ast::Stmt::VariableDef(def) => {
                 let expr = self.lower_expr(def.value());
                 let idx = self.exprs.alloc(expr);
-                let name = SmolStr::from(def.name()?.name());
-                self.scopes.push(name.clone(), idx);
+                let name = self.interner.intern(def.name()?.name());
+                self.scopes.push(name, idx);
                 Stmt::VariableDef { name, value: idx }
             }
             ast::Stmt::Expr(ast) => {
@@ -149,7 +151,7 @@ impl Database {
     fn lower_variable_ref(&mut self, ast: ast::VariableRef) -> Expr {
         let expr = if let Some(expr) = self
             .scopes
-            .get(&SmolStr::from(ast.name().unwrap().ref_name()))
+            .get(self.interner.intern(ast.name().unwrap().name()))
         {
             expr
         } else {
@@ -174,6 +176,7 @@ mod tests {
         for stmt in body {
             match stmt {
                 Stmt::VariableDef { name, value } => {
+                    let name = db.interner.lookup(*name);
                     msg.push_str(&format!("let {} = %{}\n", name, value.into_raw()));
                 }
                 Stmt::Expr(expr) => {

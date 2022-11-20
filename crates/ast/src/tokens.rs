@@ -84,11 +84,7 @@ impl Bool {
 
 def_ast_token!(Ident);
 impl Ident {
-    pub fn name(&self) -> StdString {
-        self.syntax.text().into()
-    }
-
-    pub fn ref_name(&self) -> &str {
+    pub fn name(&self) -> &str {
         self.syntax.text()
     }
 }

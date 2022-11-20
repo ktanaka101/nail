@@ -1,5 +1,10 @@
+#[derive(Debug)]
 pub struct Interner(lasso::Rodeo);
 impl Interner {
+    pub fn new() -> Self {
+        Self(lasso::Rodeo::new())
+    }
+
     pub fn intern(&mut self, string: &str) -> Key {
         Key(self.0.get_or_intern(string))
     }

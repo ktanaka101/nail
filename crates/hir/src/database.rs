@@ -18,6 +18,8 @@ impl Scopes {
     }
 
     pub(crate) fn get(&self, key: Key) -> Option<ExprIdx> {
+        assert!(!self.inner.is_empty());
+
         for scope in self.inner.iter().rev() {
             if let Some(idx) = scope.get(&key) {
                 return Some(idx.to_owned());
@@ -28,6 +30,8 @@ impl Scopes {
     }
 
     pub(crate) fn push(&mut self, key: Key, value: ExprIdx) {
+        assert!(!self.inner.is_empty());
+
         self.inner.last_mut().unwrap().insert(key, value);
     }
 

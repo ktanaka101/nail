@@ -2,10 +2,10 @@ pub(crate) mod marker;
 
 mod parse_error;
 
-use std::mem;
-
 use lexer::{Token, TokenKind};
 use syntax::SyntaxKind;
+
+use indexmap::IndexSet;
 
 use crate::event::Event;
 use crate::grammar;
@@ -16,7 +16,7 @@ pub use parse_error::{ParseError, ParserError, TokenError};
 pub(crate) struct Parser<'l, 'input> {
     source: Source<'l, 'input>,
     events: Vec<Event>,
-    expected_kinds: Vec<TokenKind>,
+    expected_kinds: IndexSet<TokenKind>,
 }
 
 const RECOVERY_SET: [TokenKind; 2] = [TokenKind::LetKw, TokenKind::FnKw];
@@ -26,7 +26,7 @@ impl<'l, 'input> Parser<'l, 'input> {
         Self {
             source,
             events: vec![],
-            expected_kinds: vec![],
+            expected_kinds: IndexSet::new(),
         }
     }
 
@@ -49,7 +49,7 @@ impl<'l, 'input> Parser<'l, 'input> {
     }
 
     pub(crate) fn at(&mut self, kind: TokenKind) -> bool {
-        self.expected_kinds.push(kind);
+        self.expected_kinds.insert(kind);
         match (self.peek(), kind) {
             (Some(TokenKind::CharLiteral(_)), TokenKind::CharLiteral(_)) => true,
             (peek_kind, kind) => peek_kind == Some(kind),
@@ -106,7 +106,7 @@ impl<'l, 'input> Parser<'l, 'input> {
         };
         self.events
             .push(Event::Error(ParserError::ParseError(ParseError {
-                expected: mem::take(&mut self.expected_kinds),
+                expected: self.expected_kinds.drain(..).collect(),
                 found,
                 range,
             })));

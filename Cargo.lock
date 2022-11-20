@@ -308,6 +308,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "indexmap"
+version = "1.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1885e79c1fc4b10f0e172c475f458b7f7b93061064d98c3293e98c5ba0c8b399"
+dependencies = [
+ "autocfg",
+ "hashbrown 0.12.3",
+]
+
+[[package]]
 name = "inkwell"
 version = "0.1.0"
 source = "git+https://github.com/TheDan64/inkwell?branch=master#845270c99ee6268385b79b2e178a872ab4b1b1a8"
@@ -571,6 +581,7 @@ version = "0.1.0"
 dependencies = [
  "drop_bomb",
  "expect-test",
+ "indexmap",
  "lexer",
  "rowan",
  "syntax",

@@ -559,4 +559,21 @@ mod tests {
             "#]],
         );
     }
+
+    #[test]
+    fn parse_block_missing_close() {
+        check(
+            "{ 1 ",
+            expect![[r#"
+                SourceFile@0..4
+                  Block@0..4
+                    LCurly@0..1 "{"
+                    Whitespace@1..2 " "
+                    Literal@2..4
+                      Integer@2..3 "1"
+                      Whitespace@3..4 " "
+                error at 3..4: expected '+', '-', '*', '/' or '}'
+            "#]],
+        );
+    }
 }

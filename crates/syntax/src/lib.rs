@@ -37,6 +37,7 @@ pub enum SyntaxKind {
 
     // part nodes
     ParamList,
+    Param,
 
     // keywords
     FnKw,

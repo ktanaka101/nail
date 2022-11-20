@@ -42,10 +42,18 @@ fn function_def(parser: &mut Parser) -> CompletedMarker {
 
         parser.expect(TokenKind::LParen);
         if parser.at(TokenKind::Ident) {
-            parser.bump();
+            {
+                let marker = parser.start();
+                parser.bump();
+                marker.complete(parser, SyntaxKind::Param);
+            }
             while parser.at(TokenKind::Comma) {
                 parser.bump();
-                parser.expect(TokenKind::Ident);
+                {
+                    let marker = parser.start();
+                    parser.expect(TokenKind::Ident);
+                    marker.complete(parser, SyntaxKind::Param);
+                }
             }
         }
         parser.expect(TokenKind::RParen);
@@ -243,10 +251,12 @@ mod tests {
                     Ident@3..6 "foo"
                     ParamList@6..13
                       LParen@6..7 "("
-                      Ident@7..8 "a"
+                      Param@7..8
+                        Ident@7..8 "a"
                       Comma@8..9 ","
                       Whitespace@9..10 " "
-                      Ident@10..11 "b"
+                      Param@10..11
+                        Ident@10..11 "b"
                       RParen@11..12 ")"
                       Whitespace@12..13 " "
                     Block@13..15

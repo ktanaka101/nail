@@ -150,7 +150,7 @@ mod tests {
 
     use super::*;
 
-    fn debug_ref(body: &[Stmt], db: &LowerContext) -> String {
+    fn debug(body: &[Stmt], db: &LowerContext) -> String {
         let mut msg = "".to_string();
 
         for stmt in body {
@@ -228,7 +228,7 @@ mod tests {
         let source_file = parse(input);
         let result = lower(source_file);
 
-        expected.assert_eq(&debug_ref(&result.1, &result.0));
+        expected.assert_eq(&debug(&result.1, &result.0));
     }
 
     #[test]

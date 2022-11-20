@@ -145,6 +145,7 @@ impl LowerContext {
 
 #[cfg(test)]
 mod tests {
+    use ast::AstNode;
     use expect_test::{expect, Expect};
 
     use crate::lower;

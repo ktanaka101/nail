@@ -131,7 +131,14 @@ impl LowerContext {
     }
 
     fn lower_block(&mut self, ast: ast::Block) -> Expr {
-        todo!()
+        let mut stmts = vec![];
+        for stmt in ast.stmts() {
+            if let Some(stmt) = self.lower_stmt(stmt) {
+                stmts.push(stmt);
+            }
+        }
+
+        Expr::Block { stmts }
     }
 }
 
@@ -147,28 +154,36 @@ mod tests {
         let mut msg = "".to_string();
 
         for stmt in body {
-            match stmt {
-                Stmt::VariableDef { name, value } => {
-                    let name = db.interner.lookup(name.key());
-                    msg.push_str(&format!("let {} = %{}\n", name, value.into_raw()));
-                }
-                Stmt::Expr(expr) => {
-                    msg.push_str(&format!("%{}\n", expr.into_raw()));
-                }
-            }
+            msg.push_str(&debug_stmt(stmt, db));
         }
 
         msg.push('\n');
         msg.push_str("---\n");
 
         for expr in db.exprs.iter() {
-            msg.push_str(&format!("{}: {}\n", expr.0.into_raw(), debug_expr(expr.1)));
+            msg.push_str(&format!(
+                "{}: {}\n",
+                expr.0.into_raw(),
+                debug_expr(expr.1, db)
+            ));
         }
 
         msg
     }
 
-    fn debug_expr(expr: &Expr) -> String {
+    fn debug_stmt(stmt: &Stmt, db: &LowerContext) -> String {
+        match stmt {
+            Stmt::VariableDef { name, value } => {
+                let name = db.interner.lookup(name.key());
+                format!("let {} = %{}\n", name, value.into_raw())
+            }
+            Stmt::Expr(expr) => {
+                format!("%{}\n", expr.into_raw())
+            }
+        }
+    }
+
+    fn debug_expr(expr: &Expr, db: &LowerContext) -> String {
         match expr {
             Expr::Literal(literal) => match literal {
                 Literal::Bool(b) => b.to_string(),
@@ -192,6 +207,15 @@ mod tests {
                 format!("{}%{}", op, expr.into_raw())
             }
             Expr::VariableRef { var } => format!("%{}", var.into_raw()),
+            Expr::Block { stmts } => {
+                let mut msg = "{\n".to_string();
+                for stmt in stmts {
+                    msg.push_str(&format!("  {}", debug_stmt(stmt, db)));
+                }
+                msg.push_str("}\n");
+
+                msg
+            }
             Expr::Missing => "missing".to_string(),
         }
     }
@@ -469,6 +493,27 @@ mod tests {
                 ---
                 0: 10
                 1: %0
+            "#]],
+        );
+    }
+
+    #[test]
+    fn lower_block() {
+        check(
+            r#"
+                {
+                    let foo = 10;
+                }
+            "#,
+            expect![[r#"
+                %1
+
+                ---
+                0: 10
+                1: {
+                  let foo = %0
+                }
+
             "#]],
         );
     }

@@ -55,6 +55,9 @@ pub enum Expr {
     VariableRef {
         var: ExprIdx,
     },
+    Block {
+        stmts: Vec<Stmt>,
+    },
     Missing,
 }
 

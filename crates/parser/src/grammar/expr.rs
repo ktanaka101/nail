@@ -1,6 +1,7 @@
 use lexer::TokenKind;
 use syntax::SyntaxKind;
 
+use crate::grammar::stmt::stmt;
 use crate::parser::marker::CompletedMarker;
 use crate::parser::Parser;
 
@@ -86,6 +87,8 @@ fn lhs(parser: &mut Parser) -> Option<CompletedMarker> {
         prefix_expr(parser)
     } else if parser.at(TokenKind::LParen) {
         paren_expr(parser)
+    } else if parser.at(TokenKind::LCurly) {
+        block(parser)
     } else {
         parser.error_with_recovery_set_only_default();
         return None;
@@ -165,6 +168,19 @@ fn paren_expr(parser: &mut Parser) -> CompletedMarker {
     parser.expect(TokenKind::RParen);
 
     marker.complete(parser, SyntaxKind::ParenExpr)
+}
+
+fn block(parser: &mut Parser) -> CompletedMarker {
+    assert!(parser.at(TokenKind::LCurly));
+
+    let marker = parser.start();
+    parser.bump();
+    while !parser.at(TokenKind::RCurly) && !parser.at_end() {
+        stmt(parser);
+    }
+    parser.expect(TokenKind::RCurly);
+
+    marker.complete(parser, SyntaxKind::Block)
 }
 
 #[cfg(test)]
@@ -521,8 +537,25 @@ mod tests {
                       Literal@1..2
                         Integer@1..2 "1"
                       Plus@2..3 "+"
-                error at 2..3: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-' or '('
+                error at 2..3: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '(' or '{'
                 error at 2..3: expected ')'
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_block() {
+        check(
+            "{ 1 }",
+            expect![[r#"
+                SourceFile@0..5
+                  Block@0..5
+                    LCurly@0..1 "{"
+                    Whitespace@1..2 " "
+                    Literal@2..4
+                      Integer@2..3 "1"
+                      Whitespace@3..4 " "
+                    RCurly@4..5 "}"
             "#]],
         );
     }

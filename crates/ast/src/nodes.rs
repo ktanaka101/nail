@@ -53,8 +53,20 @@ pub enum Expr {
     VariableRef(VariableRef),
     Block(Block),
 }
-impl Expr {
-    pub fn cast(syntax: SyntaxNode) -> Option<Self> {
+impl AstNode for Expr {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::BinaryExpr
+                | SyntaxKind::Literal
+                | SyntaxKind::ParenExpr
+                | SyntaxKind::UnaryExpr
+                | SyntaxKind::VariableRef
+                | SyntaxKind::Block
+        )
+    }
+
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
         let result = match syntax.kind() {
             SyntaxKind::BinaryExpr => Self::BinaryExpr(BinaryExpr { syntax }),
             SyntaxKind::Literal => Self::Literal(Literal { syntax }),
@@ -66,6 +78,17 @@ impl Expr {
         };
 
         Some(result)
+    }
+
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            Expr::BinaryExpr(it) => it.syntax(),
+            Expr::Literal(it) => it.syntax(),
+            Expr::ParenExpr(it) => it.syntax(),
+            Expr::UnaryExpr(it) => it.syntax(),
+            Expr::VariableRef(it) => it.syntax(),
+            Expr::Block(it) => it.syntax(),
+        }
     }
 }
 

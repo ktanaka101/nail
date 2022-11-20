@@ -1,4 +1,5 @@
-use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
+use rowan::ast::AstNode;
+use syntax::{NailLanguage, SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
 use crate::{operators, tokens, AstToken};
 
@@ -6,15 +7,26 @@ macro_rules! def_ast_node {
     ($kind:ident) => {
         #[derive(Clone, PartialEq, Eq, Hash)]
         pub struct $kind {
-            pub syntax: SyntaxNode,
+            syntax: SyntaxNode,
         }
 
-        impl $kind {
-            pub fn cast(syntax: SyntaxNode) -> Option<Self> {
-                match syntax.kind() {
-                    SyntaxKind::$kind => Some(Self { syntax }),
-                    _ => None,
+        impl AstNode for $kind {
+            type Language = NailLanguage;
+
+            fn can_cast(kind: SyntaxKind) -> bool {
+                kind == SyntaxKind::$kind
+            }
+
+            fn cast(syntax: SyntaxNode) -> Option<Self> {
+                if Self::can_cast(syntax.kind()) {
+                    Some(Self { syntax })
+                } else {
+                    None
                 }
+            }
+
+            fn syntax(&self) -> &SyntaxNode {
+                &self.syntax
             }
         }
     };

@@ -1,5 +1,6 @@
 use std::fmt;
 
+use rowan::ast::AstNode;
 use text_size::TextRange;
 
 use syntax::SyntaxNode;

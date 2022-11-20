@@ -1,5 +1,5 @@
 mod database;
-mod internal;
+mod interner;
 
 use la_arena::Idx;
 use smol_str::SmolStr;

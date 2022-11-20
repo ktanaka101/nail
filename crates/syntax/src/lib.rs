@@ -136,3 +136,4 @@ impl From<TokenKind> for SyntaxKind {
 pub type SyntaxNode = rowan::SyntaxNode<NailLanguage>;
 pub type SyntaxToken = rowan::SyntaxToken<NailLanguage>;
 pub type SyntaxElement = rowan::SyntaxElement<NailLanguage>;
+pub type SyntaxAstPtr = rowan::ast::SyntaxNodePtr<NailLanguage>;

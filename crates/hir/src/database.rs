@@ -94,6 +94,7 @@ impl LowerContext {
                 ast::Expr::ParenExpr(ast) => self.lower_expr(ast.expr()),
                 ast::Expr::UnaryExpr(ast) => self.lower_unary(ast),
                 ast::Expr::VariableRef(ast) => self.lower_variable_ref(ast),
+                ast::Expr::Block(ast) => self.lower_block(ast),
             }
         } else {
             Expr::Missing
@@ -173,6 +174,10 @@ impl LowerContext {
         };
 
         Expr::VariableRef { var: expr }
+    }
+
+    fn lower_block(&mut self, ast: ast::Block) -> Expr {
+        todo!()
     }
 }
 

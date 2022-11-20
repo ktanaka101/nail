@@ -11,8 +11,7 @@ impl Name {
     pub fn key(&self) -> Key {
         self.0
     }
-}
-impl Name {
+
     fn from_key(key: Key) -> Self {
         Self(key)
     }

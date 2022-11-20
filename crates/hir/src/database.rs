@@ -53,13 +53,13 @@ impl Scopes {
 }
 
 #[derive(Debug)]
-pub struct Database {
+pub struct LowerContext {
     pub exprs: Arena<Expr>,
     scopes: Scopes,
     interner: Interner,
 }
 
-impl Database {
+impl LowerContext {
     pub(super) fn new() -> Self {
         Self {
             exprs: Arena::new(),
@@ -184,7 +184,7 @@ mod tests {
 
     use super::*;
 
-    fn debug_ref(body: &[Stmt], db: &Database) -> String {
+    fn debug_ref(body: &[Stmt], db: &LowerContext) -> String {
         let mut msg = "".to_string();
 
         for stmt in body {

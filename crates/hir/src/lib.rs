@@ -4,10 +4,10 @@ mod interner;
 use database::Name;
 use la_arena::Idx;
 
-pub use database::Database;
+pub use database::LowerContext;
 
-pub fn lower(ast: ast::SourceFile) -> (Database, Vec<Stmt>) {
-    let mut db = Database::new();
+pub fn lower(ast: ast::SourceFile) -> (LowerContext, Vec<Stmt>) {
+    let mut db = LowerContext::new();
     let stmts = ast.stmts().filter_map(|stmt| db.lower_stmt(stmt)).collect();
     (db, stmts)
 }

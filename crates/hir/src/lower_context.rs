@@ -212,7 +212,7 @@ mod tests {
                 for stmt in stmts {
                     msg.push_str(&format!("  {}", debug_stmt(stmt, db)));
                 }
-                msg.push_str("}\n");
+                msg.push('}');
 
                 msg
             }
@@ -513,7 +513,6 @@ mod tests {
                 1: {
                   let foo = %0
                 }
-
             "#]],
         );
     }

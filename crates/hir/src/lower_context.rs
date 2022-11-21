@@ -128,7 +128,7 @@ impl LowerContext {
             self.exprs.alloc(Expr::Missing)
         };
 
-        Expr::VariableRef { var: expr }
+        Expr::VariableRef { var: expr, name }
     }
 
     fn lower_block(&mut self, ast: ast::Block) -> Expr {
@@ -211,7 +211,14 @@ mod tests {
                 let expr_str = debug_expr(&db.exprs[*expr], db, nesting);
                 format!("{}{}", op, expr_str)
             }
-            Expr::VariableRef { var } => debug_expr(&db.exprs[*var], db, nesting),
+            Expr::VariableRef { var, name } => match db.exprs[*var] {
+                Expr::Binary { .. }
+                | Expr::Missing
+                | Expr::Literal(_)
+                | Expr::Unary { .. }
+                | Expr::VariableRef { .. } => debug_expr(&db.exprs[*var], db, nesting),
+                Expr::Block { .. } => db.interner.lookup(name.key()).to_string(),
+            },
             Expr::Block { stmts } => {
                 let mut msg = "{\n".to_string();
                 for stmt in stmts {
@@ -580,6 +587,37 @@ mod tests {
                     20
                 }
                 10
+            "#]],
+        );
+    }
+
+    #[test]
+    fn can_bind_block_because_it_is_expr() {
+        check(
+            r#"
+                let a = {
+                    a
+                    let a = 10;
+                    a
+                };
+                a
+
+                20 + {
+                    let b = 30
+                    a + b
+                }
+            "#,
+            expect![[r#"
+                let a = {
+                    <missing>
+                    let a = 10
+                    10
+                }
+                a
+                20 + {
+                    let b = 30
+                    a + 30
+                }
             "#]],
         );
     }

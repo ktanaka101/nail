@@ -12,6 +12,8 @@ pub fn lower(ast: ast::SourceFile) -> (LowerContext, Vec<Stmt>) {
     (db, stmts)
 }
 
+pub type ExprIdx = Idx<Expr>;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Name(Key);
 impl Name {
@@ -26,11 +28,9 @@ impl Name {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Stmt {
-    VariableDef { name: Name, value: Idx<Expr> },
-    Expr(Idx<Expr>),
+    VariableDef { name: Name, value: ExprIdx },
+    Expr(ExprIdx),
 }
-
-pub type ExprIdx = Idx<Expr>;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Literal {

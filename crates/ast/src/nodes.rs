@@ -98,14 +98,26 @@ pub enum Stmt {
     Expr(Expr),
     FunctionDef(FunctionDef),
 }
-impl Stmt {
-    pub fn cast(syntax: SyntaxNode) -> Option<Self> {
+impl AstNode for Stmt {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::VariableDef || Expr::can_cast(kind)
+    }
+
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
         let result = match syntax.kind() {
             SyntaxKind::VariableDef => Self::VariableDef(VariableDef { syntax }),
             _ => Self::Expr(Expr::cast(syntax)?),
         };
 
         Some(result)
+    }
+
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            Stmt::VariableDef(it) => it.syntax(),
+            Stmt::Expr(it) => it.syntax(),
+            Stmt::FunctionDef(it) => it.syntax(),
+        }
     }
 }
 

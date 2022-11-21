@@ -1,4 +1,4 @@
-use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
+use syntax::{SyntaxKind, SyntaxNode, SyntaxToken};
 
 use crate::ast_node::{self, AstNode, AstToken};
 use crate::{operators, tokens};

@@ -9,7 +9,7 @@ type StdString = std::string::String;
 
 macro_rules! def_ast_token {
     ($kind:ident) => {
-        #[derive(Clone, PartialEq, Eq, Hash)]
+        #[derive(Debug, Clone, PartialEq, Eq, Hash)]
         pub struct $kind {
             syntax: SyntaxToken,
         }

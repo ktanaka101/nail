@@ -5,7 +5,7 @@ use crate::tokens;
 
 macro_rules! def_ast_node {
     ($kind:ident) => {
-        #[derive(Clone, PartialEq, Eq, Hash)]
+        #[derive(Debug, Clone, PartialEq, Eq, Hash)]
         pub struct $kind {
             syntax: SyntaxNode,
         }
@@ -41,7 +41,7 @@ impl VariableDef {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Expr {
     BinaryExpr(BinaryExpr),
     Literal(Literal),
@@ -89,7 +89,7 @@ impl AstNode for Expr {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Stmt {
     VariableDef(VariableDef),
     Expr(Expr),

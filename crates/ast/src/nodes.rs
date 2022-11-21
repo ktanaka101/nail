@@ -1,7 +1,7 @@
 use syntax::{SyntaxKind, SyntaxNode, SyntaxToken};
 
 use crate::ast_node::{self, AstNode, AstToken};
-use crate::{operators, tokens};
+use crate::tokens;
 
 macro_rules! def_ast_node {
     ($kind:ident) => {
@@ -128,7 +128,7 @@ impl BinaryExpr {
         ast_node::children_nodes(self).nth(1)
     }
 
-    pub fn op(&self) -> Option<operators::BinaryOp> {
+    pub fn op(&self) -> Option<tokens::BinaryOp> {
         ast_node::child_token(self)
     }
 }
@@ -176,7 +176,7 @@ impl UnaryExpr {
         self.syntax.children().find_map(Expr::cast)
     }
 
-    pub fn op(&self) -> Option<operators::UnaryOp> {
+    pub fn op(&self) -> Option<tokens::UnaryOp> {
         ast_node::child_token(self)
     }
 }

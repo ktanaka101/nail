@@ -58,6 +58,7 @@ pub enum Expr {
     },
     Block {
         stmts: Vec<Stmt>,
+        tail: Option<ExprIdx>,
     },
     Missing,
 }

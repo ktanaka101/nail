@@ -143,7 +143,15 @@ impl LowerContext {
 
         self.scopes.leave();
 
-        Expr::Block { stmts }
+        let tail = if let Some(Stmt::Expr(expr)) = stmts.last() {
+            let expr = *expr;
+            stmts.pop();
+            Some(expr)
+        } else {
+            None
+        };
+
+        Expr::Block { stmts, tail }
     }
 }
 
@@ -219,10 +227,17 @@ mod tests {
                 | Expr::VariableRef { .. } => debug_expr(&db.exprs[*var], db, nesting),
                 Expr::Block { .. } => db.interner.lookup(name.key()).to_string(),
             },
-            Expr::Block { stmts } => {
+            Expr::Block { stmts, tail } => {
                 let mut msg = "{\n".to_string();
                 for stmt in stmts {
                     msg.push_str(&debug_stmt(stmt, db, nesting + 1));
+                }
+                if let Some(tail) = tail {
+                    msg.push_str(&format!(
+                        "{}expr:{}\n",
+                        indent(nesting + 1),
+                        debug_expr(&db.exprs[*tail], db, nesting + 1)
+                    ));
                 }
                 msg.push_str(&format!("{}}}", indent(nesting)));
 
@@ -525,9 +540,9 @@ mod tests {
                 let a = 10
                 {
                     let b = 20
-                    {
+                    expr:{
                         let c = 30
-                        10 + 20 + 30
+                        expr:10 + 20 + 30
                     }
                 }
                 10
@@ -582,9 +597,9 @@ mod tests {
                     {
                         20
                         let a = 30
-                        30
+                        expr:30
                     }
-                    20
+                    expr:20
                 }
                 10
             "#]],
@@ -611,12 +626,12 @@ mod tests {
                 let a = {
                     <missing>
                     let a = 10
-                    10
+                    expr:10
                 }
                 a
                 20 + {
                     let b = 30
-                    a + 30
+                    expr:a + 30
                 }
             "#]],
         );

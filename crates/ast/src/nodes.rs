@@ -196,8 +196,8 @@ impl VariableRef {
 
 def_ast_node!(Block);
 impl Block {
-    pub fn stmts(&self) -> Vec<Stmt> {
-        ast_node::children_nodes(self).collect()
+    pub fn stmts(&self) -> impl Iterator<Item = Stmt> {
+        ast_node::children_nodes(self)
     }
 }
 

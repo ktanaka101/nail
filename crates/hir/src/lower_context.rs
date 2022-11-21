@@ -156,40 +156,36 @@ mod tests {
 
     use super::*;
 
+    fn indent(nesting: usize) -> String {
+        "    ".repeat(nesting)
+    }
+
     fn debug(body: &[Stmt], db: &LowerContext) -> String {
         let mut msg = "".to_string();
 
         for stmt in body {
-            msg.push_str(&debug_stmt(stmt, db));
-        }
-
-        msg.push('\n');
-        msg.push_str("---\n");
-
-        for expr in db.exprs.iter() {
-            msg.push_str(&format!(
-                "{}: {}\n",
-                expr.0.into_raw(),
-                debug_expr(expr.1, db)
-            ));
+            msg.push_str(&debug_stmt(stmt, db, 0));
         }
 
         msg
     }
 
-    fn debug_stmt(stmt: &Stmt, db: &LowerContext) -> String {
+    fn debug_stmt(stmt: &Stmt, db: &LowerContext, nesting: usize) -> String {
         match stmt {
             Stmt::VariableDef { name, value } => {
                 let name = db.interner.lookup(name.key());
-                format!("let {} = %{}\n", name, value.into_raw())
+                let expr_str = debug_expr(&db.exprs[*value], db, nesting);
+                format!("{}let {} = {}\n", indent(nesting), name, expr_str)
             }
-            Stmt::Expr(expr) => {
-                format!("%{}\n", expr.into_raw())
-            }
+            Stmt::Expr(expr) => format!(
+                "{}{}\n",
+                indent(nesting),
+                debug_expr(&db.exprs[*expr], db, nesting)
+            ),
         }
     }
 
-    fn debug_expr(expr: &Expr, db: &LowerContext) -> String {
+    fn debug_expr(expr: &Expr, db: &LowerContext, nesting: usize) -> String {
         match expr {
             Expr::Literal(literal) => match literal {
                 Literal::Bool(b) => b.to_string(),
@@ -204,25 +200,28 @@ mod tests {
                     BinaryOp::Mul => "*",
                     BinaryOp::Div => "/",
                 };
-                format!("%{} {} %{}", lhs.into_raw(), op, rhs.into_raw())
+                let lhs_str = debug_expr(&db.exprs[*lhs], db, nesting);
+                let rhs_str = debug_expr(&db.exprs[*rhs], db, nesting);
+                format!("{} {} {}", lhs_str, op, rhs_str)
             }
             Expr::Unary { op, expr } => {
                 let op = match op {
                     UnaryOp::Neg => "-",
                 };
-                format!("{}%{}", op, expr.into_raw())
+                let expr_str = debug_expr(&db.exprs[*expr], db, nesting);
+                format!("{}{}", op, expr_str)
             }
-            Expr::VariableRef { var } => format!("%{}", var.into_raw()),
+            Expr::VariableRef { var } => debug_expr(&db.exprs[*var], db, nesting),
             Expr::Block { stmts } => {
                 let mut msg = "{\n".to_string();
                 for stmt in stmts {
-                    msg.push_str(&format!("  {}", debug_stmt(stmt, db)));
+                    msg.push_str(&debug_stmt(stmt, db, nesting + 1));
                 }
-                msg.push('}');
+                msg.push_str(&format!("{}}}", indent(nesting)));
 
                 msg
             }
-            Expr::Missing => "missing".to_string(),
+            Expr::Missing => "<missing>".to_string(),
         }
     }
 
@@ -244,11 +243,7 @@ mod tests {
                 let foo = bar
             "#,
             expect![[r#"
-                let foo = %1
-
-                ---
-                0: missing
-                1: %0
+                let foo = <missing>
             "#]],
         );
     }
@@ -259,11 +254,7 @@ mod tests {
             r#"
                 let = 10
             "#,
-            expect![[r#"
-
-                ---
-                0: 10
-            "#]],
+            expect![""],
         );
     }
 
@@ -274,10 +265,7 @@ mod tests {
                 let foo 10
             "#,
             expect![[r#"
-                let foo = %0
-
-                ---
-                0: missing
+                let foo = <missing>
             "#]],
         );
     }
@@ -289,10 +277,7 @@ mod tests {
                 let a =
             "#,
             expect![[r#"
-                let a = %0
-
-                ---
-                0: missing
+                let a = <missing>
             "#]],
         );
     }
@@ -304,10 +289,7 @@ mod tests {
                 123
             "#,
             expect![[r#"
-                %0
-
-                ---
-                0: 123
+                123
             "#]],
         );
     }
@@ -319,12 +301,7 @@ mod tests {
                 1 + 2
             "#,
             expect![[r#"
-                %2
-
-                ---
-                0: 1
-                1: 2
-                2: %0 + %1
+                1 + 2
             "#]],
         );
     }
@@ -336,12 +313,7 @@ mod tests {
                 10 -
             "#,
             expect![[r#"
-                %2
-
-                ---
-                0: 10
-                1: missing
-                2: %0 - %1
+                10 - <missing>
             "#]],
         );
     }
@@ -353,10 +325,7 @@ mod tests {
                 999
             "#,
             expect![[r#"
-                %0
-
-                ---
-                0: 999
+                999
             "#]],
         );
     }
@@ -368,10 +337,7 @@ mod tests {
                 "aaa"
             "#,
             expect![[r#"
-                %0
-
-                ---
-                0: "aaa"
+                "aaa"
             "#]],
         );
     }
@@ -383,10 +349,7 @@ mod tests {
                 'a'
             "#,
             expect![[r#"
-                %0
-
-                ---
-                0: 'a'
+                'a'
             "#]],
         );
     }
@@ -398,10 +361,7 @@ mod tests {
                 true
             "#,
             expect![[r#"
-                %0
-
-                ---
-                0: true
+                true
             "#]],
         );
     }
@@ -413,10 +373,7 @@ mod tests {
                 false
             "#,
             expect![[r#"
-                %0
-
-                ---
-                0: false
+                false
             "#]],
         );
     }
@@ -428,11 +385,7 @@ mod tests {
                 ((((((abc))))))
             "#,
             expect![[r#"
-                %1
-
-                ---
-                0: missing
-                1: %0
+                <missing>
             "#]],
         );
     }
@@ -444,11 +397,7 @@ mod tests {
                 -10
             "#,
             expect![[r#"
-                %1
-
-                ---
-                0: 10
-                1: -%0
+                -10
             "#]],
         );
     }
@@ -460,11 +409,7 @@ mod tests {
                 -
             "#,
             expect![[r#"
-                %1
-
-                ---
-                0: missing
-                1: -%0
+                -<missing>
             "#]],
         );
     }
@@ -476,11 +421,7 @@ mod tests {
                 foo
             "#,
             expect![[r#"
-                %1
-
-                ---
-                0: missing
-                1: %0
+                <missing>
             "#]],
         );
     }
@@ -493,12 +434,8 @@ mod tests {
                 foo
             "#,
             expect![[r#"
-                let foo = %0
-                %1
-
-                ---
-                0: 10
-                1: %0
+                let foo = 10
+                10
             "#]],
         );
     }
@@ -512,12 +449,8 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                %1
-
-                ---
-                0: 10
-                1: {
-                  let foo = %0
+                {
+                    let foo = 10
                 }
             "#]],
         );
@@ -537,21 +470,13 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                %5
-
-                ---
-                0: 10
-                1: 20
-                2: 30
-                3: {
-                  let b = %1
-                  let c = %2
-                }
-                4: 40
-                5: {
-                  let a = %0
-                  %3
-                  let d = %4
+                {
+                    let a = 10
+                    {
+                        let b = 20
+                        let c = 30
+                    }
+                    let d = 40
                 }
             "#]],
         );
@@ -567,16 +492,10 @@ mod tests {
                 a
             "#,
             expect![[r#"
-                %1
-                %3
-
-                ---
-                0: 10
-                1: {
-                  let a = %0
+                {
+                    let a = 10
                 }
-                2: missing
-                3: %2
+                <missing>
             "#]],
         );
     }
@@ -596,28 +515,15 @@ mod tests {
                 a
             "#,
             expect![[r#"
-                let a = %0
-                %9
-                %10
-
-                ---
-                0: 10
-                1: 20
-                2: 30
-                3: %0
-                4: %1
-                5: %3 + %4
-                6: %2
-                7: %5 + %6
-                8: {
-                  let c = %2
-                  %7
+                let a = 10
+                {
+                    let b = 20
+                    {
+                        let c = 30
+                        10 + 20 + 30
+                    }
                 }
-                9: {
-                  let b = %1
-                  %8
-                }
-                10: %0
+                10
             "#]],
         );
     }
@@ -632,16 +538,10 @@ mod tests {
                 a
             "#,
             expect![[r#"
-                let a = %0
-                %1
-                let a = %2
-                %3
-
-                ---
-                0: 10
-                1: %0
-                2: 20
-                3: %2
+                let a = 10
+                10
+                let a = 20
+                20
             "#]],
         );
     }
@@ -666,35 +566,20 @@ mod tests {
                 a
             "#,
             expect![[r#"
-                %1
-                let a = %2
-                %3
-                %11
-                %12
-
-                ---
-                0: missing
-                1: %0
-                2: 10
-                3: %2
-                4: %2
-                5: 20
-                6: %5
-                7: 30
-                8: %7
-                9: {
-                  %6
-                  let a = %7
-                  %8
+                <missing>
+                let a = 10
+                10
+                {
+                    10
+                    let a = 20
+                    {
+                        20
+                        let a = 30
+                        30
+                    }
+                    20
                 }
-                10: %5
-                11: {
-                  %4
-                  let a = %5
-                  %9
-                  %10
-                }
-                12: %2
+                10
             "#]],
         );
     }

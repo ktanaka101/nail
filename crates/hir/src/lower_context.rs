@@ -91,10 +91,10 @@ impl LowerContext {
 
     fn lower_binary(&mut self, ast: ast::BinaryExpr) -> Expr {
         let op = match ast.op().unwrap() {
-            ast::BinaryOp::Add => BinaryOp::Add,
-            ast::BinaryOp::Sub => BinaryOp::Sub,
-            ast::BinaryOp::Mul => BinaryOp::Mul,
-            ast::BinaryOp::Div => BinaryOp::Div,
+            ast::BinaryOp::Add(_) => BinaryOp::Add,
+            ast::BinaryOp::Sub(_) => BinaryOp::Sub,
+            ast::BinaryOp::Mul(_) => BinaryOp::Mul,
+            ast::BinaryOp::Div(_) => BinaryOp::Div,
         };
 
         let lhs = self.lower_expr(ast.lhs());
@@ -109,7 +109,7 @@ impl LowerContext {
 
     fn lower_unary(&mut self, ast: ast::UnaryExpr) -> Expr {
         let op = match ast.op().unwrap() {
-            ast::UnaryOp::Neg => UnaryOp::Neg,
+            ast::UnaryOp::Neg(_) => UnaryOp::Neg,
         };
 
         let expr = self.lower_expr(ast.expr());

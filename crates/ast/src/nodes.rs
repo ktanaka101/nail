@@ -129,10 +129,7 @@ impl BinaryExpr {
     }
 
     pub fn op(&self) -> Option<operators::BinaryOp> {
-        self.syntax
-            .children_with_tokens()
-            .filter_map(SyntaxElement::into_token)
-            .find_map(operators::BinaryOp::cast)
+        ast_node::child_token(self)
     }
 }
 
@@ -180,10 +177,7 @@ impl UnaryExpr {
     }
 
     pub fn op(&self) -> Option<operators::UnaryOp> {
-        self.syntax
-            .children_with_tokens()
-            .filter_map(SyntaxElement::into_token)
-            .find_map(operators::UnaryOp::cast)
+        ast_node::child_token(self)
     }
 }
 

@@ -1,6 +1,6 @@
 use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
-use crate::ast_node::{AstNode, AstToken};
+use crate::ast_node::{self, AstNode, AstToken};
 use crate::{operators, tokens};
 
 macro_rules! def_ast_node {
@@ -33,14 +33,11 @@ macro_rules! def_ast_node {
 def_ast_node!(VariableDef);
 impl VariableDef {
     pub fn name(&self) -> Option<tokens::Ident> {
-        self.syntax
-            .children_with_tokens()
-            .filter_map(SyntaxElement::into_token)
-            .find_map(tokens::Ident::cast)
+        ast_node::child_token(self)
     }
 
     pub fn value(&self) -> Option<Expr> {
-        self.syntax.children().find_map(Expr::cast)
+        ast_node::child_node(self)
     }
 }
 
@@ -124,11 +121,11 @@ impl AstNode for Stmt {
 def_ast_node!(BinaryExpr);
 impl BinaryExpr {
     pub fn lhs(&self) -> Option<Expr> {
-        self.syntax.children().find_map(Expr::cast)
+        ast_node::child_node(self)
     }
 
     pub fn rhs(&self) -> Option<Expr> {
-        self.syntax.children().filter_map(Expr::cast).nth(1)
+        ast_node::children_nodes(self).nth(1)
     }
 
     pub fn op(&self) -> Option<operators::BinaryOp> {
@@ -172,7 +169,7 @@ impl Literal {
 def_ast_node!(ParenExpr);
 impl ParenExpr {
     pub fn expr(&self) -> Option<Expr> {
-        self.syntax.children().find_map(Expr::cast)
+        ast_node::child_node(self)
     }
 }
 
@@ -193,47 +190,38 @@ impl UnaryExpr {
 def_ast_node!(VariableRef);
 impl VariableRef {
     pub fn name(&self) -> Option<tokens::Ident> {
-        self.syntax
-            .children_with_tokens()
-            .filter_map(SyntaxElement::into_token)
-            .find_map(tokens::Ident::cast)
+        ast_node::child_token(self)
     }
 }
 
 def_ast_node!(Block);
 impl Block {
     pub fn stmts(&self) -> Vec<Stmt> {
-        self.syntax.children().filter_map(Stmt::cast).collect()
+        ast_node::children_nodes(self).collect()
     }
 }
 
 def_ast_node!(FunctionDef);
 impl FunctionDef {
     pub fn name(&self) -> Option<tokens::Ident> {
-        self.syntax
-            .children_with_tokens()
-            .filter_map(SyntaxElement::into_token)
-            .find_map(tokens::Ident::cast)
+        ast_node::child_token(self)
     }
 
     pub fn body(&self) -> Option<Block> {
-        self.syntax.children().find_map(Block::cast)
+        ast_node::child_node(self)
     }
 }
 
 def_ast_node!(ParamList);
 impl ParamList {
     pub fn params(&self) -> impl Iterator<Item = Param> {
-        self.syntax.children().filter_map(Param::cast)
+        ast_node::children_nodes(self)
     }
 }
 
 def_ast_node!(Param);
 impl Param {
     pub fn name(&self) -> Option<tokens::Ident> {
-        self.syntax
-            .children_with_tokens()
-            .filter_map(SyntaxElement::into_token)
-            .find_map(tokens::Ident::cast)
+        ast_node::child_token(self)
     }
 }

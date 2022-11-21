@@ -32,6 +32,6 @@ impl AstNode for SourceFile {
 }
 impl SourceFile {
     pub fn stmts(&self) -> impl Iterator<Item = nodes::Stmt> {
-        self.0.children().filter_map(nodes::Stmt::cast)
+        ast_node::children_nodes(self)
     }
 }

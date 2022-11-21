@@ -1,5 +1,6 @@
 use rowan::TextRange;
-use syntax::{SyntaxKind, SyntaxNode, SyntaxToken};
+
+use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
 pub trait AstNode {
     fn can_cast(kind: SyntaxKind) -> bool;
@@ -41,4 +42,30 @@ pub trait AstToken {
     fn range(&self) -> TextRange {
         self.syntax().text_range()
     }
+}
+
+pub fn child_node<TNode: AstNode, TChildNode: AstNode>(node: &TNode) -> Option<TChildNode> {
+    node.syntax().children().find_map(TChildNode::cast)
+}
+
+pub fn children_nodes<TNode: AstNode, TChildNode: AstNode>(
+    node: &TNode,
+) -> impl Iterator<Item = TChildNode> {
+    node.syntax().children().filter_map(TChildNode::cast)
+}
+
+pub fn child_token<TNode: AstNode, TChildToken: AstToken>(node: &TNode) -> Option<TChildToken> {
+    node.syntax()
+        .children_with_tokens()
+        .filter_map(SyntaxElement::into_token)
+        .find_map(TChildToken::cast)
+}
+
+pub fn children_tokens<TNode: AstNode, TChildToken: AstToken>(
+    node: &TNode,
+) -> impl Iterator<Item = TChildToken> {
+    node.syntax()
+        .children_with_tokens()
+        .filter_map(SyntaxElement::into_token)
+        .filter_map(TChildToken::cast)
 }

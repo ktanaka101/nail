@@ -1,10 +1,10 @@
 mod lower_context;
-mod string_interner;
+pub mod string_interner;
 
 use la_arena::Idx;
-pub use string_interner::{Interner, Key};
 
 pub use lower_context::LowerContext;
+use string_interner::Key;
 
 pub fn lower(ast: ast::SourceFile) -> (LowerContext, Vec<Stmt>) {
     let mut db = LowerContext::new();

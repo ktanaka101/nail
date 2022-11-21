@@ -518,4 +518,179 @@ mod tests {
             "#]],
         );
     }
+
+    #[test]
+    fn lower_nested_block() {
+        check(
+            r#"
+                {
+                    let a = 10
+                    {
+                        let b = 20
+                        let c = 30
+                    }
+                    let d = 40
+                }
+            "#,
+            expect![[r#"
+                %5
+
+                ---
+                0: 10
+                1: 20
+                2: 30
+                3: {
+                  let b = %1
+                  let c = %2
+                }
+                4: 40
+                5: {
+                  let a = %0
+                  %3
+                  let d = %4
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn lower_with_scope() {
+        check(
+            r#"
+                {
+                    let a = 10
+                }
+                a
+            "#,
+            expect![[r#"
+                %1
+                %2
+
+                ---
+                0: 10
+                1: {
+                  let a = %0
+                }
+                2: %0
+            "#]],
+        );
+    }
+
+    #[test]
+    fn lower_with_nested_scope() {
+        check(
+            r#"
+                let a = 10
+                {
+                    let b = 20
+                    {
+                        let c = 30
+                        a + b + c
+                    }
+                }
+                a
+            "#,
+            expect![[r#"
+                let a = %0
+                %9
+                %10
+
+                ---
+                0: 10
+                1: 20
+                2: 30
+                3: %0
+                4: %1
+                5: %3 + %4
+                6: %2
+                7: %5 + %6
+                8: {
+                  let c = %2
+                  %7
+                }
+                9: {
+                  let b = %1
+                  %8
+                }
+                10: %0
+            "#]],
+        );
+    }
+
+    #[test]
+    fn shadwing() {
+        check(
+            r#"
+                let a = 10
+                a
+                let a = 20
+                a
+            "#,
+            expect![[r#"
+                let a = %0
+                %1
+                let a = %2
+                %3
+
+                ---
+                0: 10
+                1: %0
+                2: 20
+                3: %2
+            "#]],
+        );
+    }
+
+    #[test]
+    fn shadwing_on_block() {
+        check(
+            r#"
+                a
+                let a = 10
+                a
+                {
+                    a
+                    let a = 20
+                    {
+                        a
+                        let a = 30
+                        a
+                    }
+                    a
+                }
+                a
+            "#,
+            expect![[r#"
+                %1
+                let a = %2
+                %3
+                %11
+                %12
+
+                ---
+                0: missing
+                1: %0
+                2: 10
+                3: %2
+                4: %2
+                5: 20
+                6: %5
+                7: 30
+                8: %7
+                9: {
+                  %6
+                  let a = %7
+                  %8
+                }
+                10: %7
+                11: {
+                  %4
+                  let a = %5
+                  %9
+                  %10
+                }
+                12: %7
+            "#]],
+        );
+    }
 }

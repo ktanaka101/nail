@@ -33,6 +33,7 @@ macro_rules! def_ast_token {
         }
     };
 }
+pub(in crate::tokens) use def_ast_token;
 
 def_ast_token!(Integer);
 impl Integer {

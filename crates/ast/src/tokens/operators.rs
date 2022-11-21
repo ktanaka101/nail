@@ -1,33 +1,7 @@
 use syntax::{SyntaxKind, SyntaxToken};
 
+use super::def_ast_token;
 use crate::AstToken;
-
-macro_rules! def_ast_token {
-    ($kind:ident) => {
-        #[derive(Clone, PartialEq, Eq, Hash)]
-        pub struct $kind {
-            syntax: SyntaxToken,
-        }
-
-        impl AstToken for $kind {
-            fn can_cast(kind: SyntaxKind) -> bool {
-                kind == SyntaxKind::$kind
-            }
-
-            fn cast(syntax: SyntaxToken) -> Option<Self> {
-                if Self::can_cast(syntax.kind()) {
-                    Some(Self { syntax })
-                } else {
-                    None
-                }
-            }
-
-            fn syntax(&self) -> &SyntaxToken {
-                &self.syntax
-            }
-        }
-    };
-}
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum BinaryOp {

@@ -28,8 +28,16 @@ impl Name {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Stmt {
-    VariableDef { name: Name, value: ExprIdx },
+    VariableDef {
+        name: Name,
+        value: ExprIdx,
+    },
     Expr(ExprIdx),
+    FunctionDef {
+        name: Name,
+        params: Vec<Name>,
+        body: ExprIdx,
+    },
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -56,11 +64,14 @@ pub enum Expr {
         var: ExprIdx,
         name: Name,
     },
-    Block {
-        stmts: Vec<Stmt>,
-        tail: Option<ExprIdx>,
-    },
+    Block(Block),
     Missing,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct Block {
+    stmts: Vec<Stmt>,
+    tail: Option<ExprIdx>,
 }
 
 #[derive(Debug, PartialEq, Eq)]

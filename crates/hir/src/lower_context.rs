@@ -4,7 +4,7 @@ use la_arena::Arena;
 
 use crate::lower_context::scopes::Scopes;
 use crate::string_interner::Interner;
-use crate::{BinaryOp, Expr, Literal, Name, Stmt, UnaryOp};
+use crate::{BinaryOp, Block, Expr, Literal, Name, Stmt, UnaryOp};
 
 #[derive(Debug)]
 pub struct LowerContext {
@@ -35,7 +35,21 @@ impl LowerContext {
                 let expr = self.lower_expr(Some(ast));
                 Stmt::Expr(self.exprs.alloc(expr))
             }
-            ast::Stmt::FunctionDef(_) => return None,
+            ast::Stmt::FunctionDef(def) => {
+                dbg!(def.name(), def.params(), def.body());
+                let name = Name::from_key(self.interner.intern(def.name()?.name()));
+                let params = def
+                    .params()?
+                    .params()
+                    .filter_map(|it| it.name())
+                    .map(|it| Name::from_key(self.interner.intern(it.name())))
+                    .collect::<Vec<_>>();
+                let body = def.body()?;
+                let body = self.lower_block(body);
+                let body = self.exprs.alloc(body);
+
+                Stmt::FunctionDef { name, params, body }
+            }
         };
 
         Some(result)
@@ -151,7 +165,7 @@ impl LowerContext {
             None
         };
 
-        Expr::Block { stmts, tail }
+        Expr::Block(Block { stmts, tail })
     }
 }
 
@@ -190,6 +204,18 @@ mod tests {
                 indent(nesting),
                 debug_expr(&db.exprs[*expr], db, nesting)
             ),
+            Stmt::FunctionDef { name, params, body } => {
+                let name = db.interner.lookup(name.key());
+                let params = params
+                    .iter()
+                    .map(|name| db.interner.lookup(name.key()))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+
+                let body = &db.exprs[*body];
+                let body = debug_expr(body, db, nesting);
+                format!("{}fn {}({}) {}\n", indent(nesting), name, params, body,)
+            }
         }
     }
 
@@ -227,16 +253,16 @@ mod tests {
                 | Expr::VariableRef { .. } => debug_expr(&db.exprs[*var], db, nesting),
                 Expr::Block { .. } => db.interner.lookup(name.key()).to_string(),
             },
-            Expr::Block { stmts, tail } => {
+            Expr::Block(block) => {
                 let mut msg = "{\n".to_string();
-                for stmt in stmts {
+                for stmt in &block.stmts {
                     msg.push_str(&debug_stmt(stmt, db, nesting + 1));
                 }
-                if let Some(tail) = tail {
+                if let Some(tail) = block.tail {
                     msg.push_str(&format!(
                         "{}expr:{}\n",
                         indent(nesting + 1),
-                        debug_expr(&db.exprs[*tail], db, nesting + 1)
+                        debug_expr(&db.exprs[tail], db, nesting + 1)
                     ));
                 }
                 msg.push_str(&format!("{}}}", indent(nesting)));
@@ -633,6 +659,138 @@ mod tests {
                     let b = 30
                     expr:a + 30
                 }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn define_function() {
+        check(
+            r#"
+                fn foo() {
+                    let a = 10;
+                    a
+                }
+            "#,
+            expect![[r#"
+                fn foo() {
+                    let a = 10
+                    expr:10
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn function_scope() {
+        check(
+            r#"
+                let a = 10;
+                fn foo() {
+                    a
+                    let a = 20;
+                    a
+                }
+            "#,
+            expect![[r#"
+                let a = 10
+                fn foo() {
+                    10
+                    let a = 20
+                    expr:20
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn define_function_in_block() {
+        check(
+            r#"
+                {
+                    fn foo() {
+                        let a = 10;
+                        {
+                            let b = 20;
+                            fn bar() {
+                                let c = 20;
+                                fn baz() {
+                                    a + b + c
+                                }
+                                a + b + c
+                            }
+                        }
+                    }
+                }
+            "#,
+            expect![[r#"
+                {
+                    fn foo() {
+                        let a = 10
+                        expr:{
+                            let b = 20
+                            fn bar() {
+                                let c = 20
+                                fn baz() {
+                                    expr:10 + 20 + 20
+                                }
+                                expr:10 + 20 + 20
+                            }
+                        }
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn shadowing_in_function() {
+        check(
+            r#"
+                a
+                let a = 10;
+                a
+                fn foo() {
+                    a
+                    let a = 20;
+                    a
+                    {
+                        a
+                        let a = 30;
+                        a
+                    }
+                    a
+                    fn bar() {
+                        a
+                        let a = 40;
+                        a
+                    }
+                    a
+                }
+                a
+            "#,
+            expect![[r#"
+                <missing>
+                let a = 10
+                10
+                fn foo() {
+                    10
+                    let a = 20
+                    20
+                    {
+                        20
+                        let a = 30
+                        expr:30
+                    }
+                    20
+                    fn bar() {
+                        20
+                        let a = 40
+                        expr:40
+                    }
+                    expr:20
+                }
+                10
             "#]],
         );
     }

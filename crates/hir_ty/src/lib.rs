@@ -52,6 +52,7 @@ pub fn infer_body(body: Vec<hir::Stmt>, database: &hir::LowerContext) -> Inferen
                 let ty = infer_expr(&database.exprs[value]);
                 inference_result.mapping.insert(value, ty);
             }
+            hir::Stmt::FunctionDef { .. } => unimplemented!(),
         }
     }
 

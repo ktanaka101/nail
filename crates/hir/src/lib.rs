@@ -2,7 +2,7 @@ mod lower_context;
 mod string_interner;
 
 use la_arena::Idx;
-use string_interner::Key;
+pub use string_interner::{Interner, Key};
 
 pub use lower_context::LowerContext;
 

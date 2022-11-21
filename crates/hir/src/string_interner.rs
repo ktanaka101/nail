@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Interner(lasso::Rodeo);
 impl Interner {
     pub fn new() -> Self {

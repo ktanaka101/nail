@@ -132,12 +132,16 @@ impl LowerContext {
     }
 
     fn lower_block(&mut self, ast: ast::Block) -> Expr {
+        self.scopes.enter();
+
         let mut stmts = vec![];
         for stmt in ast.stmts() {
             if let Some(stmt) = self.lower_stmt(stmt) {
                 stmts.push(stmt);
             }
         }
+
+        self.scopes.leave();
 
         Expr::Block { stmts }
     }
@@ -564,14 +568,15 @@ mod tests {
             "#,
             expect![[r#"
                 %1
-                %2
+                %3
 
                 ---
                 0: 10
                 1: {
                   let a = %0
                 }
-                2: %0
+                2: missing
+                3: %2
             "#]],
         );
     }
@@ -682,14 +687,14 @@ mod tests {
                   let a = %7
                   %8
                 }
-                10: %7
+                10: %5
                 11: {
                   %4
                   let a = %5
                   %9
                   %10
                 }
-                12: %7
+                12: %2
             "#]],
         );
     }

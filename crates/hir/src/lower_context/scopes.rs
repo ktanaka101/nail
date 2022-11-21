@@ -35,4 +35,10 @@ impl Scopes {
     pub(crate) fn enter(&mut self) {
         self.inner.push(HashMap::default());
     }
+
+    pub(crate) fn leave(&mut self) {
+        assert!(self.inner.len() >= 2);
+
+        self.inner.pop();
+    }
 }

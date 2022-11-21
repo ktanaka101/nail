@@ -197,6 +197,10 @@ impl Block {
 
 def_ast_node!(FunctionDef);
 impl FunctionDef {
+    pub fn params(&self) -> Option<ParamList> {
+        ast_node::child_node(self)
+    }
+
     pub fn name(&self) -> Option<tokens::Ident> {
         ast_node::child_token(self)
     }

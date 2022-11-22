@@ -850,4 +850,25 @@ mod tests {
             "#]],
         );
     }
+
+    #[test]
+    fn ref_function_from_outer_scope() {
+        check(
+            r#"
+                fn foo() {
+                }
+
+                fn bar() {
+                    foo
+                }
+            "#,
+            expect![[r#"
+                fn foo() {
+                }
+                fn bar() {
+                    expr:<missing>
+                }
+            "#]],
+        );
+    }
 }

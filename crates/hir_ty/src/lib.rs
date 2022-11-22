@@ -39,17 +39,17 @@ pub enum ResolvedType {
     Bool,
 }
 
-pub fn infer_body(body: Vec<hir::Stmt>, database: &hir::Body) -> InferenceResult {
+pub fn infer_body(stmts: Vec<hir::Stmt>, ctx: &hir::BodyLowerContext) -> InferenceResult {
     let mut inference_result = InferenceResult::new();
 
-    for stmt in body {
+    for stmt in stmts {
         match stmt {
             hir::Stmt::Expr(expr) => {
-                let ty = infer_expr(&database.exprs[expr]);
+                let ty = infer_expr(&ctx.exprs[expr]);
                 inference_result.mapping.insert(expr, ty);
             }
             hir::Stmt::VariableDef { value, .. } => {
-                let ty = infer_expr(&database.exprs[value]);
+                let ty = infer_expr(&ctx.exprs[value]);
                 inference_result.mapping.insert(value, ty);
             }
             hir::Stmt::FunctionDef { .. } => unimplemented!(),

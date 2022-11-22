@@ -7,13 +7,13 @@ use crate::string_interner::Interner;
 use crate::{BinaryOp, Block, Expr, Literal, Name, Stmt, UnaryOp};
 
 #[derive(Debug)]
-pub struct Body {
+pub struct BodyLowerContext {
     pub exprs: Arena<Expr>,
     scopes: Scopes,
     interner: Interner,
 }
 
-impl Body {
+impl BodyLowerContext {
     pub(super) fn new() -> Self {
         Self {
             exprs: Arena::new(),
@@ -182,44 +182,44 @@ mod tests {
         "    ".repeat(nesting)
     }
 
-    fn debug(body: &[Stmt], db: &Body) -> String {
+    fn debug(stmts: &[Stmt], ctx: &BodyLowerContext) -> String {
         let mut msg = "".to_string();
 
-        for stmt in body {
-            msg.push_str(&debug_stmt(stmt, db, 0));
+        for stmt in stmts {
+            msg.push_str(&debug_stmt(stmt, ctx, 0));
         }
 
         msg
     }
 
-    fn debug_stmt(stmt: &Stmt, db: &Body, nesting: usize) -> String {
+    fn debug_stmt(stmt: &Stmt, ctx: &BodyLowerContext, nesting: usize) -> String {
         match stmt {
             Stmt::VariableDef { name, value } => {
-                let name = db.interner.lookup(name.key());
-                let expr_str = debug_expr(&db.exprs[*value], db, nesting);
+                let name = ctx.interner.lookup(name.key());
+                let expr_str = debug_expr(&ctx.exprs[*value], ctx, nesting);
                 format!("{}let {} = {}\n", indent(nesting), name, expr_str)
             }
             Stmt::Expr(expr) => format!(
                 "{}{}\n",
                 indent(nesting),
-                debug_expr(&db.exprs[*expr], db, nesting)
+                debug_expr(&ctx.exprs[*expr], ctx, nesting)
             ),
             Stmt::FunctionDef { name, params, body } => {
-                let name = db.interner.lookup(name.key());
+                let name = ctx.interner.lookup(name.key());
                 let params = params
                     .iter()
-                    .map(|name| db.interner.lookup(name.key()))
+                    .map(|name| ctx.interner.lookup(name.key()))
                     .collect::<Vec<_>>()
                     .join(", ");
 
-                let body = &db.exprs[*body];
-                let body = debug_expr(body, db, nesting);
+                let body = &ctx.exprs[*body];
+                let body = debug_expr(body, ctx, nesting);
                 format!("{}fn {}({}) {}\n", indent(nesting), name, params, body,)
             }
         }
     }
 
-    fn debug_expr(expr: &Expr, db: &Body, nesting: usize) -> String {
+    fn debug_expr(expr: &Expr, ctx: &BodyLowerContext, nesting: usize) -> String {
         match expr {
             Expr::Literal(literal) => match literal {
                 Literal::Bool(b) => b.to_string(),
@@ -234,35 +234,35 @@ mod tests {
                     BinaryOp::Mul => "*",
                     BinaryOp::Div => "/",
                 };
-                let lhs_str = debug_expr(&db.exprs[*lhs], db, nesting);
-                let rhs_str = debug_expr(&db.exprs[*rhs], db, nesting);
+                let lhs_str = debug_expr(&ctx.exprs[*lhs], ctx, nesting);
+                let rhs_str = debug_expr(&ctx.exprs[*rhs], ctx, nesting);
                 format!("{} {} {}", lhs_str, op, rhs_str)
             }
             Expr::Unary { op, expr } => {
                 let op = match op {
                     UnaryOp::Neg => "-",
                 };
-                let expr_str = debug_expr(&db.exprs[*expr], db, nesting);
+                let expr_str = debug_expr(&ctx.exprs[*expr], ctx, nesting);
                 format!("{}{}", op, expr_str)
             }
-            Expr::VariableRef { var, name } => match db.exprs[*var] {
+            Expr::VariableRef { var, name } => match ctx.exprs[*var] {
                 Expr::Binary { .. }
                 | Expr::Missing
                 | Expr::Literal(_)
                 | Expr::Unary { .. }
-                | Expr::VariableRef { .. } => debug_expr(&db.exprs[*var], db, nesting),
-                Expr::Block { .. } => db.interner.lookup(name.key()).to_string(),
+                | Expr::VariableRef { .. } => debug_expr(&ctx.exprs[*var], ctx, nesting),
+                Expr::Block { .. } => ctx.interner.lookup(name.key()).to_string(),
             },
             Expr::Block(block) => {
                 let mut msg = "{\n".to_string();
                 for stmt in &block.stmts {
-                    msg.push_str(&debug_stmt(stmt, db, nesting + 1));
+                    msg.push_str(&debug_stmt(stmt, ctx, nesting + 1));
                 }
                 if let Some(tail) = block.tail {
                     msg.push_str(&format!(
                         "{}expr:{}\n",
                         indent(nesting + 1),
-                        debug_expr(&db.exprs[tail], db, nesting + 1)
+                        debug_expr(&ctx.exprs[tail], ctx, nesting + 1)
                     ));
                 }
                 msg.push_str(&format!("{}}}", indent(nesting)));

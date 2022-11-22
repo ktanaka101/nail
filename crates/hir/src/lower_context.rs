@@ -36,7 +36,6 @@ impl BodyLowerContext {
                 Stmt::Expr(self.exprs.alloc(expr))
             }
             ast::Stmt::FunctionDef(def) => {
-                dbg!(def.name(), def.params(), def.body());
                 let name = Name::from_key(self.interner.intern(def.name()?.name()));
                 let params = def
                     .params()?

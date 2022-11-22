@@ -2,7 +2,7 @@ mod scopes;
 
 use la_arena::Arena;
 
-use crate::lower_context::scopes::Scopes;
+use crate::body::scopes::Scopes;
 use crate::string_interner::Interner;
 use crate::{BinaryOp, Block, Expr, Literal, Name, Stmt, UnaryOp};
 

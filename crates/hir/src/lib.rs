@@ -1,9 +1,9 @@
-mod lower_context;
+mod body;
 pub mod string_interner;
 
 use la_arena::Idx;
 
-pub use lower_context::BodyLowerContext;
+pub use body::BodyLowerContext;
 use string_interner::Key;
 
 pub fn lower(ast: ast::SourceFile) -> (BodyLowerContext, Vec<Stmt>) {

@@ -64,10 +64,17 @@ pub enum Expr {
         expr: ExprIdx,
     },
     VariableRef {
-        var: ExprIdx,
+        var: Symbol,
         name: Name,
     },
     Block(Block),
+    Missing,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Symbol {
+    Param,
+    Local(ExprIdx),
     Missing,
 }
 

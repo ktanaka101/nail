@@ -1,17 +1,44 @@
 mod scopes;
 
-use la_arena::Arena;
+use std::collections::HashMap;
+
+use la_arena::{Arena, Idx};
 
 use crate::body::scopes::Scopes;
 use crate::string_interner::Interner;
-use crate::{BinaryOp, Block, Expr, Literal, Name, Stmt, UnaryOp};
+use crate::{BinaryOp, Block, Expr, Literal, Name, Stmt, Symbol, UnaryOp};
+
+#[derive(Debug)]
+struct FunctionScopes {
+    inner: HashMap<Name, BodyLowerContextIdx>,
+}
+impl FunctionScopes {
+    fn new() -> Self {
+        Self {
+            inner: HashMap::new(),
+        }
+    }
+
+    fn insert(&mut self, key: Name, ctx: BodyLowerContextIdx) {
+        self.inner.insert(key, ctx);
+    }
+
+    fn get(&self, key: &Name) -> Option<&BodyLowerContextIdx> {
+        self.inner.get(key)
+    }
+}
 
 #[derive(Debug)]
 pub struct BodyLowerContext {
     pub exprs: Arena<Expr>,
     scopes: Scopes,
     interner: Interner,
+    function_scopes: FunctionScopes,
+    context_arena: Arena<BodyLowerContext>,
+    params: Vec<Name>,
 }
+
+type BodyLowerContextIdx = Idx<BodyLowerContext>;
 
 impl BodyLowerContext {
     pub(super) fn new() -> Self {
@@ -19,6 +46,9 @@ impl BodyLowerContext {
             exprs: Arena::new(),
             scopes: Scopes::new(),
             interner: Interner::new(),
+            function_scopes: FunctionScopes::new(),
+            context_arena: Arena::new(),
+            params: Vec::new(),
         }
     }
 
@@ -36,22 +66,37 @@ impl BodyLowerContext {
                 Stmt::Expr(self.exprs.alloc(expr))
             }
             ast::Stmt::FunctionDef(def) => {
+                let mut body_lower_ctx = BodyLowerContext::new();
                 let name = Name::from_key(self.interner.intern(def.name()?.name()));
-                let params = def
-                    .params()?
-                    .params()
-                    .filter_map(|it| it.name())
-                    .map(|it| Name::from_key(self.interner.intern(it.name())))
-                    .collect::<Vec<_>>();
-                let body = def.body()?;
-                let body = self.lower_block(body);
-                let body = self.exprs.alloc(body);
+                let stmt = body_lower_ctx.lower_function(name, def)?;
 
-                Stmt::FunctionDef { name, params, body }
+                let ctx_idx = self.context_arena.alloc(body_lower_ctx);
+                self.function_scopes.insert(name, ctx_idx);
+
+                stmt
             }
         };
 
         Some(result)
+    }
+
+    fn lower_function(&mut self, name: Name, ast: ast::FunctionDef) -> Option<Stmt> {
+        let params = ast
+            .params()?
+            .params()
+            .filter_map(|it| it.name())
+            .map(|it| Name::from_key(self.interner.intern(it.name())))
+            .collect::<Vec<_>>();
+
+        let body = ast.body()?;
+        let block_idx = self.lower_block(body);
+        let body_idx = self.exprs.alloc(block_idx);
+
+        Some(Stmt::FunctionDef {
+            name,
+            params,
+            body: body_idx,
+        })
     }
 
     fn lower_expr(&mut self, ast: Option<ast::Expr>) -> Expr {
@@ -135,13 +180,15 @@ impl BodyLowerContext {
 
     fn lower_variable_ref(&mut self, ast: ast::VariableRef) -> Expr {
         let name = Name::from_key(self.interner.intern(ast.name().unwrap().name()));
-        let expr = if let Some(expr) = self.scopes.get(name) {
-            expr
+        let symbol = if let Some(expr) = self.scopes.get(name) {
+            Symbol::Local(expr)
+        } else if self.params.iter().any(|param| *param == name) {
+            Symbol::Param
         } else {
-            self.exprs.alloc(Expr::Missing)
+            Symbol::Missing
         };
 
-        Expr::VariableRef { var: expr, name }
+        Expr::VariableRef { var: symbol, name }
     }
 
     fn lower_block(&mut self, ast: ast::Block) -> Expr {
@@ -204,15 +251,18 @@ mod tests {
                 debug_expr(&ctx.exprs[*expr], ctx, nesting)
             ),
             Stmt::FunctionDef { name, params, body } => {
+                let fn_ctx_idx = ctx.function_scopes.get(name).unwrap();
+                let fn_ctx = &ctx.context_arena[*fn_ctx_idx];
+
                 let name = ctx.interner.lookup(name.key());
                 let params = params
                     .iter()
-                    .map(|name| ctx.interner.lookup(name.key()))
+                    .map(|name| fn_ctx.interner.lookup(name.key()))
                     .collect::<Vec<_>>()
                     .join(", ");
 
-                let body = &ctx.exprs[*body];
-                let body = debug_expr(body, ctx, nesting);
+                let body = &fn_ctx.exprs[*body];
+                let body = debug_expr(body, fn_ctx, nesting);
                 format!("{}fn {}({}) {}\n", indent(nesting), name, params, body,)
             }
         }
@@ -244,13 +294,20 @@ mod tests {
                 let expr_str = debug_expr(&ctx.exprs[*expr], ctx, nesting);
                 format!("{}{}", op, expr_str)
             }
-            Expr::VariableRef { var, name } => match ctx.exprs[*var] {
-                Expr::Binary { .. }
-                | Expr::Missing
-                | Expr::Literal(_)
-                | Expr::Unary { .. }
-                | Expr::VariableRef { .. } => debug_expr(&ctx.exprs[*var], ctx, nesting),
-                Expr::Block { .. } => ctx.interner.lookup(name.key()).to_string(),
+            Expr::VariableRef { var, name } => match var {
+                Symbol::Local(expr) => match ctx.exprs[*expr] {
+                    Expr::Binary { .. }
+                    | Expr::Missing
+                    | Expr::Literal(_)
+                    | Expr::Unary { .. }
+                    | Expr::VariableRef { .. } => debug_expr(&ctx.exprs[*expr], ctx, nesting),
+                    Expr::Block { .. } => ctx.interner.lookup(name.key()).to_string(),
+                },
+                Symbol::Param => {
+                    let name = ctx.interner.lookup(name.key());
+                    format!("param:{}", name)
+                }
+                Symbol::Missing => "<missing>".to_string(),
             },
             Expr::Block(block) => {
                 let mut msg = "{\n".to_string();
@@ -694,7 +751,7 @@ mod tests {
             expect![[r#"
                 let a = 10
                 fn foo() {
-                    10
+                    <missing>
                     let a = 20
                     expr:20
                 }
@@ -731,9 +788,9 @@ mod tests {
                             fn bar() {
                                 let c = 20
                                 fn baz() {
-                                    expr:10 + 20 + 20
+                                    expr:<missing> + <missing> + <missing>
                                 }
-                                expr:10 + 20 + 20
+                                expr:<missing> + <missing> + 20
                             }
                         }
                     }
@@ -773,7 +830,7 @@ mod tests {
                 let a = 10
                 10
                 fn foo() {
-                    10
+                    <missing>
                     let a = 20
                     20
                     {
@@ -783,7 +840,7 @@ mod tests {
                     }
                     20
                     fn bar() {
-                        20
+                        <missing>
                         let a = 40
                         expr:40
                     }

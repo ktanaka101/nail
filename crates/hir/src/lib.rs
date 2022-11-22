@@ -75,6 +75,7 @@ pub enum Expr {
 pub enum Symbol {
     Param,
     Local(ExprIdx),
+    Function,
     Missing,
 }
 

@@ -180,10 +180,14 @@ impl BodyLowerContext {
 
     fn lower_variable_ref(&mut self, ast: ast::VariableRef) -> Expr {
         let name = Name::from_key(self.interner.intern(ast.name().unwrap().name()));
-        let symbol = if let Some(expr) = self.scopes.get(name) {
+        let symbol = if let Some(expr) = self.scopes.get_from_current_scope(name) {
             Symbol::Local(expr)
         } else if self.params.iter().any(|param| *param == name) {
             Symbol::Param
+        } else if self.function_scopes.get(&name).is_some() {
+            Symbol::Function
+        } else if let Some(expr) = self.scopes.get(name) {
+            Symbol::Local(expr)
         } else {
             Symbol::Missing
         };
@@ -306,6 +310,10 @@ mod tests {
                 Symbol::Param => {
                     let name = ctx.interner.lookup(name.key());
                     format!("param:{}", name)
+                }
+                Symbol::Function => {
+                    let name = ctx.interner.lookup(name.key());
+                    format!("fn:{}", name)
                 }
                 Symbol::Missing => "<missing>".to_string(),
             },
@@ -856,18 +864,43 @@ mod tests {
         check(
             r#"
                 fn foo() {
-                }
-
-                fn bar() {
                     foo
+                    bar
+                    baz
+                    fn bar() {
+                        foo
+                        bar
+                        baz
+                    }
                 }
+                fn baz() {
+                    foo
+                    bar
+                    baz
+                }
+                foo
+                bar
+                baz
             "#,
             expect![[r#"
                 fn foo() {
+                    <missing>
+                    <missing>
+                    <missing>
+                    fn bar() {
+                        <missing>
+                        <missing>
+                        expr:<missing>
+                    }
                 }
-                fn bar() {
+                fn baz() {
+                    <missing>
+                    <missing>
                     expr:<missing>
                 }
+                fn:foo
+                <missing>
+                fn:baz
             "#]],
         );
     }

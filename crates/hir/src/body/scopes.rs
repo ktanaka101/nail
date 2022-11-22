@@ -14,6 +14,12 @@ impl Scopes {
         scopes
     }
 
+    pub(crate) fn get_from_current_scope(&self, name: Name) -> Option<ExprIdx> {
+        assert!(!self.inner.is_empty());
+
+        self.inner.last().unwrap().get(&name).copied()
+    }
+
     pub(crate) fn get(&self, name: Name) -> Option<ExprIdx> {
         assert!(!self.inner.is_empty());
 

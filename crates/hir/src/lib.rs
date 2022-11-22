@@ -3,11 +3,11 @@ pub mod string_interner;
 
 use la_arena::Idx;
 
-pub use lower_context::LowerContext;
+pub use lower_context::Body;
 use string_interner::Key;
 
-pub fn lower(ast: ast::SourceFile) -> (LowerContext, Vec<Stmt>) {
-    let mut db = LowerContext::new();
+pub fn lower(ast: ast::SourceFile) -> (Body, Vec<Stmt>) {
+    let mut db = Body::new();
     let stmts = ast.stmts().filter_map(|stmt| db.lower_stmt(stmt)).collect();
     (db, stmts)
 }

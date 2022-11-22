@@ -39,7 +39,7 @@ pub enum ResolvedType {
     Bool,
 }
 
-pub fn infer_body(body: Vec<hir::Stmt>, database: &hir::LowerContext) -> InferenceResult {
+pub fn infer_body(body: Vec<hir::Stmt>, database: &hir::Body) -> InferenceResult {
     let mut inference_result = InferenceResult::new();
 
     for stmt in body {

@@ -7,13 +7,13 @@ use crate::string_interner::Interner;
 use crate::{BinaryOp, Block, Expr, Literal, Name, Stmt, UnaryOp};
 
 #[derive(Debug)]
-pub struct LowerContext {
+pub struct Body {
     pub exprs: Arena<Expr>,
     scopes: Scopes,
     interner: Interner,
 }
 
-impl LowerContext {
+impl Body {
     pub(super) fn new() -> Self {
         Self {
             exprs: Arena::new(),
@@ -182,7 +182,7 @@ mod tests {
         "    ".repeat(nesting)
     }
 
-    fn debug(body: &[Stmt], db: &LowerContext) -> String {
+    fn debug(body: &[Stmt], db: &Body) -> String {
         let mut msg = "".to_string();
 
         for stmt in body {
@@ -192,7 +192,7 @@ mod tests {
         msg
     }
 
-    fn debug_stmt(stmt: &Stmt, db: &LowerContext, nesting: usize) -> String {
+    fn debug_stmt(stmt: &Stmt, db: &Body, nesting: usize) -> String {
         match stmt {
             Stmt::VariableDef { name, value } => {
                 let name = db.interner.lookup(name.key());
@@ -219,7 +219,7 @@ mod tests {
         }
     }
 
-    fn debug_expr(expr: &Expr, db: &LowerContext, nesting: usize) -> String {
+    fn debug_expr(expr: &Expr, db: &Body, nesting: usize) -> String {
         match expr {
             Expr::Literal(literal) => match literal {
                 Literal::Bool(b) => b.to_string(),

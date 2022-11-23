@@ -21,13 +21,16 @@ pub fn lower(ast: ast::SourceFile) -> (BodyLowerContext, Vec<Stmt>) {
 
 pub type ExprIdx = Idx<Expr>;
 
-pub type AstId<T> = InFile<AstPtr<T>>;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct AstId<T: Ast>(InFile<AstPtr<T>>);
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct AstPtr<T: Ast> {
-    raw: SyntaxNodePtr,
+    raw: AstIdx,
     _ty: PhantomData<fn() -> T>,
 }
+
+pub type AstIdx = Idx<SyntaxNodePtr>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct InFile<T> {

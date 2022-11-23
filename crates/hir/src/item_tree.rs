@@ -16,6 +16,21 @@ pub struct Database {
     syntax_node_ptrs: Arena<SyntaxNodePtr>,
     interner: Interner,
 }
+impl Database {
+    fn alloc_node<T: ast::AstNode>(&mut self, ast: T) -> AstId<T> {
+        let ptr = SyntaxNodePtr::new(ast.syntax());
+        let idx = self.syntax_node_ptrs.alloc(ptr);
+        let ast_ptr = AstPtr {
+            raw: idx,
+            _ty: std::marker::PhantomData,
+        };
+
+        AstId(InFile {
+            file_id: FileId,
+            value: ast_ptr,
+        })
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NailFile {
@@ -72,7 +87,7 @@ pub struct ItemTree {
     pub scope: HashMap<BlockAstId, ItemScopeIdx>,
 }
 
-struct ItemTreeBuilderContext {
+pub struct ItemTreeBuilderContext {
     pub scope: HashMap<BlockAstId, ItemScopeIdx>,
 }
 impl ItemTreeBuilderContext {
@@ -135,8 +150,6 @@ impl ItemTreeBuilderContext {
                 current_scope.functions.insert(name, function);
 
                 self.build_block(block, db);
-
-                todo!()
             }
         }
 
@@ -144,6 +157,13 @@ impl ItemTreeBuilderContext {
     }
 
     pub fn build_block(&mut self, block: ast::Block, db: &mut Database) {
-        todo!()
+        let mut item_scope = ItemScope::new();
+        for stmt in block.stmts() {
+            self.build_stmt(stmt, &mut item_scope, db);
+        }
+
+        let block = db.alloc_node(block);
+        let item_scope = db.item_scopes.alloc(item_scope);
+        self.scope.insert(block, item_scope);
     }
 }

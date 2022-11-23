@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 
+use ast::AstNode;
 use la_arena::{Arena, Idx};
+use syntax::SyntaxNodePtr;
 
-use crate::{AstId, ExprIdx, FileId, Name};
+use crate::{string_interner::Interner, AstId, AstPtr, FileId, InFile, Name};
 
 type BlockAstId = AstId<ast::Block>;
 
@@ -11,6 +13,8 @@ pub struct Database {
     modules: Arena<Module>,
     functions: Arena<Function>,
     item_scopes: Arena<ItemScope>,
+    syntax_node_ptrs: Arena<SyntaxNodePtr>,
+    interner: Interner,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -43,7 +47,7 @@ pub struct Param {
 pub struct Function {
     pub name: Name,
     pub params: Vec<Param>,
-    pub body: ExprIdx,
+    pub ast: AstId<ast::FunctionDef>,
 }
 
 pub type FunctionIdx = Idx<Function>;
@@ -91,18 +95,55 @@ impl ItemTreeBuilderContext {
         }
     }
 
-    pub fn build_stmt(&mut self, stmt: ast::Stmt, item_scope: &mut ItemScope, db: &mut Database) {
+    pub fn build_stmt(
+        &mut self,
+        stmt: ast::Stmt,
+        current_scope: &mut ItemScope,
+        db: &mut Database,
+    ) -> Option<()> {
         match stmt {
             ast::Stmt::VariableDef(_) | ast::Stmt::Expr(_) => (),
             ast::Stmt::FunctionDef(def) => {
-                if let Some(body) = def.body() {
-                    let scope = ItemScope::new();
+                let block = def.body()?;
+                let name = Name::from_key(db.interner.intern(def.name()?.name()));
+                let params = def
+                    .params()?
+                    .params()
+                    .map(|param| {
+                        let name = Name::from_key(db.interner.intern(param.name().unwrap().name()));
+                        Param { name }
+                    })
+                    .collect();
 
-                    todo!()
-                } else {
-                    return;
-                }
+                let ptr = SyntaxNodePtr::new(def.syntax());
+                let idx = db.syntax_node_ptrs.alloc(ptr);
+                let ast_ptr = AstPtr {
+                    raw: idx,
+                    _ty: std::marker::PhantomData,
+                };
+                let ptr = AstId::<ast::FunctionDef>(InFile {
+                    file_id: FileId,
+                    value: ast_ptr,
+                });
+
+                let function = Function {
+                    name,
+                    params,
+                    ast: ptr,
+                };
+                let function = db.functions.alloc(function);
+                current_scope.functions.insert(name, function);
+
+                self.build_block(block, db);
+
+                todo!()
             }
         }
+
+        Some(())
+    }
+
+    pub fn build_block(&mut self, block: ast::Block, db: &mut Database) {
+        todo!()
     }
 }

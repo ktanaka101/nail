@@ -63,19 +63,28 @@ pub enum SyntaxKind {
     Slash,
     Bang,
     Eq,
+    /// <
     LAngle,
+    /// >
     RAngle,
 
     // delimiters
     Comma,
     Colon,
     Semicolon,
+    /// (
     LParen,
+    /// )
     RParen,
+    /// [
     LBrace,
+    /// ]
     RBrace,
+    /// {
     LCurly,
+    /// }
     RCurly,
+    /// |
     Pipe,
 
     // trivias

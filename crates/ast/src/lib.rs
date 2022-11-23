@@ -9,7 +9,7 @@ pub use tokens::*;
 
 use syntax::{SyntaxKind, SyntaxNode};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SourceFile(SyntaxNode);
 impl Ast for SourceFile {}
 impl AstNode for SourceFile {

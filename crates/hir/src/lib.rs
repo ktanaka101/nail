@@ -1,4 +1,5 @@
 mod body;
+mod item_tree;
 pub mod string_interner;
 
 use std::marker::PhantomData;

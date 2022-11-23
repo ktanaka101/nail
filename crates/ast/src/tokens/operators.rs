@@ -1,7 +1,7 @@
 use syntax::{SyntaxKind, SyntaxToken};
 
 use super::def_ast_token;
-use crate::AstToken;
+use crate::{Ast, AstToken};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum BinaryOp {
@@ -15,6 +15,7 @@ def_ast_token!(Minus);
 def_ast_token!(Star);
 def_ast_token!(Slash);
 
+impl Ast for BinaryOp {}
 impl AstToken for BinaryOp {
     fn can_cast(token: SyntaxKind) -> bool {
         matches!(
@@ -47,6 +48,7 @@ impl AstToken for BinaryOp {
 pub enum UnaryOp {
     Neg(Minus),
 }
+impl Ast for UnaryOp {}
 impl AstToken for UnaryOp {
     fn can_cast(token: SyntaxKind) -> bool {
         matches!(token, SyntaxKind::Minus)

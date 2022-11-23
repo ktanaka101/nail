@@ -1,6 +1,6 @@
 use syntax::{SyntaxKind, SyntaxNode, SyntaxToken};
 
-use crate::ast_node::{self, AstNode, AstToken};
+use crate::ast_node::{self, Ast, AstNode, AstToken};
 use crate::tokens;
 
 macro_rules! def_ast_node {
@@ -10,6 +10,7 @@ macro_rules! def_ast_node {
             syntax: SyntaxNode,
         }
 
+        impl Ast for $kind {}
         impl AstNode for $kind {
             fn can_cast(kind: SyntaxKind) -> bool {
                 kind == SyntaxKind::$kind
@@ -50,6 +51,7 @@ pub enum Expr {
     VariableRef(VariableRef),
     Block(Block),
 }
+impl Ast for Expr {}
 impl AstNode for Expr {
     fn can_cast(kind: SyntaxKind) -> bool {
         matches!(
@@ -95,6 +97,7 @@ pub enum Stmt {
     Expr(Expr),
     FunctionDef(FunctionDef),
 }
+impl Ast for Stmt {}
 impl AstNode for Stmt {
     fn can_cast(kind: SyntaxKind) -> bool {
         matches!(kind, SyntaxKind::VariableDef | SyntaxKind::FunctionDef) || Expr::can_cast(kind)

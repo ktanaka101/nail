@@ -11,6 +11,7 @@ use syntax::{SyntaxKind, SyntaxNode};
 
 #[derive(Debug)]
 pub struct SourceFile(SyntaxNode);
+impl Ast for SourceFile {}
 impl AstNode for SourceFile {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::SourceFile

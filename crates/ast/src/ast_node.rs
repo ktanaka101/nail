@@ -2,7 +2,9 @@ use rowan::TextRange;
 
 use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
-pub trait AstNode {
+pub trait Ast {}
+
+pub trait AstNode: Ast {
     fn can_cast(kind: SyntaxKind) -> bool;
 
     fn cast(syntax: SyntaxNode) -> Option<Self>
@@ -26,7 +28,7 @@ pub trait AstNode {
     }
 }
 
-pub trait AstToken {
+pub trait AstToken: Ast {
     fn can_cast(token: SyntaxKind) -> bool;
 
     fn cast(syntax: SyntaxToken) -> Option<Self>

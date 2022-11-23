@@ -3,7 +3,7 @@ pub use operators::*;
 
 use syntax::{SyntaxKind, SyntaxToken};
 
-use crate::ast_node::AstToken;
+use crate::ast_node::{Ast, AstToken};
 
 type StdString = std::string::String;
 
@@ -14,6 +14,7 @@ macro_rules! def_ast_token {
             syntax: SyntaxToken,
         }
 
+        impl Ast for $kind {}
         impl AstToken for $kind {
             fn can_cast(kind: SyntaxKind) -> bool {
                 kind == SyntaxKind::$kind
@@ -64,6 +65,7 @@ impl Char {
 pub struct Bool {
     syntax: SyntaxToken,
 }
+impl Ast for Bool {}
 impl AstToken for Bool {
     fn can_cast(kind: SyntaxKind) -> bool {
         matches!(kind, SyntaxKind::TrueKw | SyntaxKind::FalseKw)

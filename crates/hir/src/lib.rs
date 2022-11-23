@@ -1,10 +1,14 @@
 mod body;
 pub mod string_interner;
 
+use std::marker::PhantomData;
+
 use la_arena::Idx;
 
+use ast::Ast;
 pub use body::BodyLowerContext;
 use string_interner::Key;
+use syntax::SyntaxNodePtr;
 
 pub fn lower(ast: ast::SourceFile) -> (BodyLowerContext, Vec<Stmt>) {
     let mut ctx = BodyLowerContext::new();
@@ -16,6 +20,24 @@ pub fn lower(ast: ast::SourceFile) -> (BodyLowerContext, Vec<Stmt>) {
 }
 
 pub type ExprIdx = Idx<Expr>;
+
+pub type AstId<T> = InFile<AstPtr<T>>;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AstPtr<T: Ast> {
+    raw: SyntaxNodePtr,
+    _ty: PhantomData<fn() -> T>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct InFile<T> {
+    pub file_id: FileId,
+    pub value: T,
+}
+
+/// todo: resolve file paths
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct FileId;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Name(Key);

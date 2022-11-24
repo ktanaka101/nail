@@ -890,6 +890,34 @@ mod tests {
     }
 
     #[test]
+    fn can_use_block_in_paren_expr() {
+        check(
+            r#"
+            (
+                (
+                    {
+                        let a = 10;
+                        (
+                            {
+                                a
+                            }
+                        )
+                    }
+                )
+            )
+            "#,
+            expect![[r#"
+                {
+                    let a = 10
+                    expr:{
+                        expr:10
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
     fn define_function() {
         check(
             r#"

@@ -265,6 +265,9 @@ impl ItemTreeBuilderContext {
                 self.build_expr(binary.lhs()?, _current_scope, parent.clone(), db)?;
                 self.build_expr(binary.rhs()?, _current_scope, parent, db)?;
             }
+            ast::Expr::ParenExpr(paren) => {
+                self.build_expr(paren.expr()?, _current_scope, parent, db)?;
+            }
             _ => (),
         };
 

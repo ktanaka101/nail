@@ -866,6 +866,30 @@ mod tests {
     }
 
     #[test]
+    fn can_use_block_in_binary_expr() {
+        check(
+            r#"
+                {
+                    let a = 10;
+                    a
+                } + {
+                    let b = 30
+                    a + b
+                }
+            "#,
+            expect![[r#"
+                {
+                    let a = 10
+                    expr:10
+                } + {
+                    let b = 30
+                    expr:<missing> + 30
+                }
+            "#]],
+        );
+    }
+
+    #[test]
     fn define_function() {
         check(
             r#"

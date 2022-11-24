@@ -268,6 +268,9 @@ impl ItemTreeBuilderContext {
             ast::Expr::ParenExpr(paren) => {
                 self.build_expr(paren.expr()?, _current_scope, parent, db)?;
             }
+            ast::Expr::UnaryExpr(unary) => {
+                self.build_expr(unary.expr()?, _current_scope, parent, db)?;
+            }
             _ => (),
         };
 

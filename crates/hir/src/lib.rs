@@ -4,6 +4,8 @@ pub mod string_interner;
 
 use std::marker::PhantomData;
 
+use body::RootBodyLowerContext;
+use item_tree::{Database, ItemTree, ItemTreeBuilderContext};
 use la_arena::Idx;
 
 use ast::Ast;
@@ -11,13 +13,27 @@ pub use body::BodyLowerContext;
 use string_interner::Key;
 use syntax::SyntaxNodePtr;
 
-pub fn lower(ast: ast::SourceFile) -> (BodyLowerContext, Vec<Stmt>) {
+pub fn lower(
+    ast: ast::SourceFile,
+) -> (
+    RootBodyLowerContext,
+    BodyLowerContext,
+    Vec<Stmt>,
+    Database,
+    ItemTree,
+) {
+    let mut db = Database::new();
+    let item_tree_builder = ItemTreeBuilderContext::new();
+    let item_tree = item_tree_builder.build(&ast, &mut db);
+
+    let mut root_ctx = RootBodyLowerContext::new();
+
     let mut ctx = BodyLowerContext::new();
     let stmts = ast
         .stmts()
-        .filter_map(|stmt| ctx.lower_stmt(stmt))
+        .filter_map(|stmt| ctx.lower_stmt(stmt, &mut root_ctx, &db, &item_tree))
         .collect();
-    (ctx, stmts)
+    (root_ctx, ctx, stmts, db, item_tree)
 }
 
 pub type ExprIdx = Idx<Expr>;
@@ -109,6 +125,7 @@ pub enum Symbol {
 pub struct Block {
     stmts: Vec<Stmt>,
     tail: Option<ExprIdx>,
+    ast: AstId<ast::Block>,
 }
 
 #[derive(Debug, PartialEq, Eq)]

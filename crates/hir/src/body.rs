@@ -5,26 +5,29 @@ use std::collections::HashMap;
 use la_arena::{Arena, Idx};
 
 use crate::body::scopes::Scopes;
+use crate::item_tree::{Database, ItemTree};
 use crate::string_interner::Interner;
-use crate::{BinaryOp, Block, Expr, Literal, Name, Stmt, Symbol, UnaryOp};
+use crate::{AstId, BinaryOp, Block, Expr, Literal, Name, Stmt, Symbol, UnaryOp};
+
+use self::scopes::CurrentBlock;
 
 #[derive(Debug)]
-struct FunctionScopes {
-    inner: HashMap<Name, BodyLowerContextIdx>,
+pub struct RootBodyLowerContext {
+    pub function_bodies: Arena<Expr>,
+    pub function_body_context_mapping: HashMap<AstId<ast::Block>, Idx<BodyLowerContext>>,
+    pub function_body_expr_mapping: HashMap<AstId<ast::Block>, Idx<Expr>>,
+    pub context_arena: Arena<BodyLowerContext>,
+    pub interner: Interner,
 }
-impl FunctionScopes {
-    fn new() -> Self {
+impl RootBodyLowerContext {
+    pub fn new() -> Self {
         Self {
-            inner: HashMap::new(),
+            function_bodies: Arena::new(),
+            function_body_context_mapping: HashMap::new(),
+            function_body_expr_mapping: HashMap::new(),
+            context_arena: Arena::new(),
+            interner: Interner::new(),
         }
-    }
-
-    fn insert(&mut self, key: Name, ctx: BodyLowerContextIdx) {
-        self.inner.insert(key, ctx);
-    }
-
-    fn get(&self, key: &Name) -> Option<&BodyLowerContextIdx> {
-        self.inner.get(key)
     }
 }
 
@@ -32,46 +35,46 @@ impl FunctionScopes {
 pub struct BodyLowerContext {
     pub exprs: Arena<Expr>,
     scopes: Scopes,
-    interner: Interner,
-    function_scopes: FunctionScopes,
-    context_arena: Arena<BodyLowerContext>,
     params: Vec<Name>,
 }
-
-type BodyLowerContextIdx = Idx<BodyLowerContext>;
 
 impl BodyLowerContext {
     pub(super) fn new() -> Self {
         Self {
             exprs: Arena::new(),
             scopes: Scopes::new(),
-            interner: Interner::new(),
-            function_scopes: FunctionScopes::new(),
-            context_arena: Arena::new(),
             params: Vec::new(),
         }
     }
 
-    pub(super) fn lower_stmt(&mut self, ast: ast::Stmt) -> Option<Stmt> {
+    pub(super) fn lower_stmt(
+        &mut self,
+        ast: ast::Stmt,
+        ctx: &mut RootBodyLowerContext,
+        db: &Database,
+        item_tree: &ItemTree,
+    ) -> Option<Stmt> {
         let result = match ast {
             ast::Stmt::VariableDef(def) => {
-                let expr = self.lower_expr(def.value());
+                let expr = self.lower_expr(def.value(), ctx, db, item_tree);
                 let idx = self.exprs.alloc(expr);
-                let name = Name::from_key(self.interner.intern(def.name()?.name()));
+                let name = Name::from_key(ctx.interner.intern(def.name()?.name()));
                 self.scopes.push(name, idx);
                 Stmt::VariableDef { name, value: idx }
             }
             ast::Stmt::Expr(ast) => {
-                let expr = self.lower_expr(Some(ast));
+                let expr = self.lower_expr(Some(ast), ctx, db, item_tree);
                 Stmt::Expr(self.exprs.alloc(expr))
             }
             ast::Stmt::FunctionDef(def) => {
                 let mut body_lower_ctx = BodyLowerContext::new();
-                let name = Name::from_key(self.interner.intern(def.name()?.name()));
-                let stmt = body_lower_ctx.lower_function(name, def)?;
+                let name = Name::from_key(ctx.interner.intern(def.name()?.name()));
+                let body = def.body()?;
+                let stmt = body_lower_ctx.lower_function(name, def, ctx, db, item_tree)?;
 
-                let ctx_idx = self.context_arena.alloc(body_lower_ctx);
-                self.function_scopes.insert(name, ctx_idx);
+                let ctx_idx = ctx.context_arena.alloc(body_lower_ctx);
+                ctx.function_body_context_mapping
+                    .insert(db.lookup_ast_id(&body).unwrap(), ctx_idx);
 
                 stmt
             }
@@ -80,17 +83,27 @@ impl BodyLowerContext {
         Some(result)
     }
 
-    fn lower_function(&mut self, name: Name, ast: ast::FunctionDef) -> Option<Stmt> {
+    fn lower_function(
+        &mut self,
+        name: Name,
+        ast: ast::FunctionDef,
+        ctx: &mut RootBodyLowerContext,
+        db: &Database,
+        item_tree: &ItemTree,
+    ) -> Option<Stmt> {
         let params = ast
             .params()?
             .params()
             .filter_map(|it| it.name())
-            .map(|it| Name::from_key(self.interner.intern(it.name())))
+            .map(|it| Name::from_key(ctx.interner.intern(it.name())))
             .collect::<Vec<_>>();
 
         let body = ast.body()?;
-        let block_idx = self.lower_block(body);
+        let ast_id = db.lookup_ast_id(&body).unwrap();
+        let block_idx = self.lower_block(body, ctx, db, item_tree);
         let body_idx = self.exprs.alloc(block_idx);
+
+        ctx.function_body_expr_mapping.insert(ast_id, body_idx);
 
         Some(Stmt::FunctionDef {
             name,
@@ -99,15 +112,21 @@ impl BodyLowerContext {
         })
     }
 
-    fn lower_expr(&mut self, ast: Option<ast::Expr>) -> Expr {
+    fn lower_expr(
+        &mut self,
+        ast: Option<ast::Expr>,
+        ctx: &mut RootBodyLowerContext,
+        db: &Database,
+        item_tree: &ItemTree,
+    ) -> Expr {
         if let Some(ast) = ast {
             match ast {
-                ast::Expr::BinaryExpr(ast) => self.lower_binary(ast),
+                ast::Expr::BinaryExpr(ast) => self.lower_binary(ast, ctx, db, item_tree),
                 ast::Expr::Literal(ast) => self.lower_literal(ast),
-                ast::Expr::ParenExpr(ast) => self.lower_expr(ast.expr()),
-                ast::Expr::UnaryExpr(ast) => self.lower_unary(ast),
-                ast::Expr::VariableRef(ast) => self.lower_variable_ref(ast),
-                ast::Expr::Block(ast) => self.lower_block(ast),
+                ast::Expr::ParenExpr(ast) => self.lower_expr(ast.expr(), ctx, db, item_tree),
+                ast::Expr::UnaryExpr(ast) => self.lower_unary(ast, ctx, db, item_tree),
+                ast::Expr::VariableRef(ast) => self.lower_variable_ref(ast, ctx, db, item_tree),
+                ast::Expr::Block(ast) => self.lower_block(ast, ctx, db, item_tree),
             }
         } else {
             Expr::Missing
@@ -147,7 +166,13 @@ impl BodyLowerContext {
         }
     }
 
-    fn lower_binary(&mut self, ast: ast::BinaryExpr) -> Expr {
+    fn lower_binary(
+        &mut self,
+        ast: ast::BinaryExpr,
+        ctx: &mut RootBodyLowerContext,
+        db: &Database,
+        item_tree: &ItemTree,
+    ) -> Expr {
         let op = match ast.op().unwrap() {
             ast::BinaryOp::Add(_) => BinaryOp::Add,
             ast::BinaryOp::Sub(_) => BinaryOp::Sub,
@@ -155,8 +180,8 @@ impl BodyLowerContext {
             ast::BinaryOp::Div(_) => BinaryOp::Div,
         };
 
-        let lhs = self.lower_expr(ast.lhs());
-        let rhs = self.lower_expr(ast.rhs());
+        let lhs = self.lower_expr(ast.lhs(), ctx, db, item_tree);
+        let rhs = self.lower_expr(ast.rhs(), ctx, db, item_tree);
 
         Expr::Binary {
             op,
@@ -165,12 +190,18 @@ impl BodyLowerContext {
         }
     }
 
-    fn lower_unary(&mut self, ast: ast::UnaryExpr) -> Expr {
+    fn lower_unary(
+        &mut self,
+        ast: ast::UnaryExpr,
+        ctx: &mut RootBodyLowerContext,
+        db: &Database,
+        item_tree: &ItemTree,
+    ) -> Expr {
         let op = match ast.op().unwrap() {
             ast::UnaryOp::Neg(_) => UnaryOp::Neg,
         };
 
-        let expr = self.lower_expr(ast.expr());
+        let expr = self.lower_expr(ast.expr(), ctx, db, item_tree);
 
         Expr::Unary {
             op,
@@ -178,29 +209,50 @@ impl BodyLowerContext {
         }
     }
 
-    fn lower_variable_ref(&mut self, ast: ast::VariableRef) -> Expr {
-        let name = Name::from_key(self.interner.intern(ast.name().unwrap().name()));
+    fn lower_variable_ref(
+        &mut self,
+        ast: ast::VariableRef,
+        ctx: &mut RootBodyLowerContext,
+        db: &Database,
+        item_tree: &ItemTree,
+    ) -> Expr {
+        let name = Name::from_key(ctx.interner.intern(ast.name().unwrap().name()));
         let symbol = if let Some(expr) = self.scopes.get_from_current_scope(name) {
             Symbol::Local(expr)
         } else if self.params.iter().any(|param| *param == name) {
             Symbol::Param
-        } else if self.function_scopes.get(&name).is_some() {
-            Symbol::Function
-        } else if let Some(expr) = self.scopes.get(name) {
-            Symbol::Local(expr)
         } else {
-            Symbol::Missing
+            let current_block = self.scopes.current_block();
+            let item_scope_idx = match current_block {
+                CurrentBlock::Root => item_tree.root_scope(),
+                CurrentBlock::Block(block_idx) => item_tree.block_scope(block_idx).unwrap(),
+            };
+            let item_scope = &db.item_scopes[item_scope_idx];
+            if item_scope.lookup(&name, db, item_tree).is_some() {
+                Symbol::Function
+            } else if let Some(expr) = self.scopes.get(name) {
+                Symbol::Local(expr)
+            } else {
+                Symbol::Missing
+            }
         };
 
         Expr::VariableRef { var: symbol, name }
     }
 
-    fn lower_block(&mut self, ast: ast::Block) -> Expr {
-        self.scopes.enter();
+    fn lower_block(
+        &mut self,
+        ast: ast::Block,
+        ctx: &mut RootBodyLowerContext,
+        db: &Database,
+        item_tree: &ItemTree,
+    ) -> Expr {
+        let block_id = db.lookup_ast_id(&ast).unwrap();
+        self.scopes.enter(CurrentBlock::Block(block_id.clone()));
 
         let mut stmts = vec![];
         for stmt in ast.stmts() {
-            if let Some(stmt) = self.lower_stmt(stmt) {
+            if let Some(stmt) = self.lower_stmt(stmt, ctx, db, item_tree) {
                 stmts.push(stmt);
             }
         }
@@ -215,7 +267,11 @@ impl BodyLowerContext {
             None
         };
 
-        Expr::Block(Block { stmts, tail })
+        Expr::Block(Block {
+            stmts,
+            tail,
+            ast: block_id,
+        })
     }
 }
 
@@ -224,7 +280,7 @@ mod tests {
     use ast::AstNode;
     use expect_test::{expect, Expect};
 
-    use crate::lower;
+    use crate::{item_tree::Function, lower};
 
     use super::*;
 
@@ -232,47 +288,111 @@ mod tests {
         "    ".repeat(nesting)
     }
 
-    fn debug(stmts: &[Stmt], ctx: &BodyLowerContext) -> String {
+    fn debug(
+        stmts: &[Stmt],
+        root_ctx: &RootBodyLowerContext,
+        ctx: &BodyLowerContext,
+        db: &Database,
+        item_tree: &ItemTree,
+    ) -> String {
         let mut msg = "".to_string();
 
+        let root_scope = &db.item_scopes[item_tree.root_scope()];
+        for function_idx in root_scope.functions() {
+            msg.push_str(&debug_function(
+                function_idx,
+                root_ctx,
+                ctx,
+                db,
+                item_tree,
+                0,
+            ));
+        }
+
         for stmt in stmts {
-            msg.push_str(&debug_stmt(stmt, ctx, 0));
+            msg.push_str(&debug_stmt(stmt, root_ctx, ctx, db, item_tree, 0));
         }
 
         msg
     }
 
-    fn debug_stmt(stmt: &Stmt, ctx: &BodyLowerContext, nesting: usize) -> String {
+    fn debug_function(
+        function_idx: Idx<Function>,
+        root_ctx: &RootBodyLowerContext,
+        ctx: &BodyLowerContext,
+        db: &Database,
+        item_tree: &ItemTree,
+        nesting: usize,
+    ) -> String {
+        let function = &db.functions[function_idx];
+        let block_id = item_tree.function_to_block(&function_idx).unwrap();
+        let function_ctx = root_ctx
+            .function_body_context_mapping
+            .get(&block_id)
+            .unwrap();
+        let function_ctx = &root_ctx.context_arena[*function_ctx];
+        let body_expr = root_ctx.function_body_expr_mapping.get(&block_id).unwrap();
+        let body_expr = &function_ctx.exprs[*body_expr];
+
+        let name = db.interner.lookup(function.name.key());
+        let params = function
+            .params
+            .iter()
+            .map(|param| db.interner.lookup(param.name.key()))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let body = debug_expr(body_expr, root_ctx, function_ctx, db, item_tree, nesting);
+        format!("{}fn {}({}) {}\n", indent(nesting), name, params, body)
+    }
+
+    fn debug_stmt(
+        stmt: &Stmt,
+        root_ctx: &RootBodyLowerContext,
+        ctx: &BodyLowerContext,
+        db: &Database,
+        item_tree: &ItemTree,
+        nesting: usize,
+    ) -> String {
         match stmt {
             Stmt::VariableDef { name, value } => {
-                let name = ctx.interner.lookup(name.key());
-                let expr_str = debug_expr(&ctx.exprs[*value], ctx, nesting);
+                let name = root_ctx.interner.lookup(name.key());
+                let expr_str =
+                    debug_expr(&ctx.exprs[*value], root_ctx, ctx, db, item_tree, nesting);
                 format!("{}let {} = {}\n", indent(nesting), name, expr_str)
             }
             Stmt::Expr(expr) => format!(
                 "{}{}\n",
                 indent(nesting),
-                debug_expr(&ctx.exprs[*expr], ctx, nesting)
+                debug_expr(&ctx.exprs[*expr], root_ctx, ctx, db, item_tree, nesting)
             ),
             Stmt::FunctionDef { name, params, body } => {
-                let fn_ctx_idx = ctx.function_scopes.get(name).unwrap();
-                let fn_ctx = &ctx.context_arena[*fn_ctx_idx];
+                "".to_string()
+                // let fn_ctx_idx = ctx.function_scopes.get(name).unwrap();
+                // let fn_ctx = &ctx.context_arena[*fn_ctx_idx];
 
-                let name = ctx.interner.lookup(name.key());
-                let params = params
-                    .iter()
-                    .map(|name| fn_ctx.interner.lookup(name.key()))
-                    .collect::<Vec<_>>()
-                    .join(", ");
+                // let name = ctx.interner.lookup(name.key());
+                // let params = params
+                //     .iter()
+                //     .map(|name| fn_ctx.interner.lookup(name.key()))
+                //     .collect::<Vec<_>>()
+                //     .join(", ");
 
-                let body = &fn_ctx.exprs[*body];
-                let body = debug_expr(body, fn_ctx, nesting);
-                format!("{}fn {}({}) {}\n", indent(nesting), name, params, body,)
+                // let body = &fn_ctx.exprs[*body];
+                // let body = debug_expr(body, fn_ctx, nesting);
+                // format!("{}fn {}({}) {}\n", indent(nesting), name, params, body,)
             }
         }
     }
 
-    fn debug_expr(expr: &Expr, ctx: &BodyLowerContext, nesting: usize) -> String {
+    fn debug_expr(
+        expr: &Expr,
+        root_ctx: &RootBodyLowerContext,
+        ctx: &BodyLowerContext,
+        db: &Database,
+        item_tree: &ItemTree,
+        nesting: usize,
+    ) -> String {
         match expr {
             Expr::Literal(literal) => match literal {
                 Literal::Bool(b) => b.to_string(),
@@ -287,15 +407,15 @@ mod tests {
                     BinaryOp::Mul => "*",
                     BinaryOp::Div => "/",
                 };
-                let lhs_str = debug_expr(&ctx.exprs[*lhs], ctx, nesting);
-                let rhs_str = debug_expr(&ctx.exprs[*rhs], ctx, nesting);
+                let lhs_str = debug_expr(&ctx.exprs[*lhs], root_ctx, ctx, db, item_tree, nesting);
+                let rhs_str = debug_expr(&ctx.exprs[*rhs], root_ctx, ctx, db, item_tree, nesting);
                 format!("{} {} {}", lhs_str, op, rhs_str)
             }
             Expr::Unary { op, expr } => {
                 let op = match op {
                     UnaryOp::Neg => "-",
                 };
-                let expr_str = debug_expr(&ctx.exprs[*expr], ctx, nesting);
+                let expr_str = debug_expr(&ctx.exprs[*expr], root_ctx, ctx, db, item_tree, nesting);
                 format!("{}{}", op, expr_str)
             }
             Expr::VariableRef { var, name } => match var {
@@ -304,29 +424,45 @@ mod tests {
                     | Expr::Missing
                     | Expr::Literal(_)
                     | Expr::Unary { .. }
-                    | Expr::VariableRef { .. } => debug_expr(&ctx.exprs[*expr], ctx, nesting),
-                    Expr::Block { .. } => ctx.interner.lookup(name.key()).to_string(),
+                    | Expr::VariableRef { .. } => {
+                        debug_expr(&ctx.exprs[*expr], root_ctx, ctx, db, item_tree, nesting)
+                    }
+                    Expr::Block { .. } => root_ctx.interner.lookup(name.key()).to_string(),
                 },
                 Symbol::Param => {
-                    let name = ctx.interner.lookup(name.key());
+                    let name = root_ctx.interner.lookup(name.key());
                     format!("param:{}", name)
                 }
                 Symbol::Function => {
-                    let name = ctx.interner.lookup(name.key());
+                    let name = root_ctx.interner.lookup(name.key());
                     format!("fn:{}", name)
                 }
                 Symbol::Missing => "<missing>".to_string(),
             },
             Expr::Block(block) => {
                 let mut msg = "{\n".to_string();
+
+                let item_scope = item_tree.block_scope(&block.ast).unwrap();
+                let item_scope = &db.item_scopes[item_scope];
+                for function in item_scope.functions() {
+                    msg.push_str(&debug_function(
+                        function,
+                        root_ctx,
+                        ctx,
+                        db,
+                        item_tree,
+                        nesting + 1,
+                    ));
+                }
+
                 for stmt in &block.stmts {
-                    msg.push_str(&debug_stmt(stmt, ctx, nesting + 1));
+                    msg.push_str(&debug_stmt(stmt, root_ctx, ctx, db, item_tree, nesting + 1));
                 }
                 if let Some(tail) = block.tail {
                     msg.push_str(&format!(
                         "{}expr:{}\n",
                         indent(nesting + 1),
-                        debug_expr(&ctx.exprs[tail], ctx, nesting + 1)
+                        debug_expr(&ctx.exprs[tail], root_ctx, ctx, db, item_tree, nesting + 1)
                     ));
                 }
                 msg.push_str(&format!("{}}}", indent(nesting)));
@@ -345,7 +481,9 @@ mod tests {
         let source_file = parse(input);
         let result = lower(source_file);
 
-        expected.assert_eq(&debug(&result.1, &result.0));
+        expected.assert_eq(&debug(
+            &result.2, &result.0, &result.1, &result.3, &result.4,
+        ));
     }
 
     #[test]
@@ -757,12 +895,12 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                let a = 10
                 fn foo() {
-                    <missing>
+                    fn:a
                     let a = 20
                     expr:20
                 }
+                let a = 10
             "#]],
         );
     }
@@ -792,14 +930,14 @@ mod tests {
                     fn foo() {
                         let a = 10
                         expr:{
-                            let b = 20
                             fn bar() {
-                                let c = 20
                                 fn baz() {
                                     expr:<missing> + <missing> + <missing>
                                 }
-                                expr:<missing> + <missing> + 20
+                                let c = 20
+                                expr:<missing> + fn:b + 20
                             }
+                            let b = 20
                         }
                     }
                 }
@@ -834,26 +972,26 @@ mod tests {
                 a
             "#,
             expect![[r#"
-                <missing>
-                let a = 10
-                10
                 fn foo() {
-                    <missing>
+                    fn bar() {
+                        fn:a
+                        let a = 40
+                        expr:40
+                    }
+                    fn:a
                     let a = 20
                     20
                     {
-                        20
+                        fn:a
                         let a = 30
                         expr:30
                     }
                     20
-                    fn bar() {
-                        <missing>
-                        let a = 40
-                        expr:40
-                    }
                     expr:20
                 }
+                fn:a
+                let a = 10
+                10
                 10
             "#]],
         );
@@ -884,19 +1022,19 @@ mod tests {
             "#,
             expect![[r#"
                 fn foo() {
-                    <missing>
-                    <missing>
-                    <missing>
                     fn bar() {
+                        fn:foo
                         <missing>
-                        <missing>
-                        expr:<missing>
+                        expr:fn:baz
                     }
+                    fn:foo
+                    fn:bar
+                    fn:baz
                 }
                 fn baz() {
+                    fn:foo
                     <missing>
-                    <missing>
-                    expr:<missing>
+                    expr:fn:baz
                 }
                 fn:foo
                 <missing>

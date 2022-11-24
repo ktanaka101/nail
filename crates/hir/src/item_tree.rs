@@ -141,7 +141,9 @@ impl ItemScope {
     }
 
     pub fn functions(&self) -> Vec<FunctionIdx> {
-        self.functions.values().copied().collect()
+        let mut functions = self.functions.values().copied().collect::<Vec<_>>();
+        functions.sort_by_cached_key(|idx| idx.into_raw());
+        functions
     }
 }
 
@@ -239,14 +241,32 @@ impl ItemTreeBuilderContext {
                 self.block_to_function.insert(block.clone(), function);
                 self.function_to_block.insert(function, block);
             }
-            ast::Stmt::Expr(expr) => match expr {
-                ast::Expr::Block(block) => {
-                    self.build_block(block, parent, db);
-                }
-                _ => {}
-            },
-            ast::Stmt::VariableDef(_) => (),
+            ast::Stmt::Expr(expr) => self.build_expr(expr, current_scope, parent, db)?,
+            ast::Stmt::VariableDef(def) => {
+                self.build_expr(def.value()?, current_scope, parent, db)?
+            }
         }
+
+        Some(())
+    }
+
+    pub fn build_expr(
+        &mut self,
+        expr: ast::Expr,
+        _current_scope: &mut ItemScope,
+        parent: Parent,
+        db: &mut Database,
+    ) -> Option<()> {
+        match expr {
+            ast::Expr::Block(block) => {
+                self.build_block(block, parent, db);
+            }
+            ast::Expr::BinaryExpr(binary) => {
+                self.build_expr(binary.lhs()?, _current_scope, parent.clone(), db)?;
+                self.build_expr(binary.rhs()?, _current_scope, parent, db)?;
+            }
+            _ => (),
+        };
 
         Some(())
     }

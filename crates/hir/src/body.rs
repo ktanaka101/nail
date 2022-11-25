@@ -100,9 +100,8 @@ impl BodyLowerContext {
 
         let body = ast.body()?;
         let ast_id = db.lookup_ast_id(&body).unwrap();
-        let block_idx = self.lower_block(body, ctx, db, item_tree);
-        let body_idx = self.exprs.alloc(block_idx);
-
+        let block = self.lower_block(body, ctx, db, item_tree);
+        let body_idx = ctx.function_bodies.alloc(block);
         ctx.function_body_expr_mapping.insert(ast_id, body_idx);
 
         Some(Stmt::FunctionDef {
@@ -300,18 +299,6 @@ mod tests {
     ) -> String {
         let mut msg = "".to_string();
 
-        let root_scope = &db.item_scopes[item_tree.root_scope()];
-        for function_idx in root_scope.functions() {
-            msg.push_str(&debug_function(
-                function_idx,
-                root_ctx,
-                ctx,
-                db,
-                item_tree,
-                0,
-            ));
-        }
-
         for stmt in stmts {
             msg.push_str(&debug_stmt(stmt, root_ctx, ctx, db, item_tree, 0));
         }
@@ -335,7 +322,7 @@ mod tests {
             .unwrap();
         let function_ctx = &root_ctx.context_arena[*function_ctx];
         let body_expr = root_ctx.function_body_expr_mapping.get(&block_id).unwrap();
-        let body_expr = &function_ctx.exprs[*body_expr];
+        let body_expr = &root_ctx.function_bodies[*body_expr];
 
         let name = db.interner.lookup(function.name.key());
         let params = function
@@ -369,21 +356,18 @@ mod tests {
                 indent(nesting),
                 debug_expr(&ctx.exprs[*expr], root_ctx, ctx, db, item_tree, nesting)
             ),
-            Stmt::FunctionDef { name, params, body } => {
-                "".to_string()
-                // let fn_ctx_idx = ctx.function_scopes.get(name).unwrap();
-                // let fn_ctx = &ctx.context_arena[*fn_ctx_idx];
+            Stmt::FunctionDef { body, .. } => {
+                let body = &root_ctx.function_bodies[*body];
+                if let Expr::Block(block) = body {
+                    let fn_ctx = root_ctx.function_body_context_mapping[&block.ast];
+                    let fn_ctx = &root_ctx.context_arena[fn_ctx];
 
-                // let name = ctx.interner.lookup(name.key());
-                // let params = params
-                //     .iter()
-                //     .map(|name| fn_ctx.interner.lookup(name.key()))
-                //     .collect::<Vec<_>>()
-                //     .join(", ");
+                    let function_idx = item_tree.block_to_function(&block.ast).unwrap();
 
-                // let body = &fn_ctx.exprs[*body];
-                // let body = debug_expr(body, fn_ctx, nesting);
-                // format!("{}fn {}({}) {}\n", indent(nesting), name, params, body,)
+                    debug_function(function_idx, root_ctx, fn_ctx, db, item_tree, nesting)
+                } else {
+                    panic!("supported only block");
+                }
             }
         }
     }
@@ -444,20 +428,6 @@ mod tests {
             },
             Expr::Block(block) => {
                 let mut msg = "{\n".to_string();
-
-                let item_scope = item_tree.block_scope(&block.ast).unwrap();
-                let item_scope = &db.item_scopes[item_scope];
-                for function in item_scope.functions() {
-                    msg.push_str(&debug_function(
-                        function,
-                        root_ctx,
-                        ctx,
-                        db,
-                        item_tree,
-                        nesting + 1,
-                    ));
-                }
-
                 for stmt in &block.stmts {
                     msg.push_str(&debug_stmt(stmt, root_ctx, ctx, db, item_tree, nesting + 1));
                 }
@@ -972,12 +942,12 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                let a = 10
                 fn foo() {
                     <missing>
                     let a = 20
                     expr:20
                 }
-                let a = 10
             "#]],
         );
     }
@@ -1007,14 +977,14 @@ mod tests {
                     fn foo() {
                         let a = 10
                         expr:{
+                            let b = 20
                             fn bar() {
+                                let c = 20
                                 fn baz() {
                                     expr:<missing> + <missing> + <missing>
                                 }
-                                let c = 20
                                 expr:<missing> + <missing> + 20
                             }
-                            let b = 20
                         }
                     }
                 }
@@ -1049,12 +1019,10 @@ mod tests {
                 a
             "#,
             expect![[r#"
+                <missing>
+                let a = 10
+                10
                 fn foo() {
-                    fn bar() {
-                        <missing>
-                        let a = 40
-                        expr:40
-                    }
                     <missing>
                     let a = 20
                     20
@@ -1064,11 +1032,13 @@ mod tests {
                         expr:30
                     }
                     20
+                    fn bar() {
+                        <missing>
+                        let a = 40
+                        expr:40
+                    }
                     expr:20
                 }
-                <missing>
-                let a = 10
-                10
                 10
             "#]],
         );
@@ -1099,14 +1069,14 @@ mod tests {
             "#,
             expect![[r#"
                 fn foo() {
+                    fn:foo
+                    fn:bar
+                    fn:baz
                     fn bar() {
                         fn:foo
                         <missing>
                         expr:fn:baz
                     }
-                    fn:foo
-                    fn:bar
-                    fn:baz
                 }
                 fn baz() {
                     fn:foo

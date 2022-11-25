@@ -1071,7 +1071,7 @@ mod tests {
                     fn:baz
                     fn bar() {
                         fn:foo
-                        <missing>
+                        fn:bar
                         expr:fn:baz
                     }
                 }

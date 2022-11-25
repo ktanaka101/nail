@@ -292,16 +292,17 @@ impl ItemTreeBuilderContext {
         parent: Parent,
         db: &mut Database,
     ) -> AstId<ast::Block> {
-        let mut scope = ItemScope::new(Some(parent.clone()));
+        let mut scope = ItemScope::new(Some(parent));
+        let block_id = db.alloc_node(&block);
+        let current = Parent::Block(block_id.clone());
         for stmt in block.stmts() {
-            self.build_stmt(stmt, &mut scope, parent.clone(), db);
+            self.build_stmt(stmt, &mut scope, current.clone(), db);
         }
 
-        let block = db.alloc_node(&block);
         let scope = db.item_scopes.alloc(scope);
-        self.scope.insert(block.clone(), scope);
-        self.back_scope.insert(scope, block.clone());
+        self.scope.insert(block_id.clone(), scope);
+        self.back_scope.insert(scope, block_id.clone());
 
-        block
+        block_id
     }
 }

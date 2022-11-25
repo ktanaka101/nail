@@ -227,11 +227,8 @@ impl BodyLowerContext {
                 CurrentBlock::Block(block_idx) => item_tree.block_scope(block_idx).unwrap(),
             };
             let item_scope = &db.item_scopes[item_scope_idx];
-            if item_scope
-                .lookup(ast.name().unwrap().name(), db, item_tree)
-                .is_some()
-            {
-                Symbol::Function
+            if let Some(function) = item_scope.lookup(ast.name().unwrap().name(), db, item_tree) {
+                Symbol::Function(function)
             } else if let Some(expr) = self.scopes.get(name) {
                 Symbol::Local(expr)
             } else {
@@ -420,7 +417,7 @@ mod tests {
                     let name = root_ctx.interner.lookup(name.key());
                     format!("param:{}", name)
                 }
-                Symbol::Function => {
+                Symbol::Function(_) => {
                     let name = root_ctx.interner.lookup(name.key());
                     format!("fn:{}", name)
                 }

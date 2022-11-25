@@ -5,7 +5,7 @@ pub mod string_interner;
 use std::marker::PhantomData;
 
 use body::RootBodyLowerContext;
-use item_tree::{Database, ItemTree, ItemTreeBuilderContext};
+use item_tree::{Database, Function, ItemTree, ItemTreeBuilderContext};
 use la_arena::Idx;
 
 use ast::Ast;
@@ -117,7 +117,7 @@ pub enum Expr {
 pub enum Symbol {
     Param,
     Local(ExprIdx),
-    Function,
+    Function(Idx<Function>),
     Missing,
 }
 

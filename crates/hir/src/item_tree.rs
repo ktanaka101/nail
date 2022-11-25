@@ -258,9 +258,6 @@ impl ItemTreeBuilderContext {
         db: &mut Database,
     ) -> Option<()> {
         match expr {
-            ast::Expr::Block(block) => {
-                self.build_block(block, parent, db);
-            }
             ast::Expr::BinaryExpr(binary) => {
                 self.build_expr(binary.lhs()?, _current_scope, parent.clone(), db)?;
                 self.build_expr(binary.rhs()?, _current_scope, parent, db)?;
@@ -270,6 +267,9 @@ impl ItemTreeBuilderContext {
             }
             ast::Expr::UnaryExpr(unary) => {
                 self.build_expr(unary.expr()?, _current_scope, parent, db)?;
+            }
+            ast::Expr::Block(block) => {
+                self.build_block(block, parent, db);
             }
             _ => (),
         };

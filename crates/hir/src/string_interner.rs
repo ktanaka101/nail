@@ -9,6 +9,10 @@ impl Interner {
         Key(self.0.get_or_intern(string))
     }
 
+    pub fn get_key(&self, string: &str) -> Option<Key> {
+        self.0.get(string).map(Key)
+    }
+
     pub fn lookup(&self, key: Key) -> &str {
         self.0.resolve(&key.0)
     }

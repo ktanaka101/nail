@@ -228,7 +228,10 @@ impl BodyLowerContext {
                 CurrentBlock::Block(block_idx) => item_tree.block_scope(block_idx).unwrap(),
             };
             let item_scope = &db.item_scopes[item_scope_idx];
-            if item_scope.lookup(&name, db, item_tree).is_some() {
+            if item_scope
+                .lookup(ast.name().unwrap().name(), db, item_tree)
+                .is_some()
+            {
                 Symbol::Function
             } else if let Some(expr) = self.scopes.get(name) {
                 Symbol::Local(expr)
@@ -970,7 +973,7 @@ mod tests {
             "#,
             expect![[r#"
                 fn foo() {
-                    fn:a
+                    <missing>
                     let a = 20
                     expr:20
                 }
@@ -1009,7 +1012,7 @@ mod tests {
                                     expr:<missing> + <missing> + <missing>
                                 }
                                 let c = 20
-                                expr:<missing> + fn:b + 20
+                                expr:<missing> + <missing> + 20
                             }
                             let b = 20
                         }
@@ -1048,22 +1051,22 @@ mod tests {
             expect![[r#"
                 fn foo() {
                     fn bar() {
-                        fn:a
+                        <missing>
                         let a = 40
                         expr:40
                     }
-                    fn:a
+                    <missing>
                     let a = 20
                     20
                     {
-                        fn:a
+                        20
                         let a = 30
                         expr:30
                     }
                     20
                     expr:20
                 }
-                fn:a
+                <missing>
                 let a = 10
                 10
                 10

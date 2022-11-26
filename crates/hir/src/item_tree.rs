@@ -9,7 +9,6 @@ type BlockAstId = AstId<ast::Block>;
 
 #[derive(Debug)]
 pub struct Database {
-    modules: Arena<Module>,
     pub functions: Arena<Function>,
     pub item_scopes: Arena<ItemScope>,
     syntax_node_ptrs: Arena<SyntaxNodePtr>,
@@ -19,7 +18,6 @@ pub struct Database {
 impl Database {
     pub fn new() -> Self {
         Self {
-            modules: Arena::default(),
             functions: Arena::default(),
             item_scopes: Arena::default(),
             syntax_node_ptrs: Arena::default(),
@@ -58,27 +56,6 @@ impl Database {
             value: ast_ptr,
         }))
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NailFile {
-    pub file_id: FileId,
-    pub module: ModuleIdx,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Module {
-    origin: ModuleOrigin,
-    scope: ItemScope,
-    parent: Option<ModuleIdx>,
-}
-
-type ModuleIdx = Idx<Module>;
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum ModuleOrigin {
-    File { definition: FileId },
-    Block { definition: BlockAstId },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

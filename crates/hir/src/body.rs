@@ -221,8 +221,7 @@ impl BodyLowerContext {
         } else if self.params.iter().any(|param| *param == name) {
             Symbol::Param
         } else {
-            let current_block = self.scopes.current_block();
-            let item_scope_idx = match current_block {
+            let item_scope_idx = match self.scopes.current_block() {
                 CurrentBlock::Root => item_tree.root_scope(),
                 CurrentBlock::Block(block_idx) => item_tree.block_scope(block_idx).unwrap(),
             };

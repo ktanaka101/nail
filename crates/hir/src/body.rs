@@ -14,17 +14,17 @@ use self::scopes::CurrentBlock;
 #[derive(Debug, Default)]
 pub struct RootBodyLowerContext {
     function_bodies: Arena<Expr>,
+    context_arena: Arena<BodyLowerContext>,
     pub body_context_mapping: HashMap<AstId<ast::Block>, Idx<BodyLowerContext>>,
     pub body_expr_mapping: HashMap<AstId<ast::Block>, Idx<Expr>>,
-    context_arena: Arena<BodyLowerContext>,
 }
 impl RootBodyLowerContext {
     pub fn new() -> Self {
         Self {
             function_bodies: Arena::new(),
+            context_arena: Arena::new(),
             body_context_mapping: HashMap::new(),
             body_expr_mapping: HashMap::new(),
-            context_arena: Arena::new(),
         }
     }
 

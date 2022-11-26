@@ -155,8 +155,17 @@ impl ItemTree {
         self.block_scope_idx(ast).map(|idx| &db.item_scopes[idx])
     }
 
-    pub fn block_to_function(&self, block_id: &BlockAstId) -> Option<FunctionIdx> {
+    pub fn block_to_function_idx(&self, block_id: &BlockAstId) -> Option<FunctionIdx> {
         self.block_to_function.get(block_id).copied()
+    }
+
+    pub fn block_to_function<'a>(
+        &self,
+        db: &'a Database,
+        block_id: &BlockAstId,
+    ) -> Option<&'a Function> {
+        self.block_to_function_idx(block_id)
+            .map(|idx| &db.functions[idx])
     }
 
     pub fn function_to_block(&self, function_idx: &FunctionIdx) -> Option<BlockAstId> {

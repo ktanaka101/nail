@@ -397,7 +397,7 @@ mod tests {
             Stmt::FunctionDef { body, .. } => {
                 let body = &root_ctx.function_bodies[*body];
                 if let Expr::Block(block) = body {
-                    let function_idx = item_tree.block_to_function(&block.ast).unwrap();
+                    let function_idx = item_tree.block_to_function_idx(&block.ast).unwrap();
                     debug_function(function_idx, root_ctx, db, item_tree, interner, nesting)
                 } else {
                     panic!("supported only block");

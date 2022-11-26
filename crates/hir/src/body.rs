@@ -14,7 +14,7 @@ use self::scopes::CurrentBlock;
 #[derive(Debug, Default)]
 pub struct RootBodyLowerContext {
     function_bodies: Arena<Expr>,
-    context_arena: Arena<BodyLowerContext>,
+    contexts: Arena<BodyLowerContext>,
     pub body_context_mapping: HashMap<AstId<ast::Block>, Idx<BodyLowerContext>>,
     pub body_expr_mapping: HashMap<AstId<ast::Block>, Idx<Expr>>,
 }
@@ -22,7 +22,7 @@ impl RootBodyLowerContext {
     pub fn new() -> Self {
         Self {
             function_bodies: Arena::new(),
-            context_arena: Arena::new(),
+            contexts: Arena::new(),
             body_context_mapping: HashMap::new(),
             body_expr_mapping: HashMap::new(),
         }
@@ -52,7 +52,7 @@ impl RootBodyLowerContext {
         block_ast_id: &AstId<ast::Block>,
     ) -> Option<&BodyLowerContext> {
         self.body_context_idx_by_block(block_ast_id)
-            .map(|idx| &self.context_arena[idx])
+            .map(|idx| &self.contexts[idx])
     }
 }
 
@@ -105,7 +105,7 @@ impl BodyLowerContext {
                 let stmt =
                     body_lower_ctx.lower_function(name, def, ctx, db, item_tree, interner)?;
 
-                let ctx_idx = ctx.context_arena.alloc(body_lower_ctx);
+                let ctx_idx = ctx.contexts.alloc(body_lower_ctx);
                 ctx.body_context_mapping
                     .insert(db.lookup_ast_id(&body).unwrap(), ctx_idx);
 

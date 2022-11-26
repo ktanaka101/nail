@@ -141,7 +141,15 @@ fn variable_ref(parser: &mut Parser) -> CompletedMarker {
 
     let marker = parser.start();
     parser.bump();
-    marker.complete(parser, SyntaxKind::VariableRef)
+
+    if parser.peek() == Some(TokenKind::LParen) {
+        parser.bump();
+        parser.expect(TokenKind::RParen);
+
+        marker.complete(parser, SyntaxKind::Call)
+    } else {
+        marker.complete(parser, SyntaxKind::VariableRef)
+    }
 }
 
 fn prefix_expr(parser: &mut Parser) -> CompletedMarker {
@@ -608,6 +616,20 @@ mod tests {
                       RCurly@21..22 "}"
                       Whitespace@22..23 "\n"
                     RCurly@23..24 "}"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_call() {
+        check(
+            "a()",
+            expect![[r#"
+                SourceFile@0..3
+                  Call@0..3
+                    Ident@0..1 "a"
+                    LParen@1..2 "("
+                    RParen@2..3 ")"
             "#]],
         );
     }

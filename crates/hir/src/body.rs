@@ -1045,6 +1045,44 @@ mod tests {
     }
 
     #[test]
+    fn resolve_function_params_by_nested_scope() {
+        check(
+            r#"
+                fn foo(a, b) {
+                    let a = 0;
+                    a
+                    b
+                    fn bar(a, b) {
+                        {
+                            a + b
+                        }
+                    }
+                    a
+                    b
+                }
+                a
+                b
+            "#,
+            expect![[r#"
+                fn foo(a, b) {
+                    let a = 0
+                    0
+                    param:b
+                    fn bar(a, b) {
+                        expr:{
+                            expr:param:a + param:b
+                        }
+                    }
+                    0
+                    expr:param:b
+                }
+                <missing>
+                <missing>
+            "#]],
+        );
+    }
+
+    #[test]
     fn function_scope() {
         check(
             r#"

@@ -11,7 +11,7 @@ use crate::{AstId, BinaryOp, Block, Expr, Literal, Name, Stmt, Symbol, UnaryOp};
 
 use self::scopes::CurrentBlock;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct RootBodyLowerContext {
     pub function_bodies: Arena<Expr>,
     pub function_body_context_mapping: HashMap<AstId<ast::Block>, Idx<BodyLowerContext>>,

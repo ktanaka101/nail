@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash};
+use std::collections::HashMap;
 
 use la_arena::{Arena, Idx};
 use syntax::SyntaxNodePtr;
@@ -7,7 +7,7 @@ use crate::{string_interner::Interner, AstId, AstPtr, FileId, InFile, Name};
 
 type BlockAstId = AstId<ast::Block>;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Database {
     pub functions: Arena<Function>,
     pub item_scopes: Arena<ItemScope>,

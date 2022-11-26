@@ -30,7 +30,7 @@ pub fn lower(
 
     let mut root_ctx = RootBodyLowerContext::new();
 
-    let mut ctx = BodyLowerContext::new();
+    let mut ctx = BodyLowerContext::new(vec![]);
     let stmts = ast
         .stmts()
         .filter_map(|stmt| ctx.lower_stmt(stmt, &mut root_ctx, &db, &item_tree, &mut interner))

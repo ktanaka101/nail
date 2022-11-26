@@ -37,11 +37,11 @@ pub struct BodyLowerContext {
 }
 
 impl BodyLowerContext {
-    pub(super) fn new() -> Self {
+    pub(super) fn new(params: Vec<Name>) -> Self {
         Self {
             exprs: Arena::new(),
             scopes: Scopes::new(),
-            params: Vec::new(),
+            params,
         }
     }
 
@@ -66,7 +66,13 @@ impl BodyLowerContext {
                 Stmt::Expr(self.exprs.alloc(expr))
             }
             ast::Stmt::FunctionDef(def) => {
-                let mut body_lower_ctx = BodyLowerContext::new();
+                let params = def
+                    .params()?
+                    .params()
+                    .filter_map(|param| param.name())
+                    .map(|ident| Name::from_key(interner.intern(ident.name())))
+                    .collect();
+                let mut body_lower_ctx = BodyLowerContext::new(params);
                 let name = Name::from_key(interner.intern(def.name()?.name()));
                 let body = def.body()?;
                 let stmt =
@@ -1001,6 +1007,38 @@ mod tests {
                 fn foo() {
                     let a = 10
                     expr:10
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn define_function_with_params() {
+        check(
+            r#"
+                fn foo(a, b) {
+                    1
+                }
+            "#,
+            expect![[r#"
+                fn foo(a, b) {
+                    expr:1
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn resolve_function_params() {
+        check(
+            r#"
+                fn foo(a, b) {
+                    a + b
+                }
+            "#,
+            expect![[r#"
+                fn foo(a, b) {
+                    expr:param:a + param:b
                 }
             "#]],
         );

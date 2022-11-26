@@ -238,7 +238,9 @@ impl BodyLowerContext {
         } else {
             let item_scope = match self.scopes.current_block() {
                 CurrentBlock::Root => item_tree.root_scope(db),
-                CurrentBlock::Block(block_idx) => item_tree.block_scope(db, block_idx).unwrap(),
+                CurrentBlock::Block(block_ast_id) => {
+                    item_tree.block_scope(db, block_ast_id).unwrap()
+                }
             };
             if let Some(function) =
                 item_scope.lookup(ast.name().unwrap().name(), db, item_tree, interner)
@@ -262,8 +264,8 @@ impl BodyLowerContext {
         item_tree: &ItemTree,
         interner: &mut Interner,
     ) -> Expr {
-        let block_id = db.lookup_ast_id(&ast).unwrap();
-        self.scopes.enter(CurrentBlock::Block(block_id.clone()));
+        let block_ast_id = db.lookup_ast_id(&ast).unwrap();
+        self.scopes.enter(CurrentBlock::Block(block_ast_id.clone()));
 
         let mut stmts = vec![];
         for stmt in ast.stmts() {
@@ -285,7 +287,7 @@ impl BodyLowerContext {
         Expr::Block(Block {
             stmts,
             tail,
-            ast: block_id,
+            ast: block_ast_id,
         })
     }
 }
@@ -329,13 +331,16 @@ mod tests {
         nesting: usize,
     ) -> String {
         let function = &db.functions[function_idx];
-        let block_id = item_tree.function_to_block(&function_idx).unwrap();
+        let block_ast_id = item_tree.function_to_block(&function_idx).unwrap();
         let function_ctx = root_ctx
             .function_body_context_mapping
-            .get(&block_id)
+            .get(&block_ast_id)
             .unwrap();
         let function_ctx = &root_ctx.context_arena[*function_ctx];
-        let body_expr = root_ctx.function_body_expr_mapping.get(&block_id).unwrap();
+        let body_expr = root_ctx
+            .function_body_expr_mapping
+            .get(&block_ast_id)
+            .unwrap();
         let body_expr = &root_ctx.function_bodies[*body_expr];
 
         let name = interner.lookup(function.name.key());

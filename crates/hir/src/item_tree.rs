@@ -155,16 +155,16 @@ impl ItemTree {
         self.block_scope_idx(ast).map(|idx| &db.item_scopes[idx])
     }
 
-    pub fn block_to_function_idx(&self, block_id: &BlockAstId) -> Option<FunctionIdx> {
-        self.block_to_function.get(block_id).copied()
+    pub fn block_to_function_idx(&self, block_ast_id: &BlockAstId) -> Option<FunctionIdx> {
+        self.block_to_function.get(block_ast_id).copied()
     }
 
     pub fn block_to_function<'a>(
         &self,
         db: &'a Database,
-        block_id: &BlockAstId,
+        block_ast_id: &BlockAstId,
     ) -> Option<&'a Function> {
-        self.block_to_function_idx(block_id)
+        self.block_to_function_idx(block_ast_id)
             .map(|idx| &db.functions[idx])
     }
 
@@ -285,16 +285,16 @@ impl<'a> ItemTreeBuilderContext<'a> {
         db: &mut Database,
     ) -> AstId<ast::Block> {
         let mut scope = ItemScope::new(Some(parent));
-        let block_id = db.alloc_node(&block);
-        let current = Parent::Block(block_id.clone());
+        let block_ast_id = db.alloc_node(&block);
+        let current = Parent::Block(block_ast_id.clone());
         for stmt in block.stmts() {
             self.build_stmt(stmt, &mut scope, current.clone(), db);
         }
 
         let scope = db.item_scopes.alloc(scope);
-        self.scope.insert(block_id.clone(), scope);
-        self.back_scope.insert(scope, block_id.clone());
+        self.scope.insert(block_ast_id.clone(), scope);
+        self.back_scope.insert(scope, block_ast_id.clone());
 
-        block_id
+        block_ast_id
     }
 }

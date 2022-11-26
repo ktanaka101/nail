@@ -13,7 +13,7 @@ use self::scopes::CurrentBlock;
 
 #[derive(Debug, Default)]
 pub struct RootBodyLowerContext {
-    pub function_bodies: Arena<Expr>,
+    function_bodies: Arena<Expr>,
     pub function_body_context_mapping: HashMap<AstId<ast::Block>, Idx<BodyLowerContext>>,
     pub function_body_expr_mapping: HashMap<AstId<ast::Block>, Idx<Expr>>,
     pub context_arena: Arena<BodyLowerContext>,
@@ -26,6 +26,18 @@ impl RootBodyLowerContext {
             function_body_expr_mapping: HashMap::new(),
             context_arena: Arena::new(),
         }
+    }
+
+    pub fn function_body_idx_by_block(
+        &self,
+        block_ast_id: &AstId<ast::Block>,
+    ) -> Option<Idx<Expr>> {
+        self.function_body_expr_mapping.get(block_ast_id).copied()
+    }
+
+    pub fn function_body_by_block(&self, block_ast_id: &AstId<ast::Block>) -> Option<&Expr> {
+        self.function_body_idx_by_block(block_ast_id)
+            .map(|idx| &self.function_bodies[idx])
     }
 }
 
@@ -337,11 +349,7 @@ mod tests {
             .get(&block_ast_id)
             .unwrap();
         let function_ctx = &root_ctx.context_arena[*function_ctx];
-        let body_expr = root_ctx
-            .function_body_expr_mapping
-            .get(&block_ast_id)
-            .unwrap();
-        let body_expr = &root_ctx.function_bodies[*body_expr];
+        let body_expr = root_ctx.function_body_by_block(&block_ast_id).unwrap();
 
         let name = interner.lookup(function.name.key());
         let params = function

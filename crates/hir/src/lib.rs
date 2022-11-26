@@ -1,12 +1,15 @@
 mod body;
+mod db;
 mod item_tree;
 pub mod string_interner;
 
 use std::marker::PhantomData;
 
-use body::RootBodyLowerContext;
-use item_tree::{Database, Function, ItemTree, ItemTreeBuilderContext};
 use la_arena::Idx;
+
+use body::RootBodyLowerContext;
+use db::Database;
+use item_tree::{Function, ItemTree, ItemTreeBuilderContext};
 
 use ast::Ast;
 pub use body::BodyLowerContext;

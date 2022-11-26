@@ -5,7 +5,8 @@ use std::collections::HashMap;
 use la_arena::{Arena, Idx};
 
 use crate::body::scopes::Scopes;
-use crate::item_tree::{Database, ItemTree};
+use crate::db::Database;
+use crate::item_tree::ItemTree;
 use crate::string_interner::Interner;
 use crate::{AstId, BinaryOp, Block, Expr, Literal, Name, Stmt, Symbol, UnaryOp};
 

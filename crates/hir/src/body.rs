@@ -8,7 +8,7 @@ use crate::body::scopes::Scopes;
 use crate::db::Database;
 use crate::item_tree::ItemTree;
 use crate::string_interner::Interner;
-use crate::{AstId, BinaryOp, Block, Expr, Literal, Name, Stmt, Symbol, UnaryOp};
+use crate::{AstId, BinaryOp, Block, Expr, ExprIdx, Literal, Name, Stmt, Symbol, UnaryOp};
 
 use self::scopes::CurrentBlock;
 
@@ -17,7 +17,7 @@ pub struct RootBodyLowerContext {
     function_bodies: Arena<Expr>,
     contexts: Arena<BodyLowerContext>,
     pub body_context_mapping: HashMap<AstId<ast::Block>, Idx<BodyLowerContext>>,
-    pub body_expr_mapping: HashMap<AstId<ast::Block>, Idx<Expr>>,
+    pub body_expr_mapping: HashMap<AstId<ast::Block>, ExprIdx>,
 }
 impl RootBodyLowerContext {
     pub fn new() -> Self {

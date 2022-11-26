@@ -9,7 +9,7 @@ use la_arena::Idx;
 
 use body::RootBodyLowerContext;
 use db::Database;
-use item_tree::{Function, ItemTree, ItemTreeBuilderContext};
+use item_tree::{FunctionIdx, ItemTree, ItemTreeBuilderContext};
 
 use ast::Ast;
 pub use body::BodyLowerContext;
@@ -122,7 +122,7 @@ pub enum Expr {
 pub enum Symbol {
     Param,
     Local(ExprIdx),
-    Function(Idx<Function>),
+    Function(FunctionIdx),
     Missing,
 }
 

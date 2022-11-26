@@ -18,7 +18,6 @@ pub struct Function {
     pub params: Vec<Param>,
     pub ast: AstId<ast::FunctionDef>,
 }
-
 pub type FunctionIdx = Idx<Function>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

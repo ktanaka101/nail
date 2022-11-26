@@ -14,16 +14,16 @@ use self::scopes::CurrentBlock;
 #[derive(Debug, Default)]
 pub struct RootBodyLowerContext {
     function_bodies: Arena<Expr>,
-    pub function_body_context_mapping: HashMap<AstId<ast::Block>, Idx<BodyLowerContext>>,
-    pub function_body_expr_mapping: HashMap<AstId<ast::Block>, Idx<Expr>>,
+    pub body_context_mapping: HashMap<AstId<ast::Block>, Idx<BodyLowerContext>>,
+    pub body_expr_mapping: HashMap<AstId<ast::Block>, Idx<Expr>>,
     context_arena: Arena<BodyLowerContext>,
 }
 impl RootBodyLowerContext {
     pub fn new() -> Self {
         Self {
             function_bodies: Arena::new(),
-            function_body_context_mapping: HashMap::new(),
-            function_body_expr_mapping: HashMap::new(),
+            body_context_mapping: HashMap::new(),
+            body_expr_mapping: HashMap::new(),
             context_arena: Arena::new(),
         }
     }
@@ -32,7 +32,7 @@ impl RootBodyLowerContext {
         &self,
         block_ast_id: &AstId<ast::Block>,
     ) -> Option<Idx<Expr>> {
-        self.function_body_expr_mapping.get(block_ast_id).copied()
+        self.body_expr_mapping.get(block_ast_id).copied()
     }
 
     pub fn function_body_by_block(&self, block_ast_id: &AstId<ast::Block>) -> Option<&Expr> {
@@ -44,9 +44,7 @@ impl RootBodyLowerContext {
         &self,
         block_ast_id: &AstId<ast::Block>,
     ) -> Option<Idx<BodyLowerContext>> {
-        self.function_body_context_mapping
-            .get(block_ast_id)
-            .copied()
+        self.body_context_mapping.get(block_ast_id).copied()
     }
 
     pub fn body_context_by_block(
@@ -108,7 +106,7 @@ impl BodyLowerContext {
                     body_lower_ctx.lower_function(name, def, ctx, db, item_tree, interner)?;
 
                 let ctx_idx = ctx.context_arena.alloc(body_lower_ctx);
-                ctx.function_body_context_mapping
+                ctx.body_context_mapping
                     .insert(db.lookup_ast_id(&body).unwrap(), ctx_idx);
 
                 stmt
@@ -138,7 +136,7 @@ impl BodyLowerContext {
         let ast_id = db.lookup_ast_id(&body).unwrap();
         let block = self.lower_block(body, ctx, db, item_tree, interner);
         let body_idx = ctx.function_bodies.alloc(block);
-        ctx.function_body_expr_mapping.insert(ast_id, body_idx);
+        ctx.body_expr_mapping.insert(ast_id, body_idx);
 
         Some(Stmt::FunctionDef {
             name,

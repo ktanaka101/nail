@@ -78,7 +78,7 @@ mod tests {
     fn check(input: &str, expect: Expect) {
         let parsed = parser::parse(input);
         let ast = ast::SourceFile::cast(parsed.syntax()).unwrap();
-        let (root_ctx, ctx, body, db, item_tree) = hir::lower(ast);
+        let (_root_ctx, ctx, body, _db, _item_tree) = hir::lower(ast);
         let result = infer_body(body, &ctx);
         expect.assert_eq(&result.debug());
     }

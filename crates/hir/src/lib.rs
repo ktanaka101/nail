@@ -126,8 +126,17 @@ pub enum Symbol {
 #[derive(Debug, PartialEq, Eq)]
 pub struct Block {
     stmts: Vec<Stmt>,
-    tail: Option<ExprIdx>,
+    pub tail: Option<ExprIdx>,
     ast: AstId<ast::Block>,
+}
+impl Block {
+    pub fn tail<'a>(&self, ctx: &'a BodyLowerContext) -> Option<&'a Expr> {
+        if let Some(tail) = self.tail {
+            Some(&ctx.exprs[tail])
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]

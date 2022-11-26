@@ -306,7 +306,6 @@ mod tests {
     fn debug_function(
         function_idx: Idx<Function>,
         root_ctx: &RootBodyLowerContext,
-        ctx: &BodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
         nesting: usize,
@@ -356,12 +355,8 @@ mod tests {
             Stmt::FunctionDef { body, .. } => {
                 let body = &root_ctx.function_bodies[*body];
                 if let Expr::Block(block) = body {
-                    let fn_ctx = root_ctx.function_body_context_mapping[&block.ast];
-                    let fn_ctx = &root_ctx.context_arena[fn_ctx];
-
                     let function_idx = item_tree.block_to_function(&block.ast).unwrap();
-
-                    debug_function(function_idx, root_ctx, fn_ctx, db, item_tree, nesting)
+                    debug_function(function_idx, root_ctx, db, item_tree, nesting)
                 } else {
                     panic!("supported only block");
                 }

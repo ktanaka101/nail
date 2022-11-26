@@ -13,7 +13,6 @@ pub struct Database {
     pub item_scopes: Arena<ItemScope>,
     syntax_node_ptrs: Arena<SyntaxNodePtr>,
     syntax_node_ptr_to_idx: HashMap<SyntaxNodePtr, Idx<SyntaxNodePtr>>,
-    pub interner: Interner,
 }
 impl Database {
     pub fn new() -> Self {
@@ -22,7 +21,6 @@ impl Database {
             item_scopes: Arena::default(),
             syntax_node_ptrs: Arena::default(),
             syntax_node_ptr_to_idx: HashMap::default(),
-            interner: Interner::default(),
         }
     }
 
@@ -100,8 +98,9 @@ impl ItemScope {
         name_str: &str,
         db: &Database,
         item_tree: &ItemTree,
+        interner: &Interner,
     ) -> Option<FunctionIdx> {
-        let function_name_key = db.interner.get_key(name_str);
+        let function_name_key = interner.get_key(name_str);
         if let Some(function_name_key) = function_name_key {
             let name = &Name::from_key(function_name_key);
             let function_idx = self.functions.get(name).copied();
@@ -114,11 +113,11 @@ impl ItemScope {
             match parent {
                 Parent::Root => {
                     let root_item_scope = &db.item_scopes[item_tree.root_scope];
-                    root_item_scope.lookup(name_str, db, item_tree)
+                    root_item_scope.lookup(name_str, db, item_tree, interner)
                 }
                 Parent::Block(block) => {
                     let block_item_scope = &db.item_scopes[item_tree.scope[block]];
-                    block_item_scope.lookup(name_str, db, item_tree)
+                    block_item_scope.lookup(name_str, db, item_tree, interner)
                 }
             }
         } else {
@@ -161,19 +160,21 @@ impl ItemTree {
     }
 }
 
-pub struct ItemTreeBuilderContext {
+pub struct ItemTreeBuilderContext<'a> {
     pub scope: HashMap<BlockAstId, ItemScopeIdx>,
     pub back_scope: HashMap<ItemScopeIdx, BlockAstId>,
     pub block_to_function: HashMap<BlockAstId, FunctionIdx>,
     pub function_to_block: HashMap<FunctionIdx, BlockAstId>,
+    pub interner: &'a mut Interner,
 }
-impl ItemTreeBuilderContext {
-    pub fn new() -> Self {
+impl<'a> ItemTreeBuilderContext<'a> {
+    pub fn new(interner: &'a mut Interner) -> Self {
         Self {
             scope: HashMap::new(),
             back_scope: HashMap::new(),
             block_to_function: HashMap::new(),
             function_to_block: HashMap::new(),
+            interner,
         }
     }
 
@@ -204,12 +205,13 @@ impl ItemTreeBuilderContext {
         match stmt {
             ast::Stmt::FunctionDef(def) => {
                 let block = def.body()?;
-                let name = Name::from_key(db.interner.intern(def.name()?.name()));
+                let name = Name::from_key(self.interner.intern(def.name()?.name()));
                 let params = def
                     .params()?
                     .params()
                     .map(|param| {
-                        let name = Name::from_key(db.interner.intern(param.name().unwrap().name()));
+                        let name =
+                            Name::from_key(self.interner.intern(param.name().unwrap().name()));
                         Param { name }
                     })
                     .collect();

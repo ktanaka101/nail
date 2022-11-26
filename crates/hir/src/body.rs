@@ -17,7 +17,6 @@ pub struct RootBodyLowerContext {
     pub function_body_context_mapping: HashMap<AstId<ast::Block>, Idx<BodyLowerContext>>,
     pub function_body_expr_mapping: HashMap<AstId<ast::Block>, Idx<Expr>>,
     pub context_arena: Arena<BodyLowerContext>,
-    pub interner: Interner,
 }
 impl RootBodyLowerContext {
     pub fn new() -> Self {
@@ -26,7 +25,6 @@ impl RootBodyLowerContext {
             function_body_context_mapping: HashMap::new(),
             function_body_expr_mapping: HashMap::new(),
             context_arena: Arena::new(),
-            interner: Interner::new(),
         }
     }
 }
@@ -53,24 +51,26 @@ impl BodyLowerContext {
         ctx: &mut RootBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
+        interner: &mut Interner,
     ) -> Option<Stmt> {
         let result = match ast {
             ast::Stmt::VariableDef(def) => {
-                let expr = self.lower_expr(def.value(), ctx, db, item_tree);
+                let expr = self.lower_expr(def.value(), ctx, db, item_tree, interner);
                 let idx = self.exprs.alloc(expr);
-                let name = Name::from_key(ctx.interner.intern(def.name()?.name()));
+                let name = Name::from_key(interner.intern(def.name()?.name()));
                 self.scopes.push(name, idx);
                 Stmt::VariableDef { name, value: idx }
             }
             ast::Stmt::Expr(ast) => {
-                let expr = self.lower_expr(Some(ast), ctx, db, item_tree);
+                let expr = self.lower_expr(Some(ast), ctx, db, item_tree, interner);
                 Stmt::Expr(self.exprs.alloc(expr))
             }
             ast::Stmt::FunctionDef(def) => {
                 let mut body_lower_ctx = BodyLowerContext::new();
-                let name = Name::from_key(ctx.interner.intern(def.name()?.name()));
+                let name = Name::from_key(interner.intern(def.name()?.name()));
                 let body = def.body()?;
-                let stmt = body_lower_ctx.lower_function(name, def, ctx, db, item_tree)?;
+                let stmt =
+                    body_lower_ctx.lower_function(name, def, ctx, db, item_tree, interner)?;
 
                 let ctx_idx = ctx.context_arena.alloc(body_lower_ctx);
                 ctx.function_body_context_mapping
@@ -90,17 +90,18 @@ impl BodyLowerContext {
         ctx: &mut RootBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
+        interner: &mut Interner,
     ) -> Option<Stmt> {
         let params = ast
             .params()?
             .params()
             .filter_map(|it| it.name())
-            .map(|it| Name::from_key(ctx.interner.intern(it.name())))
+            .map(|it| Name::from_key(interner.intern(it.name())))
             .collect::<Vec<_>>();
 
         let body = ast.body()?;
         let ast_id = db.lookup_ast_id(&body).unwrap();
-        let block = self.lower_block(body, ctx, db, item_tree);
+        let block = self.lower_block(body, ctx, db, item_tree, interner);
         let body_idx = ctx.function_bodies.alloc(block);
         ctx.function_body_expr_mapping.insert(ast_id, body_idx);
 
@@ -117,15 +118,20 @@ impl BodyLowerContext {
         ctx: &mut RootBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
+        interner: &mut Interner,
     ) -> Expr {
         if let Some(ast) = ast {
             match ast {
-                ast::Expr::BinaryExpr(ast) => self.lower_binary(ast, ctx, db, item_tree),
+                ast::Expr::BinaryExpr(ast) => self.lower_binary(ast, ctx, db, item_tree, interner),
                 ast::Expr::Literal(ast) => self.lower_literal(ast),
-                ast::Expr::ParenExpr(ast) => self.lower_expr(ast.expr(), ctx, db, item_tree),
-                ast::Expr::UnaryExpr(ast) => self.lower_unary(ast, ctx, db, item_tree),
-                ast::Expr::VariableRef(ast) => self.lower_variable_ref(ast, ctx, db, item_tree),
-                ast::Expr::Block(ast) => self.lower_block(ast, ctx, db, item_tree),
+                ast::Expr::ParenExpr(ast) => {
+                    self.lower_expr(ast.expr(), ctx, db, item_tree, interner)
+                }
+                ast::Expr::UnaryExpr(ast) => self.lower_unary(ast, ctx, db, item_tree, interner),
+                ast::Expr::VariableRef(ast) => {
+                    self.lower_variable_ref(ast, ctx, db, item_tree, interner)
+                }
+                ast::Expr::Block(ast) => self.lower_block(ast, ctx, db, item_tree, interner),
             }
         } else {
             Expr::Missing
@@ -171,6 +177,7 @@ impl BodyLowerContext {
         ctx: &mut RootBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
+        interner: &mut Interner,
     ) -> Expr {
         let op = match ast.op().unwrap() {
             ast::BinaryOp::Add(_) => BinaryOp::Add,
@@ -179,8 +186,8 @@ impl BodyLowerContext {
             ast::BinaryOp::Div(_) => BinaryOp::Div,
         };
 
-        let lhs = self.lower_expr(ast.lhs(), ctx, db, item_tree);
-        let rhs = self.lower_expr(ast.rhs(), ctx, db, item_tree);
+        let lhs = self.lower_expr(ast.lhs(), ctx, db, item_tree, interner);
+        let rhs = self.lower_expr(ast.rhs(), ctx, db, item_tree, interner);
 
         Expr::Binary {
             op,
@@ -195,12 +202,13 @@ impl BodyLowerContext {
         ctx: &mut RootBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
+        interner: &mut Interner,
     ) -> Expr {
         let op = match ast.op().unwrap() {
             ast::UnaryOp::Neg(_) => UnaryOp::Neg,
         };
 
-        let expr = self.lower_expr(ast.expr(), ctx, db, item_tree);
+        let expr = self.lower_expr(ast.expr(), ctx, db, item_tree, interner);
 
         Expr::Unary {
             op,
@@ -211,11 +219,12 @@ impl BodyLowerContext {
     fn lower_variable_ref(
         &mut self,
         ast: ast::VariableRef,
-        ctx: &mut RootBodyLowerContext,
+        _ctx: &mut RootBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
+        interner: &mut Interner,
     ) -> Expr {
-        let name = Name::from_key(ctx.interner.intern(ast.name().unwrap().name()));
+        let name = Name::from_key(interner.intern(ast.name().unwrap().name()));
         let symbol = if let Some(expr) = self.scopes.get_from_current_scope(name) {
             Symbol::Local(expr)
         } else if self.params.iter().any(|param| *param == name) {
@@ -226,7 +235,9 @@ impl BodyLowerContext {
                 CurrentBlock::Block(block_idx) => item_tree.block_scope(block_idx).unwrap(),
             };
             let item_scope = &db.item_scopes[item_scope_idx];
-            if let Some(function) = item_scope.lookup(ast.name().unwrap().name(), db, item_tree) {
+            if let Some(function) =
+                item_scope.lookup(ast.name().unwrap().name(), db, item_tree, interner)
+            {
                 Symbol::Function(function)
             } else if let Some(expr) = self.scopes.get(name) {
                 Symbol::Local(expr)
@@ -244,13 +255,14 @@ impl BodyLowerContext {
         ctx: &mut RootBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
+        interner: &mut Interner,
     ) -> Expr {
         let block_id = db.lookup_ast_id(&ast).unwrap();
         self.scopes.enter(CurrentBlock::Block(block_id.clone()));
 
         let mut stmts = vec![];
         for stmt in ast.stmts() {
-            if let Some(stmt) = self.lower_stmt(stmt, ctx, db, item_tree) {
+            if let Some(stmt) = self.lower_stmt(stmt, ctx, db, item_tree, interner) {
                 stmts.push(stmt);
             }
         }
@@ -292,11 +304,12 @@ mod tests {
         ctx: &BodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
+        interner: &Interner,
     ) -> String {
         let mut msg = "".to_string();
 
         for stmt in stmts {
-            msg.push_str(&debug_stmt(stmt, root_ctx, ctx, db, item_tree, 0));
+            msg.push_str(&debug_stmt(stmt, root_ctx, ctx, db, item_tree, interner, 0));
         }
 
         msg
@@ -307,6 +320,7 @@ mod tests {
         root_ctx: &RootBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
+        interner: &Interner,
         nesting: usize,
     ) -> String {
         let function = &db.functions[function_idx];
@@ -319,15 +333,23 @@ mod tests {
         let body_expr = root_ctx.function_body_expr_mapping.get(&block_id).unwrap();
         let body_expr = &root_ctx.function_bodies[*body_expr];
 
-        let name = db.interner.lookup(function.name.key());
+        let name = interner.lookup(function.name.key());
         let params = function
             .params
             .iter()
-            .map(|param| db.interner.lookup(param.name.key()))
+            .map(|param| interner.lookup(param.name.key()))
             .collect::<Vec<_>>()
             .join(", ");
 
-        let body = debug_expr(body_expr, root_ctx, function_ctx, db, item_tree, nesting);
+        let body = debug_expr(
+            body_expr,
+            root_ctx,
+            function_ctx,
+            db,
+            item_tree,
+            interner,
+            nesting,
+        );
         format!("{}fn {}({}) {}\n", indent(nesting), name, params, body)
     }
 
@@ -337,25 +359,41 @@ mod tests {
         ctx: &BodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
+        interner: &Interner,
         nesting: usize,
     ) -> String {
         match stmt {
             Stmt::VariableDef { name, value } => {
-                let name = root_ctx.interner.lookup(name.key());
-                let expr_str =
-                    debug_expr(&ctx.exprs[*value], root_ctx, ctx, db, item_tree, nesting);
+                let name = interner.lookup(name.key());
+                let expr_str = debug_expr(
+                    &ctx.exprs[*value],
+                    root_ctx,
+                    ctx,
+                    db,
+                    item_tree,
+                    interner,
+                    nesting,
+                );
                 format!("{}let {} = {}\n", indent(nesting), name, expr_str)
             }
             Stmt::Expr(expr) => format!(
                 "{}{}\n",
                 indent(nesting),
-                debug_expr(&ctx.exprs[*expr], root_ctx, ctx, db, item_tree, nesting)
+                debug_expr(
+                    &ctx.exprs[*expr],
+                    root_ctx,
+                    ctx,
+                    db,
+                    item_tree,
+                    interner,
+                    nesting
+                )
             ),
             Stmt::FunctionDef { body, .. } => {
                 let body = &root_ctx.function_bodies[*body];
                 if let Expr::Block(block) = body {
                     let function_idx = item_tree.block_to_function(&block.ast).unwrap();
-                    debug_function(function_idx, root_ctx, db, item_tree, nesting)
+                    debug_function(function_idx, root_ctx, db, item_tree, interner, nesting)
                 } else {
                     panic!("supported only block");
                 }
@@ -369,6 +407,7 @@ mod tests {
         ctx: &BodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
+        interner: &Interner,
         nesting: usize,
     ) -> String {
         match expr {
@@ -385,15 +424,39 @@ mod tests {
                     BinaryOp::Mul => "*",
                     BinaryOp::Div => "/",
                 };
-                let lhs_str = debug_expr(&ctx.exprs[*lhs], root_ctx, ctx, db, item_tree, nesting);
-                let rhs_str = debug_expr(&ctx.exprs[*rhs], root_ctx, ctx, db, item_tree, nesting);
+                let lhs_str = debug_expr(
+                    &ctx.exprs[*lhs],
+                    root_ctx,
+                    ctx,
+                    db,
+                    item_tree,
+                    interner,
+                    nesting,
+                );
+                let rhs_str = debug_expr(
+                    &ctx.exprs[*rhs],
+                    root_ctx,
+                    ctx,
+                    db,
+                    item_tree,
+                    interner,
+                    nesting,
+                );
                 format!("{} {} {}", lhs_str, op, rhs_str)
             }
             Expr::Unary { op, expr } => {
                 let op = match op {
                     UnaryOp::Neg => "-",
                 };
-                let expr_str = debug_expr(&ctx.exprs[*expr], root_ctx, ctx, db, item_tree, nesting);
+                let expr_str = debug_expr(
+                    &ctx.exprs[*expr],
+                    root_ctx,
+                    ctx,
+                    db,
+                    item_tree,
+                    interner,
+                    nesting,
+                );
                 format!("{}{}", op, expr_str)
             }
             Expr::VariableRef { var, name } => match var {
@@ -402,17 +465,23 @@ mod tests {
                     | Expr::Missing
                     | Expr::Literal(_)
                     | Expr::Unary { .. }
-                    | Expr::VariableRef { .. } => {
-                        debug_expr(&ctx.exprs[*expr], root_ctx, ctx, db, item_tree, nesting)
-                    }
-                    Expr::Block { .. } => root_ctx.interner.lookup(name.key()).to_string(),
+                    | Expr::VariableRef { .. } => debug_expr(
+                        &ctx.exprs[*expr],
+                        root_ctx,
+                        ctx,
+                        db,
+                        item_tree,
+                        interner,
+                        nesting,
+                    ),
+                    Expr::Block { .. } => interner.lookup(name.key()).to_string(),
                 },
                 Symbol::Param => {
-                    let name = root_ctx.interner.lookup(name.key());
+                    let name = interner.lookup(name.key());
                     format!("param:{}", name)
                 }
                 Symbol::Function(_) => {
-                    let name = root_ctx.interner.lookup(name.key());
+                    let name = interner.lookup(name.key());
                     format!("fn:{}", name)
                 }
                 Symbol::Missing => "<missing>".to_string(),
@@ -420,13 +489,29 @@ mod tests {
             Expr::Block(block) => {
                 let mut msg = "{\n".to_string();
                 for stmt in &block.stmts {
-                    msg.push_str(&debug_stmt(stmt, root_ctx, ctx, db, item_tree, nesting + 1));
+                    msg.push_str(&debug_stmt(
+                        stmt,
+                        root_ctx,
+                        ctx,
+                        db,
+                        item_tree,
+                        interner,
+                        nesting + 1,
+                    ));
                 }
                 if let Some(tail) = block.tail {
                     msg.push_str(&format!(
                         "{}expr:{}\n",
                         indent(nesting + 1),
-                        debug_expr(&ctx.exprs[tail], root_ctx, ctx, db, item_tree, nesting + 1)
+                        debug_expr(
+                            &ctx.exprs[tail],
+                            root_ctx,
+                            ctx,
+                            db,
+                            item_tree,
+                            interner,
+                            nesting + 1
+                        )
                     ));
                 }
                 msg.push_str(&format!("{}}}", indent(nesting)));
@@ -446,7 +531,7 @@ mod tests {
         let result = lower(source_file);
 
         expected.assert_eq(&debug(
-            &result.2, &result.0, &result.1, &result.3, &result.4,
+            &result.2, &result.0, &result.1, &result.3, &result.4, &result.5,
         ));
     }
 

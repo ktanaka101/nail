@@ -10,7 +10,7 @@ use la_arena::Idx;
 
 use ast::Ast;
 pub use body::BodyLowerContext;
-use string_interner::Key;
+use string_interner::{Interner, Key};
 use syntax::SyntaxNodePtr;
 
 pub fn lower(
@@ -21,9 +21,11 @@ pub fn lower(
     Vec<Stmt>,
     Database,
     ItemTree,
+    Interner,
 ) {
+    let mut interner = Interner::new();
     let mut db = Database::new();
-    let item_tree_builder = ItemTreeBuilderContext::new();
+    let item_tree_builder = ItemTreeBuilderContext::new(&mut interner);
     let item_tree = item_tree_builder.build(&ast, &mut db);
 
     let mut root_ctx = RootBodyLowerContext::new();
@@ -31,9 +33,9 @@ pub fn lower(
     let mut ctx = BodyLowerContext::new();
     let stmts = ast
         .stmts()
-        .filter_map(|stmt| ctx.lower_stmt(stmt, &mut root_ctx, &db, &item_tree))
+        .filter_map(|stmt| ctx.lower_stmt(stmt, &mut root_ctx, &db, &item_tree, &mut interner))
         .collect();
-    (root_ctx, ctx, stmts, db, item_tree)
+    (root_ctx, ctx, stmts, db, item_tree, interner)
 }
 
 pub type ExprIdx = Idx<Expr>;

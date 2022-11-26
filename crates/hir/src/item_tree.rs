@@ -136,19 +136,23 @@ pub type ItemScopeIdx = Idx<ItemScope>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemTree {
-    root_scope: ItemScopeIdx,
+    pub root_scope: ItemScopeIdx,
     scope: HashMap<BlockAstId, ItemScopeIdx>,
     back_scope: HashMap<ItemScopeIdx, BlockAstId>,
     block_to_function: HashMap<BlockAstId, FunctionIdx>,
     function_to_block: HashMap<FunctionIdx, BlockAstId>,
 }
 impl ItemTree {
-    pub fn root_scope(&self) -> ItemScopeIdx {
-        self.root_scope
+    pub fn root_scope<'a>(&self, db: &'a Database) -> &'a ItemScope {
+        &db.item_scopes[self.root_scope]
     }
 
-    pub fn block_scope(&self, ast: &BlockAstId) -> Option<ItemScopeIdx> {
+    pub fn block_scope_idx(&self, ast: &BlockAstId) -> Option<ItemScopeIdx> {
         self.scope.get(ast).copied()
+    }
+
+    pub fn block_scope<'a>(&self, db: &'a Database, ast: &BlockAstId) -> Option<&'a ItemScope> {
+        self.block_scope_idx(ast).map(|idx| &db.item_scopes[idx])
     }
 
     pub fn block_to_function(&self, block_id: &BlockAstId) -> Option<FunctionIdx> {

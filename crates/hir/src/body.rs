@@ -236,11 +236,10 @@ impl BodyLowerContext {
         } else if self.params.iter().any(|param| *param == name) {
             Symbol::Param
         } else {
-            let item_scope_idx = match self.scopes.current_block() {
-                CurrentBlock::Root => item_tree.root_scope(),
-                CurrentBlock::Block(block_idx) => item_tree.block_scope(block_idx).unwrap(),
+            let item_scope = match self.scopes.current_block() {
+                CurrentBlock::Root => item_tree.root_scope(db),
+                CurrentBlock::Block(block_idx) => item_tree.block_scope(db, block_idx).unwrap(),
             };
-            let item_scope = &db.item_scopes[item_scope_idx];
             if let Some(function) =
                 item_scope.lookup(ast.name().unwrap().name(), db, item_tree, interner)
             {

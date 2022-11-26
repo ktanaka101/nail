@@ -16,7 +16,7 @@ pub struct RootBodyLowerContext {
     function_bodies: Arena<Expr>,
     pub function_body_context_mapping: HashMap<AstId<ast::Block>, Idx<BodyLowerContext>>,
     pub function_body_expr_mapping: HashMap<AstId<ast::Block>, Idx<Expr>>,
-    pub context_arena: Arena<BodyLowerContext>,
+    context_arena: Arena<BodyLowerContext>,
 }
 impl RootBodyLowerContext {
     pub fn new() -> Self {
@@ -38,6 +38,23 @@ impl RootBodyLowerContext {
     pub fn function_body_by_block(&self, block_ast_id: &AstId<ast::Block>) -> Option<&Expr> {
         self.function_body_idx_by_block(block_ast_id)
             .map(|idx| &self.function_bodies[idx])
+    }
+
+    pub fn body_context_idx_by_block(
+        &self,
+        block_ast_id: &AstId<ast::Block>,
+    ) -> Option<Idx<BodyLowerContext>> {
+        self.function_body_context_mapping
+            .get(block_ast_id)
+            .copied()
+    }
+
+    pub fn body_context_by_block(
+        &self,
+        block_ast_id: &AstId<ast::Block>,
+    ) -> Option<&BodyLowerContext> {
+        self.body_context_idx_by_block(block_ast_id)
+            .map(|idx| &self.context_arena[idx])
     }
 }
 
@@ -344,11 +361,7 @@ mod tests {
     ) -> String {
         let function = &db.functions[function_idx];
         let block_ast_id = item_tree.function_to_block(&function_idx).unwrap();
-        let function_ctx = root_ctx
-            .function_body_context_mapping
-            .get(&block_ast_id)
-            .unwrap();
-        let function_ctx = &root_ctx.context_arena[*function_ctx];
+        let function_ctx = root_ctx.body_context_by_block(&block_ast_id).unwrap();
         let body_expr = root_ctx.function_body_by_block(&block_ast_id).unwrap();
 
         let name = interner.lookup(function.name.key());

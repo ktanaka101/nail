@@ -1296,4 +1296,14 @@ mod tests {
             "#]],
         );
     }
+
+    #[test]
+    fn function_missing_block() {
+        check("fn a(a, )", expect![""]);
+    }
+
+    #[test]
+    fn function_missing_name() {
+        check("fn (a, ) {}", expect![""]);
+    }
 }

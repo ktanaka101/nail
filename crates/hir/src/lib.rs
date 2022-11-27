@@ -114,6 +114,11 @@ pub enum Expr {
         var: Symbol,
         name: Name,
     },
+    Call {
+        callee: Symbol,
+        name: Name,
+        args: Vec<ExprIdx>,
+    },
     Block(Block),
     Missing,
 }

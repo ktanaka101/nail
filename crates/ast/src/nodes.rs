@@ -49,6 +49,7 @@ pub enum Expr {
     ParenExpr(ParenExpr),
     UnaryExpr(UnaryExpr),
     VariableRef(VariableRef),
+    Call(Call),
     Block(Block),
 }
 impl Ast for Expr {}
@@ -61,6 +62,7 @@ impl AstNode for Expr {
                 | SyntaxKind::ParenExpr
                 | SyntaxKind::UnaryExpr
                 | SyntaxKind::VariableRef
+                | SyntaxKind::Call
                 | SyntaxKind::Block
         )
     }
@@ -72,6 +74,7 @@ impl AstNode for Expr {
             SyntaxKind::ParenExpr => Self::ParenExpr(ParenExpr { syntax }),
             SyntaxKind::UnaryExpr => Self::UnaryExpr(UnaryExpr { syntax }),
             SyntaxKind::VariableRef => Self::VariableRef(VariableRef { syntax }),
+            SyntaxKind::Call => Self::Call(Call { syntax }),
             SyntaxKind::Block => Self::Block(Block { syntax }),
             _ => return None,
         };
@@ -86,6 +89,7 @@ impl AstNode for Expr {
             Expr::ParenExpr(it) => it.syntax(),
             Expr::UnaryExpr(it) => it.syntax(),
             Expr::VariableRef(it) => it.syntax(),
+            Expr::Call(it) => it.syntax(),
             Expr::Block(it) => it.syntax(),
         }
     }

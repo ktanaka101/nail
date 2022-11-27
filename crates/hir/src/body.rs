@@ -165,6 +165,7 @@ impl BodyLowerContext {
                 ast::Expr::VariableRef(ast) => {
                     self.lower_variable_ref(ast, ctx, db, item_tree, interner)
                 }
+                ast::Expr::Call(ast) => self.lower_call(ast, ctx, db, item_tree, interner),
                 ast::Expr::Block(ast) => self.lower_block(ast, ctx, db, item_tree, interner),
             }
         } else {
@@ -258,8 +259,23 @@ impl BodyLowerContext {
         item_tree: &ItemTree,
         interner: &mut Interner,
     ) -> Expr {
-        let name = Name::from_key(interner.intern(ast.name().unwrap().name()));
-        let symbol = if let Some(expr) = self.scopes.get_from_current_scope(name) {
+        let ident = ast.name().unwrap();
+        let name = Name::from_key(interner.intern(ident.name()));
+        let symbol = self.lookup_ident(&ident, _ctx, db, item_tree, interner);
+
+        Expr::VariableRef { var: symbol, name }
+    }
+
+    fn lookup_ident(
+        &mut self,
+        ast: &ast::Ident,
+        _ctx: &mut RootBodyLowerContext,
+        db: &Database,
+        item_tree: &ItemTree,
+        interner: &mut Interner,
+    ) -> Symbol {
+        let name = Name::from_key(interner.intern(ast.name()));
+        if let Some(expr) = self.scopes.get_from_current_scope(name) {
             Symbol::Local(expr)
         } else if self.params.iter().any(|param| *param == name) {
             Symbol::Param
@@ -270,18 +286,40 @@ impl BodyLowerContext {
                     item_tree.block_scope(db, block_ast_id).unwrap()
                 }
             };
-            if let Some(function) =
-                item_scope.lookup(ast.name().unwrap().name(), db, item_tree, interner)
-            {
+            if let Some(function) = item_scope.lookup(ast.name(), db, item_tree, interner) {
                 Symbol::Function(function)
             } else if let Some(expr) = self.scopes.get(name) {
                 Symbol::Local(expr)
             } else {
                 Symbol::Missing
             }
-        };
+        }
+    }
 
-        Expr::VariableRef { var: symbol, name }
+    fn lower_call(
+        &mut self,
+        ast: ast::Call,
+        ctx: &mut RootBodyLowerContext,
+        db: &Database,
+        item_tree: &ItemTree,
+        interner: &mut Interner,
+    ) -> Expr {
+        let args = ast.args().unwrap();
+        let args = args
+            .args()
+            .map(|arg| {
+                let expr = self.lower_expr(arg.expr(), ctx, db, item_tree, interner);
+                self.exprs.alloc(expr)
+            })
+            .collect();
+        let name = ast.callee().unwrap();
+        let callee = self.lookup_ident(&name, ctx, db, item_tree, interner);
+
+        Expr::Call {
+            callee,
+            name: Name::from_key(interner.intern(name.name())),
+            args,
+        }
     }
 
     fn lower_block(
@@ -499,33 +537,31 @@ mod tests {
                 );
                 format!("{}{}", op, expr_str)
             }
-            Expr::VariableRef { var, name } => match var {
-                Symbol::Local(expr) => match ctx.exprs[*expr] {
-                    Expr::Binary { .. }
-                    | Expr::Missing
-                    | Expr::Literal(_)
-                    | Expr::Unary { .. }
-                    | Expr::VariableRef { .. } => debug_expr(
-                        &ctx.exprs[*expr],
-                        root_ctx,
-                        ctx,
-                        db,
-                        item_tree,
-                        interner,
-                        nesting,
-                    ),
-                    Expr::Block { .. } => interner.lookup(name.key()).to_string(),
-                },
-                Symbol::Param => {
-                    let name = interner.lookup(name.key());
-                    format!("param:{}", name)
-                }
-                Symbol::Function(_) => {
-                    let name = interner.lookup(name.key());
-                    format!("fn:{}", name)
-                }
-                Symbol::Missing => "<missing>".to_string(),
-            },
+            Expr::VariableRef { var, name } => {
+                debug_symbol(var, name, root_ctx, ctx, db, item_tree, interner, nesting)
+            }
+            Expr::Call { callee, name, args } => {
+                let callee = debug_symbol(
+                    callee, name, root_ctx, ctx, db, item_tree, interner, nesting,
+                );
+                let args = args
+                    .iter()
+                    .map(|arg| {
+                        debug_expr(
+                            &ctx.exprs[*arg],
+                            root_ctx,
+                            ctx,
+                            db,
+                            item_tree,
+                            interner,
+                            nesting,
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+
+                format!("{}({})", callee, args)
+            }
             Expr::Block(block) => {
                 let mut msg = "{\n".to_string();
                 for stmt in &block.stmts {
@@ -559,6 +595,46 @@ mod tests {
                 msg
             }
             Expr::Missing => "<missing>".to_string(),
+        }
+    }
+
+    fn debug_symbol(
+        symbol: &Symbol,
+        name: &Name,
+        root_ctx: &RootBodyLowerContext,
+        ctx: &BodyLowerContext,
+        db: &Database,
+        item_tree: &ItemTree,
+        interner: &Interner,
+        nesting: usize,
+    ) -> String {
+        match symbol {
+            Symbol::Local(expr) => match ctx.exprs[*expr] {
+                Expr::Binary { .. }
+                | Expr::Missing
+                | Expr::Literal(_)
+                | Expr::Unary { .. }
+                | Expr::VariableRef { .. }
+                | Expr::Call { .. } => debug_expr(
+                    &ctx.exprs[*expr],
+                    root_ctx,
+                    ctx,
+                    db,
+                    item_tree,
+                    interner,
+                    nesting,
+                ),
+                Expr::Block { .. } => interner.lookup(name.key()).to_string(),
+            },
+            Symbol::Param => {
+                let name = interner.lookup(name.key());
+                format!("param:{}", name)
+            }
+            Symbol::Function(_) => {
+                let name = interner.lookup(name.key());
+                format!("fn:{}", name)
+            }
+            Symbol::Missing => "<missing>".to_string(),
         }
     }
 
@@ -1305,5 +1381,53 @@ mod tests {
     #[test]
     fn function_missing_name() {
         check("fn (a, ) {}", expect![""]);
+    }
+
+    #[test]
+    fn call() {
+        check(
+            "a()",
+            expect![[r#"
+                <missing>()
+            "#]],
+        );
+
+        check(
+            r#"
+                fn a() { 10 }
+                a()
+            "#,
+            expect![[r#"
+                fn a() {
+                    expr:10
+                }
+                fn:a()
+            "#]],
+        );
+    }
+
+    #[test]
+    fn call_with_arg() {
+        check(
+            "a(10, 20)",
+            expect![[r#"
+                <missing>(10, 20)
+            "#]],
+        );
+
+        check(
+            r#"
+                fn a() { 10 }
+                let b = 20;
+                a(b, 30)
+            "#,
+            expect![[r#"
+                fn a() {
+                    expr:10
+                }
+                let b = 20
+                fn:a(20, 30)
+            "#]],
+        );
     }
 }

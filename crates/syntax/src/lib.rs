@@ -40,6 +40,7 @@ pub enum SyntaxKind {
     ParamList,
     Param,
     ArgList,
+    Arg,
 
     // keywords
     FnKw,

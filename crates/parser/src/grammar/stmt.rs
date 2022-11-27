@@ -51,6 +51,8 @@ fn parse_function_def(parser: &mut Parser) -> CompletedMarker {
 fn parse_params(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedMarker {
     assert!(parser.at(TokenKind::LParen));
 
+    let recovery_set = &[recovery_set, &[TokenKind::Comma, TokenKind::RParen]].concat();
+
     let marker = parser.start();
     parser.bump();
 
@@ -511,13 +513,12 @@ mod tests {
                     Whitespace@2..3 " "
                     ParamList@3..10
                       LParen@3..4 "("
-                      Param@4..8
+                      Param@4..5
                         Ident@4..5 "a"
-                        Error@5..7
-                          Comma@5..6 ","
-                          Whitespace@6..7 " "
-                        Type@7..8
-                          Ident@7..8 "b"
+                      Comma@5..6 ","
+                      Whitespace@6..7 " "
+                      Param@7..8
+                        Ident@7..8 "b"
                       RParen@8..9 ")"
                       Whitespace@9..10 " "
                     Block@10..16
@@ -529,6 +530,7 @@ mod tests {
                       RCurly@15..16 "}"
                 error at 3..4: expected identifier, but found '('
                 error at 5..6: expected ':', but found ','
+                error at 8..9: expected ':', but found ')'
             "#]],
         );
     }

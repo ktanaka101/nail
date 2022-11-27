@@ -1123,7 +1123,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn foo(a, b) {
+                fn foo(a) {
                     expr:1
                 }
             "#]],
@@ -1139,8 +1139,8 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn foo(a, b) {
-                    expr:param:a + param:b
+                fn foo(a) {
+                    expr:param:a + <missing>
                 }
             "#]],
         );
@@ -1166,17 +1166,17 @@ mod tests {
                 b
             "#,
             expect![[r#"
-                fn foo(a, b) {
+                fn foo(a) {
                     let a = 0
                     0
-                    param:b
-                    fn bar(a, b) {
+                    <missing>
+                    fn bar(a) {
                         expr:{
-                            expr:param:a + param:b
+                            expr:param:a + <missing>
                         }
                     }
                     0
-                    expr:param:b
+                    expr:<missing>
                 }
                 <missing>
                 <missing>
@@ -1359,7 +1359,7 @@ mod tests {
         check(
             "fn a(a, ) {}",
             expect![[r#"
-                fn a(a, <missing>) {
+                fn a(a) {
                 }
             "#]],
         );

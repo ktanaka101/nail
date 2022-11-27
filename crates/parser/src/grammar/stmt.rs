@@ -58,6 +58,15 @@ fn parse_params(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedMar
         {
             let marker = parser.start();
             parser.bump();
+
+            parser.expect_with_recovery_set(TokenKind::Colon, recovery_set);
+            if parser.at(TokenKind::Ident) {
+                {
+                    let marker = parser.start();
+                    parser.bump();
+                    marker.complete(parser, SyntaxKind::Type);
+                }
+            }
             marker.complete(parser, SyntaxKind::Param);
         }
         while parser.at(TokenKind::Comma) {
@@ -65,6 +74,15 @@ fn parse_params(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedMar
             {
                 let marker = parser.start();
                 parser.expect_with_recovery_set(TokenKind::Ident, recovery_set);
+                parser.expect_with_recovery_set(TokenKind::Colon, recovery_set);
+
+                if parser.at(TokenKind::Ident) {
+                    {
+                        let marker = parser.start();
+                        parser.bump();
+                        marker.complete(parser, SyntaxKind::Type);
+                    }
+                }
                 marker.complete(parser, SyntaxKind::Param);
             }
         }
@@ -251,26 +269,34 @@ mod tests {
     #[test]
     fn parse_function_with_params_definition() {
         check(
-            "fn foo(a, b) {}",
+            "fn foo(a: int, b: int) {}",
             expect![[r#"
-                SourceFile@0..15
-                  FunctionDef@0..15
+                SourceFile@0..25
+                  FunctionDef@0..25
                     FnKw@0..2 "fn"
                     Whitespace@2..3 " "
                     Ident@3..6 "foo"
-                    ParamList@6..13
+                    ParamList@6..23
                       LParen@6..7 "("
-                      Param@7..8
+                      Param@7..13
                         Ident@7..8 "a"
-                      Comma@8..9 ","
-                      Whitespace@9..10 " "
-                      Param@10..11
-                        Ident@10..11 "b"
-                      RParen@11..12 ")"
-                      Whitespace@12..13 " "
-                    Block@13..15
-                      LCurly@13..14 "{"
-                      RCurly@14..15 "}"
+                        Colon@8..9 ":"
+                        Whitespace@9..10 " "
+                        Type@10..13
+                          Ident@10..13 "int"
+                      Comma@13..14 ","
+                      Whitespace@14..15 " "
+                      Param@15..21
+                        Ident@15..16 "b"
+                        Colon@16..17 ":"
+                        Whitespace@17..18 " "
+                        Type@18..21
+                          Ident@18..21 "int"
+                      RParen@21..22 ")"
+                      Whitespace@22..23 " "
+                    Block@23..25
+                      LCurly@23..24 "{"
+                      RCurly@24..25 "}"
             "#]],
         );
     }
@@ -309,35 +335,100 @@ mod tests {
     #[test]
     fn parse_function_missing_param() {
         check(
-            "fn foo(x, y { 10 }",
+            "fn foo(x: int, y { 10 }",
             expect![[r#"
-                SourceFile@0..18
-                  FunctionDef@0..18
+                SourceFile@0..23
+                  FunctionDef@0..23
                     FnKw@0..2 "fn"
                     Whitespace@2..3 " "
                     Ident@3..6 "foo"
-                    ParamList@6..12
+                    ParamList@6..17
                       LParen@6..7 "("
-                      Param@7..8
+                      Param@7..13
                         Ident@7..8 "x"
-                      Comma@8..9 ","
-                      Whitespace@9..10 " "
-                      Param@10..12
-                        Ident@10..11 "y"
-                        Whitespace@11..12 " "
-                    Block@12..18
-                      LCurly@12..13 "{"
-                      Whitespace@13..14 " "
-                      Literal@14..17
-                        Integer@14..16 "10"
+                        Colon@8..9 ":"
+                        Whitespace@9..10 " "
+                        Type@10..13
+                          Ident@10..13 "int"
+                      Comma@13..14 ","
+                      Whitespace@14..15 " "
+                      Param@15..17
+                        Ident@15..16 "y"
                         Whitespace@16..17 " "
-                      RCurly@17..18 "}"
-                error at 12..13: expected ',' or ')', but found '{'
+                    Block@17..23
+                      LCurly@17..18 "{"
+                      Whitespace@18..19 " "
+                      Literal@19..22
+                        Integer@19..21 "10"
+                        Whitespace@21..22 " "
+                      RCurly@22..23 "}"
+                error at 17..18: expected ':', but found '{'
+                error at 17..18: expected identifier, ',' or ')', but found '{'
             "#]],
         );
 
         check(
-            "fn foo(x, { 10 }",
+            "fn foo(x: int, { 10 }",
+            expect![[r#"
+                SourceFile@0..21
+                  FunctionDef@0..21
+                    FnKw@0..2 "fn"
+                    Whitespace@2..3 " "
+                    Ident@3..6 "foo"
+                    ParamList@6..15
+                      LParen@6..7 "("
+                      Param@7..13
+                        Ident@7..8 "x"
+                        Colon@8..9 ":"
+                        Whitespace@9..10 " "
+                        Type@10..13
+                          Ident@10..13 "int"
+                      Comma@13..14 ","
+                      Whitespace@14..15 " "
+                      Param@15..15
+                    Block@15..21
+                      LCurly@15..16 "{"
+                      Whitespace@16..17 " "
+                      Literal@17..20
+                        Integer@17..19 "10"
+                        Whitespace@19..20 " "
+                      RCurly@20..21 "}"
+                error at 15..16: expected identifier, but found '{'
+                error at 15..16: expected ':', but found '{'
+                error at 15..16: expected identifier, ',' or ')', but found '{'
+            "#]],
+        );
+
+        check(
+            "fn foo(x: int { 10 }",
+            expect![[r#"
+                SourceFile@0..20
+                  FunctionDef@0..20
+                    FnKw@0..2 "fn"
+                    Whitespace@2..3 " "
+                    Ident@3..6 "foo"
+                    ParamList@6..14
+                      LParen@6..7 "("
+                      Param@7..14
+                        Ident@7..8 "x"
+                        Colon@8..9 ":"
+                        Whitespace@9..10 " "
+                        Type@10..14
+                          Ident@10..13 "int"
+                          Whitespace@13..14 " "
+                    Block@14..20
+                      LCurly@14..15 "{"
+                      Whitespace@15..16 " "
+                      Literal@16..19
+                        Integer@16..18 "10"
+                        Whitespace@18..19 " "
+                      RCurly@19..20 "}"
+                error at 14..15: expected ',' or ')', but found '{'
+            "#]],
+        );
+
+        check(
+            "fn foo(x: { 10 }",
             expect![[r#"
                 SourceFile@0..16
                   FunctionDef@0..16
@@ -346,11 +437,10 @@ mod tests {
                     Ident@3..6 "foo"
                     ParamList@6..10
                       LParen@6..7 "("
-                      Param@7..8
+                      Param@7..10
                         Ident@7..8 "x"
-                      Comma@8..9 ","
-                      Whitespace@9..10 " "
-                      Param@10..10
+                        Colon@8..9 ":"
+                        Whitespace@9..10 " "
                     Block@10..16
                       LCurly@10..11 "{"
                       Whitespace@11..12 " "
@@ -358,8 +448,7 @@ mod tests {
                         Integer@12..14 "10"
                         Whitespace@14..15 " "
                       RCurly@15..16 "}"
-                error at 10..11: expected identifier, but found '{'
-                error at 10..11: expected ',' or ')', but found '{'
+                error at 10..11: expected identifier, ',' or ')', but found '{'
             "#]],
         );
 
@@ -383,7 +472,8 @@ mod tests {
                         Integer@11..13 "10"
                         Whitespace@13..14 " "
                       RCurly@14..15 "}"
-                error at 9..10: expected ',' or ')', but found '{'
+                error at 9..10: expected ':', but found '{'
+                error at 9..10: expected identifier, ',' or ')', but found '{'
             "#]],
         );
 
@@ -421,12 +511,13 @@ mod tests {
                     Whitespace@2..3 " "
                     ParamList@3..10
                       LParen@3..4 "("
-                      Param@4..5
+                      Param@4..8
                         Ident@4..5 "a"
-                      Comma@5..6 ","
-                      Whitespace@6..7 " "
-                      Param@7..8
-                        Ident@7..8 "b"
+                        Error@5..7
+                          Comma@5..6 ","
+                          Whitespace@6..7 " "
+                        Type@7..8
+                          Ident@7..8 "b"
                       RParen@8..9 ")"
                       Whitespace@9..10 " "
                     Block@10..16
@@ -437,6 +528,7 @@ mod tests {
                         Whitespace@14..15 " "
                       RCurly@15..16 "}"
                 error at 3..4: expected identifier, but found '('
+                error at 5..6: expected ':', but found ','
             "#]],
         );
     }

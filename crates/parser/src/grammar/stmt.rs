@@ -36,47 +36,51 @@ fn parse_function_def(parser: &mut Parser) -> CompletedMarker {
 
     parser.expect(TokenKind::Ident);
 
-    // params
-    {
-        let marker = parser.start();
+    parse_params(parser);
 
-        parser.expect(TokenKind::LParen);
-        if parser.at(TokenKind::Ident) {
-            {
-                let marker = parser.start();
-                parser.bump();
-                marker.complete(parser, SyntaxKind::Param);
-            }
-            while parser.at(TokenKind::Comma) {
-                parser.bump();
-                {
-                    let marker = parser.start();
-                    parser.expect(TokenKind::Ident);
-                    marker.complete(parser, SyntaxKind::Param);
-                }
-            }
-        }
-        parser.expect(TokenKind::RParen);
-
-        marker.complete(parser, SyntaxKind::ParamList);
-    }
-
-    // block
-    {
-        if parser.at(TokenKind::LCurly) {
-            let marker = parser.start();
-            parser.bump();
-
-            while !parser.at(TokenKind::RCurly) && !parser.at_end() {
-                parse_stmt(parser);
-            }
-            parser.expect(TokenKind::RCurly);
-
-            marker.complete(parser, SyntaxKind::Block);
-        }
+    if parser.at(TokenKind::LCurly) {
+        parse_block(parser);
     }
 
     marker.complete(parser, SyntaxKind::FunctionDef)
+}
+
+fn parse_params(parser: &mut Parser) -> CompletedMarker {
+    let marker = parser.start();
+
+    parser.expect(TokenKind::LParen);
+    if parser.at(TokenKind::Ident) {
+        {
+            let marker = parser.start();
+            parser.bump();
+            marker.complete(parser, SyntaxKind::Param);
+        }
+        while parser.at(TokenKind::Comma) {
+            parser.bump();
+            {
+                let marker = parser.start();
+                parser.expect(TokenKind::Ident);
+                marker.complete(parser, SyntaxKind::Param);
+            }
+        }
+    }
+    parser.expect(TokenKind::RParen);
+
+    marker.complete(parser, SyntaxKind::ParamList)
+}
+
+fn parse_block(parser: &mut Parser) -> CompletedMarker {
+    assert!(parser.at(TokenKind::LCurly));
+
+    let marker = parser.start();
+    parser.bump();
+
+    while !parser.at(TokenKind::RCurly) && !parser.at_end() {
+        parse_stmt(parser);
+    }
+    parser.expect(TokenKind::RCurly);
+
+    marker.complete(parser, SyntaxKind::Block)
 }
 
 #[cfg(test)]

@@ -112,11 +112,9 @@ pub enum Expr {
     },
     VariableRef {
         var: Symbol,
-        name: Name,
     },
     Call {
         callee: Symbol,
-        name: Name,
         args: Vec<ExprIdx>,
     },
     Block(Block),
@@ -125,10 +123,10 @@ pub enum Expr {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Symbol {
-    Param,
-    Local(ExprIdx),
-    Function(FunctionIdx),
-    Missing,
+    Param { name: Name },
+    Local { name: Name, expr: ExprIdx },
+    Function { name: Name, function: FunctionIdx },
+    Missing { name: Name },
 }
 
 #[derive(Debug, PartialEq, Eq)]

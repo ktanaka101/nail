@@ -5,7 +5,7 @@ use crate::grammar::stmt::parse_stmt;
 use crate::parser::marker::CompletedMarker;
 use crate::parser::Parser;
 
-pub(super) const EXPR_FIRST: [TokenKind; 9] = [
+pub(super) const EXPR_FIRST: [TokenKind; 10] = [
     TokenKind::Bang,
     TokenKind::CharLiteral(false),
     TokenKind::CharLiteral(true),
@@ -15,6 +15,7 @@ pub(super) const EXPR_FIRST: [TokenKind; 9] = [
     TokenKind::FalseKw,
     TokenKind::LParen,
     TokenKind::Minus,
+    TokenKind::LCurly,
 ];
 
 pub(super) fn parse_expr(parser: &mut Parser) -> Option<CompletedMarker> {

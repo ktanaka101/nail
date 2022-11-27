@@ -292,7 +292,11 @@ impl BodyLowerContext {
         item_tree: &ItemTree,
         interner: &mut Interner,
     ) -> Expr {
-        let block_ast_id = db.lookup_ast_id(&ast).unwrap();
+        let block_ast_id = if let Some(ast_id) = db.lookup_ast_id(&ast) {
+            ast_id
+        } else {
+            return Expr::Missing;
+        };
         self.scopes.enter(CurrentBlock::Block(block_ast_id.clone()));
 
         let mut stmts = vec![];
@@ -1262,6 +1266,16 @@ mod tests {
                 fn:foo
                 <missing>
                 fn:baz
+            "#]],
+        );
+    }
+
+    #[test]
+    fn unclose_block_in_expr() {
+        check(
+            "($10/{",
+            expect![[r#"
+                <missing> / <missing>
             "#]],
         );
     }

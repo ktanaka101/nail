@@ -42,7 +42,7 @@ impl Database {
 
     pub fn lookup_ast_id<T: ast::AstNode>(&self, ast: &T) -> Option<AstId<T>> {
         let ptr = SyntaxNodePtr::new(ast.syntax());
-        let idx = self.syntax_node_ptr_to_idx.get(&ptr).unwrap();
+        let idx = self.syntax_node_ptr_to_idx.get(&ptr)?;
 
         let ast_ptr = AstPtr {
             raw: *idx,

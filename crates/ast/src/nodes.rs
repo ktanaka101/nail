@@ -234,7 +234,21 @@ impl Call {
         ast_node::child_token(self)
     }
 
-    pub fn args(&self) -> impl Iterator<Item = Expr> {
+    pub fn args(&self) -> Option<ArgList> {
+        ast_node::child_node(self)
+    }
+}
+
+def_ast_node!(ArgList);
+impl ArgList {
+    pub fn args(&self) -> impl Iterator<Item = Arg> {
         ast_node::children_nodes(self)
+    }
+}
+
+def_ast_node!(Arg);
+impl Arg {
+    pub fn expr(&self) -> Option<Expr> {
+        ast_node::child_node(self)
     }
 }

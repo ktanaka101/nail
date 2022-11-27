@@ -159,21 +159,30 @@ fn parse_variable_ref(parser: &mut Parser) -> CompletedMarker {
     parser.bump();
 
     if parser.peek() == Some(TokenKind::LParen) {
-        parser.bump();
-        while parser.at_set(&EXPR_FIRST) {
-            parse_expr(parser);
-            if parser.at(TokenKind::Comma) {
-                parser.bump();
-            } else {
-                break;
-            }
-        }
-        parser.expect(TokenKind::RParen);
-
+        parse_args(parser);
         marker.complete(parser, SyntaxKind::Call)
     } else {
         marker.complete(parser, SyntaxKind::VariableRef)
     }
+}
+
+fn parse_args(parser: &mut Parser) -> CompletedMarker {
+    assert!(parser.at(TokenKind::LParen));
+
+    let marker = parser.start();
+
+    parser.bump();
+    while parser.at_set(&EXPR_FIRST) {
+        parse_expr(parser);
+        if parser.at(TokenKind::Comma) {
+            parser.bump();
+        } else {
+            break;
+        }
+    }
+    parser.expect(TokenKind::RParen);
+
+    marker.complete(parser, SyntaxKind::ArgList)
 }
 
 fn parse_prefix_expr(parser: &mut Parser) -> CompletedMarker {
@@ -652,8 +661,9 @@ mod tests {
                 SourceFile@0..3
                   Call@0..3
                     Ident@0..1 "a"
-                    LParen@1..2 "("
-                    RParen@2..3 ")"
+                    ArgList@1..3
+                      LParen@1..2 "("
+                      RParen@2..3 ")"
             "#]],
         );
     }
@@ -666,14 +676,15 @@ mod tests {
                 SourceFile@0..7
                   Call@0..7
                     Ident@0..1 "a"
-                    LParen@1..2 "("
-                    VariableRef@2..3
-                      Ident@2..3 "x"
-                    Comma@3..4 ","
-                    Whitespace@4..5 " "
-                    VariableRef@5..6
-                      Ident@5..6 "y"
-                    RParen@6..7 ")"
+                    ArgList@1..7
+                      LParen@1..2 "("
+                      VariableRef@2..3
+                        Ident@2..3 "x"
+                      Comma@3..4 ","
+                      Whitespace@4..5 " "
+                      VariableRef@5..6
+                        Ident@5..6 "y"
+                      RParen@6..7 ")"
             "#]],
         );
     }
@@ -686,13 +697,14 @@ mod tests {
                 SourceFile@0..6
                   Call@0..6
                     Ident@0..1 "a"
-                    LParen@1..2 "("
-                    VariableRef@2..3
-                      Ident@2..3 "x"
-                    Comma@3..4 ","
-                    Whitespace@4..5 " "
-                    VariableRef@5..6
-                      Ident@5..6 "y"
+                    ArgList@1..6
+                      LParen@1..2 "("
+                      VariableRef@2..3
+                        Ident@2..3 "x"
+                      Comma@3..4 ","
+                      Whitespace@4..5 " "
+                      VariableRef@5..6
+                        Ident@5..6 "y"
                 error at 5..6: expected '+', '-', '*', '/', ',' or ')'
             "#]],
         );
@@ -703,10 +715,11 @@ mod tests {
                 SourceFile@0..4
                   Call@0..4
                     Ident@0..1 "a"
-                    LParen@1..2 "("
-                    VariableRef@2..3
-                      Ident@2..3 "x"
-                    Comma@3..4 ","
+                    ArgList@1..4
+                      LParen@1..2 "("
+                      VariableRef@2..3
+                        Ident@2..3 "x"
+                      Comma@3..4 ","
                 error at 3..4: expected ')'
             "#]],
         );
@@ -717,9 +730,10 @@ mod tests {
                 SourceFile@0..3
                   Call@0..3
                     Ident@0..1 "a"
-                    LParen@1..2 "("
-                    VariableRef@2..3
-                      Ident@2..3 "x"
+                    ArgList@1..3
+                      LParen@1..2 "("
+                      VariableRef@2..3
+                        Ident@2..3 "x"
                 error at 2..3: expected '+', '-', '*', '/', ',' or ')'
             "#]],
         );
@@ -730,7 +744,8 @@ mod tests {
                 SourceFile@0..2
                   Call@0..2
                     Ident@0..1 "a"
-                    LParen@1..2 "("
+                    ArgList@1..2
+                      LParen@1..2 "("
                 error at 1..2: expected ')'
             "#]],
         );
@@ -744,11 +759,12 @@ mod tests {
                 SourceFile@0..5
                   Call@0..5
                     Ident@0..1 "a"
-                    LParen@1..2 "("
-                    VariableRef@2..3
-                      Ident@2..3 "x"
-                    Comma@3..4 ","
-                    RParen@4..5 ")"
+                    ArgList@1..5
+                      LParen@1..2 "("
+                      VariableRef@2..3
+                        Ident@2..3 "x"
+                      Comma@3..4 ","
+                      RParen@4..5 ")"
             "#]],
         );
     }
@@ -761,12 +777,13 @@ mod tests {
                 SourceFile@0..6
                   Call@0..5
                     Ident@0..1 "a"
-                    LParen@1..2 "("
-                    VariableRef@2..4
-                      Ident@2..3 "x"
-                      Whitespace@3..4 " "
-                    Error@4..5
-                      Ident@4..5 "y"
+                    ArgList@1..5
+                      LParen@1..2 "("
+                      VariableRef@2..4
+                        Ident@2..3 "x"
+                        Whitespace@3..4 " "
+                      Error@4..5
+                        Ident@4..5 "y"
                   Error@5..6
                     RParen@5..6 ")"
                 error at 4..5: expected '+', '-', '*', '/', ',' or ')', but found identifier

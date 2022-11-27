@@ -5,6 +5,18 @@ use crate::grammar::stmt::stmt;
 use crate::parser::marker::CompletedMarker;
 use crate::parser::Parser;
 
+pub(super) const EXPR_FIRST: [TokenKind; 9] = [
+    TokenKind::Bang,
+    TokenKind::CharLiteral(false),
+    TokenKind::CharLiteral(true),
+    TokenKind::Ident,
+    TokenKind::IntegerLiteral,
+    TokenKind::TrueKw,
+    TokenKind::FalseKw,
+    TokenKind::LParen,
+    TokenKind::Minus,
+];
+
 pub(super) fn expr(parser: &mut Parser) -> Option<CompletedMarker> {
     expr_binding_power(parser, 0)
 }
@@ -144,6 +156,14 @@ fn variable_ref(parser: &mut Parser) -> CompletedMarker {
 
     if parser.peek() == Some(TokenKind::LParen) {
         parser.bump();
+        while parser.at_set(&EXPR_FIRST) {
+            expr(parser);
+            if parser.at(TokenKind::Comma) {
+                parser.bump();
+            } else {
+                break;
+            }
+        }
         parser.expect(TokenKind::RParen);
 
         marker.complete(parser, SyntaxKind::Call)
@@ -630,6 +650,26 @@ mod tests {
                     Ident@0..1 "a"
                     LParen@1..2 "("
                     RParen@2..3 ")"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_call_with_args() {
+        check(
+            "a(x, y)",
+            expect![[r#"
+                SourceFile@0..7
+                  Call@0..7
+                    Ident@0..1 "a"
+                    LParen@1..2 "("
+                    VariableRef@2..3
+                      Ident@2..3 "x"
+                    Comma@3..4 ","
+                    Whitespace@4..5 " "
+                    VariableRef@5..6
+                      Ident@5..6 "y"
+                    RParen@6..7 ")"
             "#]],
         );
     }

@@ -371,7 +371,13 @@ mod tests {
         let params = function
             .params
             .iter()
-            .map(|param| interner.lookup(param.name.key()))
+            .map(|param| {
+                if let Some(name) = param.name {
+                    interner.lookup(name.key())
+                } else {
+                    "<missing>"
+                }
+            })
             .collect::<Vec<_>>()
             .join(", ");
 
@@ -1276,6 +1282,17 @@ mod tests {
             "($10/{",
             expect![[r#"
                 <missing> / <missing>
+            "#]],
+        );
+    }
+
+    #[test]
+    fn function_missing_param() {
+        check(
+            "fn a(a, ) {}",
+            expect![[r#"
+                fn a(a, <missing>) {
+                }
             "#]],
         );
     }

@@ -9,7 +9,7 @@ type BlockAstId = AstId<ast::Block>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Param {
-    pub name: Name,
+    pub name: Option<Name>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -173,9 +173,12 @@ impl<'a> ItemTreeBuilderContext<'a> {
                     .params()?
                     .params()
                     .map(|param| {
-                        let name =
-                            Name::from_key(self.interner.intern(param.name().unwrap().name()));
-                        Param { name }
+                        if let Some(name) = param.name() {
+                            let name = Name::from_key(self.interner.intern(name.name()));
+                            Param { name: Some(name) }
+                        } else {
+                            Param { name: None }
+                        }
                     })
                     .collect();
 

@@ -677,4 +677,101 @@ mod tests {
             "#]],
         );
     }
+
+    #[test]
+    fn parse_call_missing_rparen() {
+        check(
+            "a(x, y",
+            expect![[r#"
+                SourceFile@0..6
+                  Call@0..6
+                    Ident@0..1 "a"
+                    LParen@1..2 "("
+                    VariableRef@2..3
+                      Ident@2..3 "x"
+                    Comma@3..4 ","
+                    Whitespace@4..5 " "
+                    VariableRef@5..6
+                      Ident@5..6 "y"
+                error at 5..6: expected '+', '-', '*', '/', ',' or ')'
+            "#]],
+        );
+
+        check(
+            "a(x,",
+            expect![[r#"
+                SourceFile@0..4
+                  Call@0..4
+                    Ident@0..1 "a"
+                    LParen@1..2 "("
+                    VariableRef@2..3
+                      Ident@2..3 "x"
+                    Comma@3..4 ","
+                error at 3..4: expected ')'
+            "#]],
+        );
+
+        check(
+            "a(x",
+            expect![[r#"
+                SourceFile@0..3
+                  Call@0..3
+                    Ident@0..1 "a"
+                    LParen@1..2 "("
+                    VariableRef@2..3
+                      Ident@2..3 "x"
+                error at 2..3: expected '+', '-', '*', '/', ',' or ')'
+            "#]],
+        );
+
+        check(
+            "a(",
+            expect![[r#"
+                SourceFile@0..2
+                  Call@0..2
+                    Ident@0..1 "a"
+                    LParen@1..2 "("
+                error at 1..2: expected ')'
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_call_missing_expr() {
+        check(
+            "a(x,)",
+            expect![[r#"
+                SourceFile@0..5
+                  Call@0..5
+                    Ident@0..1 "a"
+                    LParen@1..2 "("
+                    VariableRef@2..3
+                      Ident@2..3 "x"
+                    Comma@3..4 ","
+                    RParen@4..5 ")"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_call_missing_comma() {
+        check(
+            "a(x y)",
+            expect![[r#"
+                SourceFile@0..6
+                  Call@0..5
+                    Ident@0..1 "a"
+                    LParen@1..2 "("
+                    VariableRef@2..4
+                      Ident@2..3 "x"
+                      Whitespace@3..4 " "
+                    Error@4..5
+                      Ident@4..5 "y"
+                  Error@5..6
+                    RParen@5..6 ")"
+                error at 4..5: expected '+', '-', '*', '/', ',' or ')', but found identifier
+                error at 5..6: expected '+', '-', '*', '/', 'let', 'fn', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '(' or '{', but found ')'
+            "#]],
+        );
+    }
 }

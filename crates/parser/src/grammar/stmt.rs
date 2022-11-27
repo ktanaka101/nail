@@ -31,12 +31,15 @@ fn parse_variable_def(parser: &mut Parser) -> CompletedMarker {
 
 fn parse_function_def(parser: &mut Parser) -> CompletedMarker {
     assert!(parser.at(TokenKind::FnKw));
+
     let marker = parser.start();
     parser.bump();
 
     parser.expect(TokenKind::Ident);
 
-    parse_params(parser);
+    if parser.at(TokenKind::LParen) {
+        parse_params(parser);
+    }
 
     if parser.at(TokenKind::LCurly) {
         parse_block(parser);
@@ -46,9 +49,11 @@ fn parse_function_def(parser: &mut Parser) -> CompletedMarker {
 }
 
 fn parse_params(parser: &mut Parser) -> CompletedMarker {
-    let marker = parser.start();
+    assert!(parser.at(TokenKind::LParen));
 
-    parser.expect(TokenKind::LParen);
+    let marker = parser.start();
+    parser.bump();
+
     if parser.at(TokenKind::Ident) {
         {
             let marker = parser.start();
@@ -297,6 +302,118 @@ mod tests {
                           Integer@16..18 "20"
                           Whitespace@18..19 " "
                       RCurly@19..20 "}"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_function_missing_param() {
+        check(
+            "fn foo(x, y { 10 }",
+            expect![[r#"
+                SourceFile@0..18
+                  FunctionDef@0..14
+                    FnKw@0..2 "fn"
+                    Whitespace@2..3 " "
+                    Ident@3..6 "foo"
+                    ParamList@6..14
+                      LParen@6..7 "("
+                      Param@7..8
+                        Ident@7..8 "x"
+                      Comma@8..9 ","
+                      Whitespace@9..10 " "
+                      Param@10..12
+                        Ident@10..11 "y"
+                        Whitespace@11..12 " "
+                      Error@12..14
+                        LCurly@12..13 "{"
+                        Whitespace@13..14 " "
+                  Literal@14..17
+                    Integer@14..16 "10"
+                    Whitespace@16..17 " "
+                  Error@17..18
+                    RCurly@17..18 "}"
+                error at 12..13: expected ',' or ')', but found '{'
+                error at 17..18: expected '+', '-', '*', '/', 'let', 'fn', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '(' or '{', but found '}'
+            "#]],
+        );
+
+        check(
+            "fn foo(x, { 10 }",
+            expect![[r#"
+                SourceFile@0..16
+                  FunctionDef@0..15
+                    FnKw@0..2 "fn"
+                    Whitespace@2..3 " "
+                    Ident@3..6 "foo"
+                    ParamList@6..15
+                      LParen@6..7 "("
+                      Param@7..8
+                        Ident@7..8 "x"
+                      Comma@8..9 ","
+                      Whitespace@9..10 " "
+                      Param@10..12
+                        Error@10..12
+                          LCurly@10..11 "{"
+                          Whitespace@11..12 " "
+                      Error@12..15
+                        Integer@12..14 "10"
+                        Whitespace@14..15 " "
+                  Error@15..16
+                    RCurly@15..16 "}"
+                error at 10..11: expected identifier, but found '{'
+                error at 12..14: expected ',' or ')', but found integerLiteral
+                error at 15..16: expected '{', 'let', 'fn', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-' or '(', but found '}'
+            "#]],
+        );
+
+        check(
+            "fn foo(x { 10 }",
+            expect![[r#"
+                SourceFile@0..15
+                  FunctionDef@0..11
+                    FnKw@0..2 "fn"
+                    Whitespace@2..3 " "
+                    Ident@3..6 "foo"
+                    ParamList@6..11
+                      LParen@6..7 "("
+                      Param@7..9
+                        Ident@7..8 "x"
+                        Whitespace@8..9 " "
+                      Error@9..11
+                        LCurly@9..10 "{"
+                        Whitespace@10..11 " "
+                  Literal@11..14
+                    Integer@11..13 "10"
+                    Whitespace@13..14 " "
+                  Error@14..15
+                    RCurly@14..15 "}"
+                error at 9..10: expected ',' or ')', but found '{'
+                error at 14..15: expected '+', '-', '*', '/', 'let', 'fn', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '(' or '{', but found '}'
+            "#]],
+        );
+
+        check(
+            "fn foo( { 10 }",
+            expect![[r#"
+                SourceFile@0..14
+                  FunctionDef@0..10
+                    FnKw@0..2 "fn"
+                    Whitespace@2..3 " "
+                    Ident@3..6 "foo"
+                    ParamList@6..10
+                      LParen@6..7 "("
+                      Whitespace@7..8 " "
+                      Error@8..10
+                        LCurly@8..9 "{"
+                        Whitespace@9..10 " "
+                  Literal@10..13
+                    Integer@10..12 "10"
+                    Whitespace@12..13 " "
+                  Error@13..14
+                    RCurly@13..14 "}"
+                error at 8..9: expected identifier or ')', but found '{'
+                error at 13..14: expected '+', '-', '*', '/', 'let', 'fn', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '(' or '{', but found '}'
             "#]],
         );
     }

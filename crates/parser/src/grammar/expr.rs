@@ -6,15 +6,15 @@ use crate::parser::marker::CompletedMarker;
 use crate::parser::Parser;
 
 pub(super) const EXPR_FIRST: [TokenKind; 10] = [
-    TokenKind::Bang,
     TokenKind::CharLiteral(false),
     TokenKind::CharLiteral(true),
-    TokenKind::Ident,
     TokenKind::IntegerLiteral,
     TokenKind::TrueKw,
     TokenKind::FalseKw,
-    TokenKind::LParen,
+    TokenKind::Ident,
+    TokenKind::Bang,
     TokenKind::Minus,
+    TokenKind::LParen,
     TokenKind::LCurly,
 ];
 

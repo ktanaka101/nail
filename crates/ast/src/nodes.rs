@@ -230,6 +230,17 @@ impl Param {
     pub fn name(&self) -> Option<tokens::Ident> {
         ast_node::child_token(self)
     }
+
+    pub fn ty(&self) -> Option<Type> {
+        ast_node::child_node(self)
+    }
+}
+
+def_ast_node!(Type);
+impl Type {
+    pub fn ty(&self) -> Option<tokens::Ident> {
+        ast_node::child_token(self)
+    }
 }
 
 def_ast_node!(Call);

@@ -35,7 +35,7 @@ fn parse_function_def(parser: &mut Parser) -> CompletedMarker {
     let marker = parser.start();
     parser.bump();
 
-    parser.expect(TokenKind::Ident);
+    parser.expect_with_recovery_set(TokenKind::Ident, &[TokenKind::LParen, TokenKind::LCurly]);
 
     if parser.at(TokenKind::LParen) {
         parse_params(parser, &[TokenKind::LCurly]);
@@ -406,6 +406,37 @@ mod tests {
                         Whitespace@12..13 " "
                       RCurly@13..14 "}"
                 error at 8..9: expected identifier or ')', but found '{'
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_function_missing_ident() {
+        check(
+            "fn (a, b) { 10 }",
+            expect![[r#"
+                SourceFile@0..16
+                  FunctionDef@0..16
+                    FnKw@0..2 "fn"
+                    Whitespace@2..3 " "
+                    ParamList@3..10
+                      LParen@3..4 "("
+                      Param@4..5
+                        Ident@4..5 "a"
+                      Comma@5..6 ","
+                      Whitespace@6..7 " "
+                      Param@7..8
+                        Ident@7..8 "b"
+                      RParen@8..9 ")"
+                      Whitespace@9..10 " "
+                    Block@10..16
+                      LCurly@10..11 "{"
+                      Whitespace@11..12 " "
+                      Literal@12..15
+                        Integer@12..14 "10"
+                        Whitespace@14..15 " "
+                      RCurly@15..16 "}"
+                error at 3..4: expected identifier, but found '('
             "#]],
         );
     }

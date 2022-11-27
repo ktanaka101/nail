@@ -227,3 +227,14 @@ impl Param {
         ast_node::child_token(self)
     }
 }
+
+def_ast_node!(Call);
+impl Call {
+    pub fn callee(&self) -> Option<tokens::Ident> {
+        ast_node::child_token(self)
+    }
+
+    pub fn args(&self) -> impl Iterator<Item = Expr> {
+        ast_node::children_nodes(self)
+    }
+}

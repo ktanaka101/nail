@@ -1,7 +1,7 @@
 use lexer::TokenKind;
 use syntax::SyntaxKind;
 
-use crate::grammar::stmt::stmt;
+use crate::grammar::stmt::parse_stmt;
 use crate::parser::marker::CompletedMarker;
 use crate::parser::Parser;
 
@@ -17,12 +17,15 @@ pub(super) const EXPR_FIRST: [TokenKind; 9] = [
     TokenKind::Minus,
 ];
 
-pub(super) fn expr(parser: &mut Parser) -> Option<CompletedMarker> {
-    expr_binding_power(parser, 0)
+pub(super) fn parse_expr(parser: &mut Parser) -> Option<CompletedMarker> {
+    parse_expr_binding_power(parser, 0)
 }
 
-fn expr_binding_power(parser: &mut Parser, minimum_binding_power: u8) -> Option<CompletedMarker> {
-    let mut lhs = lhs(parser)?;
+fn parse_expr_binding_power(
+    parser: &mut Parser,
+    minimum_binding_power: u8,
+) -> Option<CompletedMarker> {
+    let mut lhs = parse_lhs(parser)?;
 
     loop {
         let op = if parser.at(TokenKind::Plus) {
@@ -46,7 +49,7 @@ fn expr_binding_power(parser: &mut Parser, minimum_binding_power: u8) -> Option<
         parser.bump();
 
         let marker = lhs.precede(parser);
-        let parsed_rhs = expr_binding_power(parser, right_binding_power);
+        let parsed_rhs = parse_expr_binding_power(parser, right_binding_power);
         lhs = marker.complete(parser, SyntaxKind::BinaryExpr);
 
         if parsed_rhs.is_none() {
@@ -85,22 +88,22 @@ impl PrefixOp {
     }
 }
 
-fn lhs(parser: &mut Parser) -> Option<CompletedMarker> {
+fn parse_lhs(parser: &mut Parser) -> Option<CompletedMarker> {
     let cm = if parser.at(TokenKind::IntegerLiteral)
         || parser.at(TokenKind::CharLiteral(false))
         || parser.at(TokenKind::StringLiteral)
         || parser.at(TokenKind::TrueKw)
         || parser.at(TokenKind::FalseKw)
     {
-        literal(parser)
+        parse_literal(parser)
     } else if parser.at(TokenKind::Ident) {
-        variable_ref(parser)
+        parse_variable_ref(parser)
     } else if parser.at(TokenKind::Minus) {
-        prefix_expr(parser)
+        parse_prefix_expr(parser)
     } else if parser.at(TokenKind::LParen) {
-        paren_expr(parser)
+        parse_paren_expr(parser)
     } else if parser.at(TokenKind::LCurly) {
-        block(parser)
+        parse_block(parser)
     } else {
         parser.error_with_recovery_set_only_default();
         return None;
@@ -109,7 +112,7 @@ fn lhs(parser: &mut Parser) -> Option<CompletedMarker> {
     Some(cm)
 }
 
-fn literal(parser: &mut Parser) -> CompletedMarker {
+fn parse_literal(parser: &mut Parser) -> CompletedMarker {
     assert!(matches!(
         parser.peek(),
         Some(
@@ -148,7 +151,7 @@ fn validate_literal(parser: &mut Parser) {
     }
 }
 
-fn variable_ref(parser: &mut Parser) -> CompletedMarker {
+fn parse_variable_ref(parser: &mut Parser) -> CompletedMarker {
     assert!(parser.at(TokenKind::Ident));
 
     let marker = parser.start();
@@ -157,7 +160,7 @@ fn variable_ref(parser: &mut Parser) -> CompletedMarker {
     if parser.peek() == Some(TokenKind::LParen) {
         parser.bump();
         while parser.at_set(&EXPR_FIRST) {
-            expr(parser);
+            parse_expr(parser);
             if parser.at(TokenKind::Comma) {
                 parser.bump();
             } else {
@@ -172,7 +175,7 @@ fn variable_ref(parser: &mut Parser) -> CompletedMarker {
     }
 }
 
-fn prefix_expr(parser: &mut Parser) -> CompletedMarker {
+fn parse_prefix_expr(parser: &mut Parser) -> CompletedMarker {
     assert!(parser.at(TokenKind::Minus));
 
     let marker = parser.start();
@@ -182,29 +185,29 @@ fn prefix_expr(parser: &mut Parser) -> CompletedMarker {
 
     parser.bump();
 
-    expr_binding_power(parser, right_binding_power);
+    parse_expr_binding_power(parser, right_binding_power);
 
     marker.complete(parser, SyntaxKind::UnaryExpr)
 }
 
-fn paren_expr(parser: &mut Parser) -> CompletedMarker {
+fn parse_paren_expr(parser: &mut Parser) -> CompletedMarker {
     assert!(parser.at(TokenKind::LParen));
 
     let marker = parser.start();
     parser.bump();
-    expr_binding_power(parser, 0);
+    parse_expr_binding_power(parser, 0);
     parser.expect(TokenKind::RParen);
 
     marker.complete(parser, SyntaxKind::ParenExpr)
 }
 
-fn block(parser: &mut Parser) -> CompletedMarker {
+fn parse_block(parser: &mut Parser) -> CompletedMarker {
     assert!(parser.at(TokenKind::LCurly));
 
     let marker = parser.start();
     parser.bump();
     while !parser.at(TokenKind::RCurly) && !parser.at_end() {
-        stmt(parser);
+        parse_stmt(parser);
     }
     parser.expect(TokenKind::RCurly);
 

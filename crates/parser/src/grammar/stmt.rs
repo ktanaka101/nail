@@ -6,17 +6,17 @@ use crate::parser::Parser;
 
 use super::expr;
 
-pub(super) fn stmt(parser: &mut Parser) -> Option<CompletedMarker> {
+pub(super) fn parse_stmt(parser: &mut Parser) -> Option<CompletedMarker> {
     if parser.at(TokenKind::LetKw) {
-        Some(variable_def(parser))
+        Some(parse_variable_def(parser))
     } else if parser.at(TokenKind::FnKw) {
-        Some(function_def(parser))
+        Some(parse_function_def(parser))
     } else {
-        expr::expr(parser)
+        expr::parse_expr(parser)
     }
 }
 
-fn variable_def(parser: &mut Parser) -> CompletedMarker {
+fn parse_variable_def(parser: &mut Parser) -> CompletedMarker {
     assert!(parser.at(TokenKind::LetKw));
     let marker = parser.start();
     parser.bump();
@@ -24,12 +24,12 @@ fn variable_def(parser: &mut Parser) -> CompletedMarker {
     parser.expect_with_recovery_set(TokenKind::Ident, &[TokenKind::Eq]);
     parser.expect(TokenKind::Eq);
 
-    expr::expr(parser);
+    expr::parse_expr(parser);
 
     marker.complete(parser, SyntaxKind::VariableDef)
 }
 
-fn function_def(parser: &mut Parser) -> CompletedMarker {
+fn parse_function_def(parser: &mut Parser) -> CompletedMarker {
     assert!(parser.at(TokenKind::FnKw));
     let marker = parser.start();
     parser.bump();
@@ -68,7 +68,7 @@ fn function_def(parser: &mut Parser) -> CompletedMarker {
             parser.bump();
 
             while !parser.at(TokenKind::RCurly) && !parser.at_end() {
-                stmt(parser);
+                parse_stmt(parser);
             }
             parser.expect(TokenKind::RCurly);
 

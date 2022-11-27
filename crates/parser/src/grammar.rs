@@ -9,7 +9,7 @@ use crate::parser::Parser;
 pub(crate) fn source_file(parser: &mut Parser) -> CompletedMarker {
     let marker = parser.start();
     while !parser.at_end() {
-        stmt::stmt(parser);
+        stmt::parse_stmt(parser);
     }
 
     marker.complete(parser, SyntaxKind::SourceFile)

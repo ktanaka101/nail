@@ -72,6 +72,10 @@ pub enum SyntaxKind {
     /// >
     RAngle,
 
+    // composite symbols
+    /// ->
+    ThinArrow,
+
     // delimiters
     Comma,
     Colon,
@@ -123,6 +127,8 @@ impl From<TokenKind> for SyntaxKind {
             TokenKind::Eq => Self::Eq,
             TokenKind::LAngle => Self::LAngle,
             TokenKind::RAngle => Self::RAngle,
+
+            TokenKind::ThinArrow => Self::ThinArrow,
 
             TokenKind::Comma => Self::Comma,
             TokenKind::Colon => Self::Colon,

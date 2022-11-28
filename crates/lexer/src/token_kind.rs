@@ -56,6 +56,10 @@ pub enum TokenKind {
     #[token(">")]
     RAngle,
 
+    // composite symbols
+    #[token("->")]
+    ThinArrow,
+
     // delimiters
     #[token(",")]
     Comma,
@@ -120,6 +124,7 @@ impl fmt::Display for TokenKind {
             Self::Eq => "'='",
             Self::LAngle => "'<'",
             Self::RAngle => "'>'",
+            Self::ThinArrow => "->",
             Self::Comma => "','",
             Self::Colon => "':'",
             Self::Semicolon => "';'",
@@ -295,6 +300,11 @@ mod tests {
     #[test]
     fn lex_right_angle() {
         check(">", TokenKind::RAngle);
+    }
+
+    #[test]
+    fn lex_thin_arrow() {
+        check("->", TokenKind::ThinArrow);
     }
 
     #[test]

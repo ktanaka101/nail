@@ -216,6 +216,10 @@ impl FunctionDef {
     pub fn body(&self) -> Option<Block> {
         ast_node::child_node(self)
     }
+
+    pub fn return_type(&self) -> Option<ReturnType> {
+        ast_node::child_node(self)
+    }
 }
 
 def_ast_node!(ParamList);

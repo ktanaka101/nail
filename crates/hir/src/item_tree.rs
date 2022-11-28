@@ -19,6 +19,7 @@ pub enum Type {
     String,
     Char,
     Boolean,
+    Unit,
     Unknown,
 }
 
@@ -26,6 +27,7 @@ pub enum Type {
 pub struct Function {
     pub name: Name,
     pub params: Vec<Param>,
+    pub return_type: Type,
     pub ast: AstId<ast::FunctionDef>,
 }
 pub type FunctionIdx = Idx<Function>;
@@ -192,11 +194,17 @@ impl<'a> ItemTreeBuilderContext<'a> {
                         Param { name, ty }
                     })
                     .collect();
+                let return_type = if let Some(return_type) = def.return_type() {
+                    self.lower_ty(return_type.ty())
+                } else {
+                    Type::Unit
+                };
 
                 let ast_id = db.alloc_node(&def);
                 let function = Function {
                     name,
                     params,
+                    return_type,
                     ast: ast_id,
                 };
                 let function = db.functions.alloc(function);

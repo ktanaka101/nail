@@ -236,6 +236,13 @@ impl Param {
     }
 }
 
+def_ast_node!(ReturnType);
+impl ReturnType {
+    pub fn ty(&self) -> Option<Type> {
+        ast_node::child_node(self)
+    }
+}
+
 def_ast_node!(Type);
 impl Type {
     pub fn ty(&self) -> Option<tokens::Ident> {

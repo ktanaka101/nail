@@ -1158,6 +1158,28 @@ mod tests {
     }
 
     #[test]
+    fn define_function_with_return_type() {
+        check(
+            r#"
+                fn foo() -> int {}
+                fn bar() -> string {}
+                fn bar() -> char {}
+                fn bar() -> bool {}
+            "#,
+            expect![[r#"
+                fn foo() -> int {
+                }
+                fn bar() -> string {
+                }
+                fn bar() -> char {
+                }
+                fn bar() -> bool {
+                }
+            "#]],
+        );
+    }
+
+    #[test]
     fn resolve_function_params() {
         check(
             r#"
@@ -1387,6 +1409,17 @@ mod tests {
             "fn a(a, ) {}",
             expect![[r#"
                 fn a(a: <unknown>, <missing>: <unknown>) -> () {
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn function_missing_return_type() {
+        check(
+            "fn a() -> {}",
+            expect![[r#"
+                fn a() -> <unknown> {
                 }
             "#]],
         );

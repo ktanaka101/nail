@@ -107,7 +107,11 @@ fn parse_return_type(parser: &mut Parser, recovery_set: &[TokenKind]) -> Complet
     let marker = parser.start();
     parser.bump();
 
-    parser.expect_with_recovery_set(TokenKind::Ident, recovery_set);
+    {
+        let marker = parser.start();
+        parser.expect_with_recovery_set(TokenKind::Ident, recovery_set);
+        marker.complete(parser, SyntaxKind::Type);
+    }
 
     marker.complete(parser, SyntaxKind::ReturnType)
 }
@@ -282,8 +286,9 @@ mod tests {
                     ReturnType@9..16
                       ThinArrow@9..11 "->"
                       Whitespace@11..12 " "
-                      Ident@12..15 "int"
-                      Whitespace@15..16 " "
+                      Type@12..16
+                        Ident@12..15 "int"
+                        Whitespace@15..16 " "
                     Block@16..18
                       LCurly@16..17 "{"
                       RCurly@17..18 "}"
@@ -322,8 +327,9 @@ mod tests {
                     ReturnType@23..30
                       ThinArrow@23..25 "->"
                       Whitespace@25..26 " "
-                      Ident@26..29 "int"
-                      Whitespace@29..30 " "
+                      Type@26..30
+                        Ident@26..29 "int"
+                        Whitespace@29..30 " "
                     Block@30..32
                       LCurly@30..31 "{"
                       RCurly@31..32 "}"
@@ -348,8 +354,9 @@ mod tests {
                     ReturnType@9..16
                       ThinArrow@9..11 "->"
                       Whitespace@11..12 " "
-                      Ident@12..15 "int"
-                      Whitespace@15..16 " "
+                      Type@12..16
+                        Ident@12..15 "int"
+                        Whitespace@15..16 " "
                     Block@16..27
                       LCurly@16..17 "{"
                       Whitespace@17..18 " "
@@ -393,8 +400,9 @@ mod tests {
                     ReturnType@17..24
                       ThinArrow@17..19 "->"
                       Whitespace@19..20 " "
-                      Ident@20..23 "int"
-                      Whitespace@23..24 " "
+                      Type@20..24
+                        Ident@20..23 "int"
+                        Whitespace@23..24 " "
                     Block@24..30
                       LCurly@24..25 "{"
                       Whitespace@25..26 " "
@@ -429,8 +437,9 @@ mod tests {
                     ReturnType@15..22
                       ThinArrow@15..17 "->"
                       Whitespace@17..18 " "
-                      Ident@18..21 "int"
-                      Whitespace@21..22 " "
+                      Type@18..22
+                        Ident@18..21 "int"
+                        Whitespace@21..22 " "
                     Block@22..28
                       LCurly@22..23 "{"
                       Whitespace@23..24 " "
@@ -464,8 +473,9 @@ mod tests {
                     ReturnType@14..21
                       ThinArrow@14..16 "->"
                       Whitespace@16..17 " "
-                      Ident@17..20 "int"
-                      Whitespace@20..21 " "
+                      Type@17..21
+                        Ident@17..20 "int"
+                        Whitespace@20..21 " "
                     Block@21..27
                       LCurly@21..22 "{"
                       Whitespace@22..23 " "
@@ -494,8 +504,9 @@ mod tests {
                     ReturnType@10..17
                       ThinArrow@10..12 "->"
                       Whitespace@12..13 " "
-                      Ident@13..16 "int"
-                      Whitespace@16..17 " "
+                      Type@13..17
+                        Ident@13..16 "int"
+                        Whitespace@16..17 " "
                     Block@17..23
                       LCurly@17..18 "{"
                       Whitespace@18..19 " "
@@ -523,8 +534,9 @@ mod tests {
                     ReturnType@9..16
                       ThinArrow@9..11 "->"
                       Whitespace@11..12 " "
-                      Ident@12..15 "int"
-                      Whitespace@15..16 " "
+                      Type@12..16
+                        Ident@12..15 "int"
+                        Whitespace@15..16 " "
                     Block@16..22
                       LCurly@16..17 "{"
                       Whitespace@17..18 " "
@@ -551,8 +563,9 @@ mod tests {
                     ReturnType@8..15
                       ThinArrow@8..10 "->"
                       Whitespace@10..11 " "
-                      Ident@11..14 "int"
-                      Whitespace@14..15 " "
+                      Type@11..15
+                        Ident@11..14 "int"
+                        Whitespace@14..15 " "
                     Block@15..21
                       LCurly@15..16 "{"
                       Whitespace@16..17 " "
@@ -587,8 +600,9 @@ mod tests {
                     ReturnType@10..17
                       ThinArrow@10..12 "->"
                       Whitespace@12..13 " "
-                      Ident@13..16 "int"
-                      Whitespace@16..17 " "
+                      Type@13..17
+                        Ident@13..16 "int"
+                        Whitespace@16..17 " "
                     Block@17..23
                       LCurly@17..18 "{"
                       Whitespace@18..19 " "
@@ -642,6 +656,7 @@ mod tests {
                     ReturnType@7..10
                       ThinArrow@7..9 "->"
                       Whitespace@9..10 " "
+                      Type@10..10
                     Block@10..16
                       LCurly@10..11 "{"
                       Whitespace@11..12 " "

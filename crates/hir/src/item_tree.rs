@@ -10,6 +10,16 @@ type BlockAstId = AstId<ast::Block>;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Param {
     pub name: Option<Name>,
+    pub ty: Type,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Type {
+    Integer,
+    String,
+    Char,
+    Boolean,
+    Unknown,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -173,12 +183,13 @@ impl<'a> ItemTreeBuilderContext<'a> {
                     .params()?
                     .params()
                     .map(|param| {
-                        if let Some(name) = param.name() {
-                            let name = Name::from_key(self.interner.intern(name.name()));
-                            Param { name: Some(name) }
+                        let name = if let Some(name) = param.name() {
+                            Some(Name::from_key(self.interner.intern(name.name())))
                         } else {
-                            Param { name: None }
-                        }
+                            None
+                        };
+                        let ty = self.lower_ty(param.ty());
+                        Param { name, ty }
                     })
                     .collect();
 
@@ -202,6 +213,22 @@ impl<'a> ItemTreeBuilderContext<'a> {
         }
 
         Some(())
+    }
+
+    fn lower_ty(&mut self, ty: Option<ast::Type>) -> Type {
+        let ident = match ty.and_then(|ty| ty.ty()) {
+            Some(ident) => ident,
+            None => return Type::Unknown,
+        };
+
+        let type_name = ident.name();
+        match type_name {
+            "int" => Type::Integer,
+            "string" => Type::String,
+            "char" => Type::Char,
+            "bool" => Type::Boolean,
+            _ => Type::Unknown,
+        }
     }
 
     pub fn build_expr(

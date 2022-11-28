@@ -362,7 +362,10 @@ mod tests {
     use ast::AstNode;
     use expect_test::{expect, Expect};
 
-    use crate::{item_tree::Function, lower};
+    use crate::{
+        item_tree::{Function, Type},
+        lower,
+    };
 
     use super::*;
 
@@ -405,11 +408,19 @@ mod tests {
             .params
             .iter()
             .map(|param| {
-                if let Some(name) = param.name {
+                let name = if let Some(name) = param.name {
                     interner.lookup(name.key())
                 } else {
                     "<missing>"
-                }
+                };
+                let ty = match param.ty {
+                    Type::Integer => "int",
+                    Type::String => "string",
+                    Type::Char => "char",
+                    Type::Boolean => "bool",
+                    Type::Unknown => "<unknown>",
+                };
+                format!("{}: {}", name, ty)
             })
             .collect::<Vec<_>>()
             .join(", ");
@@ -1118,12 +1129,12 @@ mod tests {
     fn define_function_with_params() {
         check(
             r#"
-                fn foo(a, b) {
+                fn foo(a: int, b: string) {
                     1
                 }
             "#,
             expect![[r#"
-                fn foo(a, b) {
+                fn foo(a: int, b: string) {
                     expr:1
                 }
             "#]],
@@ -1134,12 +1145,12 @@ mod tests {
     fn resolve_function_params() {
         check(
             r#"
-                fn foo(a, b) {
+                fn foo(a: char, b: bool) {
                     a + b
                 }
             "#,
             expect![[r#"
-                fn foo(a, b) {
+                fn foo(a: char, b: bool) {
                     expr:param:a + param:b
                 }
             "#]],
@@ -1166,11 +1177,11 @@ mod tests {
                 b
             "#,
             expect![[r#"
-                fn foo(a, b) {
+                fn foo(a: <unknown>, b: <unknown>) {
                     let a = 0
                     0
                     param:b
-                    fn bar(a, b) {
+                    fn bar(a: <unknown>, b: <unknown>) {
                         expr:{
                             expr:param:a + param:b
                         }
@@ -1359,7 +1370,7 @@ mod tests {
         check(
             "fn a(a, ) {}",
             expect![[r#"
-                fn a(a, <missing>) {
+                fn a(a: <unknown>, <missing>: <unknown>) {
                 }
             "#]],
         );

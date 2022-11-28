@@ -4,7 +4,11 @@ WIP
 
 ## Summury
 
-Nail is a programming language for me.
+We create robust and flexible programming languages.
+- Base: Rust
+- Memory Management: GC
+- Type System: Rust, TypeScript
+- Concurrency: Go
 
 ## Supports
 

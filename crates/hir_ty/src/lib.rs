@@ -161,11 +161,15 @@ mod tests {
         check(
             r#"
                 let a = true
-                let b = false
+                let b = 10
+                let c = "aa"
+                let d = 'a'
             "#,
             expect![[r#"
                 0: bool
-                1: bool
+                1: int
+                2: string
+                3: char
             "#]],
         )
     }

@@ -13,22 +13,6 @@ impl InferenceResult {
             errors: Vec::new(),
         }
     }
-
-    #[cfg(test)]
-    fn debug(&self) -> String {
-        let mut msg = "".to_string();
-        let mut indexes = self.type_by_exprs.keys().collect::<Vec<_>>();
-        indexes.sort_by_cached_key(|idx| idx.into_raw());
-        for idx in indexes {
-            msg.push_str(&format!(
-                "{:?}: {:?}\n",
-                idx.into_raw(),
-                self.type_by_exprs[idx]
-            ));
-        }
-
-        msg
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -86,7 +70,33 @@ mod tests {
         let ast = ast::SourceFile::cast(parsed.syntax()).unwrap();
         let (_root_ctx, ctx, body, _db, _item_tree, _interner) = hir::lower(ast);
         let result = infer_body(body, &ctx);
-        expect.assert_eq(&result.debug());
+        expect.assert_eq(&debug(&result));
+    }
+
+    fn debug(result: &InferenceResult) -> String {
+        let mut msg = "".to_string();
+        let mut indexes = result.type_by_exprs.keys().collect::<Vec<_>>();
+        indexes.sort_by_cached_key(|idx| idx.into_raw());
+        for idx in indexes {
+            msg.push_str(&format!(
+                "{}: {}\n",
+                idx.into_raw(),
+                debug_type(&result.type_by_exprs[idx])
+            ));
+        }
+
+        msg
+    }
+
+    fn debug_type(ty: &ResolvedType) -> String {
+        match ty {
+            ResolvedType::Unknown => "unknown",
+            ResolvedType::Integer => "int",
+            ResolvedType::String => "string",
+            ResolvedType::Char => "char",
+            ResolvedType::Bool => "bool",
+        }
+        .to_string()
     }
 
     #[test]
@@ -94,7 +104,7 @@ mod tests {
         check(
             "10",
             expect![[r#"
-                0: Integer
+                0: int
             "#]],
         );
     }
@@ -104,7 +114,7 @@ mod tests {
         check(
             "\"aaa\"",
             expect![[r#"
-                0: String
+                0: string
             "#]],
         );
     }
@@ -114,7 +124,7 @@ mod tests {
         check(
             "'a'",
             expect![[r#"
-                0: Char
+                0: char
             "#]],
         );
     }
@@ -124,14 +134,14 @@ mod tests {
         check(
             "true",
             expect![[r#"
-                0: Bool
+                0: bool
             "#]],
         );
 
         check(
             "false",
             expect![[r#"
-                0: Bool
+                0: bool
             "#]],
         );
     }
@@ -141,7 +151,7 @@ mod tests {
         check(
             "let a = true",
             expect![[r#"
-                0: Bool
+                0: bool
             "#]],
         )
     }
@@ -154,8 +164,8 @@ mod tests {
                 let b = false
             "#,
             expect![[r#"
-                0: Bool
-                1: Bool
+                0: bool
+                1: bool
             "#]],
         )
     }

@@ -62,8 +62,10 @@ pub fn infer_body(stmts: Vec<hir::Stmt>, ctx: &hir::BodyLowerContext) -> Inferen
 fn infer_expr(expr: &hir::Expr) -> ResolvedType {
     match expr {
         hir::Expr::Literal(literal) => match literal {
+            hir::Literal::Integer(_) => ResolvedType::Integer,
+            hir::Literal::String(_) => ResolvedType::String,
+            hir::Literal::Char(_) => ResolvedType::Char,
             hir::Literal::Bool(_) => ResolvedType::Bool,
-            _ => todo!(),
         },
         _ => todo!(),
     }
@@ -81,6 +83,36 @@ mod tests {
         let (_root_ctx, ctx, body, _db, _item_tree, _interner) = hir::lower(ast);
         let result = infer_body(body, &ctx);
         expect.assert_eq(&result.debug());
+    }
+
+    #[test]
+    fn infer_integer_literal() {
+        check(
+            "10",
+            expect![[r#"
+                0: Integer
+            "#]],
+        );
+    }
+
+    #[test]
+    fn infer_string_literal() {
+        check(
+            "\"aaa\"",
+            expect![[r#"
+                0: String
+            "#]],
+        );
+    }
+
+    #[test]
+    fn infer_char_literal() {
+        check(
+            "'a'",
+            expect![[r#"
+                0: Char
+            "#]],
+        );
     }
 
     #[test]

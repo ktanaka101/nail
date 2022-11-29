@@ -2,14 +2,14 @@ use std::collections;
 
 #[derive(Debug)]
 pub struct InferenceResult {
-    pub mapping: collections::HashMap<hir::ExprIdx, ResolvedType>,
+    pub type_by_exprs: collections::HashMap<hir::ExprIdx, ResolvedType>,
     pub errors: Vec<InferenceError>,
 }
 
 impl InferenceResult {
     fn new() -> Self {
         Self {
-            mapping: collections::HashMap::new(),
+            type_by_exprs: collections::HashMap::new(),
             errors: Vec::new(),
         }
     }
@@ -17,10 +17,14 @@ impl InferenceResult {
     #[cfg(test)]
     fn debug(&self) -> String {
         let mut msg = "".to_string();
-        let mut indexes = self.mapping.keys().collect::<Vec<_>>();
+        let mut indexes = self.type_by_exprs.keys().collect::<Vec<_>>();
         indexes.sort_by_cached_key(|idx| idx.into_raw());
         for idx in indexes {
-            msg.push_str(&format!("{:?}: {:?}\n", idx.into_raw(), self.mapping[idx]));
+            msg.push_str(&format!(
+                "{:?}: {:?}\n",
+                idx.into_raw(),
+                self.type_by_exprs[idx]
+            ));
         }
 
         msg
@@ -46,11 +50,11 @@ pub fn infer_body(stmts: Vec<hir::Stmt>, ctx: &hir::BodyLowerContext) -> Inferen
         match stmt {
             hir::Stmt::Expr(expr) => {
                 let ty = infer_expr(&ctx.exprs[expr]);
-                inference_result.mapping.insert(expr, ty);
+                inference_result.type_by_exprs.insert(expr, ty);
             }
             hir::Stmt::VariableDef { value, .. } => {
                 let ty = infer_expr(&ctx.exprs[value]);
-                inference_result.mapping.insert(value, ty);
+                inference_result.type_by_exprs.insert(value, ty);
             }
             hir::Stmt::FunctionDef { .. } => unimplemented!(),
         }

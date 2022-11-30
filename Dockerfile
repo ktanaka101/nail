@@ -43,6 +43,9 @@ ENV LLVM_SYS_140_PREFIX=/usr/lib/llvm-14
 RUN curl -sL https://deb.nodesource.com/setup_18.x | bash -
 RUN apt install -y nodejs
 
+# using by rustfmt and cargo-fuzz
+RUN rustup toolchain install nightly
+
 # for development
 
 FROM base AS development

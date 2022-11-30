@@ -1,9 +1,5 @@
 use core::fmt;
-use std::borrow::Borrow;
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::hash;
-use std::rc::Rc;
+use std::{borrow::Borrow, cell::RefCell, collections::HashMap, hash, rc::Rc};
 
 pub trait Symbol: Clone + fmt::Debug + Eq + PartialEq + hash::Hash {}
 

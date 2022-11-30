@@ -1,12 +1,7 @@
-use std::collections::HashMap;
-use std::fs;
-use std::path;
+use std::{collections::HashMap, fs, path};
 
 use anyhow::Result;
-use lsp_types::TextDocumentIdentifier;
-use lsp_types::TextDocumentItem;
-use lsp_types::Url;
-use lsp_types::VersionedTextDocumentIdentifier;
+use lsp_types::{TextDocumentIdentifier, TextDocumentItem, Url, VersionedTextDocumentIdentifier};
 use tower_lsp::lsp_types;
 
 use crate::analysis::Analysis;

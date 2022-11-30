@@ -4,13 +4,11 @@ use std::collections::HashMap;
 
 use la_arena::{Arena, Idx};
 
-use crate::body::scopes::Scopes;
-use crate::db::Database;
-use crate::item_tree::ItemTree;
-use crate::string_interner::Interner;
-use crate::{AstId, BinaryOp, Block, Expr, ExprIdx, Literal, Name, Stmt, Symbol, UnaryOp};
-
 use self::scopes::CurrentBlock;
+use crate::{
+    body::scopes::Scopes, db::Database, item_tree::ItemTree, string_interner::Interner, AstId,
+    BinaryOp, Block, Expr, ExprIdx, Literal, Name, Stmt, Symbol, UnaryOp,
+};
 
 #[derive(Debug, Default)]
 pub struct SharedBodyLowerContext {
@@ -352,12 +350,11 @@ mod tests {
     use ast::AstNode;
     use expect_test::{expect, Expect};
 
+    use super::*;
     use crate::{
         item_tree::{Function, Type},
         lower, LowerResult,
     };
-
-    use super::*;
 
     fn indent(nesting: usize) -> String {
         "    ".repeat(nesting)
@@ -1333,10 +1330,13 @@ mod tests {
 
     #[test]
     fn function_missing_name() {
-        check("fn (a, ) {}", expect![[r#"
+        check(
+            "fn (a, ) {}",
+            expect![[r#"
             fn <missing>(a: <unknown>, <missing>: <unknown>) -> () {
             }
-        "#]]);
+        "#]],
+        );
     }
 
     #[test]

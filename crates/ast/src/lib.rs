@@ -5,9 +5,8 @@ pub mod validation;
 
 pub use ast_node::*;
 pub use nodes::*;
-pub use tokens::*;
-
 use syntax::{SyntaxKind, SyntaxNode};
+pub use tokens::*;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SourceFile(SyntaxNode);

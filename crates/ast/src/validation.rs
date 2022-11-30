@@ -1,8 +1,7 @@
 use std::fmt;
 
-use text_size::TextRange;
-
 use syntax::SyntaxNode;
+use text_size::TextRange;
 
 use crate::{
     ast_node::{AstNode, AstToken},
@@ -79,8 +78,9 @@ fn validate_literal(literal: Literal, errors: &mut Vec<ValidationError>) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::ops::Range as StdRange;
+
+    use super::*;
 
     fn check(input: &str, expected_errors: &[(ValidationErrorKind, StdRange<u32>)]) {
         let parse = parser::parse(input);

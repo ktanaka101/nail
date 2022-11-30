@@ -1,10 +1,8 @@
 use lexer::TokenKind;
 use syntax::SyntaxKind;
 
-use crate::parser::marker::CompletedMarker;
-use crate::parser::Parser;
-
 use super::expr;
+use crate::parser::{marker::CompletedMarker, Parser};
 
 pub(super) fn parse_stmt(parser: &mut Parser) -> Option<CompletedMarker> {
     if parser.at(TokenKind::LetKw) {
@@ -132,8 +130,9 @@ fn parse_block(parser: &mut Parser) -> CompletedMarker {
 
 #[cfg(test)]
 mod tests {
-    use crate::check;
     use expect_test::expect;
+
+    use crate::check;
 
     #[test]
     fn parse_variable_definition() {

@@ -2,13 +2,11 @@ mod arena;
 mod symbol_table;
 
 use std::{cell::RefCell, rc::Rc};
-use thiserror;
-
-use crate::hir;
-
-use crate::ast_parser::ast;
 
 use anyhow::Result;
+use thiserror;
+
+use crate::{ast_parser::ast, hir};
 
 impl symbol_table::Symbol for hir::Symbol {}
 impl symbol_table::Value for hir::Expr<'_> {}

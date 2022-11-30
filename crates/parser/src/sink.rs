@@ -1,8 +1,7 @@
 use std::mem;
 
-use rowan::{GreenNodeBuilder, Language};
-
 use lexer::Token;
+use rowan::{GreenNodeBuilder, Language};
 use syntax::NailLanguage;
 
 use crate::{event::Event, parser::ParserError, Parse};

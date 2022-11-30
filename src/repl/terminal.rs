@@ -1,6 +1,4 @@
-use std::convert::TryInto;
-use std::io;
-use std::io::Write;
+use std::{convert::TryInto, io, io::Write};
 
 use anyhow::Result;
 use termion::screen::IntoAlternateScreen;

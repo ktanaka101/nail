@@ -1,21 +1,25 @@
-use std::collections::HashMap;
-use std::convert::{TryFrom, TryInto};
-use std::ffi::CString;
-use std::fs::File;
-use std::io::prelude::*;
-use std::os::raw::c_char;
+use std::{
+    collections::HashMap,
+    convert::{TryFrom, TryInto},
+    ffi::CString,
+    fs::File,
+    io::prelude::*,
+    os::raw::c_char,
+};
 
 use anyhow::Result;
-use inkwell::builder::Builder;
-use inkwell::context::Context;
-use inkwell::execution_engine::{ExecutionEngine, JitFunction};
-use inkwell::module::Module;
-use inkwell::types::StructType;
-use inkwell::values::{
-    ArrayValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PointerValue, StructValue,
-    VectorValue,
+use inkwell::{
+    builder::Builder,
+    context::Context,
+    execution_engine::{ExecutionEngine, JitFunction},
+    module::Module,
+    types::StructType,
+    values::{
+        ArrayValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PointerValue, StructValue,
+        VectorValue,
+    },
+    AddressSpace,
 };
-use inkwell::AddressSpace;
 
 use crate::ast_parser::ast;
 
@@ -804,9 +808,7 @@ mod tests {
     use std::os::raw::c_char;
 
     use super::*;
-
-    use crate::ast_parser;
-    use crate::lexer;
+    use crate::{ast_parser, lexer};
 
     #[test]
     fn test_number_literal() {

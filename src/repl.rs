@@ -1,23 +1,18 @@
 mod terminal;
 
-use std::convert::TryFrom;
-use std::ffi::CString;
-use std::io;
-use std::os::raw::c_char;
+use std::{convert::TryFrom, ffi::CString, io, os::raw::c_char};
 
 use anyhow::Result;
 use ast::AstNode;
-use inkwell::context::Context;
-use inkwell::OptimizationLevel;
-use termion::event::Key;
-use termion::input::TermRead;
-use termion::raw::IntoRawMode;
+use inkwell::{context::Context, OptimizationLevel};
+use termion::{event::Key, input::TermRead, raw::IntoRawMode};
 
-use crate::ast_parser::Parser;
-use crate::lexer::Lexer;
-use crate::llvm::codegen;
-use crate::llvm::codegen::Codegen;
-use crate::type_checker;
+use crate::{
+    ast_parser::Parser,
+    lexer::Lexer,
+    llvm::{codegen, codegen::Codegen},
+    type_checker,
+};
 
 const PROMPT: &str = ">> ";
 

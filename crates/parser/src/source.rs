@@ -1,6 +1,5 @@
-use text_size::TextRange;
-
 use lexer::{Token, TokenKind};
+use text_size::TextRange;
 
 pub(crate) struct Source<'l, 'input> {
     tokens: &'l [Token<'input>],

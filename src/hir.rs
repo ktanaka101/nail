@@ -36,7 +36,6 @@ impl HirId {
     }
 }
 
-pub use self::char::Char;
 pub use array::Array;
 pub use block::Block;
 pub use boolean::Boolean;
@@ -61,3 +60,5 @@ pub use r#type::{Type, TypeKind};
 pub use stmt::Stmt;
 pub use stmt_kind::StmtKind;
 pub use string_lit::StringLit;
+
+pub use self::char::Char;

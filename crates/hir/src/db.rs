@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
 use la_arena::{Arena, Idx};
-
 use syntax::SyntaxNodePtr;
 
-use crate::item_tree::{Function, ItemScope};
-use crate::{AstId, AstPtr, FileId, InFile};
+use crate::{
+    item_tree::{Function, ItemScope},
+    AstId, AstPtr, FileId, InFile,
+};
 
 #[derive(Debug, Default)]
 pub struct Database {

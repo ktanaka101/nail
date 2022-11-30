@@ -1,8 +1,11 @@
 mod preludes {
+    pub use std::{
+        convert::{TryFrom, TryInto},
+        fmt,
+        fmt::{Display, Formatter},
+    };
+
     pub use anyhow::Result;
-    pub use std::convert::{TryFrom, TryInto};
-    pub use std::fmt;
-    pub use std::fmt::{Display, Formatter};
 }
 
 pub mod ast_parser;

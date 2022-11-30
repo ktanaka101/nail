@@ -4,7 +4,6 @@ use std::ops::Range as StdRange;
 
 use logos::Logos;
 use text_size::{TextRange, TextSize};
-
 pub use token_kind::{Token, TokenKind};
 
 pub struct Lexer<'a> {

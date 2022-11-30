@@ -1,10 +1,7 @@
-use ast::validation::ValidationErrorKind;
+use ast::validation::{ValidationError, ValidationErrorKind};
+use parser::{ParseError, TokenError};
 use text_size::TextRange;
 use tower_lsp::lsp_types;
-
-use ast::validation::ValidationError;
-use parser::ParseError;
-use parser::TokenError;
 
 use crate::line_index;
 

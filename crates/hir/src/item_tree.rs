@@ -3,10 +3,10 @@ mod item_scope;
 
 use std::collections::HashMap;
 
-use crate::db::Database;
-use crate::{string_interner::Interner, AstId, Name};
 pub use item::{Function, FunctionIdx, Param, Type};
 pub use item_scope::{ItemScope, ItemScopeIdx, Parent};
+
+use crate::{db::Database, string_interner::Interner, AstId, Name};
 
 type BlockAstId = AstId<ast::Block>;
 

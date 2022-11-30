@@ -1,5 +1,7 @@
-use crate::ast_parser;
-use crate::token::{Position, Token};
+use crate::{
+    ast_parser,
+    token::{Position, Token},
+};
 
 #[derive(Debug)]
 pub struct Lexer {
@@ -190,9 +192,8 @@ fn lookup_ident(ident: &str, position: Position) -> Token {
 
 #[cfg(test)]
 mod tests {
-    use crate::{ast_parser::Lexer, token::TokenWithInput};
-
     use super::*;
+    use crate::{ast_parser::Lexer, token::TokenWithInput};
 
     #[test]
     fn it_return_token() {

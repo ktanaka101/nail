@@ -1,9 +1,7 @@
 use drop_bomb::DropBomb;
-
 use syntax::SyntaxKind;
 
-use crate::event::Event;
-use crate::parser::Parser;
+use crate::{event::Event, parser::Parser};
 
 pub(crate) struct Marker {
     pos: usize,

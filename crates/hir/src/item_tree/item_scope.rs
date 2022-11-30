@@ -2,9 +2,8 @@ use std::collections::HashMap;
 
 use la_arena::Idx;
 
-use crate::{db::Database, string_interner::Interner, Name};
-
 use super::{BlockAstId, FunctionIdx, ItemTree};
+use crate::{db::Database, string_interner::Interner, Name};
 
 pub type ItemScopeIdx = Idx<ItemScope>;
 

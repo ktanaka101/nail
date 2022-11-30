@@ -6,16 +6,14 @@ mod source;
 
 use std::fmt;
 
-use rowan::GreenNode;
-
 use lexer::Lexer;
+use rowan::GreenNode;
+use sink::Sink;
+use source::Source;
 use syntax::SyntaxNode;
 
 use crate::parser::Parser;
 pub use crate::parser::{ParseError, ParserError, TokenError};
-
-use sink::Sink;
-use source::Source;
 
 pub fn parse(input: &str) -> Parse {
     let tokens: Vec<_> = Lexer::new(input).collect();
@@ -71,8 +69,9 @@ fn check(input: &str, expected_tree: expect_test::Expect) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use expect_test::expect;
+
+    use super::*;
 
     #[test]
     fn parse_nothing() {

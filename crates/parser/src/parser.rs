@@ -2,16 +2,13 @@ pub(crate) mod marker;
 
 mod parse_error;
 
-use lexer::{Token, TokenKind};
-use syntax::SyntaxKind;
-
 use indexmap::IndexSet;
-
-use crate::event::Event;
-use crate::grammar;
-use crate::source::Source;
+use lexer::{Token, TokenKind};
 use marker::Marker;
 pub use parse_error::{ParseError, ParserError, TokenError};
+use syntax::SyntaxKind;
+
+use crate::{event::Event, grammar, source::Source};
 
 pub(crate) struct Parser<'l, 'input> {
     source: Source<'l, 'input>,

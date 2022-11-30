@@ -1,7 +1,9 @@
 use syntax::{SyntaxKind, SyntaxNode, SyntaxToken};
 
-use crate::ast_node::{self, Ast, AstNode, AstToken};
-use crate::tokens;
+use crate::{
+    ast_node::{self, Ast, AstNode, AstToken},
+    tokens,
+};
 
 macro_rules! def_ast_node {
     ($kind:ident) => {

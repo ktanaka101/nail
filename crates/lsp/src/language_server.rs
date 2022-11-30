@@ -1,11 +1,8 @@
 use std::sync::Arc;
 
-use tower_lsp::jsonrpc::Result;
-use tower_lsp::lsp_types::*;
-use tower_lsp::{Client, LanguageServer};
+use tower_lsp::{jsonrpc::Result, lsp_types::*, Client, LanguageServer};
 
-use crate::context::Context;
-use crate::semantic_tokens::SEMANTIC_TOKEN_TYPES;
+use crate::{context::Context, semantic_tokens::SEMANTIC_TOKEN_TYPES};
 
 #[derive(Debug, Clone)]
 pub struct NailLanguageServer(Arc<tokio::sync::Mutex<Backend>>);

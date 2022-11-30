@@ -3,8 +3,7 @@ mod stmt;
 
 use syntax::SyntaxKind;
 
-use crate::parser::marker::CompletedMarker;
-use crate::parser::Parser;
+use crate::parser::{marker::CompletedMarker, Parser};
 
 pub(crate) fn source_file(parser: &mut Parser) -> CompletedMarker {
     let marker = parser.start();

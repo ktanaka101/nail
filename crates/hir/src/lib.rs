@@ -5,14 +5,12 @@ pub mod string_interner;
 
 use std::marker::PhantomData;
 
-use la_arena::Idx;
-
-use body::SharedBodyLowerContext;
-use db::Database;
-use item_tree::{FunctionIdx, ItemTree, ItemTreeBuilderContext};
-
 use ast::Ast;
-pub use body::BodyLowerContext;
+pub use body::{BodyLowerContext, SharedBodyLowerContext};
+pub use db::Database;
+use item_tree::ItemTreeBuilderContext;
+pub use item_tree::{FunctionIdx, ItemTree};
+use la_arena::Idx;
 use string_interner::{Interner, Key};
 use syntax::SyntaxNodePtr;
 

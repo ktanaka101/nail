@@ -1,8 +1,6 @@
-use std::fmt;
-use std::iter;
+use std::{fmt, iter};
 
-use text_size::TextRange;
-use text_size::TextSize;
+use text_size::{TextRange, TextSize};
 use tower_lsp::lsp_types;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

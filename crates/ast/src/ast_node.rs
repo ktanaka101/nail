@@ -1,5 +1,4 @@
 use rowan::TextRange;
-
 use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
 pub trait Ast {}

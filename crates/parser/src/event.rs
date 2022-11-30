@@ -1,5 +1,6 @@
-use crate::parser::ParserError;
 use syntax::SyntaxKind;
+
+use crate::parser::ParserError;
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum Event {

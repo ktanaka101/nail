@@ -3,12 +3,11 @@ pub mod error;
 
 use std::str::FromStr;
 
-use crate::token::Token;
-
 use anyhow::Result;
+use error::ParserError;
 
 use self::ast::{Expr, Stmt};
-use error::ParserError;
+use crate::token::Token;
 
 #[derive(PartialOrd, PartialEq, Debug)]
 enum Priority {

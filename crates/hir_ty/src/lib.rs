@@ -61,9 +61,10 @@ fn infer_expr(expr: &hir::Expr) -> ResolvedType {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use ast::AstNode;
     use expect_test::{expect, Expect};
+
+    use super::*;
 
     fn check(input: &str, expect: Expect) {
         let parsed = parser::parse(input);

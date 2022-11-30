@@ -1,8 +1,7 @@
 use std::fmt;
 
-use text_size::TextRange;
-
 use lexer::TokenKind;
+use text_size::TextRange;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParserError {
@@ -123,8 +122,9 @@ impl fmt::Display for ParseError {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::ops::Range as StdRange;
+
+    use super::*;
 
     fn check(
         expected: Vec<TokenKind>,

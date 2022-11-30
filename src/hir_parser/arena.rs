@@ -1,5 +1,6 @@
-use super::hir;
 use typed_arena;
+
+use super::hir;
 
 #[derive(Default)]
 pub struct Arena<'hir> {

@@ -1,10 +1,8 @@
+use ast::validation::ValidationError;
 use lsp_types::Url;
 use tower_lsp::lsp_types::{self, SemanticToken};
 
-use ast::validation::ValidationError;
-
-use crate::diagnostic::Diagnostic;
-use crate::{line_index, semantic_tokens};
+use crate::{diagnostic::Diagnostic, line_index, semantic_tokens};
 
 #[derive(Debug)]
 pub struct Analysis {

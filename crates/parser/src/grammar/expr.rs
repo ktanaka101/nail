@@ -1,9 +1,10 @@
 use lexer::TokenKind;
 use syntax::SyntaxKind;
 
-use crate::grammar::stmt::parse_stmt;
-use crate::parser::marker::CompletedMarker;
-use crate::parser::Parser;
+use crate::{
+    grammar::stmt::parse_stmt,
+    parser::{marker::CompletedMarker, Parser},
+};
 
 pub(super) const EXPR_FIRST: [TokenKind; 10] = [
     TokenKind::CharLiteral(false),
@@ -228,8 +229,9 @@ fn parse_block(parser: &mut Parser) -> CompletedMarker {
 
 #[cfg(test)]
 mod tests {
-    use crate::check;
     use expect_test::expect;
+
+    use crate::check;
 
     #[test]
     fn parse_integer() {

@@ -43,6 +43,9 @@ ENV LLVM_SYS_140_PREFIX=/usr/lib/llvm-14
 RUN curl -sL https://deb.nodesource.com/setup_18.x | bash -
 RUN apt install -y nodejs
 
+# using by rustfmt
+RUN rustup toolchain install nightly
+
 # for development
 
 FROM base AS development
@@ -53,8 +56,6 @@ RUN apt-get install -y git
 ENV CARGO_BUILD_TARGET_DIR=/tmp/target
 
 ENV NAIL_LANGUAGE_SERVER_PATH=/tmp/target/debug/nail-language-server
-
-RUN rustup toolchain install nightly
 
 # using by cargo-fuzz
 RUN apt-get install -y g++

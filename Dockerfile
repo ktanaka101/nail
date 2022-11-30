@@ -59,11 +59,12 @@ RUN apt-get install -y g++
 RUN cargo install cargo-fuzz
 RUN rustup override set --path fuzz nightly
 
-RUN rustup component add rustfmt clippy rls rust-analysis rust-src
-
+RUN rustup component add rustfmt clippy rust-analysis rust-src
+RUN rustup toolchain install nightly
 
 # for CI
 
 FROM base AS ci
 
 RUN rustup component add rustfmt clippy
+RUN rustup toolchain install nightly

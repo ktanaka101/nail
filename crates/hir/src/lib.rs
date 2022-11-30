@@ -33,12 +33,14 @@ pub fn lower(
 
     let mut shared_ctx = SharedBodyLowerContext::new();
 
-    let mut ctx = BodyLowerContext::new(vec![]);
+    let mut root_ctx = BodyLowerContext::new(vec![]);
     let stmts = ast
         .stmts()
-        .filter_map(|stmt| ctx.lower_stmt(stmt, &mut shared_ctx, &db, &item_tree, &mut interner))
+        .filter_map(|stmt| {
+            root_ctx.lower_stmt(stmt, &mut shared_ctx, &db, &item_tree, &mut interner)
+        })
         .collect();
-    (shared_ctx, ctx, stmts, db, item_tree, interner)
+    (shared_ctx, root_ctx, stmts, db, item_tree, interner)
 }
 
 pub type ExprIdx = Idx<Expr>;

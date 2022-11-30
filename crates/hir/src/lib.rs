@@ -95,8 +95,7 @@ pub enum Stmt {
     },
     Expr(ExprIdx),
     FunctionDef {
-        name: Name,
-        params: Vec<Name>,
+        signature: FunctionIdx,
         body: ExprIdx,
     },
 }

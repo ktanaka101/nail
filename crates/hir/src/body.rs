@@ -101,10 +101,8 @@ impl BodyLowerContext {
                     .map(|ident| Name::from_key(interner.intern(ident.name())))
                     .collect();
                 let mut body_lower_ctx = BodyLowerContext::new(params);
-                let name = Name::from_key(interner.intern(def.name()?.name()));
                 let body = def.body()?;
-                let stmt =
-                    body_lower_ctx.lower_function(name, def, ctx, db, item_tree, interner)?;
+                let stmt = body_lower_ctx.lower_function(def, ctx, db, item_tree, interner)?;
 
                 let ctx_idx = ctx.contexts.alloc(body_lower_ctx);
                 ctx.body_context_mapping
@@ -119,29 +117,21 @@ impl BodyLowerContext {
 
     fn lower_function(
         &mut self,
-        name: Name,
         ast: ast::FunctionDef,
         ctx: &mut SharedBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
         interner: &mut Interner,
     ) -> Option<Stmt> {
-        let params = ast
-            .params()?
-            .params()
-            .filter_map(|it| it.name())
-            .map(|it| Name::from_key(interner.intern(it.name())))
-            .collect::<Vec<_>>();
-
         let body = ast.body()?;
-        let ast_id = db.lookup_ast_id(&body).unwrap();
+        let ast_id = db.lookup_ast_id(&body)?;
+        let function_idx = item_tree.block_to_function_idx(&ast_id).unwrap();
         let block = self.lower_block(body, ctx, db, item_tree, interner);
         let body_idx = ctx.function_bodies.alloc(block);
         ctx.body_expr_mapping.insert(ast_id, body_idx);
 
         Some(Stmt::FunctionDef {
-            name,
-            params,
+            signature: function_idx,
             body: body_idx,
         })
     }

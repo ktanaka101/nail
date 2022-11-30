@@ -7,7 +7,7 @@ use std::marker::PhantomData;
 
 use la_arena::Idx;
 
-use body::RootBodyLowerContext;
+use body::SharedBodyLowerContext;
 use db::Database;
 use item_tree::{FunctionIdx, ItemTree, ItemTreeBuilderContext};
 
@@ -19,7 +19,7 @@ use syntax::SyntaxNodePtr;
 pub fn lower(
     ast: ast::SourceFile,
 ) -> (
-    RootBodyLowerContext,
+    SharedBodyLowerContext,
     BodyLowerContext,
     Vec<Stmt>,
     Database,
@@ -31,14 +31,14 @@ pub fn lower(
     let item_tree_builder = ItemTreeBuilderContext::new(&mut interner);
     let item_tree = item_tree_builder.build(&ast, &mut db);
 
-    let mut root_ctx = RootBodyLowerContext::new();
+    let mut shared_ctx = SharedBodyLowerContext::new();
 
     let mut ctx = BodyLowerContext::new(vec![]);
     let stmts = ast
         .stmts()
-        .filter_map(|stmt| ctx.lower_stmt(stmt, &mut root_ctx, &db, &item_tree, &mut interner))
+        .filter_map(|stmt| ctx.lower_stmt(stmt, &mut shared_ctx, &db, &item_tree, &mut interner))
         .collect();
-    (root_ctx, ctx, stmts, db, item_tree, interner)
+    (shared_ctx, ctx, stmts, db, item_tree, interner)
 }
 
 pub type ExprIdx = Idx<Expr>;

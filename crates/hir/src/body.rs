@@ -13,13 +13,13 @@ use crate::{AstId, BinaryOp, Block, Expr, ExprIdx, Literal, Name, Stmt, Symbol, 
 use self::scopes::CurrentBlock;
 
 #[derive(Debug, Default)]
-pub struct RootBodyLowerContext {
+pub struct SharedBodyLowerContext {
     function_bodies: Arena<Expr>,
     contexts: Arena<BodyLowerContext>,
     pub body_context_mapping: HashMap<AstId<ast::Block>, Idx<BodyLowerContext>>,
     pub body_expr_mapping: HashMap<AstId<ast::Block>, ExprIdx>,
 }
-impl RootBodyLowerContext {
+impl SharedBodyLowerContext {
     pub fn new() -> Self {
         Self {
             function_bodies: Arena::new(),
@@ -76,7 +76,7 @@ impl BodyLowerContext {
     pub(super) fn lower_stmt(
         &mut self,
         ast: ast::Stmt,
-        ctx: &mut RootBodyLowerContext,
+        ctx: &mut SharedBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
         interner: &mut Interner,
@@ -121,7 +121,7 @@ impl BodyLowerContext {
         &mut self,
         name: Name,
         ast: ast::FunctionDef,
-        ctx: &mut RootBodyLowerContext,
+        ctx: &mut SharedBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
         interner: &mut Interner,
@@ -149,7 +149,7 @@ impl BodyLowerContext {
     fn lower_expr(
         &mut self,
         ast: Option<ast::Expr>,
-        ctx: &mut RootBodyLowerContext,
+        ctx: &mut SharedBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
         interner: &mut Interner,
@@ -209,7 +209,7 @@ impl BodyLowerContext {
     fn lower_binary(
         &mut self,
         ast: ast::BinaryExpr,
-        ctx: &mut RootBodyLowerContext,
+        ctx: &mut SharedBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
         interner: &mut Interner,
@@ -234,7 +234,7 @@ impl BodyLowerContext {
     fn lower_unary(
         &mut self,
         ast: ast::UnaryExpr,
-        ctx: &mut RootBodyLowerContext,
+        ctx: &mut SharedBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
         interner: &mut Interner,
@@ -254,7 +254,7 @@ impl BodyLowerContext {
     fn lower_variable_ref(
         &mut self,
         ast: ast::VariableRef,
-        _ctx: &mut RootBodyLowerContext,
+        _ctx: &mut SharedBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
         interner: &mut Interner,
@@ -268,7 +268,7 @@ impl BodyLowerContext {
     fn lookup_ident(
         &mut self,
         ast: &ast::Ident,
-        _ctx: &mut RootBodyLowerContext,
+        _ctx: &mut SharedBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
         interner: &mut Interner,
@@ -298,7 +298,7 @@ impl BodyLowerContext {
     fn lower_call(
         &mut self,
         ast: ast::Call,
-        ctx: &mut RootBodyLowerContext,
+        ctx: &mut SharedBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
         interner: &mut Interner,
@@ -320,7 +320,7 @@ impl BodyLowerContext {
     fn lower_block(
         &mut self,
         ast: ast::Block,
-        ctx: &mut RootBodyLowerContext,
+        ctx: &mut SharedBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
         interner: &mut Interner,
@@ -375,7 +375,7 @@ mod tests {
 
     fn debug(
         stmts: &[Stmt],
-        root_ctx: &RootBodyLowerContext,
+        shared_ctx: &SharedBodyLowerContext,
         ctx: &BodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
@@ -384,7 +384,9 @@ mod tests {
         let mut msg = "".to_string();
 
         for stmt in stmts {
-            msg.push_str(&debug_stmt(stmt, root_ctx, ctx, db, item_tree, interner, 0));
+            msg.push_str(&debug_stmt(
+                stmt, shared_ctx, ctx, db, item_tree, interner, 0,
+            ));
         }
 
         msg
@@ -392,7 +394,7 @@ mod tests {
 
     fn debug_function(
         function_idx: Idx<Function>,
-        root_ctx: &RootBodyLowerContext,
+        shared_ctx: &SharedBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
         interner: &Interner,
@@ -400,8 +402,8 @@ mod tests {
     ) -> String {
         let function = &db.functions[function_idx];
         let block_ast_id = item_tree.function_to_block(&function_idx).unwrap();
-        let function_ctx = root_ctx.body_context_by_block(&block_ast_id).unwrap();
-        let body_expr = root_ctx.function_body_by_block(&block_ast_id).unwrap();
+        let function_ctx = shared_ctx.body_context_by_block(&block_ast_id).unwrap();
+        let body_expr = shared_ctx.function_body_by_block(&block_ast_id).unwrap();
 
         let name = interner.lookup(function.name.key());
         let params = function
@@ -436,7 +438,7 @@ mod tests {
 
         let body = debug_expr(
             body_expr,
-            root_ctx,
+            shared_ctx,
             function_ctx,
             db,
             item_tree,
@@ -455,7 +457,7 @@ mod tests {
 
     fn debug_stmt(
         stmt: &Stmt,
-        root_ctx: &RootBodyLowerContext,
+        shared_ctx: &SharedBodyLowerContext,
         ctx: &BodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
@@ -467,7 +469,7 @@ mod tests {
                 let name = interner.lookup(name.key());
                 let expr_str = debug_expr(
                     &ctx.exprs[*value],
-                    root_ctx,
+                    shared_ctx,
                     ctx,
                     db,
                     item_tree,
@@ -481,7 +483,7 @@ mod tests {
                 indent(nesting),
                 debug_expr(
                     &ctx.exprs[*expr],
-                    root_ctx,
+                    shared_ctx,
                     ctx,
                     db,
                     item_tree,
@@ -490,10 +492,10 @@ mod tests {
                 )
             ),
             Stmt::FunctionDef { body, .. } => {
-                let body = &root_ctx.function_bodies[*body];
+                let body = &shared_ctx.function_bodies[*body];
                 if let Expr::Block(block) = body {
                     let function_idx = item_tree.block_to_function_idx(&block.ast).unwrap();
-                    debug_function(function_idx, root_ctx, db, item_tree, interner, nesting)
+                    debug_function(function_idx, shared_ctx, db, item_tree, interner, nesting)
                 } else {
                     panic!("supported only block");
                 }
@@ -503,7 +505,7 @@ mod tests {
 
     fn debug_expr(
         expr: &Expr,
-        root_ctx: &RootBodyLowerContext,
+        shared_ctx: &SharedBodyLowerContext,
         ctx: &BodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
@@ -526,7 +528,7 @@ mod tests {
                 };
                 let lhs_str = debug_expr(
                     &ctx.exprs[*lhs],
-                    root_ctx,
+                    shared_ctx,
                     ctx,
                     db,
                     item_tree,
@@ -535,7 +537,7 @@ mod tests {
                 );
                 let rhs_str = debug_expr(
                     &ctx.exprs[*rhs],
-                    root_ctx,
+                    shared_ctx,
                     ctx,
                     db,
                     item_tree,
@@ -550,7 +552,7 @@ mod tests {
                 };
                 let expr_str = debug_expr(
                     &ctx.exprs[*expr],
-                    root_ctx,
+                    shared_ctx,
                     ctx,
                     db,
                     item_tree,
@@ -560,16 +562,17 @@ mod tests {
                 format!("{}{}", op, expr_str)
             }
             Expr::VariableRef { var } => {
-                debug_symbol(var, root_ctx, ctx, db, item_tree, interner, nesting)
+                debug_symbol(var, shared_ctx, ctx, db, item_tree, interner, nesting)
             }
             Expr::Call { callee, args } => {
-                let callee = debug_symbol(callee, root_ctx, ctx, db, item_tree, interner, nesting);
+                let callee =
+                    debug_symbol(callee, shared_ctx, ctx, db, item_tree, interner, nesting);
                 let args = args
                     .iter()
                     .map(|arg| {
                         debug_expr(
                             &ctx.exprs[*arg],
-                            root_ctx,
+                            shared_ctx,
                             ctx,
                             db,
                             item_tree,
@@ -587,7 +590,7 @@ mod tests {
                 for stmt in &block.stmts {
                     msg.push_str(&debug_stmt(
                         stmt,
-                        root_ctx,
+                        shared_ctx,
                         ctx,
                         db,
                         item_tree,
@@ -601,7 +604,7 @@ mod tests {
                         indent(nesting + 1),
                         debug_expr(
                             &ctx.exprs[tail],
-                            root_ctx,
+                            shared_ctx,
                             ctx,
                             db,
                             item_tree,
@@ -620,7 +623,7 @@ mod tests {
 
     fn debug_symbol(
         symbol: &Symbol,
-        root_ctx: &RootBodyLowerContext,
+        shared_ctx: &SharedBodyLowerContext,
         ctx: &BodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
@@ -636,7 +639,7 @@ mod tests {
                 | Expr::VariableRef { .. }
                 | Expr::Call { .. } => debug_expr(
                     &ctx.exprs[*expr],
-                    root_ctx,
+                    shared_ctx,
                     ctx,
                     db,
                     item_tree,

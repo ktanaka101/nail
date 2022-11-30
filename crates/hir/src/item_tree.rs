@@ -25,7 +25,7 @@ pub enum Type {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Function {
-    pub name: Name,
+    pub name: Option<Name>,
     pub params: Vec<Param>,
     pub return_type: Type,
     pub ast: AstId<ast::FunctionDef>,
@@ -180,7 +180,6 @@ impl<'a> ItemTreeBuilderContext<'a> {
         match stmt {
             ast::Stmt::FunctionDef(def) => {
                 let block = def.body()?;
-                let name = Name::from_key(self.interner.intern(def.name()?.name()));
                 let params = def
                     .params()?
                     .params()
@@ -200,6 +199,12 @@ impl<'a> ItemTreeBuilderContext<'a> {
                     Type::Unit
                 };
 
+                let name = if let Some(name) = def.name() {
+                    Some(Name::from_key(self.interner.intern(name.name())))
+                } else {
+                    None
+                };
+
                 let ast_id = db.alloc_node(&def);
                 let function = Function {
                     name,
@@ -208,7 +213,9 @@ impl<'a> ItemTreeBuilderContext<'a> {
                     ast: ast_id,
                 };
                 let function = db.functions.alloc(function);
-                current_scope.insert(name, function);
+                if let Some(name) = name {
+                    current_scope.insert(name, function);
+                }
 
                 let block = self.build_block(block, parent, db);
                 self.block_to_function.insert(block.clone(), function);

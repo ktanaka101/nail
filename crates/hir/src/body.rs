@@ -392,7 +392,11 @@ mod tests {
             .function_body_by_block(&block_ast_id)
             .unwrap();
 
-        let name = lower_result.interner.lookup(function.name.key());
+        let name = if let Some(name) = function.name {
+            lower_result.interner.lookup(name.key())
+        } else {
+            "<missing>"
+        };
         let params = function
             .params
             .iter()
@@ -1329,7 +1333,10 @@ mod tests {
 
     #[test]
     fn function_missing_name() {
-        check("fn (a, ) {}", expect![""]);
+        check("fn (a, ) {}", expect![[r#"
+            fn <missing>(a: <unknown>, <missing>: <unknown>) -> () {
+            }
+        "#]]);
     }
 
     #[test]

@@ -54,17 +54,17 @@ ENV CARGO_BUILD_TARGET_DIR=/tmp/target
 
 ENV NAIL_LANGUAGE_SERVER_PATH=/tmp/target/debug/nail-language-server
 
+RUN rustup toolchain install nightly
+
 # using by cargo-fuzz
 RUN apt-get install -y g++
 RUN cargo install cargo-fuzz
 RUN rustup override set --path fuzz nightly
 
 RUN rustup component add rustfmt clippy rust-analysis rust-src
-RUN rustup toolchain install nightly
 
 # for CI
 
 FROM base AS ci
 
 RUN rustup component add rustfmt clippy
-RUN rustup toolchain install nightly

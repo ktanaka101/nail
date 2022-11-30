@@ -43,9 +43,6 @@ ENV LLVM_SYS_140_PREFIX=/usr/lib/llvm-14
 RUN curl -sL https://deb.nodesource.com/setup_18.x | bash -
 RUN apt install -y nodejs
 
-# using by rustfmt
-RUN rustup toolchain install nightly
-
 # for development
 
 FROM base AS development
@@ -60,12 +57,13 @@ ENV NAIL_LANGUAGE_SERVER_PATH=/tmp/target/debug/nail-language-server
 # using by cargo-fuzz
 RUN apt-get install -y g++
 RUN cargo install cargo-fuzz
-RUN rustup override set --path fuzz nightly
 
 RUN rustup component add rustfmt clippy rust-analysis rust-src
+RUN rustup component add rustfmt --toolchain nightly
 
 # for CI
 
 FROM base AS ci
 
 RUN rustup component add rustfmt clippy
+RUN rustup component add rustfmt --toolchain nightly

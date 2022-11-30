@@ -93,8 +93,8 @@ fn dev_run(code: &str) -> Result<String> {
     }
 
     let source_file = ast::SourceFile::cast(syntax).unwrap();
-    let hir = hir::lower(source_file);
-    message.push_str(format!("\n{:?}", hir).as_str());
+    let lower_result = hir::lower(source_file);
+    message.push_str(format!("\n{:?}", lower_result).as_str());
 
     Ok(message)
 }

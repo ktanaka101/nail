@@ -16,16 +16,17 @@ pub use body::BodyLowerContext;
 use string_interner::{Interner, Key};
 use syntax::SyntaxNodePtr;
 
-pub fn lower(
-    ast: ast::SourceFile,
-) -> (
-    SharedBodyLowerContext,
-    BodyLowerContext,
-    Vec<Stmt>,
-    Database,
-    ItemTree,
-    Interner,
-) {
+#[derive(Debug)]
+pub struct LowerResult {
+    pub shared_ctx: SharedBodyLowerContext,
+    pub root_ctx: BodyLowerContext,
+    pub stmts: Vec<Stmt>,
+    pub db: Database,
+    pub item_tree: ItemTree,
+    pub interner: Interner,
+}
+
+pub fn lower(ast: ast::SourceFile) -> LowerResult {
     let mut interner = Interner::new();
     let mut db = Database::new();
     let item_tree_builder = ItemTreeBuilderContext::new(&mut interner);
@@ -40,7 +41,15 @@ pub fn lower(
             root_ctx.lower_stmt(stmt, &mut shared_ctx, &db, &item_tree, &mut interner)
         })
         .collect();
-    (shared_ctx, root_ctx, stmts, db, item_tree, interner)
+
+    LowerResult {
+        shared_ctx,
+        root_ctx,
+        stmts,
+        db,
+        item_tree,
+        interner,
+    }
 }
 
 pub type ExprIdx = Idx<Expr>;

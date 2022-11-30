@@ -364,7 +364,7 @@ mod tests {
 
     use crate::{
         item_tree::{Function, Type},
-        lower,
+        lower, LowerResult,
     };
 
     use super::*;
@@ -373,45 +373,42 @@ mod tests {
         "    ".repeat(nesting)
     }
 
-    fn debug(
-        stmts: &[Stmt],
-        shared_ctx: &SharedBodyLowerContext,
-        ctx: &BodyLowerContext,
-        db: &Database,
-        item_tree: &ItemTree,
-        interner: &Interner,
-    ) -> String {
+    fn debug(lower_result: &LowerResult) -> String {
         let mut msg = "".to_string();
 
-        for stmt in stmts {
-            msg.push_str(&debug_stmt(
-                stmt, shared_ctx, ctx, db, item_tree, interner, 0,
-            ));
+        for stmt in &lower_result.stmts {
+            msg.push_str(&debug_stmt(lower_result, stmt, &lower_result.root_ctx, 0));
         }
 
         msg
     }
 
     fn debug_function(
+        lower_result: &LowerResult,
         function_idx: Idx<Function>,
-        shared_ctx: &SharedBodyLowerContext,
-        db: &Database,
-        item_tree: &ItemTree,
-        interner: &Interner,
         nesting: usize,
     ) -> String {
-        let function = &db.functions[function_idx];
-        let block_ast_id = item_tree.function_to_block(&function_idx).unwrap();
-        let function_ctx = shared_ctx.body_context_by_block(&block_ast_id).unwrap();
-        let body_expr = shared_ctx.function_body_by_block(&block_ast_id).unwrap();
+        let function = &lower_result.db.functions[function_idx];
+        let block_ast_id = lower_result
+            .item_tree
+            .function_to_block(&function_idx)
+            .unwrap();
+        let function_ctx = lower_result
+            .shared_ctx
+            .body_context_by_block(&block_ast_id)
+            .unwrap();
+        let body_expr = lower_result
+            .shared_ctx
+            .function_body_by_block(&block_ast_id)
+            .unwrap();
 
-        let name = interner.lookup(function.name.key());
+        let name = lower_result.interner.lookup(function.name.key());
         let params = function
             .params
             .iter()
             .map(|param| {
                 let name = if let Some(name) = param.name {
-                    interner.lookup(name.key())
+                    lower_result.interner.lookup(name.key())
                 } else {
                     "<missing>"
                 };
@@ -436,15 +433,7 @@ mod tests {
             Type::Unknown => "<unknown>",
         };
 
-        let body = debug_expr(
-            body_expr,
-            shared_ctx,
-            function_ctx,
-            db,
-            item_tree,
-            interner,
-            nesting,
-        );
+        let body = debug_expr(lower_result, body_expr, function_ctx, nesting);
         format!(
             "{}fn {}({}) -> {} {}\n",
             indent(nesting),
@@ -456,46 +445,30 @@ mod tests {
     }
 
     fn debug_stmt(
+        lower_result: &LowerResult,
         stmt: &Stmt,
-        shared_ctx: &SharedBodyLowerContext,
         ctx: &BodyLowerContext,
-        db: &Database,
-        item_tree: &ItemTree,
-        interner: &Interner,
         nesting: usize,
     ) -> String {
         match stmt {
             Stmt::VariableDef { name, value } => {
-                let name = interner.lookup(name.key());
-                let expr_str = debug_expr(
-                    &ctx.exprs[*value],
-                    shared_ctx,
-                    ctx,
-                    db,
-                    item_tree,
-                    interner,
-                    nesting,
-                );
+                let name = lower_result.interner.lookup(name.key());
+                let expr_str = debug_expr(lower_result, &ctx.exprs[*value], ctx, nesting);
                 format!("{}let {} = {}\n", indent(nesting), name, expr_str)
             }
             Stmt::Expr(expr) => format!(
                 "{}{}\n",
                 indent(nesting),
-                debug_expr(
-                    &ctx.exprs[*expr],
-                    shared_ctx,
-                    ctx,
-                    db,
-                    item_tree,
-                    interner,
-                    nesting
-                )
+                debug_expr(lower_result, &ctx.exprs[*expr], ctx, nesting)
             ),
             Stmt::FunctionDef { body, .. } => {
-                let body = &shared_ctx.function_bodies[*body];
+                let body = &lower_result.shared_ctx.function_bodies[*body];
                 if let Expr::Block(block) = body {
-                    let function_idx = item_tree.block_to_function_idx(&block.ast).unwrap();
-                    debug_function(function_idx, shared_ctx, db, item_tree, interner, nesting)
+                    let function_idx = lower_result
+                        .item_tree
+                        .block_to_function_idx(&block.ast)
+                        .unwrap();
+                    debug_function(lower_result, function_idx, nesting)
                 } else {
                     panic!("supported only block");
                 }
@@ -504,12 +477,9 @@ mod tests {
     }
 
     fn debug_expr(
+        lower_result: &LowerResult,
         expr: &Expr,
-        shared_ctx: &SharedBodyLowerContext,
         ctx: &BodyLowerContext,
-        db: &Database,
-        item_tree: &ItemTree,
-        interner: &Interner,
         nesting: usize,
     ) -> String {
         match expr {
@@ -526,60 +496,23 @@ mod tests {
                     BinaryOp::Mul => "*",
                     BinaryOp::Div => "/",
                 };
-                let lhs_str = debug_expr(
-                    &ctx.exprs[*lhs],
-                    shared_ctx,
-                    ctx,
-                    db,
-                    item_tree,
-                    interner,
-                    nesting,
-                );
-                let rhs_str = debug_expr(
-                    &ctx.exprs[*rhs],
-                    shared_ctx,
-                    ctx,
-                    db,
-                    item_tree,
-                    interner,
-                    nesting,
-                );
+                let lhs_str = debug_expr(lower_result, &ctx.exprs[*lhs], ctx, nesting);
+                let rhs_str = debug_expr(lower_result, &ctx.exprs[*rhs], ctx, nesting);
                 format!("{} {} {}", lhs_str, op, rhs_str)
             }
             Expr::Unary { op, expr } => {
                 let op = match op {
                     UnaryOp::Neg => "-",
                 };
-                let expr_str = debug_expr(
-                    &ctx.exprs[*expr],
-                    shared_ctx,
-                    ctx,
-                    db,
-                    item_tree,
-                    interner,
-                    nesting,
-                );
+                let expr_str = debug_expr(lower_result, &ctx.exprs[*expr], ctx, nesting);
                 format!("{}{}", op, expr_str)
             }
-            Expr::VariableRef { var } => {
-                debug_symbol(var, shared_ctx, ctx, db, item_tree, interner, nesting)
-            }
+            Expr::VariableRef { var } => debug_symbol(lower_result, var, ctx, nesting),
             Expr::Call { callee, args } => {
-                let callee =
-                    debug_symbol(callee, shared_ctx, ctx, db, item_tree, interner, nesting);
+                let callee = debug_symbol(lower_result, callee, ctx, nesting);
                 let args = args
                     .iter()
-                    .map(|arg| {
-                        debug_expr(
-                            &ctx.exprs[*arg],
-                            shared_ctx,
-                            ctx,
-                            db,
-                            item_tree,
-                            interner,
-                            nesting,
-                        )
-                    })
+                    .map(|arg| debug_expr(lower_result, &ctx.exprs[*arg], ctx, nesting))
                     .collect::<Vec<_>>()
                     .join(", ");
 
@@ -588,29 +521,13 @@ mod tests {
             Expr::Block(block) => {
                 let mut msg = "{\n".to_string();
                 for stmt in &block.stmts {
-                    msg.push_str(&debug_stmt(
-                        stmt,
-                        shared_ctx,
-                        ctx,
-                        db,
-                        item_tree,
-                        interner,
-                        nesting + 1,
-                    ));
+                    msg.push_str(&debug_stmt(lower_result, stmt, ctx, nesting + 1));
                 }
                 if let Some(tail) = block.tail {
                     msg.push_str(&format!(
                         "{}expr:{}\n",
                         indent(nesting + 1),
-                        debug_expr(
-                            &ctx.exprs[tail],
-                            shared_ctx,
-                            ctx,
-                            db,
-                            item_tree,
-                            interner,
-                            nesting + 1
-                        )
+                        debug_expr(lower_result, &ctx.exprs[tail], ctx, nesting + 1)
                     ));
                 }
                 msg.push_str(&format!("{}}}", indent(nesting)));
@@ -622,12 +539,9 @@ mod tests {
     }
 
     fn debug_symbol(
+        lower_result: &LowerResult,
         symbol: &Symbol,
-        shared_ctx: &SharedBodyLowerContext,
         ctx: &BodyLowerContext,
-        db: &Database,
-        item_tree: &ItemTree,
-        interner: &Interner,
         nesting: usize,
     ) -> String {
         match symbol {
@@ -637,23 +551,15 @@ mod tests {
                 | Expr::Literal(_)
                 | Expr::Unary { .. }
                 | Expr::VariableRef { .. }
-                | Expr::Call { .. } => debug_expr(
-                    &ctx.exprs[*expr],
-                    shared_ctx,
-                    ctx,
-                    db,
-                    item_tree,
-                    interner,
-                    nesting,
-                ),
-                Expr::Block { .. } => interner.lookup(name.key()).to_string(),
+                | Expr::Call { .. } => debug_expr(lower_result, &ctx.exprs[*expr], ctx, nesting),
+                Expr::Block { .. } => lower_result.interner.lookup(name.key()).to_string(),
             },
             Symbol::Param { name } => {
-                let name = interner.lookup(name.key());
+                let name = lower_result.interner.lookup(name.key());
                 format!("param:{}", name)
             }
             Symbol::Function { name, .. } => {
-                let name = interner.lookup(name.key());
+                let name = lower_result.interner.lookup(name.key());
                 format!("fn:{}", name)
             }
             Symbol::Missing { .. } => "<missing>".to_string(),
@@ -668,9 +574,7 @@ mod tests {
         let source_file = parse(input);
         let result = lower(source_file);
 
-        expected.assert_eq(&debug(
-            &result.2, &result.0, &result.1, &result.3, &result.4, &result.5,
-        ));
+        expected.assert_eq(&debug(&result));
     }
 
     #[test]

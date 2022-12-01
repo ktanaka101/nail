@@ -6,7 +6,13 @@ pub struct InferenceResult {
     pub errors: Vec<InferenceError>,
 }
 
-impl InferenceResult {
+#[derive(Debug)]
+struct InferenceContext {
+    pub type_by_exprs: collections::HashMap<hir::ExprIdx, ResolvedType>,
+    pub errors: Vec<InferenceError>,
+}
+
+impl InferenceContext {
     fn new() -> Self {
         Self {
             type_by_exprs: collections::HashMap::new(),
@@ -28,23 +34,26 @@ pub enum ResolvedType {
 }
 
 pub fn infer_body(stmts: Vec<hir::Stmt>, ctx: &hir::BodyLowerContext) -> InferenceResult {
-    let mut inference_result = InferenceResult::new();
+    let mut inference_context = InferenceContext::new();
 
     for stmt in stmts {
         match stmt {
             hir::Stmt::Expr(expr) => {
                 let ty = infer_expr(&ctx.exprs[expr]);
-                inference_result.type_by_exprs.insert(expr, ty);
+                inference_context.type_by_exprs.insert(expr, ty);
             }
             hir::Stmt::VariableDef { value, .. } => {
                 let ty = infer_expr(&ctx.exprs[value]);
-                inference_result.type_by_exprs.insert(value, ty);
+                inference_context.type_by_exprs.insert(value, ty);
             }
             hir::Stmt::FunctionDef { .. } => unimplemented!(),
         }
     }
 
-    inference_result
+    InferenceResult {
+        type_by_exprs: inference_context.type_by_exprs,
+        errors: inference_context.errors,
+    }
 }
 
 fn infer_expr(expr: &hir::Expr) -> ResolvedType {

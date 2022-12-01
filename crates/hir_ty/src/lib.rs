@@ -61,15 +61,15 @@ impl TypeInferencer {
         }
     }
 
-    pub fn infer_body(&mut self, stmts: Vec<hir::Stmt>, ctx: &hir::BodyLowerContext) {
+    pub fn infer_body(&mut self, stmts: Vec<hir::Stmt>, lower_ctx: &hir::BodyLowerContext) {
         for stmt in stmts {
             match stmt {
                 hir::Stmt::Expr(expr) => {
-                    let ty = self.infer_expr(&ctx.exprs[expr]);
+                    let ty = self.infer_expr_idx(expr, lower_ctx);
                     self.ctx.type_by_exprs.insert(expr, ty);
                 }
                 hir::Stmt::VariableDef { value, .. } => {
-                    let ty = self.infer_expr(&ctx.exprs[value]);
+                    let ty = self.infer_expr_idx(value, lower_ctx);
                     self.ctx.type_by_exprs.insert(value, ty);
                 }
                 hir::Stmt::FunctionDef { .. } => unimplemented!(),
@@ -87,6 +87,22 @@ impl TypeInferencer {
             },
             _ => todo!(),
         }
+    }
+
+    fn infer_expr_idx(
+        &mut self,
+        expr: hir::ExprIdx,
+        lower_ctx: &hir::BodyLowerContext,
+    ) -> ResolvedType {
+        if let Some(ty) = self.lookup_type(expr) {
+            return ty;
+        }
+
+        self.infer_expr(&lower_ctx.exprs[expr])
+    }
+
+    fn lookup_type(&self, expr: hir::ExprIdx) -> Option<ResolvedType> {
+        self.ctx.type_by_exprs.get(&expr).copied()
     }
 }
 

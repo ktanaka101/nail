@@ -1,5 +1,7 @@
 use std::collections;
 
+use hir::BodyLowerContext;
+
 pub fn infer(stmts: Vec<hir::Stmt>, lower_ctx: &hir::BodyLowerContext) -> InferenceResult {
     let inferencer = TypeInferencer::new();
     inferencer.infer(stmts, lower_ctx)
@@ -27,7 +29,9 @@ impl InferenceContext {
 }
 
 #[derive(Debug, Clone)]
-pub enum InferenceError {}
+pub enum InferenceError {
+    UnresolvedType(hir::ExprIdx),
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ResolvedType {
@@ -77,7 +81,7 @@ impl TypeInferencer {
         }
     }
 
-    fn infer_expr(&mut self, expr: &hir::Expr) -> ResolvedType {
+    fn infer_expr(&mut self, expr: &hir::Expr, lower_ctx: &BodyLowerContext) -> ResolvedType {
         match expr {
             hir::Expr::Literal(literal) => match literal {
                 hir::Literal::Integer(_) => ResolvedType::Integer,
@@ -85,6 +89,31 @@ impl TypeInferencer {
                 hir::Literal::Char(_) => ResolvedType::Char,
                 hir::Literal::Bool(_) => ResolvedType::Bool,
             },
+            hir::Expr::Binary { lhs, rhs, .. } => {
+                let lhs_ty = self.infer_expr_idx(*lhs, lower_ctx);
+                let rhs_ty = self.infer_expr_idx(*rhs, lower_ctx);
+
+                if rhs_ty == lhs_ty && rhs_ty == ResolvedType::Integer {
+                    return rhs_ty;
+                }
+
+                match (lhs_ty, rhs_ty) {
+                    (ResolvedType::Unknown, ResolvedType::Unknown) => {
+                        self.ctx.errors.push(InferenceError::UnresolvedType(*lhs));
+                        self.ctx.errors.push(InferenceError::UnresolvedType(*rhs));
+                        ResolvedType::Unknown
+                    }
+                    (ty, ResolvedType::Unknown) => {
+                        self.ctx.type_by_exprs.insert(*rhs, ty);
+                        ty
+                    }
+                    (ResolvedType::Unknown, ty) => {
+                        self.ctx.type_by_exprs.insert(*lhs, ty);
+                        ty
+                    }
+                    (_, _) => ResolvedType::Unknown,
+                }
+            }
             _ => todo!(),
         }
     }
@@ -98,7 +127,7 @@ impl TypeInferencer {
             return ty;
         }
 
-        self.infer_expr(&lower_ctx.exprs[expr])
+        self.infer_expr(&lower_ctx.exprs[expr], lower_ctx)
     }
 
     fn lookup_type(&self, expr: hir::ExprIdx) -> Option<ResolvedType> {
@@ -134,6 +163,18 @@ mod tests {
             ));
         }
 
+        msg.push_str("---\n");
+        for err in &result.errors {
+            match err {
+                InferenceError::UnresolvedType(idx) => {
+                    msg.push_str(&format!(
+                        "error: {} is not resolved type.\n",
+                        idx.into_raw()
+                    ));
+                }
+            }
+        }
+
         msg
     }
 
@@ -154,6 +195,7 @@ mod tests {
             "10",
             expect![[r#"
                 0: int
+                ---
             "#]],
         );
     }
@@ -164,6 +206,7 @@ mod tests {
             "\"aaa\"",
             expect![[r#"
                 0: string
+                ---
             "#]],
         );
     }
@@ -174,6 +217,7 @@ mod tests {
             "'a'",
             expect![[r#"
                 0: char
+                ---
             "#]],
         );
     }
@@ -184,6 +228,7 @@ mod tests {
             "true",
             expect![[r#"
                 0: bool
+                ---
             "#]],
         );
 
@@ -191,6 +236,7 @@ mod tests {
             "false",
             expect![[r#"
                 0: bool
+                ---
             "#]],
         );
     }
@@ -201,6 +247,7 @@ mod tests {
             "let a = true",
             expect![[r#"
                 0: bool
+                ---
             "#]],
         )
     }
@@ -219,7 +266,48 @@ mod tests {
                 1: int
                 2: string
                 3: char
+                ---
             "#]],
         )
+    }
+
+    #[test]
+    fn infer_binary() {
+        check(
+            r#"
+                10 + 20
+                "aaa" + "bbb"
+                10 + "aaa"
+                'a' + 'a'
+                10 + 'a'
+                true + true
+                10 + true
+                10 + (10 + "aaa")
+            "#,
+            expect![[r#"
+                2: int
+                5: unknown
+                8: unknown
+                11: unknown
+                14: unknown
+                17: unknown
+                20: unknown
+                24: int
+                25: int
+                ---
+            "#]],
+        );
+
+        check(
+            r#"
+                (10 + "aaa") + (10 + "aaa")
+            "#,
+            expect![[r#"
+                6: unknown
+                ---
+                error: 4 is not resolved type.
+                error: 5 is not resolved type.
+            "#]],
+        );
     }
 }

@@ -122,6 +122,11 @@ impl TypeInferencer {
 
                 ResolvedType::Unknown
             }
+            hir::Expr::VariableRef { var } => match var {
+                hir::Symbol::Local { expr, .. } => self.infer_expr_idx(*expr, lower_ctx),
+                hir::Symbol::Missing { .. } => ResolvedType::Unknown,
+                hir::Symbol::Function { .. } | hir::Symbol::Param { .. } => unimplemented!(),
+            },
             _ => todo!(),
         }
     }
@@ -333,6 +338,21 @@ mod tests {
                 3: unknown
                 5: unknown
                 7: unknown
+                ---
+            "#]],
+        )
+    }
+
+    #[test]
+    fn infer_variable_ref() {
+        check(
+            r#"
+                let a = -10
+                a
+            "#,
+            expect![[r#"
+                1: int
+                2: int
                 ---
             "#]],
         )

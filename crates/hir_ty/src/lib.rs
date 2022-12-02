@@ -114,6 +114,14 @@ impl TypeInferencer {
                     (_, _) => ResolvedType::Unknown,
                 }
             }
+            hir::Expr::Unary { expr, .. } => {
+                let expr_ty = self.infer_expr_idx(*expr, lower_ctx);
+                if expr_ty == ResolvedType::Integer {
+                    return ResolvedType::Integer;
+                }
+
+                ResolvedType::Unknown
+            }
             _ => todo!(),
         }
     }
@@ -309,5 +317,24 @@ mod tests {
                 error: 5 is not resolved type.
             "#]],
         );
+    }
+
+    #[test]
+    fn infer_unary() {
+        check(
+            r#"
+                let a = -10
+                let b = -"aaa"
+                let c = -'a'
+                let d = -true
+            "#,
+            expect![[r#"
+                1: int
+                3: unknown
+                5: unknown
+                7: unknown
+                ---
+            "#]],
+        )
     }
 }

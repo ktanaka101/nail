@@ -214,7 +214,7 @@ impl<'a> TypeInferencer<'a> {
             return ty;
         }
 
-        self.infer_expr(&lower_ctx.exprs[expr], lower_ctx)
+        self.infer_expr(&self.hir_result.shared_ctx.exprs[expr], lower_ctx)
     }
 
     fn lookup_type(&self, expr: hir::ExprIdx) -> Option<ResolvedType> {

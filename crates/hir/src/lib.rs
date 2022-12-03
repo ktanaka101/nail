@@ -144,7 +144,7 @@ pub struct Block {
     pub ast: AstId<ast::Block>,
 }
 impl Block {
-    pub fn tail<'a>(&self, ctx: &'a BodyLowerContext) -> Option<&'a Expr> {
+    pub fn tail<'a>(&self, ctx: &'a SharedBodyLowerContext) -> Option<&'a Expr> {
         if let Some(tail) = self.tail {
             Some(&ctx.exprs[tail])
         } else {

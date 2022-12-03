@@ -192,7 +192,34 @@ impl<'a> TypeInferencer<'a> {
                 hir::Symbol::Missing { .. } => ResolvedType::Unknown,
                 hir::Symbol::Function { .. } => unimplemented!(),
             },
-            hir::Expr::Call { .. } => unimplemented!(),
+            hir::Expr::Call { callee, args } => match callee {
+                hir::Symbol::Missing { .. } => ResolvedType::Unknown,
+                hir::Symbol::Function { function, .. } => {
+                    let signature = &self.hir_result.db.functions[*function];
+
+                    for (i, arg) in args.iter().enumerate() {
+                        let param = signature.params[i];
+
+                        let arg_ty = self.infer_expr_idx(*arg, lower_ctx);
+                        let param_ty = self.infer_ty(&self.hir_result.db.params[param].ty);
+
+                        if arg_ty == param_ty {
+                            continue;
+                        }
+
+                        match (arg_ty, param_ty) {
+                            (ResolvedType::Unknown, ResolvedType::Unknown) => (),
+                            (ResolvedType::Unknown, ty) => {
+                                self.ctx.type_by_exprs.insert(*arg, ty);
+                            }
+                            (_, _) => (),
+                        }
+                    }
+
+                    self.infer_ty(&signature.return_type)
+                }
+                hir::Symbol::Local { .. } | hir::Symbol::Param { .. } => unimplemented!(),
+            },
             hir::Expr::Block(block) => self.infer_block(block, lower_ctx),
             hir::Expr::Missing => ResolvedType::Unknown,
         }
@@ -513,6 +540,24 @@ mod tests {
             expect![[r#"
                 0: int
                 1: string
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn infer_call() {
+        check(
+            r#"
+                fn aaa(x: bool, y: string) -> int {
+                    10 + 20
+                }
+                let res = aaa(true, "aaa");
+                res + 30
+            "#,
+            expect![[r#"
+                4: int
+                7: int
                 ---
             "#]],
         );

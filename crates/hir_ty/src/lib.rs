@@ -74,7 +74,7 @@ impl<'a> TypeInferencer<'a> {
                 params: function
                     .params
                     .iter()
-                    .map(|param| self.infer_ty(&param.ty))
+                    .map(|param| self.infer_ty(&self.hir_result.db.params[*param].ty))
                     .collect(),
                 return_type: self.infer_ty(&function.return_type),
             };
@@ -187,8 +187,12 @@ impl<'a> TypeInferencer<'a> {
             }
             hir::Expr::VariableRef { var } => match var {
                 hir::Symbol::Local { expr, .. } => self.infer_expr_idx(*expr, lower_ctx),
+                hir::Symbol::Param { param, .. } => {
+                    let param = &self.hir_result.db.params[*param];
+                    self.infer_ty(&param.ty)
+                }
                 hir::Symbol::Missing { .. } => ResolvedType::Unknown,
-                hir::Symbol::Function { .. } | hir::Symbol::Param { .. } => unimplemented!(),
+                hir::Symbol::Function { .. } => unimplemented!(),
             },
             hir::Expr::Call { .. } => unimplemented!(),
             hir::Expr::Block(block) => self.infer_block(block, lower_ctx),
@@ -494,6 +498,23 @@ mod tests {
             "#,
             expect![[r#"
                 0: int
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn infer_function_param() {
+        check(
+            r#"
+                fn aaa(x: int, y: string) {
+                    let a = x
+                    let b = y
+                }
+            "#,
+            expect![[r#"
+                0: int
+                1: string
                 ---
             "#]],
         );

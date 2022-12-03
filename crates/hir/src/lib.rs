@@ -3,13 +3,13 @@ mod db;
 mod item_tree;
 pub mod string_interner;
 
-use std::marker::PhantomData;
+use std::{collections::HashMap, marker::PhantomData};
 
 use ast::Ast;
 pub use body::{BodyLowerContext, SharedBodyLowerContext};
 pub use db::Database;
 use item_tree::ItemTreeBuilderContext;
-pub use item_tree::{FunctionIdx, ItemTree, Type};
+pub use item_tree::{FunctionIdx, ItemTree, ParamIdx, Type};
 use la_arena::Idx;
 use string_interner::{Interner, Key};
 use syntax::SyntaxNodePtr;
@@ -32,7 +32,7 @@ pub fn lower(ast: ast::SourceFile) -> LowerResult {
 
     let mut shared_ctx = SharedBodyLowerContext::new();
 
-    let mut root_ctx = BodyLowerContext::new(vec![]);
+    let mut root_ctx = BodyLowerContext::new(HashMap::new());
     let stmts = ast
         .stmts()
         .filter_map(|stmt| {
@@ -131,7 +131,7 @@ pub enum Expr {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Symbol {
-    Param { name: Name },
+    Param { name: Name, param: ParamIdx },
     Local { name: Name, expr: ExprIdx },
     Function { name: Name, function: FunctionIdx },
     Missing { name: Name },

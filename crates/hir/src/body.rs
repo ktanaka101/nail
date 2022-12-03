@@ -7,7 +7,7 @@ use la_arena::{Arena, Idx};
 use self::scopes::CurrentBlock;
 use crate::{
     body::scopes::Scopes, db::Database, item_tree::ItemTree, string_interner::Interner, AstId,
-    BinaryOp, Block, Expr, ExprIdx, Literal, Name, Stmt, Symbol, UnaryOp,
+    BinaryOp, Block, Expr, ExprIdx, Literal, Name, ParamIdx, Stmt, Symbol, UnaryOp,
 };
 
 #[derive(Debug, Default)]
@@ -60,11 +60,11 @@ impl SharedBodyLowerContext {
 #[derive(Debug)]
 pub struct BodyLowerContext {
     scopes: Scopes,
-    params: Vec<Name>,
+    params: HashMap<Name, ParamIdx>,
 }
 
 impl BodyLowerContext {
-    pub(super) fn new(params: Vec<Name>) -> Self {
+    pub(super) fn new(params: HashMap<Name, ParamIdx>) -> Self {
         Self {
             scopes: Scopes::new(),
             params,
@@ -92,14 +92,11 @@ impl BodyLowerContext {
                 Stmt::Expr(ctx.exprs.alloc(expr))
             }
             ast::Stmt::FunctionDef(def) => {
-                let params = def
-                    .params()?
-                    .params()
-                    .filter_map(|param| param.name())
-                    .map(|ident| Name::from_key(interner.intern(ident.name())))
-                    .collect();
-                let mut body_lower_ctx = BodyLowerContext::new(params);
                 let body = def.body()?;
+                let body_ast_id = db.lookup_ast_id(&body).unwrap();
+                let function = item_tree.block_to_function(db, &body_ast_id).unwrap();
+
+                let mut body_lower_ctx = BodyLowerContext::new(function.param_by_name.clone());
                 let stmt = body_lower_ctx.lower_function(def, ctx, db, item_tree, interner)?;
 
                 let ctx_idx = ctx.contexts.alloc(body_lower_ctx);
@@ -264,8 +261,11 @@ impl BodyLowerContext {
         let name = Name::from_key(interner.intern(ast.name()));
         if let Some(expr) = self.scopes.get_from_current_scope(name) {
             Symbol::Local { name, expr }
-        } else if self.params.iter().any(|param| *param == name) {
-            Symbol::Param { name }
+        } else if let Some(param_idx) = self.lookup_param(name) {
+            Symbol::Param {
+                name,
+                param: param_idx,
+            }
         } else {
             let item_scope = match self.scopes.current_block() {
                 CurrentBlock::Root => item_tree.root_scope(db),
@@ -281,6 +281,10 @@ impl BodyLowerContext {
                 Symbol::Missing { name }
             }
         }
+    }
+
+    fn lookup_param(&self, name: Name) -> Option<ParamIdx> {
+        self.params.get(&name).copied()
     }
 
     fn lower_call(
@@ -398,6 +402,7 @@ mod tests {
             .params
             .iter()
             .map(|param| {
+                let param = &lower_result.db.params[*param];
                 let name = if let Some(name) = param.name {
                     lower_result.interner.lookup(name.key())
                 } else {
@@ -587,7 +592,7 @@ mod tests {
                 ),
                 Expr::Block { .. } => lower_result.interner.lookup(name.key()).to_string(),
             },
-            Symbol::Param { name } => {
+            Symbol::Param { name, .. } => {
                 let name = lower_result.interner.lookup(name.key());
                 format!("param:{}", name)
             }

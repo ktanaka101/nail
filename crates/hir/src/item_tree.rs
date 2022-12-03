@@ -3,7 +3,7 @@ mod item_scope;
 
 use std::collections::HashMap;
 
-pub use item::{Function, FunctionIdx, Param, Type};
+pub use item::{Function, FunctionIdx, Param, ParamIdx, Type};
 pub use item_scope::{ItemScope, ItemScopeIdx, Parent};
 
 use crate::{db::Database, string_interner::Interner, AstId, Name};
@@ -97,16 +97,26 @@ impl<'a> ItemTreeBuilderContext<'a> {
                 let params = def
                     .params()?
                     .params()
-                    .map(|param| {
+                    .enumerate()
+                    .map(|(pos, param)| {
                         let name = if let Some(name) = param.name() {
                             Some(Name::from_key(self.interner.intern(name.name())))
                         } else {
                             None
                         };
                         let ty = self.lower_ty(param.ty());
-                        Param { name, ty }
+                        let param = Param { name, ty, pos };
+                        db.params.alloc(param)
                     })
-                    .collect();
+                    .collect::<Vec<_>>();
+                let param_by_name = params
+                    .iter()
+                    .enumerate()
+                    .filter_map(|param| {
+                        let p = &db.params[*param.1];
+                        p.name.map(|name| (name, *param.1))
+                    })
+                    .collect::<HashMap<_, _>>();
                 let return_type = if let Some(return_type) = def.return_type() {
                     self.lower_ty(return_type.ty())
                 } else {
@@ -123,6 +133,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
                 let function = Function {
                     name,
                     params,
+                    param_by_name,
                     return_type,
                     ast: ast_id,
                 };

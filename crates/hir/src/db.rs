@@ -4,13 +4,14 @@ use la_arena::{Arena, Idx};
 use syntax::SyntaxNodePtr;
 
 use crate::{
-    item_tree::{Function, ItemScope},
+    item_tree::{Function, ItemScope, Param},
     AstId, AstPtr, FileId, InFile,
 };
 
 #[derive(Debug, Default)]
 pub struct Database {
     pub functions: Arena<Function>,
+    pub params: Arena<Param>,
     pub item_scopes: Arena<ItemScope>,
     syntax_node_ptrs: Arena<SyntaxNodePtr>,
     syntax_node_ptr_to_idx: HashMap<SyntaxNodePtr, Idx<SyntaxNodePtr>>,
@@ -19,6 +20,7 @@ impl Database {
     pub fn new() -> Self {
         Self {
             functions: Arena::default(),
+            params: Arena::default(),
             item_scopes: Arena::default(),
             syntax_node_ptrs: Arena::default(),
             syntax_node_ptr_to_idx: HashMap::default(),

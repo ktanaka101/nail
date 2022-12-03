@@ -2,9 +2,9 @@ use std::collections;
 
 use hir::BodyLowerContext;
 
-pub fn infer(stmts: Vec<hir::Stmt>, lower_ctx: &hir::BodyLowerContext) -> InferenceResult {
+pub fn infer(hir_result: &hir::LowerResult) -> InferenceResult {
     let inferencer = TypeInferencer::new();
-    inferencer.infer(stmts, lower_ctx)
+    inferencer.infer(hir_result)
 }
 
 #[derive(Debug)]
@@ -52,29 +52,26 @@ impl TypeInferencer {
         }
     }
 
-    pub fn infer(
-        mut self,
-        stmts: Vec<hir::Stmt>,
-        lower_ctx: &hir::BodyLowerContext,
-    ) -> InferenceResult {
-        self.infer_body(stmts, lower_ctx);
+    pub fn infer(mut self, hir_result: &hir::LowerResult) -> InferenceResult {
+        self.infer_body(&hir_result.stmts, &hir_result.root_ctx);
 
         InferenceResult {
             type_by_exprs: self.ctx.type_by_exprs,
+            signatures: self.ctx.signatures,
             errors: self.ctx.errors,
         }
     }
 
-    pub fn infer_body(&mut self, stmts: Vec<hir::Stmt>, lower_ctx: &hir::BodyLowerContext) {
+    pub fn infer_body(&mut self, stmts: &[hir::Stmt], lower_ctx: &hir::BodyLowerContext) {
         for stmt in stmts {
             match stmt {
                 hir::Stmt::Expr(expr) => {
-                    let ty = self.infer_expr_idx(expr, lower_ctx);
-                    self.ctx.type_by_exprs.insert(expr, ty);
+                    let ty = self.infer_expr_idx(*expr, lower_ctx);
+                    self.ctx.type_by_exprs.insert(*expr, ty);
                 }
                 hir::Stmt::VariableDef { value, .. } => {
-                    let ty = self.infer_expr_idx(value, lower_ctx);
-                    self.ctx.type_by_exprs.insert(value, ty);
+                    let ty = self.infer_expr_idx(*value, lower_ctx);
+                    self.ctx.type_by_exprs.insert(*value, ty);
                 }
                 hir::Stmt::FunctionDef { .. } => unimplemented!(),
             }
@@ -162,7 +159,7 @@ mod tests {
         let ast = ast::SourceFile::cast(parsed.syntax()).unwrap();
         let lower_result = hir::lower(ast);
         let inferencer = TypeInferencer::new();
-        let result = inferencer.infer(lower_result.stmts, &lower_result.root_ctx);
+        let result = inferencer.infer(&lower_result);
         expect.assert_eq(&debug(&result));
     }
 

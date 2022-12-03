@@ -127,7 +127,9 @@ impl TypeInferencer {
                 hir::Symbol::Missing { .. } => ResolvedType::Unknown,
                 hir::Symbol::Function { .. } | hir::Symbol::Param { .. } => unimplemented!(),
             },
-            _ => todo!(),
+            hir::Expr::Call { .. } => unimplemented!(),
+            hir::Expr::Block(_) => unimplemented!(),
+            hir::Expr::Missing => ResolvedType::Unknown,
         }
     }
 

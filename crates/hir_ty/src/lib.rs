@@ -102,13 +102,13 @@ impl<'a> TypeInferencer<'a> {
                 .unwrap();
             match body {
                 hir::Expr::Block(block) => {
-                    self.infer_body(&block.stmts, body_ctx);
+                    self.infer_stmts(&block.stmts, body_ctx);
                 }
                 _ => unreachable!(),
             }
         }
 
-        self.infer_body(&self.hir_result.stmts, &self.hir_result.root_ctx);
+        self.infer_stmts(&self.hir_result.stmts, &self.hir_result.root_ctx);
 
         InferenceResult {
             type_by_exprs: self.ctx.type_by_exprs,
@@ -128,7 +128,7 @@ impl<'a> TypeInferencer<'a> {
         }
     }
 
-    pub fn infer_body(&mut self, stmts: &[hir::Stmt], lower_ctx: &hir::BodyLowerContext) {
+    pub fn infer_stmts(&mut self, stmts: &[hir::Stmt], lower_ctx: &hir::BodyLowerContext) {
         for stmt in stmts {
             match stmt {
                 hir::Stmt::Expr(expr) => {
@@ -197,7 +197,7 @@ impl<'a> TypeInferencer<'a> {
     }
 
     fn infer_block(&mut self, block: &hir::Block, lower_ctx: &BodyLowerContext) -> ResolvedType {
-        self.infer_body(&block.stmts, lower_ctx);
+        self.infer_stmts(&block.stmts, lower_ctx);
         if let Some(tail) = block.tail {
             self.infer_expr_idx(tail, lower_ctx)
         } else {

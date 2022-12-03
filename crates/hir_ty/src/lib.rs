@@ -159,11 +159,6 @@ impl<'a> TypeInferencer<'a> {
                 }
 
                 match (lhs_ty, rhs_ty) {
-                    (ResolvedType::Unknown, ResolvedType::Unknown) => {
-                        self.ctx.errors.push(InferenceError::UnresolvedType(*lhs));
-                        self.ctx.errors.push(InferenceError::UnresolvedType(*rhs));
-                        ResolvedType::Unknown
-                    }
                     (ty, ResolvedType::Unknown) => {
                         self.ctx.type_by_exprs.insert(*rhs, ty);
                         ty
@@ -449,8 +444,6 @@ mod tests {
                 5: unknown
                 6: unknown
                 ---
-                error: 4 is not resolved type.
-                error: 5 is not resolved type.
             "#]],
         );
     }

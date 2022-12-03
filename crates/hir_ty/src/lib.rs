@@ -84,6 +84,30 @@ impl<'a> TypeInferencer<'a> {
                 .insert(function_idx, signature_idx);
         }
 
+        for (function_idx, _) in self.hir_result.db.functions.iter() {
+            let body_ast_id = &self
+                .hir_result
+                .item_tree
+                .function_to_block(&function_idx)
+                .unwrap();
+            let body_ctx = self
+                .hir_result
+                .shared_ctx
+                .body_context_by_block(body_ast_id)
+                .unwrap();
+            let body = self
+                .hir_result
+                .shared_ctx
+                .function_body_by_block(body_ast_id)
+                .unwrap();
+            match body {
+                hir::Expr::Block(block) => {
+                    self.infer_body(&block.stmts, body_ctx);
+                }
+                _ => unreachable!(),
+            }
+        }
+
         self.infer_body(&self.hir_result.stmts, &self.hir_result.root_ctx);
 
         InferenceResult {
@@ -115,7 +139,7 @@ impl<'a> TypeInferencer<'a> {
                     let ty = self.infer_expr_idx(*value, lower_ctx);
                     self.ctx.type_by_exprs.insert(*value, ty);
                 }
-                hir::Stmt::FunctionDef { .. } => unimplemented!(),
+                hir::Stmt::FunctionDef { .. } => (),
             }
         }
     }
@@ -167,15 +191,17 @@ impl<'a> TypeInferencer<'a> {
                 hir::Symbol::Function { .. } | hir::Symbol::Param { .. } => unimplemented!(),
             },
             hir::Expr::Call { .. } => unimplemented!(),
-            hir::Expr::Block(block) => {
-                self.infer_body(&block.stmts, lower_ctx);
-                if let Some(tail) = block.tail {
-                    self.infer_expr_idx(tail, lower_ctx)
-                } else {
-                    ResolvedType::Unit
-                }
-            }
+            hir::Expr::Block(block) => self.infer_block(block, lower_ctx),
             hir::Expr::Missing => ResolvedType::Unknown,
+        }
+    }
+
+    fn infer_block(&mut self, block: &hir::Block, lower_ctx: &BodyLowerContext) -> ResolvedType {
+        self.infer_body(&block.stmts, lower_ctx);
+        if let Some(tail) = block.tail {
+            self.infer_expr_idx(tail, lower_ctx)
+        } else {
+            ResolvedType::Unit
         }
     }
 
@@ -452,6 +478,22 @@ mod tests {
                 1: int
                 5: int
                 6: int
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn infer_function() {
+        check(
+            r#"
+                fn aaa() {
+                    let a = 10
+                    a
+                }
+            "#,
+            expect![[r#"
+                0: int
                 ---
             "#]],
         );

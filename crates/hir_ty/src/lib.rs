@@ -40,6 +40,7 @@ pub enum ResolvedType {
     String,
     Char,
     Bool,
+    Unit,
 }
 
 struct TypeInferencer {
@@ -129,7 +130,14 @@ impl<'a> TypeInferencer<'a> {
                 hir::Symbol::Function { .. } | hir::Symbol::Param { .. } => unimplemented!(),
             },
             hir::Expr::Call { .. } => unimplemented!(),
-            hir::Expr::Block(_) => unimplemented!(),
+            hir::Expr::Block(block) => {
+                self.infer_body(&block.stmts, lower_ctx);
+                if let Some(tail) = block.tail {
+                    self.infer_expr_idx(tail, lower_ctx)
+                } else {
+                    ResolvedType::Unit
+                }
+            }
             hir::Expr::Missing => ResolvedType::Unknown,
         }
     }
@@ -359,5 +367,54 @@ mod tests {
                 ---
             "#]],
         )
+    }
+
+    #[test]
+    fn infer_block() {
+        check(
+            r#"
+                {
+                    10
+                }
+            "#,
+            expect![[r#"
+                1: int
+                ---
+            "#]],
+        );
+
+        check(
+            r#"
+                {
+                    {
+                        10
+                        "aaa"
+                    }
+                }
+            "#,
+            expect![[r#"
+                0: int
+                3: string
+                ---
+            "#]],
+        );
+
+        check(
+            r#"
+                let a = 10;
+                let b = {
+                    let c = 20;
+                    a + c
+                }
+                b
+            "#,
+            expect![[r#"
+                0: int
+                1: int
+                5: int
+                6: int
+                ---
+            "#]],
+        );
     }
 }

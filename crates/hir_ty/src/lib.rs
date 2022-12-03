@@ -3,8 +3,8 @@ use std::collections;
 use hir::BodyLowerContext;
 
 pub fn infer(hir_result: &hir::LowerResult) -> InferenceResult {
-    let inferencer = TypeInferencer::new();
-    inferencer.infer(hir_result)
+    let inferencer = TypeInferencer::new(hir_result);
+    inferencer.infer()
 }
 
 #[derive(Debug)]
@@ -43,17 +43,21 @@ pub enum ResolvedType {
 }
 
 struct TypeInferencer {
+
+struct TypeInferencer<'a> {
+    hir_result: &'a hir::LowerResult,
     ctx: InferenceContext,
 }
-impl TypeInferencer {
-    fn new() -> Self {
+impl<'a> TypeInferencer<'a> {
+    fn new(hir_result: &'a hir::LowerResult) -> Self {
         Self {
+            hir_result,
             ctx: InferenceContext::new(),
         }
     }
 
-    pub fn infer(mut self, hir_result: &hir::LowerResult) -> InferenceResult {
-        self.infer_body(&hir_result.stmts, &hir_result.root_ctx);
+    pub fn infer(mut self) -> InferenceResult {
+        self.infer_body(&self.hir_result.stmts, &self.hir_result.root_ctx);
 
         InferenceResult {
             type_by_exprs: self.ctx.type_by_exprs,
@@ -158,8 +162,8 @@ mod tests {
         let parsed = parser::parse(input);
         let ast = ast::SourceFile::cast(parsed.syntax()).unwrap();
         let lower_result = hir::lower(ast);
-        let inferencer = TypeInferencer::new();
-        let result = inferencer.infer(&lower_result);
+        let inferencer = TypeInferencer::new(&lower_result);
+        let result = inferencer.infer();
         expect.assert_eq(&debug(&result));
     }
 

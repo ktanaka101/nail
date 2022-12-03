@@ -243,7 +243,10 @@ impl<'a> TypeInferencer<'a> {
             return ty;
         }
 
-        self.infer_expr(&self.hir_result.shared_ctx.exprs[expr], lower_ctx)
+        let ty = self.infer_expr(&self.hir_result.shared_ctx.exprs[expr], lower_ctx);
+        self.ctx.type_by_exprs.insert(expr, ty);
+
+        ty
     }
 
     fn lookup_type(&self, expr: hir::ExprIdx) -> Option<ResolvedType> {
@@ -403,13 +406,30 @@ mod tests {
                 10 + (10 + "aaa")
             "#,
             expect![[r#"
+                0: int
+                1: int
                 2: int
+                3: string
+                4: string
                 5: unknown
+                6: int
+                7: string
                 8: unknown
+                9: char
+                10: char
                 11: unknown
+                12: int
+                13: char
                 14: unknown
+                15: bool
+                16: bool
                 17: unknown
+                18: int
+                19: bool
                 20: unknown
+                21: int
+                22: string
+                23: int
                 24: int
                 25: int
                 ---
@@ -421,6 +441,12 @@ mod tests {
                 (10 + "aaa") + (10 + "aaa")
             "#,
             expect![[r#"
+                0: int
+                1: string
+                2: int
+                3: string
+                4: unknown
+                5: unknown
                 6: unknown
                 ---
                 error: 4 is not resolved type.
@@ -439,9 +465,13 @@ mod tests {
                 let d = -true
             "#,
             expect![[r#"
+                0: int
                 1: int
+                2: string
                 3: unknown
+                4: char
                 5: unknown
+                6: bool
                 7: unknown
                 ---
             "#]],
@@ -456,6 +486,7 @@ mod tests {
                 a
             "#,
             expect![[r#"
+                0: int
                 1: int
                 2: int
                 ---
@@ -472,6 +503,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                0: int
                 1: int
                 ---
             "#]],
@@ -488,6 +520,8 @@ mod tests {
             "#,
             expect![[r#"
                 0: int
+                1: string
+                2: string
                 3: string
                 ---
             "#]],
@@ -505,6 +539,9 @@ mod tests {
             expect![[r#"
                 0: int
                 1: int
+                2: int
+                3: int
+                4: int
                 5: int
                 6: int
                 ---
@@ -523,6 +560,7 @@ mod tests {
             "#,
             expect![[r#"
                 0: int
+                1: int
                 ---
             "#]],
         );
@@ -556,7 +594,13 @@ mod tests {
                 res + 30
             "#,
             expect![[r#"
+                0: int
+                1: int
+                2: int
+                3: bool
                 4: int
+                5: int
+                6: int
                 7: int
                 ---
             "#]],

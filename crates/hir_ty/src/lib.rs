@@ -101,11 +101,9 @@ impl<'a> TypeInferencer<'a> {
                 .function_body_by_block(body_ast_id)
                 .unwrap();
             match body {
-                hir::Expr::Block(block) => {
-                    self.infer_stmts(&block.stmts, body_ctx);
-                }
+                hir::Expr::Block(block) => self.infer_block(block, body_ctx),
                 _ => unreachable!(),
-            }
+            };
         }
 
         self.infer_stmts(&self.hir_result.stmts, &self.hir_result.root_ctx);

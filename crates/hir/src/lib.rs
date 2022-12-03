@@ -139,9 +139,9 @@ pub enum Symbol {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Block {
-    stmts: Vec<Stmt>,
+    pub stmts: Vec<Stmt>,
     pub tail: Option<ExprIdx>,
-    ast: AstId<ast::Block>,
+    pub ast: AstId<ast::Block>,
 }
 impl Block {
     pub fn tail<'a>(&self, ctx: &'a BodyLowerContext) -> Option<&'a Expr> {

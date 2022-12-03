@@ -68,7 +68,7 @@ impl<'a> TypeInferencer<'a> {
         }
     }
 
-    pub fn infer(mut self) -> InferenceResult {
+    fn infer(mut self) -> InferenceResult {
         for (function_idx, function) in self.hir_result.db.functions.iter() {
             let signature = Signature {
                 params: function
@@ -128,7 +128,7 @@ impl<'a> TypeInferencer<'a> {
         }
     }
 
-    pub fn infer_stmts(&mut self, stmts: &[hir::Stmt], lower_ctx: &hir::BodyLowerContext) {
+    fn infer_stmts(&mut self, stmts: &[hir::Stmt], lower_ctx: &hir::BodyLowerContext) {
         for stmt in stmts {
             match stmt {
                 hir::Stmt::Expr(expr) => {

@@ -291,6 +291,7 @@ dependencies = [
  "ast",
  "expect-test",
  "hir",
+ "la-arena",
  "parser",
 ]
 

@@ -1,6 +1,7 @@
 use std::collections;
 
 use hir::BodyLowerContext;
+use la_arena::{Arena, Idx};
 
 pub fn infer(hir_result: &hir::LowerResult) -> InferenceResult {
     let inferencer = TypeInferencer::new(hir_result);
@@ -10,12 +11,15 @@ pub fn infer(hir_result: &hir::LowerResult) -> InferenceResult {
 #[derive(Debug)]
 pub struct InferenceResult {
     pub type_by_exprs: collections::HashMap<hir::ExprIdx, ResolvedType>,
+    pub signatures: Arena<Signature>,
     pub errors: Vec<InferenceError>,
 }
 
 #[derive(Debug)]
 struct InferenceContext {
     pub type_by_exprs: collections::HashMap<hir::ExprIdx, ResolvedType>,
+    pub signatures: Arena<Signature>,
+    pub signature_by_function: collections::HashMap<hir::FunctionIdx, Idx<Signature>>,
     pub errors: Vec<InferenceError>,
 }
 
@@ -23,6 +27,8 @@ impl InferenceContext {
     fn new() -> Self {
         Self {
             type_by_exprs: collections::HashMap::new(),
+            signatures: Arena::new(),
+            signature_by_function: collections::HashMap::new(),
             errors: Vec::new(),
         }
     }
@@ -41,9 +47,14 @@ pub enum ResolvedType {
     Char,
     Bool,
     Unit,
+    Function(Idx<Signature>),
 }
 
-struct TypeInferencer {
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Signature {
+    pub params: Vec<ResolvedType>,
+    pub return_type: ResolvedType,
+}
 
 struct TypeInferencer<'a> {
     hir_result: &'a hir::LowerResult,
@@ -58,12 +69,38 @@ impl<'a> TypeInferencer<'a> {
     }
 
     pub fn infer(mut self) -> InferenceResult {
+        for (function_idx, function) in self.hir_result.db.functions.iter() {
+            let signature = Signature {
+                params: function
+                    .params
+                    .iter()
+                    .map(|param| self.infer_ty(&param.ty))
+                    .collect(),
+                return_type: self.infer_ty(&function.return_type),
+            };
+            let signature_idx = self.ctx.signatures.alloc(signature);
+            self.ctx
+                .signature_by_function
+                .insert(function_idx, signature_idx);
+        }
+
         self.infer_body(&self.hir_result.stmts, &self.hir_result.root_ctx);
 
         InferenceResult {
             type_by_exprs: self.ctx.type_by_exprs,
             signatures: self.ctx.signatures,
             errors: self.ctx.errors,
+        }
+    }
+
+    fn infer_ty(&self, ty: &hir::Type) -> ResolvedType {
+        match ty {
+            hir::Type::Unknown => ResolvedType::Unknown,
+            hir::Type::Integer => ResolvedType::Integer,
+            hir::Type::String => ResolvedType::String,
+            hir::Type::Char => ResolvedType::Char,
+            hir::Type::Boolean => ResolvedType::Bool,
+            hir::Type::Unit => ResolvedType::Unit,
         }
     }
 
@@ -209,6 +246,8 @@ mod tests {
             ResolvedType::String => "string",
             ResolvedType::Char => "char",
             ResolvedType::Bool => "bool",
+            ResolvedType::Unit => "()",
+            ResolvedType::Function(_) => "fn",
         }
         .to_string()
     }

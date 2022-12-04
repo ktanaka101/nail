@@ -26,22 +26,28 @@ mod tests {
     use ast::AstNode;
     use expect_test::{expect, Expect};
 
-    use crate::inference::infer;
-
     use super::*;
 
     fn check(input: &str, expect: Expect) {
         let parsed = parser::parse(input);
         let ast = ast::SourceFile::cast(parsed.syntax()).unwrap();
         let lower_result = hir::lower(ast);
-        let result = infer(&lower_result);
-        expect.assert_eq(&debug(&result, &lower_result));
+        let result = lower(&lower_result);
+        expect.assert_eq(&debug(
+            &result.inference_result,
+            &result.type_check_result,
+            &lower_result,
+        ));
     }
 
-    fn debug(result: &InferenceResult, lower_result: &hir::LowerResult) -> String {
+    fn debug(
+        inference_result: &InferenceResult,
+        check_result: &TypeCheckResult,
+        lower_result: &hir::LowerResult,
+    ) -> String {
         let mut msg = "".to_string();
 
-        for (_, signature) in result.signatures.iter() {
+        for (_, signature) in inference_result.signatures.iter() {
             let params = signature
                 .params
                 .iter()
@@ -57,15 +63,21 @@ mod tests {
 
         msg.push_str("---\n");
 
-        let mut indexes = result.type_by_exprs.keys().collect::<Vec<_>>();
+        let mut indexes = inference_result.type_by_exprs.keys().collect::<Vec<_>>();
         indexes.sort_by_cached_key(|idx| idx.into_raw());
         for idx in indexes {
             let expr = debug_hir_expr(idx, lower_result);
             msg.push_str(&format!(
                 "`{}`: {}\n",
                 expr,
-                debug_type(&result.type_by_exprs[idx])
+                debug_type(&inference_result.type_by_exprs[idx])
             ));
+        }
+
+        msg.push_str("---\n");
+
+        for errors in &check_result.errors {
+            todo!()
         }
 
         msg

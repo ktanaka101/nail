@@ -45,6 +45,7 @@ pub enum ResolvedType {
     Char,
     Bool,
     Unit,
+    #[allow(dead_code)]
     Function(Idx<Signature>),
 }
 

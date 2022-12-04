@@ -262,17 +262,18 @@ mod tests {
         let lower_result = hir::lower(ast);
         let inferencer = TypeInferencer::new(&lower_result);
         let result = inferencer.infer();
-        expect.assert_eq(&debug(&result));
+        expect.assert_eq(&debug(&result, &lower_result));
     }
 
-    fn debug(result: &InferenceResult) -> String {
+    fn debug(result: &InferenceResult, lower_result: &hir::LowerResult) -> String {
         let mut msg = "".to_string();
         let mut indexes = result.type_by_exprs.keys().collect::<Vec<_>>();
         indexes.sort_by_cached_key(|idx| idx.into_raw());
         for idx in indexes {
+            let expr = debug_hir_expr(idx, lower_result);
             msg.push_str(&format!(
-                "{}: {}\n",
-                idx.into_raw(),
+                "`{}`: {}\n",
+                expr,
                 debug_type(&result.type_by_exprs[idx])
             ));
         }
@@ -290,6 +291,71 @@ mod tests {
         }
 
         msg
+    }
+
+    fn debug_hir_expr(expr_idx: &hir::ExprIdx, lower_result: &hir::LowerResult) -> String {
+        let expr = &lower_result.shared_ctx.exprs[*expr_idx];
+        match expr {
+            hir::Expr::Missing => "".to_string(),
+            hir::Expr::Unary { op, expr } => {
+                let op = match op {
+                    hir::UnaryOp::Neg => "-".to_string(),
+                };
+                let expr = debug_hir_expr(expr, lower_result);
+                format!("{}{}", op, expr)
+            }
+            hir::Expr::Binary { op, lhs, rhs } => {
+                let op = match op {
+                    hir::BinaryOp::Add => "+",
+                    hir::BinaryOp::Sub => "+",
+                    hir::BinaryOp::Mul => "+",
+                    hir::BinaryOp::Div => "+",
+                }
+                .to_string();
+                let lhs = debug_hir_expr(lhs, lower_result);
+                let rhs = debug_hir_expr(rhs, lower_result);
+
+                format!("{} {} {}", lhs, op, rhs)
+            }
+            hir::Expr::VariableRef { var } => {
+                let name = match var {
+                    hir::Symbol::Param { name, .. } => name,
+                    hir::Symbol::Local { name, .. } => name,
+                    hir::Symbol::Function { name, .. } => name,
+                    hir::Symbol::Missing { name, .. } => name,
+                };
+                lower_result.interner.lookup(name.key()).to_string()
+            }
+            hir::Expr::Block(block) => {
+                if let Some(tail) = block.tail {
+                    format!("{{ .., {} }}", debug_hir_expr(&tail, lower_result))
+                } else {
+                    "{{ .. }}".to_string()
+                }
+            }
+            hir::Expr::Call { callee, args } => {
+                let name = match callee {
+                    hir::Symbol::Param { name, .. } => name,
+                    hir::Symbol::Local { name, .. } => name,
+                    hir::Symbol::Function { name, .. } => name,
+                    hir::Symbol::Missing { name, .. } => name,
+                };
+                let name = lower_result.interner.lookup(name.key()).to_string();
+                let args = args
+                    .iter()
+                    .map(|idx| debug_hir_expr(idx, lower_result))
+                    .collect::<Vec<String>>()
+                    .join(", ");
+
+                format!("{}({})", name, args)
+            }
+            hir::Expr::Literal(literal) => match literal {
+                hir::Literal::Bool(b) => b.to_string(),
+                hir::Literal::Char(c) => format!("'{}'", c),
+                hir::Literal::Integer(i) => i.to_string(),
+                hir::Literal::String(s) => format!("\"{}\"", s),
+            },
+        }
     }
 
     fn debug_type(ty: &ResolvedType) -> String {
@@ -310,7 +376,7 @@ mod tests {
         check(
             "10",
             expect![[r#"
-                0: int
+                `10`: int
                 ---
             "#]],
         );
@@ -321,7 +387,7 @@ mod tests {
         check(
             "\"aaa\"",
             expect![[r#"
-                0: string
+                `"aaa"`: string
                 ---
             "#]],
         );
@@ -332,7 +398,7 @@ mod tests {
         check(
             "'a'",
             expect![[r#"
-                0: char
+                `'a'`: char
                 ---
             "#]],
         );
@@ -343,7 +409,7 @@ mod tests {
         check(
             "true",
             expect![[r#"
-                0: bool
+                `true`: bool
                 ---
             "#]],
         );
@@ -351,7 +417,7 @@ mod tests {
         check(
             "false",
             expect![[r#"
-                0: bool
+                `false`: bool
                 ---
             "#]],
         );
@@ -362,7 +428,7 @@ mod tests {
         check(
             "let a = true",
             expect![[r#"
-                0: bool
+                `true`: bool
                 ---
             "#]],
         )
@@ -378,10 +444,10 @@ mod tests {
                 let d = 'a'
             "#,
             expect![[r#"
-                0: bool
-                1: int
-                2: string
-                3: char
+                `true`: bool
+                `10`: int
+                `"aa"`: string
+                `'a'`: char
                 ---
             "#]],
         )
@@ -401,32 +467,32 @@ mod tests {
                 10 + (10 + "aaa")
             "#,
             expect![[r#"
-                0: int
-                1: int
-                2: int
-                3: string
-                4: string
-                5: unknown
-                6: int
-                7: string
-                8: unknown
-                9: char
-                10: char
-                11: unknown
-                12: int
-                13: char
-                14: unknown
-                15: bool
-                16: bool
-                17: unknown
-                18: int
-                19: bool
-                20: unknown
-                21: int
-                22: string
-                23: int
-                24: int
-                25: int
+                `10`: int
+                `20`: int
+                `10 + 20`: int
+                `"aaa"`: string
+                `"bbb"`: string
+                `"aaa" + "bbb"`: unknown
+                `10`: int
+                `"aaa"`: string
+                `10 + "aaa"`: unknown
+                `'a'`: char
+                `'a'`: char
+                `'a' + 'a'`: unknown
+                `10`: int
+                `'a'`: char
+                `10 + 'a'`: unknown
+                `true`: bool
+                `true`: bool
+                `true + true`: unknown
+                `10`: int
+                `true`: bool
+                `10 + true`: unknown
+                `10`: int
+                `"aaa"`: string
+                `10`: int
+                `10 + "aaa"`: int
+                `10 + 10 + "aaa"`: int
                 ---
             "#]],
         );
@@ -436,13 +502,13 @@ mod tests {
                 (10 + "aaa") + (10 + "aaa")
             "#,
             expect![[r#"
-                0: int
-                1: string
-                2: int
-                3: string
-                4: unknown
-                5: unknown
-                6: unknown
+                `10`: int
+                `"aaa"`: string
+                `10`: int
+                `"aaa"`: string
+                `10 + "aaa"`: unknown
+                `10 + "aaa"`: unknown
+                `10 + "aaa" + 10 + "aaa"`: unknown
                 ---
             "#]],
         );
@@ -458,14 +524,14 @@ mod tests {
                 let d = -true
             "#,
             expect![[r#"
-                0: int
-                1: int
-                2: string
-                3: unknown
-                4: char
-                5: unknown
-                6: bool
-                7: unknown
+                `10`: int
+                `-10`: int
+                `"aaa"`: string
+                `-"aaa"`: unknown
+                `'a'`: char
+                `-'a'`: unknown
+                `true`: bool
+                `-true`: unknown
                 ---
             "#]],
         )
@@ -479,9 +545,9 @@ mod tests {
                 a
             "#,
             expect![[r#"
-                0: int
-                1: int
-                2: int
+                `10`: int
+                `-10`: int
+                `a`: int
                 ---
             "#]],
         )
@@ -496,8 +562,8 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                0: int
-                1: int
+                `10`: int
+                `{ .., 10 }`: int
                 ---
             "#]],
         );
@@ -512,10 +578,10 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                0: int
-                1: string
-                2: string
-                3: string
+                `10`: int
+                `"aaa"`: string
+                `{ .., "aaa" }`: string
+                `{ .., { .., "aaa" } }`: string
                 ---
             "#]],
         );
@@ -530,13 +596,13 @@ mod tests {
                 b
             "#,
             expect![[r#"
-                0: int
-                1: int
-                2: int
-                3: int
-                4: int
-                5: int
-                6: int
+                `10`: int
+                `20`: int
+                `a`: int
+                `c`: int
+                `a + c`: int
+                `{ .., a + c }`: int
+                `b`: int
                 ---
             "#]],
         );
@@ -552,8 +618,8 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                0: int
-                1: int
+                `10`: int
+                `a`: int
                 ---
             "#]],
         );
@@ -569,8 +635,8 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                0: int
-                1: string
+                `x`: int
+                `y`: string
                 ---
             "#]],
         );
@@ -587,14 +653,14 @@ mod tests {
                 res + 30
             "#,
             expect![[r#"
-                0: int
-                1: int
-                2: int
-                3: bool
-                4: int
-                5: int
-                6: int
-                7: int
+                `10`: int
+                `20`: int
+                `10 + 20`: int
+                `true`: bool
+                `aaa(true)`: int
+                `res`: int
+                `30`: int
+                `res + 30`: int
                 ---
             "#]],
         );

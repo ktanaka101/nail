@@ -35,9 +35,7 @@ impl InferenceContext {
 }
 
 #[derive(Debug, Clone)]
-pub enum InferenceError {
-    UnresolvedType(hir::ExprIdx),
-}
+pub enum InferenceError {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ResolvedType {
@@ -294,19 +292,6 @@ mod tests {
             ));
         }
 
-        msg.push_str("---\n");
-
-        for err in &result.errors {
-            match err {
-                InferenceError::UnresolvedType(idx) => {
-                    msg.push_str(&format!(
-                        "error: {} is not resolved type.\n",
-                        idx.into_raw()
-                    ));
-                }
-            }
-        }
-
         msg
     }
 
@@ -395,7 +380,6 @@ mod tests {
             expect![[r#"
                 ---
                 `10`: int
-                ---
             "#]],
         );
     }
@@ -407,7 +391,6 @@ mod tests {
             expect![[r#"
                 ---
                 `"aaa"`: string
-                ---
             "#]],
         );
     }
@@ -419,7 +402,6 @@ mod tests {
             expect![[r#"
                 ---
                 `'a'`: char
-                ---
             "#]],
         );
     }
@@ -431,7 +413,6 @@ mod tests {
             expect![[r#"
                 ---
                 `true`: bool
-                ---
             "#]],
         );
 
@@ -440,7 +421,6 @@ mod tests {
             expect![[r#"
                 ---
                 `false`: bool
-                ---
             "#]],
         );
     }
@@ -452,7 +432,6 @@ mod tests {
             expect![[r#"
                 ---
                 `true`: bool
-                ---
             "#]],
         )
     }
@@ -472,7 +451,6 @@ mod tests {
                 `10`: int
                 `"aa"`: string
                 `'a'`: char
-                ---
             "#]],
         )
     }
@@ -518,7 +496,6 @@ mod tests {
                 `10`: int
                 `10 + "aaa"`: int
                 `10 + 10 + "aaa"`: int
-                ---
             "#]],
         );
 
@@ -535,7 +512,6 @@ mod tests {
                 `10 + "aaa"`: unknown
                 `10 + "aaa"`: unknown
                 `10 + "aaa" + 10 + "aaa"`: unknown
-                ---
             "#]],
         );
     }
@@ -559,7 +535,6 @@ mod tests {
                 `-'a'`: unknown
                 `true`: bool
                 `-true`: unknown
-                ---
             "#]],
         )
     }
@@ -576,7 +551,6 @@ mod tests {
                 `10`: int
                 `-10`: int
                 `a`: int
-                ---
             "#]],
         )
     }
@@ -593,7 +567,6 @@ mod tests {
                 ---
                 `10`: int
                 `{ .., 10 }`: int
-                ---
             "#]],
         );
 
@@ -612,7 +585,6 @@ mod tests {
                 `"aaa"`: string
                 `{ .., "aaa" }`: string
                 `{ .., { .., "aaa" } }`: string
-                ---
             "#]],
         );
 
@@ -634,7 +606,6 @@ mod tests {
                 `a + c`: int
                 `{ .., a + c }`: int
                 `b`: int
-                ---
             "#]],
         );
     }
@@ -653,7 +624,6 @@ mod tests {
                 ---
                 `10`: int
                 `a`: int
-                ---
             "#]],
         );
     }
@@ -672,7 +642,6 @@ mod tests {
                 ---
                 `x`: int
                 `y`: string
-                ---
             "#]],
         );
     }
@@ -698,7 +667,6 @@ mod tests {
                 `res`: int
                 `30`: int
                 `res + 30`: int
-                ---
             "#]],
         );
     }

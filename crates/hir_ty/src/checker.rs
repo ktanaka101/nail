@@ -25,7 +25,9 @@ pub enum TypeCheckError {
     },
 }
 
-pub struct TypeCheckResult {}
+pub struct TypeCheckResult {
+    pub errors: Vec<TypeCheckError>,
+}
 
 struct TypeChecker<'a> {
     lower_result: &'a LowerResult,
@@ -43,10 +45,13 @@ impl<'a> TypeChecker<'a> {
     }
 
     fn check(mut self) -> TypeCheckResult {
-        for (idx, function) in self.lower_result.db.functions.iter() {
+        for (idx, _) in self.lower_result.db.functions.iter() {
             self.check_function(idx);
         }
-        todo!()
+
+        TypeCheckResult {
+            errors: self.errors,
+        }
     }
 
     fn check_function(&mut self, function_idx: hir::FunctionIdx) {

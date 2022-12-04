@@ -267,6 +267,23 @@ mod tests {
 
     fn debug(result: &InferenceResult, lower_result: &hir::LowerResult) -> String {
         let mut msg = "".to_string();
+
+        for (_, signature) in result.signatures.iter() {
+            let params = signature
+                .params
+                .iter()
+                .map(debug_type)
+                .collect::<Vec<String>>()
+                .join(", ");
+            msg.push_str(&format!(
+                "fn({}) -> {}\n",
+                params,
+                debug_type(&signature.return_type)
+            ));
+        }
+
+        msg.push_str("---\n");
+
         let mut indexes = result.type_by_exprs.keys().collect::<Vec<_>>();
         indexes.sort_by_cached_key(|idx| idx.into_raw());
         for idx in indexes {
@@ -279,6 +296,7 @@ mod tests {
         }
 
         msg.push_str("---\n");
+
         for err in &result.errors {
             match err {
                 InferenceError::UnresolvedType(idx) => {
@@ -376,6 +394,7 @@ mod tests {
         check(
             "10",
             expect![[r#"
+                ---
                 `10`: int
                 ---
             "#]],
@@ -387,6 +406,7 @@ mod tests {
         check(
             "\"aaa\"",
             expect![[r#"
+                ---
                 `"aaa"`: string
                 ---
             "#]],
@@ -398,6 +418,7 @@ mod tests {
         check(
             "'a'",
             expect![[r#"
+                ---
                 `'a'`: char
                 ---
             "#]],
@@ -409,6 +430,7 @@ mod tests {
         check(
             "true",
             expect![[r#"
+                ---
                 `true`: bool
                 ---
             "#]],
@@ -417,6 +439,7 @@ mod tests {
         check(
             "false",
             expect![[r#"
+                ---
                 `false`: bool
                 ---
             "#]],
@@ -428,6 +451,7 @@ mod tests {
         check(
             "let a = true",
             expect![[r#"
+                ---
                 `true`: bool
                 ---
             "#]],
@@ -444,6 +468,7 @@ mod tests {
                 let d = 'a'
             "#,
             expect![[r#"
+                ---
                 `true`: bool
                 `10`: int
                 `"aa"`: string
@@ -467,6 +492,7 @@ mod tests {
                 10 + (10 + "aaa")
             "#,
             expect![[r#"
+                ---
                 `10`: int
                 `20`: int
                 `10 + 20`: int
@@ -502,6 +528,7 @@ mod tests {
                 (10 + "aaa") + (10 + "aaa")
             "#,
             expect![[r#"
+                ---
                 `10`: int
                 `"aaa"`: string
                 `10`: int
@@ -524,6 +551,7 @@ mod tests {
                 let d = -true
             "#,
             expect![[r#"
+                ---
                 `10`: int
                 `-10`: int
                 `"aaa"`: string
@@ -545,6 +573,7 @@ mod tests {
                 a
             "#,
             expect![[r#"
+                ---
                 `10`: int
                 `-10`: int
                 `a`: int
@@ -562,6 +591,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                ---
                 `10`: int
                 `{ .., 10 }`: int
                 ---
@@ -578,6 +608,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                ---
                 `10`: int
                 `"aaa"`: string
                 `{ .., "aaa" }`: string
@@ -596,6 +627,7 @@ mod tests {
                 b
             "#,
             expect![[r#"
+                ---
                 `10`: int
                 `20`: int
                 `a`: int
@@ -618,6 +650,8 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                fn() -> ()
+                ---
                 `10`: int
                 `a`: int
                 ---
@@ -635,6 +669,8 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                fn(int, string) -> ()
+                ---
                 `x`: int
                 `y`: string
                 ---
@@ -653,6 +689,8 @@ mod tests {
                 res + 30
             "#,
             expect![[r#"
+                fn(bool, string) -> int
+                ---
                 `10`: int
                 `20`: int
                 `10 + 20`: int

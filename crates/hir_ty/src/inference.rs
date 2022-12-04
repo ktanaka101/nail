@@ -12,6 +12,7 @@ pub fn infer(hir_result: &hir::LowerResult) -> InferenceResult {
 pub struct InferenceResult {
     pub type_by_exprs: collections::HashMap<hir::ExprIdx, ResolvedType>,
     pub signatures: Arena<Signature>,
+    pub signature_by_function: collections::HashMap<hir::FunctionIdx, Idx<Signature>>,
     pub errors: Vec<InferenceError>,
 }
 
@@ -110,6 +111,7 @@ impl<'a> TypeInferencer<'a> {
         InferenceResult {
             type_by_exprs: self.ctx.type_by_exprs,
             signatures: self.ctx.signatures,
+            signature_by_function: self.ctx.signature_by_function,
             errors: self.ctx.errors,
         }
     }

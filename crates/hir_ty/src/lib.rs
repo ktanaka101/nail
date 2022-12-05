@@ -77,7 +77,39 @@ mod tests {
         msg.push_str("---\n");
 
         for errors in &check_result.errors {
-            todo!()
+            match errors {
+                TypeCheckError::UnresolvedType { expr } => {
+                    msg.push_str(&format!(
+                        "error: `{}` is unresolved type.",
+                        debug_hir_expr(expr, lower_result),
+                    ));
+                }
+                TypeCheckError::MismatchedTypes {
+                    expected_expr,
+                    expected_ty,
+                    found_expr,
+                    found_ty,
+                } => {
+                    msg.push_str(&format!(
+                        "error: expected {}, found {} by `{}` and `{}`",
+                        debug_type(expected_ty),
+                        debug_type(found_ty),
+                        debug_hir_expr(expected_expr, lower_result),
+                        debug_hir_expr(found_expr, lower_result)
+                    ));
+                }
+                TypeCheckError::MismaatchedSignature {
+                    expected_ty,
+                    found_expr,
+                    found_ty,
+                    ..
+                } => msg.push_str(&format!(
+                    "error: expected {}, found {} by {}",
+                    debug_type(expected_ty),
+                    debug_type(found_ty),
+                    debug_hir_expr(found_expr, lower_result)
+                )),
+            }
         }
 
         msg
@@ -86,7 +118,7 @@ mod tests {
     fn debug_hir_expr(expr_idx: &hir::ExprIdx, lower_result: &hir::LowerResult) -> String {
         let expr = &lower_result.shared_ctx.exprs[*expr_idx];
         match expr {
-            hir::Expr::Missing => "".to_string(),
+            hir::Expr::Missing => "<missing>".to_string(),
             hir::Expr::Unary { op, expr } => {
                 let op = match op {
                     hir::UnaryOp::Neg => "-".to_string(),
@@ -168,6 +200,7 @@ mod tests {
             expect![[r#"
                 ---
                 `10`: int
+                ---
             "#]],
         );
     }
@@ -179,6 +212,7 @@ mod tests {
             expect![[r#"
                 ---
                 `"aaa"`: string
+                ---
             "#]],
         );
     }
@@ -190,6 +224,7 @@ mod tests {
             expect![[r#"
                 ---
                 `'a'`: char
+                ---
             "#]],
         );
     }
@@ -201,6 +236,7 @@ mod tests {
             expect![[r#"
                 ---
                 `true`: bool
+                ---
             "#]],
         );
 
@@ -209,6 +245,7 @@ mod tests {
             expect![[r#"
                 ---
                 `false`: bool
+                ---
             "#]],
         );
     }
@@ -220,6 +257,7 @@ mod tests {
             expect![[r#"
                 ---
                 `true`: bool
+                ---
             "#]],
         )
     }
@@ -239,6 +277,7 @@ mod tests {
                 `10`: int
                 `"aa"`: string
                 `'a'`: char
+                ---
             "#]],
         )
     }
@@ -284,6 +323,7 @@ mod tests {
                 `10`: int
                 `10 + "aaa"`: int
                 `10 + 10 + "aaa"`: int
+                ---
             "#]],
         );
 
@@ -300,6 +340,7 @@ mod tests {
                 `10 + "aaa"`: unknown
                 `10 + "aaa"`: unknown
                 `10 + "aaa" + 10 + "aaa"`: unknown
+                ---
             "#]],
         );
     }
@@ -323,6 +364,7 @@ mod tests {
                 `-'a'`: unknown
                 `true`: bool
                 `-true`: unknown
+                ---
             "#]],
         )
     }
@@ -339,6 +381,7 @@ mod tests {
                 `10`: int
                 `-10`: int
                 `a`: int
+                ---
             "#]],
         )
     }
@@ -355,6 +398,7 @@ mod tests {
                 ---
                 `10`: int
                 `{ .., 10 }`: int
+                ---
             "#]],
         );
 
@@ -373,6 +417,7 @@ mod tests {
                 `"aaa"`: string
                 `{ .., "aaa" }`: string
                 `{ .., { .., "aaa" } }`: string
+                ---
             "#]],
         );
 
@@ -394,6 +439,7 @@ mod tests {
                 `a + c`: int
                 `{ .., a + c }`: int
                 `b`: int
+                ---
             "#]],
         );
     }
@@ -412,6 +458,7 @@ mod tests {
                 ---
                 `10`: int
                 `a`: int
+                ---
             "#]],
         );
     }
@@ -430,6 +477,7 @@ mod tests {
                 ---
                 `x`: int
                 `y`: string
+                ---
             "#]],
         );
     }
@@ -455,6 +503,29 @@ mod tests {
                 `res`: int
                 `30`: int
                 `res + 30`: int
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn infer_call_missmatch() {
+        check(
+            r#"
+                fn aaa(x: bool, y: string) -> int {
+                    10 + 20
+                }
+                aaa("aaa", true);
+            "#,
+            expect![[r#"
+                fn(bool, string) -> int
+                ---
+                `10`: int
+                `20`: int
+                `10 + 20`: int
+                `aaa()`: int
+                `true`: bool
+                ---
             "#]],
         );
     }

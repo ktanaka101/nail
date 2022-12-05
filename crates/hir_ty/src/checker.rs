@@ -19,7 +19,8 @@ pub enum TypeCheckError {
         found_ty: ResolvedType,
     },
     MismaatchedSignature {
-        expected: Signature,
+        expected_ty: ResolvedType,
+        signature: Signature,
         found_expr: hir::ExprIdx,
         found_ty: ResolvedType,
     },
@@ -132,7 +133,8 @@ impl<'a> TypeChecker<'a> {
                         let arg_ty = self.type_by_expr(arg);
                         if *param_ty != arg_ty {
                             self.errors.push(TypeCheckError::MismaatchedSignature {
-                                expected: signature.clone(),
+                                expected_ty: *param_ty,
+                                signature: signature.clone(),
                                 found_expr: arg,
                                 found_ty: arg_ty,
                             });

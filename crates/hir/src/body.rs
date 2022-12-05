@@ -1432,5 +1432,21 @@ mod tests {
                 fn:a(20, 30)
             "#]],
         );
+
+        check(
+            r#"
+                fn aaa(x: bool, y: string) -> int {
+                    10 + 20
+                }
+                aaa("aaa", true);
+            "#,
+            expect![[r#"
+                fn aaa(x: bool, y: string) -> int {
+                    expr:10 + 20
+                }
+                fn:aaa()
+                true
+            "#]],
+        );
     }
 }

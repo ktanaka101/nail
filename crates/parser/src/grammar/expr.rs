@@ -6,7 +6,8 @@ use crate::{
     parser::{marker::CompletedMarker, Parser},
 };
 
-pub(super) const EXPR_FIRST: [TokenKind; 10] = [
+pub(super) const EXPR_FIRST: [TokenKind; 11] = [
+    TokenKind::StringLiteral,
     TokenKind::CharLiteral(false),
     TokenKind::CharLiteral(true),
     TokenKind::IntegerLiteral,
@@ -691,6 +692,36 @@ mod tests {
                         VariableRef@5..6
                           Ident@5..6 "y"
                       RParen@6..7 ")"
+            "#]],
+        );
+
+        check(
+            r#"aaa("aaa", true, 'a', 10)"#,
+            expect![[r#"
+                SourceFile@0..25
+                  Call@0..25
+                    Ident@0..3 "aaa"
+                    ArgList@3..25
+                      LParen@3..4 "("
+                      Arg@4..9
+                        Literal@4..9
+                          String@4..9 "\"aaa\""
+                      Comma@9..10 ","
+                      Whitespace@10..11 " "
+                      Arg@11..15
+                        Literal@11..15
+                          TrueKw@11..15 "true"
+                      Comma@15..16 ","
+                      Whitespace@16..17 " "
+                      Arg@17..20
+                        Literal@17..20
+                          Char@17..20 "'a'"
+                      Comma@20..21 ","
+                      Whitespace@21..22 " "
+                      Arg@22..24
+                        Literal@22..24
+                          Integer@22..24 "10"
+                      RParen@24..25 ")"
             "#]],
         );
     }

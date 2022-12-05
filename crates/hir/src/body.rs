@@ -1444,8 +1444,7 @@ mod tests {
                 fn aaa(x: bool, y: string) -> int {
                     expr:10 + 20
                 }
-                fn:aaa()
-                true
+                fn:aaa("aaa", true)
             "#]],
         );
     }

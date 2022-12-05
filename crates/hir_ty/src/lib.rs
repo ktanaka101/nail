@@ -499,7 +499,8 @@ mod tests {
                 `20`: int
                 `10 + 20`: int
                 `true`: bool
-                `aaa(true)`: int
+                `"aaa"`: string
+                `aaa(true, "aaa")`: int
                 `res`: int
                 `30`: int
                 `res + 30`: int
@@ -523,8 +524,9 @@ mod tests {
                 `10`: int
                 `20`: int
                 `10 + 20`: int
-                `aaa()`: int
+                `"aaa"`: string
                 `true`: bool
+                `aaa("aaa", true)`: int
                 ---
             "#]],
         );

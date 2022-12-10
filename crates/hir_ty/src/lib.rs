@@ -1,9 +1,8 @@
 mod checker;
 mod inference;
 
-use hir::LowerResult;
-
 pub use checker::{TypeCheckError, TypeCheckResult};
+use hir::LowerResult;
 pub use inference::{InferenceError, InferenceResult, ResolvedType, Signature};
 
 pub fn lower(lower_result: &LowerResult) -> TyLowerResult {

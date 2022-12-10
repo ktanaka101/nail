@@ -80,7 +80,7 @@ mod tests {
             match errors {
                 TypeCheckError::UnresolvedType { expr } => {
                     msg.push_str(&format!(
-                        "error: `{}` is unresolved type.",
+                        "error: `{}` is unresolved type.\n",
                         debug_hir_expr(expr, lower_result),
                     ));
                 }
@@ -91,7 +91,7 @@ mod tests {
                     found_ty,
                 } => {
                     msg.push_str(&format!(
-                        "error: expected {}, found {} by `{}` and `{}`",
+                        "error: expected {}, found {} by `{}` and `{}`\n",
                         debug_type(expected_ty),
                         debug_type(found_ty),
                         debug_hir_expr(expected_expr, lower_result),
@@ -104,7 +104,7 @@ mod tests {
                     found_ty,
                     ..
                 } => msg.push_str(&format!(
-                    "error: expected {}, found {} by {}",
+                    "error: expected {}, found {} by `{}`\n",
                     debug_type(expected_ty),
                     debug_type(found_ty),
                     debug_hir_expr(found_expr, lower_result)
@@ -324,6 +324,9 @@ mod tests {
                 `10 + "aaa"`: int
                 `10 + 10 + "aaa"`: int
                 ---
+                error: expected int, found string by `10` and `"aaa"`
+                error: expected int, found char by `10` and `'a'`
+                error: expected int, found bool by `10` and `true`
             "#]],
         );
 
@@ -341,6 +344,8 @@ mod tests {
                 `10 + "aaa"`: unknown
                 `10 + "aaa" + 10 + "aaa"`: unknown
                 ---
+                error: `10 + "aaa"` is unresolved type.
+                error: `10 + "aaa"` is unresolved type.
             "#]],
         );
     }
@@ -528,6 +533,8 @@ mod tests {
                 `true`: bool
                 `aaa("aaa", true)`: int
                 ---
+                error: expected bool, found string by `"aaa"`
+                error: expected string, found bool by `true`
             "#]],
         );
     }

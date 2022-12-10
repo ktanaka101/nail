@@ -50,6 +50,10 @@ impl<'a> TypeChecker<'a> {
             self.check_function(idx);
         }
 
+        for stmt in &self.lower_result.stmts {
+            self.check_stmt(stmt);
+        }
+
         TypeCheckResult {
             errors: self.errors,
         }

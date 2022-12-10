@@ -18,10 +18,10 @@ pub struct InferenceResult {
 
 #[derive(Debug)]
 struct InferenceContext {
-    pub type_by_exprs: collections::HashMap<hir::ExprIdx, ResolvedType>,
-    pub signatures: Arena<Signature>,
-    pub signature_by_function: collections::HashMap<hir::FunctionIdx, Idx<Signature>>,
-    pub errors: Vec<InferenceError>,
+    type_by_exprs: collections::HashMap<hir::ExprIdx, ResolvedType>,
+    signatures: Arena<Signature>,
+    signature_by_function: collections::HashMap<hir::FunctionIdx, Idx<Signature>>,
+    errors: Vec<InferenceError>,
 }
 
 impl InferenceContext {

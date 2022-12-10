@@ -108,15 +108,28 @@ mod tests {
     #[test]
     fn parse_binary_expression_when_single_slash() {
         check(
-            "/ hello",
+            "fn x() { / hello }",
             expect![[r#"
-                SourceFile@0..7
-                  Error@0..2
-                    Slash@0..1 "/"
-                    Whitespace@1..2 " "
-                  VariableRef@2..7
-                    Ident@2..7 "hello"
-                error at 0..1: expected 'let', 'fn', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '(' or '{', but found '/'
+                SourceFile@0..18
+                  FunctionDef@0..18
+                    FnKw@0..2 "fn"
+                    Whitespace@2..3 " "
+                    Ident@3..4 "x"
+                    ParamList@4..7
+                      LParen@4..5 "("
+                      RParen@5..6 ")"
+                      Whitespace@6..7 " "
+                    Block@7..18
+                      LCurly@7..8 "{"
+                      Whitespace@8..9 " "
+                      Error@9..11
+                        Slash@9..10 "/"
+                        Whitespace@10..11 " "
+                      VariableRef@11..17
+                        Ident@11..16 "hello"
+                        Whitespace@16..17 " "
+                      RCurly@17..18 "}"
+                error at 9..10: expected '}', 'let', 'fn', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '(' or '{', but found '/'
             "#]],
         );
     }
@@ -124,31 +137,48 @@ mod tests {
     #[test]
     fn parse_binary_expression_interspersed_with_comments() {
         check(
-            "
-1
-  + 1 // Add one
-  + 10 // Add ten",
+            r#"
+fn x() {
+    1
+    + 1 // Add one
+    + 10 // Add ten
+}
+            "#,
             expect![[r#"
-                SourceFile@0..37
+                SourceFile@0..69
                   Whitespace@0..1 "\n"
-                  BinaryExpr@1..37
-                    BinaryExpr@1..22
-                      Literal@1..5
-                        Integer@1..2 "1"
-                        Whitespace@2..5 "\n  "
-                      Plus@5..6 "+"
-                      Whitespace@6..7 " "
-                      Literal@7..22
-                        Integer@7..8 "1"
-                        Whitespace@8..9 " "
-                        CommentSingle@9..19 "// Add one"
-                        Whitespace@19..22 "\n  "
-                    Plus@22..23 "+"
-                    Whitespace@23..24 " "
-                    Literal@24..37
-                      Integer@24..26 "10"
-                      Whitespace@26..27 " "
-                      CommentSingle@27..37 "// Add ten"
+                  FunctionDef@1..69
+                    FnKw@1..3 "fn"
+                    Whitespace@3..4 " "
+                    Ident@4..5 "x"
+                    ParamList@5..8
+                      LParen@5..6 "("
+                      RParen@6..7 ")"
+                      Whitespace@7..8 " "
+                    Block@8..69
+                      LCurly@8..9 "{"
+                      Whitespace@9..14 "\n    "
+                      BinaryExpr@14..55
+                        BinaryExpr@14..39
+                          Literal@14..20
+                            Integer@14..15 "1"
+                            Whitespace@15..20 "\n    "
+                          Plus@20..21 "+"
+                          Whitespace@21..22 " "
+                          Literal@22..39
+                            Integer@22..23 "1"
+                            Whitespace@23..24 " "
+                            CommentSingle@24..34 "// Add one"
+                            Whitespace@34..39 "\n    "
+                        Plus@39..40 "+"
+                        Whitespace@40..41 " "
+                        Literal@41..55
+                          Integer@41..43 "10"
+                          Whitespace@43..44 " "
+                          CommentSingle@44..54 "// Add ten"
+                          Whitespace@54..55 "\n"
+                      RCurly@55..56 "}"
+                      Whitespace@56..69 "\n            "
             "#]],
         );
     }

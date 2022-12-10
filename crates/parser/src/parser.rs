@@ -16,7 +16,8 @@ pub(crate) struct Parser<'l, 'input> {
     expected_kinds: IndexSet<TokenKind>,
 }
 
-const RECOVERY_SET: [TokenKind; 2] = [TokenKind::LetKw, TokenKind::FnKw];
+pub(crate) const TOPLEVEL_RECOVERY_SET: [TokenKind; 1] = [TokenKind::FnKw];
+pub(crate) const BLOCK_RECOVERY_SET: [TokenKind; 2] = [TokenKind::LetKw, TokenKind::FnKw];
 
 impl<'l, 'input> Parser<'l, 'input> {
     pub(crate) fn new(source: Source<'l, 'input>) -> Self {
@@ -29,6 +30,12 @@ impl<'l, 'input> Parser<'l, 'input> {
 
     pub(crate) fn parse(mut self) -> Vec<Event> {
         grammar::source_file(&mut self);
+        self.events
+    }
+
+    #[cfg(test)]
+    pub(crate) fn parse_in_block(mut self) -> Vec<Event> {
+        grammar::in_block(&mut self);
         self.events
     }
 
@@ -53,19 +60,35 @@ impl<'l, 'input> Parser<'l, 'input> {
         }
     }
 
-    pub(crate) fn expect(&mut self, kind: TokenKind) {
+    pub(crate) fn expect_on_block(&mut self, kind: TokenKind) {
         if self.at(kind) {
             self.bump();
         } else {
-            self.error_with_recovery_set_only_default();
+            self.error_with_recovery_set_only_default_on_block();
         }
     }
 
-    pub(crate) fn expect_with_recovery_set(&mut self, kind: TokenKind, recovery_set: &[TokenKind]) {
+    pub(crate) fn expect_with_block_recovery_set(
+        &mut self,
+        kind: TokenKind,
+        recovery_set: &[TokenKind],
+    ) {
         if self.at(kind) {
             self.bump();
         } else {
-            self.error_with_recovery_set_default(recovery_set)
+            self.error_with_recovery_set_default_on_block(recovery_set)
+        }
+    }
+
+    pub(crate) fn expect_with_recovery_set_no_default(
+        &mut self,
+        kind: TokenKind,
+        recovery_set: &[TokenKind],
+    ) {
+        if self.at(kind) {
+            self.bump();
+        } else {
+            self.error_with_recovery_set_no_default(recovery_set)
         }
     }
 
@@ -85,12 +108,16 @@ impl<'l, 'input> Parser<'l, 'input> {
             })));
     }
 
-    pub(crate) fn error_with_recovery_set_only_default(&mut self) {
-        self.error_with_recovery_set_no_default(&RECOVERY_SET);
+    pub(crate) fn error_with_recovery_set_only_default_on_toplevel(&mut self) {
+        self.error_with_recovery_set_no_default(&TOPLEVEL_RECOVERY_SET);
     }
 
-    pub(crate) fn error_with_recovery_set_default(&mut self, recovery_set: &[TokenKind]) {
-        self.error_with_recovery_set_no_default(&[recovery_set, &RECOVERY_SET].concat());
+    pub(crate) fn error_with_recovery_set_only_default_on_block(&mut self) {
+        self.error_with_recovery_set_no_default(&BLOCK_RECOVERY_SET);
+    }
+
+    pub(crate) fn error_with_recovery_set_default_on_block(&mut self, recovery_set: &[TokenKind]) {
+        self.error_with_recovery_set_no_default(&[recovery_set, &BLOCK_RECOVERY_SET].concat());
     }
 
     pub(crate) fn error_with_recovery_set_no_default(&mut self, recovery_set: &[TokenKind]) {

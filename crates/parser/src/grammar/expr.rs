@@ -2,7 +2,7 @@ use lexer::TokenKind;
 use syntax::SyntaxKind;
 
 use crate::{
-    grammar::stmt::parse_stmt,
+    grammar::stmt::parse_stmt_on_block,
     parser::{marker::CompletedMarker, Parser},
 };
 
@@ -108,7 +108,7 @@ fn parse_lhs(parser: &mut Parser) -> Option<CompletedMarker> {
     } else if parser.at(TokenKind::LCurly) {
         parse_block(parser)
     } else {
-        parser.error_with_recovery_set_only_default();
+        parser.error_with_recovery_set_only_default_on_block();
         return None;
     };
 
@@ -184,7 +184,7 @@ fn parse_args(parser: &mut Parser) -> CompletedMarker {
             break;
         }
     }
-    parser.expect(TokenKind::RParen);
+    parser.expect_on_block(TokenKind::RParen);
 
     marker.complete(parser, SyntaxKind::ArgList)
 }
@@ -210,7 +210,7 @@ fn parse_paren_expr(parser: &mut Parser) -> CompletedMarker {
     let marker = parser.start();
     parser.bump();
     parse_expr_binding_power(parser, 0);
-    parser.expect(TokenKind::RParen);
+    parser.expect_on_block(TokenKind::RParen);
 
     marker.complete(parser, SyntaxKind::ParenExpr)
 }
@@ -221,9 +221,9 @@ fn parse_block(parser: &mut Parser) -> CompletedMarker {
     let marker = parser.start();
     parser.bump();
     while !parser.at(TokenKind::RCurly) && !parser.at_end() {
-        parse_stmt(parser);
+        parse_stmt_on_block(parser);
     }
-    parser.expect(TokenKind::RCurly);
+    parser.expect_on_block(TokenKind::RCurly);
 
     marker.complete(parser, SyntaxKind::Block)
 }
@@ -231,8 +231,20 @@ fn parse_block(parser: &mut Parser) -> CompletedMarker {
 #[cfg(test)]
 mod tests {
     use expect_test::expect;
+    use lexer::Lexer;
 
-    use crate::check;
+    use crate::{parser::Parser, sink::Sink, source::Source};
+
+    fn check(input: &str, expected_tree: expect_test::Expect) {
+        let tokens: Vec<_> = Lexer::new(input).collect();
+        let source = Source::new(&tokens);
+        let parser = Parser::new(source);
+        let events = parser.parse_in_block();
+        let sink = Sink::new(&tokens, events);
+        let parse = sink.finish();
+
+        expected_tree.assert_eq(&parse.debug_tree());
+    }
 
     #[test]
     fn parse_integer() {

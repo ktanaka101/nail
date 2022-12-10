@@ -102,14 +102,14 @@ mod tests {
 
     #[test]
     fn validate_ok_literal() {
-        check("123", &[]);
+        check("fn x() { 123 }", &[]);
     }
 
     #[test]
     fn validate_too_large_literal() {
         check(
-            "99999999999999999999",
-            &[(ValidationErrorKind::IntegerLiteralTooLarge, (0..20))],
+            "fn x() { 99999999999999999999 }",
+            &[(ValidationErrorKind::IntegerLiteralTooLarge, (9..29))],
         );
     }
 }

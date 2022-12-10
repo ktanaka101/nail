@@ -2,13 +2,22 @@ use lexer::TokenKind;
 use syntax::SyntaxKind;
 
 use super::expr;
-use crate::parser::{marker::CompletedMarker, Parser};
+use crate::parser::{marker::CompletedMarker, Parser, BLOCK_RECOVERY_SET, TOPLEVEL_RECOVERY_SET};
 
-pub(super) fn parse_stmt(parser: &mut Parser) -> Option<CompletedMarker> {
+pub(super) fn parse_stmt_on_toplevel(parser: &mut Parser) -> Option<CompletedMarker> {
+    if parser.at(TokenKind::FnKw) {
+        Some(parse_function_def(parser, &TOPLEVEL_RECOVERY_SET))
+    } else {
+        parser.error_with_recovery_set_only_default_on_toplevel();
+        None
+    }
+}
+
+pub(super) fn parse_stmt_on_block(parser: &mut Parser) -> Option<CompletedMarker> {
     if parser.at(TokenKind::LetKw) {
         Some(parse_variable_def(parser))
     } else if parser.at(TokenKind::FnKw) {
-        Some(parse_function_def(parser))
+        Some(parse_function_def(parser, &BLOCK_RECOVERY_SET))
     } else {
         expr::parse_expr(parser)
     }
@@ -19,31 +28,38 @@ fn parse_variable_def(parser: &mut Parser) -> CompletedMarker {
     let marker = parser.start();
     parser.bump();
 
-    parser.expect_with_recovery_set(TokenKind::Ident, &[TokenKind::Eq]);
-    parser.expect(TokenKind::Eq);
+    parser.expect_with_block_recovery_set(TokenKind::Ident, &[TokenKind::Eq]);
+    parser.expect_on_block(TokenKind::Eq);
 
     expr::parse_expr(parser);
 
     marker.complete(parser, SyntaxKind::VariableDef)
 }
 
-fn parse_function_def(parser: &mut Parser) -> CompletedMarker {
+fn parse_function_def(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedMarker {
     assert!(parser.at(TokenKind::FnKw));
 
     let marker = parser.start();
     parser.bump();
 
-    parser.expect_with_recovery_set(
+    parser.expect_with_recovery_set_no_default(
         TokenKind::Ident,
-        &[TokenKind::LParen, TokenKind::ThinArrow, TokenKind::LCurly],
+        &[
+            recovery_set,
+            &[TokenKind::LParen, TokenKind::ThinArrow, TokenKind::LCurly],
+        ]
+        .concat(),
     );
 
     if parser.at(TokenKind::LParen) {
-        parse_params(parser, &[TokenKind::ThinArrow, TokenKind::LCurly]);
+        parse_params(
+            parser,
+            &[recovery_set, &[TokenKind::ThinArrow, TokenKind::LCurly]].concat(),
+        );
     }
 
     if parser.at(TokenKind::ThinArrow) {
-        parse_return_type(parser, &[TokenKind::LCurly]);
+        parse_return_type(parser, &[recovery_set, &[TokenKind::LCurly]].concat());
     }
 
     if parser.at(TokenKind::LCurly) {
@@ -66,7 +82,7 @@ fn parse_params(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedMar
             let marker = parser.start();
             parser.bump();
 
-            parser.expect_with_recovery_set(TokenKind::Colon, recovery_set);
+            parser.expect_with_recovery_set_no_default(TokenKind::Colon, recovery_set);
             if parser.at(TokenKind::Ident) {
                 {
                     let marker = parser.start();
@@ -80,8 +96,8 @@ fn parse_params(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedMar
             parser.bump();
             {
                 let marker = parser.start();
-                parser.expect_with_recovery_set(TokenKind::Ident, recovery_set);
-                parser.expect_with_recovery_set(TokenKind::Colon, recovery_set);
+                parser.expect_with_recovery_set_no_default(TokenKind::Ident, recovery_set);
+                parser.expect_with_recovery_set_no_default(TokenKind::Colon, recovery_set);
 
                 if parser.at(TokenKind::Ident) {
                     {
@@ -94,7 +110,7 @@ fn parse_params(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedMar
             }
         }
     }
-    parser.expect_with_recovery_set(TokenKind::RParen, recovery_set);
+    parser.expect_with_recovery_set_no_default(TokenKind::RParen, recovery_set);
 
     marker.complete(parser, SyntaxKind::ParamList)
 }
@@ -107,7 +123,7 @@ fn parse_return_type(parser: &mut Parser, recovery_set: &[TokenKind]) -> Complet
 
     {
         let marker = parser.start();
-        parser.expect_with_recovery_set(TokenKind::Ident, recovery_set);
+        parser.expect_with_recovery_set_no_default(TokenKind::Ident, recovery_set);
         marker.complete(parser, SyntaxKind::Type);
     }
 
@@ -121,9 +137,9 @@ fn parse_block(parser: &mut Parser) -> CompletedMarker {
     parser.bump();
 
     while !parser.at(TokenKind::RCurly) && !parser.at_end() {
-        parse_stmt(parser);
+        parse_stmt_on_block(parser);
     }
-    parser.expect(TokenKind::RCurly);
+    parser.expect_on_block(TokenKind::RCurly);
 
     marker.complete(parser, SyntaxKind::Block)
 }
@@ -132,7 +148,20 @@ fn parse_block(parser: &mut Parser) -> CompletedMarker {
 mod tests {
     use expect_test::expect;
 
-    use crate::check;
+    use lexer::Lexer;
+
+    use crate::{parser::Parser, sink::Sink, source::Source};
+
+    fn check(input: &str, expected_tree: expect_test::Expect) {
+        let tokens: Vec<_> = Lexer::new(input).collect();
+        let source = Source::new(&tokens);
+        let parser = Parser::new(source);
+        let events = parser.parse_in_block();
+        let sink = Sink::new(&tokens, events);
+        let parse = sink.finish();
+
+        expected_tree.assert_eq(&parse.debug_tree());
+    }
 
     #[test]
     fn parse_variable_definition() {

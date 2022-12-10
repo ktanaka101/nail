@@ -619,10 +619,14 @@ mod tests {
     fn lower_variable_def() {
         check(
             r#"
-                let foo = bar
+                fn main() {
+                    let foo = bar
+                }
             "#,
             expect![[r#"
-                let foo = <missing>
+                fn main() -> () {
+                    let foo = <missing>
+                }
             "#]],
         );
     }
@@ -631,9 +635,14 @@ mod tests {
     fn lower_variable_def_without_name() {
         check(
             r#"
-                let = 10
+                fn main() {
+                    let = 10
+                }
             "#,
-            expect![""],
+            expect![[r#"
+                fn main() -> () {
+                }
+            "#]],
         );
     }
 
@@ -641,10 +650,14 @@ mod tests {
     fn lower_variable_def_without_eq() {
         check(
             r#"
-                let foo 10
+                fn main() {
+                    let foo 10
+                }
             "#,
             expect![[r#"
-                let foo = <missing>
+                fn main() -> () {
+                    let foo = <missing>
+                }
             "#]],
         );
     }
@@ -653,10 +666,14 @@ mod tests {
     fn lower_variable_def_without_value() {
         check(
             r#"
-                let a =
+                fn main() {
+                    let a =
+                }
             "#,
             expect![[r#"
-                let a = <missing>
+                fn main() -> () {
+                    let a = <missing>
+                }
             "#]],
         );
     }
@@ -665,10 +682,14 @@ mod tests {
     fn lower_expr_stmt() {
         check(
             r#"
-                123
+                fn main() {
+                    123
+                }
             "#,
             expect![[r#"
-                123
+                fn main() -> () {
+                    expr:123
+                }
             "#]],
         );
     }
@@ -677,10 +698,14 @@ mod tests {
     fn lower_binary_expr() {
         check(
             r#"
-                1 + 2
+                fn main() {
+                    1 + 2
+                }
             "#,
             expect![[r#"
-                1 + 2
+                fn main() -> () {
+                    expr:1 + 2
+                }
             "#]],
         );
     }
@@ -689,10 +714,14 @@ mod tests {
     fn lower_binary_expr_without_rhs() {
         check(
             r#"
-                10 -
+                fn main() {
+                    10 -
+                }
             "#,
             expect![[r#"
-                10 - <missing>
+                fn main() -> () {
+                    expr:10 - <missing>
+                }
             "#]],
         );
     }
@@ -701,10 +730,14 @@ mod tests {
     fn lower_integer_literal() {
         check(
             r#"
-                999
+                fn main() {
+                    999
+                }
             "#,
             expect![[r#"
-                999
+                fn main() -> () {
+                    expr:999
+                }
             "#]],
         );
     }
@@ -713,10 +746,14 @@ mod tests {
     fn lower_string_literal() {
         check(
             r#"
-                "aaa"
+                fn main() {
+                    "aaa"
+                }
             "#,
             expect![[r#"
-                "aaa"
+                fn main() -> () {
+                    expr:"aaa"
+                }
             "#]],
         );
     }
@@ -725,10 +762,14 @@ mod tests {
     fn lower_char_literal() {
         check(
             r#"
-                'a'
+                fn main() {
+                    'a'
+                }
             "#,
             expect![[r#"
-                'a'
+                fn main() -> () {
+                    expr:'a'
+                }
             "#]],
         );
     }
@@ -737,10 +778,14 @@ mod tests {
     fn lower_bool_literal_true() {
         check(
             r#"
-                true
+                fn main() {
+                    true
+                }
             "#,
             expect![[r#"
-                true
+                fn main() -> () {
+                    expr:true
+                }
             "#]],
         );
     }
@@ -749,10 +794,14 @@ mod tests {
     fn lower_bool_literal_false() {
         check(
             r#"
-                false
+                fn main() {
+                    false
+                }
             "#,
             expect![[r#"
-                false
+                fn main() -> () {
+                    expr:false
+                }
             "#]],
         );
     }
@@ -761,10 +810,14 @@ mod tests {
     fn lower_paren_expr() {
         check(
             r#"
-                ((((((abc))))))
+                fn main() {
+                    ((((((abc))))))
+                }
             "#,
             expect![[r#"
-                <missing>
+                fn main() -> () {
+                    expr:<missing>
+                }
             "#]],
         );
     }
@@ -773,10 +826,14 @@ mod tests {
     fn lower_unary_expr() {
         check(
             r#"
-                -10
+                fn main() {
+                    -10
+                }
             "#,
             expect![[r#"
-                -10
+                fn main() -> () {
+                    expr:-10
+                }
             "#]],
         );
     }
@@ -785,10 +842,14 @@ mod tests {
     fn lower_unary_expr_without_expr() {
         check(
             r#"
-                -
+                fn main() {
+                    -
+                }
             "#,
             expect![[r#"
-                -<missing>
+                fn main() -> () {
+                    expr:-<missing>
+                }
             "#]],
         );
     }
@@ -797,10 +858,14 @@ mod tests {
     fn lower_variable_ref() {
         check(
             r#"
-                foo
+                fn main() {
+                    foo
+                }
             "#,
             expect![[r#"
-                <missing>
+                fn main() -> () {
+                    expr:<missing>
+                }
             "#]],
         );
     }
@@ -809,12 +874,16 @@ mod tests {
     fn lookup_variable_ref() {
         check(
             r#"
-                let foo = 10
-                foo
+                fn main() {
+                    let foo = 10
+                    foo
+                }
             "#,
             expect![[r#"
-                let foo = 10
-                10
+                fn main() -> () {
+                    let foo = 10
+                    expr:10
+                }
             "#]],
         );
     }
@@ -823,13 +892,17 @@ mod tests {
     fn lower_block() {
         check(
             r#"
-                {
-                    let foo = 10;
+                fn main() {
+                    {
+                        let foo = 10;
+                    }
                 }
             "#,
             expect![[r#"
-                {
-                    let foo = 10
+                fn main() -> () {
+                    expr:{
+                        let foo = 10
+                    }
                 }
             "#]],
         );
@@ -839,23 +912,27 @@ mod tests {
     fn lower_nested_block() {
         check(
             r#"
-                {
-                    let a = 10
+                fn main() {
                     {
-                        let b = 20
-                        let c = 30
+                        let a = 10
+                        {
+                            let b = 20
+                            let c = 30
+                        }
+                        let d = 40
                     }
-                    let d = 40
                 }
             "#,
             expect![[r#"
-                {
-                    let a = 10
-                    {
-                        let b = 20
-                        let c = 30
+                fn main() -> () {
+                    expr:{
+                        let a = 10
+                        {
+                            let b = 20
+                            let c = 30
+                        }
+                        let d = 40
                     }
-                    let d = 40
                 }
             "#]],
         );
@@ -865,16 +942,20 @@ mod tests {
     fn lower_with_scope() {
         check(
             r#"
-                {
-                    let a = 10
+                fn main() {
+                    {
+                        let a = 10
+                    }
+                    a
                 }
-                a
             "#,
             expect![[r#"
-                {
-                    let a = 10
+                fn main() -> () {
+                    {
+                        let a = 10
+                    }
+                    expr:<missing>
                 }
-                <missing>
             "#]],
         );
     }
@@ -883,26 +964,30 @@ mod tests {
     fn lower_with_nested_scope() {
         check(
             r#"
-                let a = 10
-                {
-                    let b = 20
+                fn main() {
+                    let a = 10
                     {
-                        let c = 30
-                        a + b + c
+                        let b = 20
+                        {
+                            let c = 30
+                            a + b + c
+                        }
                     }
+                    a
                 }
-                a
             "#,
             expect![[r#"
-                let a = 10
-                {
-                    let b = 20
-                    expr:{
-                        let c = 30
-                        expr:10 + 20 + 30
+                fn main() -> () {
+                    let a = 10
+                    {
+                        let b = 20
+                        expr:{
+                            let c = 30
+                            expr:10 + 20 + 30
+                        }
                     }
+                    expr:10
                 }
-                10
             "#]],
         );
     }
@@ -911,16 +996,20 @@ mod tests {
     fn shadwing() {
         check(
             r#"
-                let a = 10
-                a
-                let a = 20
-                a
+                fn main() {
+                    let a = 10
+                    a
+                    let a = 20
+                    a
+                }
             "#,
             expect![[r#"
-                let a = 10
-                10
-                let a = 20
-                20
+                fn main() -> () {
+                    let a = 10
+                    10
+                    let a = 20
+                    expr:20
+                }
             "#]],
         );
     }
@@ -929,36 +1018,40 @@ mod tests {
     fn shadwing_on_block() {
         check(
             r#"
-                a
-                let a = 10
-                a
-                {
+                fn main() {
                     a
-                    let a = 20
+                    let a = 10
+                    a
                     {
                         a
-                        let a = 30
+                        let a = 20
+                        {
+                            a
+                            let a = 30
+                            a
+                        }
                         a
                     }
                     a
                 }
-                a
             "#,
             expect![[r#"
-                <missing>
-                let a = 10
-                10
-                {
+                fn main() -> () {
+                    <missing>
+                    let a = 10
                     10
-                    let a = 20
                     {
-                        20
-                        let a = 30
-                        expr:30
+                        10
+                        let a = 20
+                        {
+                            20
+                            let a = 30
+                            expr:30
+                        }
+                        expr:20
                     }
-                    expr:20
+                    expr:10
                 }
-                10
             "#]],
         );
     }
@@ -967,28 +1060,32 @@ mod tests {
     fn can_bind_block_because_it_is_expr() {
         check(
             r#"
-                let a = {
+                fn main() {
+                    let a = {
+                        a
+                        let a = 10;
+                        a
+                    };
                     a
-                    let a = 10;
-                    a
-                };
-                a
 
-                20 + {
-                    let b = 30
-                    a + b
+                    20 + {
+                        let b = 30
+                        a + b
+                    }
                 }
             "#,
             expect![[r#"
-                let a = {
-                    <missing>
-                    let a = 10
-                    expr:10
-                }
-                a
-                20 + {
-                    let b = 30
-                    expr:a + 30
+                fn main() -> () {
+                    let a = {
+                        <missing>
+                        let a = 10
+                        expr:10
+                    }
+                    a
+                    expr:20 + {
+                        let b = 30
+                        expr:a + 30
+                    }
                 }
             "#]],
         );
@@ -998,21 +1095,25 @@ mod tests {
     fn can_use_block_in_binary_expr() {
         check(
             r#"
-                {
-                    let a = 10;
-                    a
-                } + {
-                    let b = 30
-                    a + b
+                fn main() {
+                    {
+                        let a = 10;
+                        a
+                    } + {
+                        let b = 30
+                        a + b
+                    }
                 }
             "#,
             expect![[r#"
-                {
-                    let a = 10
-                    expr:10
-                } + {
-                    let b = 30
-                    expr:<missing> + 30
+                fn main() -> () {
+                    expr:{
+                        let a = 10
+                        expr:10
+                    } + {
+                        let b = 30
+                        expr:<missing> + 30
+                    }
                 }
             "#]],
         );
@@ -1022,24 +1123,28 @@ mod tests {
     fn can_use_block_in_paren_expr() {
         check(
             r#"
-            (
-                (
-                    {
-                        let a = 10;
+                fn main() {
+                    (
                         (
                             {
-                                a
+                                let a = 10;
+                                (
+                                    {
+                                        a
+                                    }
+                                )
                             }
                         )
-                    }
-                )
-            )
+                    )
+                }
             "#,
             expect![[r#"
-                {
-                    let a = 10
+                fn main() -> () {
                     expr:{
-                        expr:10
+                        let a = 10
+                        expr:{
+                            expr:10
+                        }
                     }
                 }
             "#]],
@@ -1050,18 +1155,22 @@ mod tests {
     fn can_use_block_in_unary_expr() {
         check(
             r#"
-                -{
-                    let a = 10;
+                fn main() {
                     -{
-                        -a
+                        let a = 10;
+                        -{
+                            -a
+                        }
                     }
                 }
             "#,
             expect![[r#"
-                -{
-                    let a = 10
+                fn main() -> () {
                     expr:-{
-                        expr:-10
+                        let a = 10
+                        expr:-{
+                            expr:-10
+                        }
                     }
                 }
             "#]],
@@ -1144,36 +1253,40 @@ mod tests {
     fn resolve_function_params_by_nested_scope() {
         check(
             r#"
-                fn foo(a, b) {
-                    let a = 0;
-                    a
-                    b
-                    fn bar(a, b) {
-                        {
-                            a + b
+                fn main() {
+                    fn foo(a, b) {
+                        let a = 0;
+                        a
+                        b
+                        fn bar(a, b) {
+                            {
+                                a + b
+                            }
                         }
+                        a
+                        b
                     }
                     a
                     b
                 }
-                a
-                b
             "#,
             expect![[r#"
-                fn foo(a: <unknown>, b: <unknown>) -> () {
-                    let a = 0
-                    0
-                    param:b
-                    fn bar(a: <unknown>, b: <unknown>) -> () {
-                        expr:{
-                            expr:param:a + param:b
+                fn main() -> () {
+                    fn foo(a: <unknown>, b: <unknown>) -> () {
+                        let a = 0
+                        0
+                        param:b
+                        fn bar(a: <unknown>, b: <unknown>) -> () {
+                            expr:{
+                                expr:param:a + param:b
+                            }
                         }
+                        0
+                        expr:param:b
                     }
-                    0
-                    expr:param:b
+                    <missing>
+                    expr:<missing>
                 }
-                <missing>
-                <missing>
             "#]],
         );
     }
@@ -1182,19 +1295,23 @@ mod tests {
     fn function_scope() {
         check(
             r#"
-                let a = 10;
-                fn foo() {
-                    a
-                    let a = 20;
-                    a
+                fn main() {
+                    let a = 10;
+                    fn foo() {
+                        a
+                        let a = 20;
+                        a
+                    }
                 }
             "#,
             expect![[r#"
-                let a = 10
-                fn foo() -> () {
-                    <missing>
-                    let a = 20
-                    expr:20
+                fn main() -> () {
+                    let a = 10
+                    fn foo() -> () {
+                        <missing>
+                        let a = 20
+                        expr:20
+                    }
                 }
             "#]],
         );
@@ -1204,34 +1321,38 @@ mod tests {
     fn define_function_in_block() {
         check(
             r#"
-                {
-                    fn foo() {
-                        let a = 10;
-                        {
-                            let b = 20;
-                            fn bar() {
-                                let c = 20;
-                                fn baz() {
+                fn main() {
+                    {
+                        fn foo() {
+                            let a = 10;
+                            {
+                                let b = 20;
+                                fn bar() {
+                                    let c = 20;
+                                    fn baz() {
+                                        a + b + c
+                                    }
                                     a + b + c
                                 }
-                                a + b + c
                             }
                         }
                     }
                 }
             "#,
             expect![[r#"
-                {
-                    fn foo() -> () {
-                        let a = 10
-                        expr:{
-                            let b = 20
-                            fn bar() -> () {
-                                let c = 20
-                                fn baz() -> () {
-                                    expr:<missing> + <missing> + <missing>
+                fn main() -> () {
+                    expr:{
+                        fn foo() -> () {
+                            let a = 10
+                            expr:{
+                                let b = 20
+                                fn bar() -> () {
+                                    let c = 20
+                                    fn baz() -> () {
+                                        expr:<missing> + <missing> + <missing>
+                                    }
+                                    expr:<missing> + <missing> + 20
                                 }
-                                expr:<missing> + <missing> + 20
                             }
                         }
                     }
@@ -1244,50 +1365,54 @@ mod tests {
     fn shadowing_in_function() {
         check(
             r#"
-                a
-                let a = 10;
-                a
-                fn foo() {
+                fn main() {
                     a
-                    let a = 20;
+                    let a = 10;
                     a
-                    {
+                    fn foo() {
                         a
-                        let a = 30;
+                        let a = 20;
                         a
-                    }
-                    a
-                    fn bar() {
+                        {
+                            a
+                            let a = 30;
+                            a
+                        }
                         a
-                        let a = 40;
+                        fn bar() {
+                            a
+                            let a = 40;
+                            a
+                        }
                         a
                     }
                     a
                 }
-                a
             "#,
             expect![[r#"
-                <missing>
-                let a = 10
-                10
-                fn foo() -> () {
+                fn main() -> () {
                     <missing>
-                    let a = 20
-                    20
-                    {
-                        20
-                        let a = 30
-                        expr:30
-                    }
-                    20
-                    fn bar() -> () {
+                    let a = 10
+                    10
+                    fn foo() -> () {
                         <missing>
-                        let a = 40
-                        expr:40
+                        let a = 20
+                        20
+                        {
+                            20
+                            let a = 30
+                            expr:30
+                        }
+                        20
+                        fn bar() -> () {
+                            <missing>
+                            let a = 40
+                            expr:40
+                        }
+                        expr:20
                     }
-                    expr:20
+                    expr:10
                 }
-                10
             "#]],
         );
     }
@@ -1296,44 +1421,48 @@ mod tests {
     fn ref_function_from_outer_scope() {
         check(
             r#"
-                fn foo() {
-                    foo
-                    bar
-                    baz
-                    fn bar() {
+                fn main() {
+                    fn foo() {
+                        foo
+                        bar
+                        baz
+                        fn bar() {
+                            foo
+                            bar
+                            baz
+                        }
+                    }
+                    fn baz() {
                         foo
                         bar
                         baz
                     }
-                }
-                fn baz() {
                     foo
                     bar
                     baz
                 }
-                foo
-                bar
-                baz
             "#,
             expect![[r#"
-                fn foo() -> () {
-                    fn:foo
-                    fn:bar
-                    fn:baz
-                    fn bar() -> () {
+                fn main() -> () {
+                    fn foo() -> () {
                         fn:foo
                         fn:bar
+                        fn:baz
+                        fn bar() -> () {
+                            fn:foo
+                            fn:bar
+                            expr:fn:baz
+                        }
+                    }
+                    fn baz() -> () {
+                        fn:foo
+                        <missing>
                         expr:fn:baz
                     }
-                }
-                fn baz() -> () {
                     fn:foo
                     <missing>
                     expr:fn:baz
                 }
-                fn:foo
-                <missing>
-                fn:baz
             "#]],
         );
     }
@@ -1341,10 +1470,12 @@ mod tests {
     #[test]
     fn unclose_block_in_expr() {
         check(
-            "($10/{",
+            "fn main() { ($10/{ }",
             expect![[r#"
-                <missing> / <missing>
-            "#]],
+            fn main() -> () {
+                expr:<missing> / <missing>
+            }
+        "#]],
         );
     }
 
@@ -1389,22 +1520,28 @@ mod tests {
     #[test]
     fn call() {
         check(
-            "a()",
+            "fn main() { a() }",
             expect![[r#"
-                <missing>()
-            "#]],
+            fn main() -> () {
+                expr:<missing>()
+            }
+        "#]],
         );
 
         check(
             r#"
-                fn a() { 10 }
-                a()
+                fn main() {
+                    fn a() { 10 }
+                    a()
+                }
             "#,
             expect![[r#"
-                fn a() -> () {
-                    expr:10
+                fn main() -> () {
+                    fn a() -> () {
+                        expr:10
+                    }
+                    expr:fn:a()
                 }
-                fn:a()
             "#]],
         );
     }
@@ -1412,39 +1549,49 @@ mod tests {
     #[test]
     fn call_with_arg() {
         check(
-            "a(10, 20)",
+            "fn main() { a(10, 20) }",
             expect![[r#"
-                <missing>(10, 20)
+            fn main() -> () {
+                expr:<missing>(10, 20)
+            }
+        "#]],
+        );
+
+        check(
+            r#"
+                fn main() {
+                    fn a() { 10 }
+                    let b = 20;
+                    a(b, 30)
+                }
+            "#,
+            expect![[r#"
+                fn main() -> () {
+                    fn a() -> () {
+                        expr:10
+                    }
+                    let b = 20
+                    expr:fn:a(20, 30)
+                }
             "#]],
         );
 
         check(
             r#"
-                fn a() { 10 }
-                let b = 20;
-                a(b, 30)
+                fn main() {
+                    fn aaa(x: bool, y: string) -> int {
+                        10 + 20
+                    }
+                    aaa("aaa", true);
+                }
             "#,
             expect![[r#"
-                fn a() -> () {
-                    expr:10
+                fn main() -> () {
+                    fn aaa(x: bool, y: string) -> int {
+                        expr:10 + 20
+                    }
+                    expr:fn:aaa("aaa", true)
                 }
-                let b = 20
-                fn:a(20, 30)
-            "#]],
-        );
-
-        check(
-            r#"
-                fn aaa(x: bool, y: string) -> int {
-                    10 + 20
-                }
-                aaa("aaa", true);
-            "#,
-            expect![[r#"
-                fn aaa(x: bool, y: string) -> int {
-                    expr:10 + 20
-                }
-                fn:aaa("aaa", true)
             "#]],
         );
     }

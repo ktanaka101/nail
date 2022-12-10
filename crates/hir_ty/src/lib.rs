@@ -196,8 +196,13 @@ mod tests {
     #[test]
     fn infer_integer_literal() {
         check(
-            "10",
+            r#"
+                fn main() {
+                    10
+                }
+            "#,
             expect![[r#"
+                fn() -> ()
                 ---
                 `10`: int
                 ---
@@ -208,8 +213,13 @@ mod tests {
     #[test]
     fn infer_string_literal() {
         check(
-            "\"aaa\"",
+            r#"
+                fn main() {
+                    "aaa"
+                }
+            "#,
             expect![[r#"
+                fn() -> ()
                 ---
                 `"aaa"`: string
                 ---
@@ -220,8 +230,13 @@ mod tests {
     #[test]
     fn infer_char_literal() {
         check(
-            "'a'",
+            r#"
+                fn main() {
+                    'a'
+                }
+            "#,
             expect![[r#"
+                fn() -> ()
                 ---
                 `'a'`: char
                 ---
@@ -232,8 +247,13 @@ mod tests {
     #[test]
     fn infer_bool_test() {
         check(
-            "true",
+            r#"
+                fn main() {
+                    true
+                }
+            "#,
             expect![[r#"
+                fn() -> ()
                 ---
                 `true`: bool
                 ---
@@ -241,8 +261,13 @@ mod tests {
         );
 
         check(
-            "false",
+            r#"
+                fn main() {
+                    false
+                }
+            "#,
             expect![[r#"
+                fn() -> ()
                 ---
                 `false`: bool
                 ---
@@ -253,8 +278,13 @@ mod tests {
     #[test]
     fn infer_variable_def() {
         check(
-            "let a = true",
+            r#"
+                fn main() {
+                    let a = true
+                }
+            "#,
             expect![[r#"
+                fn() -> ()
                 ---
                 `true`: bool
                 ---
@@ -266,12 +296,15 @@ mod tests {
     fn infer_multiline_variable_def() {
         check(
             r#"
-                let a = true
-                let b = 10
-                let c = "aa"
-                let d = 'a'
+                fn main() {
+                    let a = true
+                    let b = 10
+                    let c = "aa"
+                    let d = 'a'
+                }
             "#,
             expect![[r#"
+                fn() -> ()
                 ---
                 `true`: bool
                 `10`: int
@@ -286,16 +319,19 @@ mod tests {
     fn infer_binary() {
         check(
             r#"
-                10 + 20
-                "aaa" + "bbb"
-                10 + "aaa"
-                'a' + 'a'
-                10 + 'a'
-                true + true
-                10 + true
-                10 + (10 + "aaa")
+                fn main() {
+                    10 + 20
+                    "aaa" + "bbb"
+                    10 + "aaa"
+                    'a' + 'a'
+                    10 + 'a'
+                    true + true
+                    10 + true
+                    10 + (10 + "aaa")
+                }
             "#,
             expect![[r#"
+                fn() -> ()
                 ---
                 `10`: int
                 `20`: int
@@ -332,9 +368,12 @@ mod tests {
 
         check(
             r#"
-                (10 + "aaa") + (10 + "aaa")
+                fn main() {
+                    (10 + "aaa") + (10 + "aaa")
+                }
             "#,
             expect![[r#"
+                fn() -> ()
                 ---
                 `10`: int
                 `"aaa"`: string
@@ -354,12 +393,15 @@ mod tests {
     fn infer_unary() {
         check(
             r#"
-                let a = -10
-                let b = -"aaa"
-                let c = -'a'
-                let d = -true
+                fn main() {
+                    let a = -10
+                    let b = -"aaa"
+                    let c = -'a'
+                    let d = -true
+                }
             "#,
             expect![[r#"
+                fn() -> ()
                 ---
                 `10`: int
                 `-10`: int
@@ -378,10 +420,13 @@ mod tests {
     fn infer_variable_ref() {
         check(
             r#"
-                let a = -10
-                a
+                fn main() {
+                    let a = -10
+                    a
+                }
             "#,
             expect![[r#"
+                fn() -> ()
                 ---
                 `10`: int
                 `-10`: int
@@ -395,11 +440,14 @@ mod tests {
     fn infer_block() {
         check(
             r#"
-                {
-                    10
+                fn main() {
+                    {
+                        10
+                    }
                 }
             "#,
             expect![[r#"
+                fn() -> ()
                 ---
                 `10`: int
                 `{ .., 10 }`: int
@@ -409,14 +457,17 @@ mod tests {
 
         check(
             r#"
-                {
+                fn main() {
                     {
-                        10
-                        "aaa"
+                        {
+                            10
+                            "aaa"
+                        }
                     }
                 }
             "#,
             expect![[r#"
+                fn() -> ()
                 ---
                 `10`: int
                 `"aaa"`: string
@@ -428,14 +479,17 @@ mod tests {
 
         check(
             r#"
-                let a = 10;
-                let b = {
-                    let c = 20;
-                    a + c
+                fn main() {
+                    let a = 10;
+                    let b = {
+                        let c = 20;
+                        a + c
+                    }
+                    b
                 }
-                b
             "#,
             expect![[r#"
+                fn() -> ()
                 ---
                 `10`: int
                 `20`: int
@@ -491,13 +545,16 @@ mod tests {
     fn infer_call() {
         check(
             r#"
-                fn aaa(x: bool, y: string) -> int {
-                    10 + 20
+                fn main() {
+                    fn aaa(x: bool, y: string) -> int {
+                        10 + 20
+                    }
+                    let res = aaa(true, "aaa");
+                    res + 30
                 }
-                let res = aaa(true, "aaa");
-                res + 30
             "#,
             expect![[r#"
+                fn() -> ()
                 fn(bool, string) -> int
                 ---
                 `10`: int
@@ -518,12 +575,15 @@ mod tests {
     fn infer_call_missmatch() {
         check(
             r#"
-                fn aaa(x: bool, y: string) -> int {
-                    10 + 20
+                fn main() {
+                    fn aaa(x: bool, y: string) -> int {
+                        10 + 20
+                    }
+                    aaa("aaa", true);
                 }
-                aaa("aaa", true);
             "#,
             expect![[r#"
+                fn() -> ()
                 fn(bool, string) -> int
                 ---
                 `10`: int

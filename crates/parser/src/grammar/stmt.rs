@@ -2,16 +2,7 @@ use lexer::TokenKind;
 use syntax::SyntaxKind;
 
 use super::expr;
-use crate::parser::{marker::CompletedMarker, Parser, BLOCK_RECOVERY_SET, TOPLEVEL_RECOVERY_SET};
-
-pub(super) fn parse_stmt_on_toplevel(parser: &mut Parser) -> Option<CompletedMarker> {
-    if parser.at(TokenKind::FnKw) {
-        Some(parse_function_def(parser, &TOPLEVEL_RECOVERY_SET))
-    } else {
-        parser.error_with_recovery_set_only_default_on_toplevel();
-        None
-    }
-}
+use crate::parser::{marker::CompletedMarker, Parser, BLOCK_RECOVERY_SET};
 
 pub(super) fn parse_stmt_on_block(parser: &mut Parser) -> Option<CompletedMarker> {
     if parser.at(TokenKind::LetKw) {
@@ -36,7 +27,10 @@ fn parse_variable_def(parser: &mut Parser) -> CompletedMarker {
     marker.complete(parser, SyntaxKind::VariableDef)
 }
 
-fn parse_function_def(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedMarker {
+pub(super) fn parse_function_def(
+    parser: &mut Parser,
+    recovery_set: &[TokenKind],
+) -> CompletedMarker {
     assert!(parser.at(TokenKind::FnKw));
 
     let marker = parser.start();

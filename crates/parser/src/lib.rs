@@ -68,6 +68,18 @@ fn check(input: &str, expected_tree: expect_test::Expect) {
 }
 
 #[cfg(test)]
+fn check_in_block(input: &str, expected_tree: expect_test::Expect) {
+    let tokens: Vec<_> = Lexer::new(input).collect();
+    let source = Source::new(&tokens);
+    let parser = Parser::new(source);
+    let events = parser.parse_in_block();
+    let sink = Sink::new(&tokens, events);
+    let parse = sink.finish();
+
+    expected_tree.assert_eq(&parse.debug_tree());
+}
+
+#[cfg(test)]
 mod tests {
     use expect_test::expect;
 

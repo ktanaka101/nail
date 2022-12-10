@@ -28,7 +28,7 @@ impl Display for FunctionParam {
             format!("{}", self.name)
         };
 
-        write!(f, "{}", out)
+        write!(f, "{out}")
     }
 }
 
@@ -60,7 +60,7 @@ impl Display for Function {
             )
         };
 
-        write!(f, "{}", out)
+        write!(f, "{out}")
     }
 }
 
@@ -70,7 +70,7 @@ impl TryFrom<Expr> for Function {
     fn try_from(value: Expr) -> Result<Self> {
         match value {
             Expr::Function(func) => Ok(func),
-            expr => Err(ParserError::Convert(format!("{:?}", expr), "Function".into()).into()),
+            expr => Err(ParserError::Convert(format!("{expr:?}"), "Function".into()).into()),
         }
     }
 }

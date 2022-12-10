@@ -12,8 +12,8 @@ pub enum ParserError {
 impl fmt::Display for ParserError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ParserError::ParseError(e) => write!(f, "{}", e),
-            ParserError::TokenError(e) => write!(f, "{}", e),
+            ParserError::ParseError(e) => write!(f, "{e}"),
+            ParserError::TokenError(e) => write!(f, "{e}"),
         }
     }
 }
@@ -54,11 +54,11 @@ impl fmt::Display for TokenError {
 
         for (idx, expected_kind) in self.expected.iter().enumerate() {
             if is_first(idx) {
-                write!(f, "{}", expected_kind)?;
+                write!(f, "{expected_kind}")?;
             } else if is_last(idx) {
-                write!(f, " or {}", expected_kind)?;
+                write!(f, " or {expected_kind}")?;
             } else {
-                write!(f, ", {}", expected_kind)?;
+                write!(f, ", {expected_kind}")?;
             }
         }
 
@@ -104,16 +104,16 @@ impl fmt::Display for ParseError {
 
         for (idx, expected_kind) in self.expected.iter().enumerate() {
             if is_first(idx) {
-                write!(f, "{}", expected_kind)?;
+                write!(f, "{expected_kind}")?;
             } else if is_last(idx) {
-                write!(f, " or {}", expected_kind)?;
+                write!(f, " or {expected_kind}")?;
             } else {
-                write!(f, ", {}", expected_kind)?;
+                write!(f, ", {expected_kind}")?;
             }
         }
 
         if let Some(found) = self.found {
-            write!(f, ", but found {}", found)?;
+            write!(f, ", but found {found}")?;
         }
 
         Ok(())
@@ -142,7 +142,7 @@ mod tests {
             },
         };
 
-        assert_eq!(format!("{}", error), output);
+        assert_eq!(format!("{error}"), output);
     }
 
     #[test]

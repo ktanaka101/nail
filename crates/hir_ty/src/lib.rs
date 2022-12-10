@@ -123,7 +123,7 @@ mod tests {
                     hir::UnaryOp::Neg => "-".to_string(),
                 };
                 let expr = debug_hir_expr(expr, lower_result);
-                format!("{}{}", op, expr)
+                format!("{op}{expr}")
             }
             hir::Expr::Binary { op, lhs, rhs } => {
                 let op = match op {
@@ -136,7 +136,7 @@ mod tests {
                 let lhs = debug_hir_expr(lhs, lower_result);
                 let rhs = debug_hir_expr(rhs, lower_result);
 
-                format!("{} {} {}", lhs, op, rhs)
+                format!("{lhs} {op} {rhs}")
             }
             hir::Expr::VariableRef { var } => {
                 let name = match var {
@@ -168,13 +168,13 @@ mod tests {
                     .collect::<Vec<String>>()
                     .join(", ");
 
-                format!("{}({})", name, args)
+                format!("{name}({args})")
             }
             hir::Expr::Literal(literal) => match literal {
                 hir::Literal::Bool(b) => b.to_string(),
-                hir::Literal::Char(c) => format!("'{}'", c),
+                hir::Literal::Char(c) => format!("'{c}'"),
                 hir::Literal::Integer(i) => i.to_string(),
-                hir::Literal::String(s) => format!("\"{}\"", s),
+                hir::Literal::String(s) => format!("\"{s}\""),
             },
         }
     }

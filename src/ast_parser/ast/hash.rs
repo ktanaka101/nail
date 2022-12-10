@@ -14,7 +14,7 @@ impl Display for Hash {
             .collect::<Vec<String>>()
             .join(", ");
 
-        write!(f, "{}", out)
+        write!(f, "{out}")
     }
 }
 
@@ -24,7 +24,7 @@ impl TryFrom<Expr> for Hash {
     fn try_from(value: Expr) -> Result<Self> {
         match value {
             Expr::Hash(hs) => Ok(hs),
-            expr => Err(ParserError::Convert(format!("{:?}", expr), "Hash".into()).into()),
+            expr => Err(ParserError::Convert(format!("{expr:?}"), "Hash".into()).into()),
         }
     }
 }

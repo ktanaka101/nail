@@ -416,7 +416,7 @@ mod tests {
                     Type::Unit => "()",
                     Type::Unknown => "<unknown>",
                 };
-                format!("{}: {}", name, ty)
+                format!("{name}: {ty}")
             })
             .collect::<Vec<_>>()
             .join(", ");
@@ -491,8 +491,8 @@ mod tests {
         match expr {
             Expr::Literal(literal) => match literal {
                 Literal::Bool(b) => b.to_string(),
-                Literal::Char(c) => format!("'{}'", c),
-                Literal::String(s) => format!("\"{}\"", s),
+                Literal::Char(c) => format!("'{c}'"),
+                Literal::String(s) => format!("\"{s}\""),
                 Literal::Integer(i) => i.to_string(),
             },
             Expr::Binary { op, lhs, rhs } => {
@@ -514,7 +514,7 @@ mod tests {
                     ctx,
                     nesting,
                 );
-                format!("{} {} {}", lhs_str, op, rhs_str)
+                format!("{lhs_str} {op} {rhs_str}")
             }
             Expr::Unary { op, expr } => {
                 let op = match op {
@@ -526,7 +526,7 @@ mod tests {
                     ctx,
                     nesting,
                 );
-                format!("{}{}", op, expr_str)
+                format!("{op}{expr_str}")
             }
             Expr::VariableRef { var } => debug_symbol(lower_result, var, ctx, nesting),
             Expr::Call { callee, args } => {
@@ -544,7 +544,7 @@ mod tests {
                     .collect::<Vec<_>>()
                     .join(", ");
 
-                format!("{}({})", callee, args)
+                format!("{callee}({args})")
             }
             Expr::Block(block) => {
                 let mut msg = "{\n".to_string();
@@ -594,11 +594,11 @@ mod tests {
             },
             Symbol::Param { name, .. } => {
                 let name = lower_result.interner.lookup(name.key());
-                format!("param:{}", name)
+                format!("param:{name}")
             }
             Symbol::Function { name, .. } => {
                 let name = lower_result.interner.lookup(name.key());
-                format!("fn:{}", name)
+                format!("fn:{name}")
             }
             Symbol::Missing { .. } => "<missing>".to_string(),
         }

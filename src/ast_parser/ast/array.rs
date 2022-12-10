@@ -15,7 +15,7 @@ impl Display for Array {
             .collect::<Vec<String>>()
             .join(", ");
 
-        write!(f, "[{}]", out)
+        write!(f, "[{out}]")
     }
 }
 
@@ -25,7 +25,7 @@ impl TryFrom<Expr> for Array {
     fn try_from(value: Expr) -> Result<Self> {
         match value {
             Expr::Array(arr) => Ok(arr),
-            expr => Err(ParserError::Convert(format!("{:?}", expr), "Array".into()).into()),
+            expr => Err(ParserError::Convert(format!("{expr:?}"), "Array".into()).into()),
         }
     }
 }

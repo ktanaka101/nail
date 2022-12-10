@@ -28,6 +28,6 @@ impl Display for Operator {
             Self::Lt => "<",
             Self::Gt => ">",
         };
-        write!(f, "{}", out)
+        write!(f, "{out}")
     }
 }

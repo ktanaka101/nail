@@ -71,14 +71,14 @@ fn to_string(ptr: *const i64, length: i64, primitive_type: PrimitiveType) -> Res
     Ok(match primitive_type {
         PrimitiveType::Integer => {
             let ptr: *const i64 = ptr.cast();
-            let int = unsafe { *ptr as i64 };
+            let int = unsafe { *ptr };
 
             int.to_string()
         }
         PrimitiveType::Char => {
             let ptr: *const char = ptr.cast();
 
-            unsafe { *ptr as char }.to_string()
+            unsafe { *ptr }.to_string()
         }
         PrimitiveType::IntegerArray => {
             let length = usize::try_from(length).unwrap();
@@ -86,7 +86,7 @@ fn to_string(ptr: *const i64, length: i64, primitive_type: PrimitiveType) -> Res
             let mut string = String::new();
             string.push('[');
             for i in 0..length {
-                let int = unsafe { *ptr.add(i) as i64 };
+                let int = unsafe { *ptr.add(i) };
                 string.push_str(&int.to_string());
                 if i != length - 1 {
                     string.push_str(", ")
@@ -119,7 +119,7 @@ fn to_string(ptr: *const i64, length: i64, primitive_type: PrimitiveType) -> Res
             let mut bytes: Vec<u8> = vec![];
 
             for i in 0..length {
-                let v = unsafe { *ptr.add(i) as u8 };
+                let v = unsafe { *ptr.add(i) };
                 bytes.push(v);
             }
 
@@ -127,7 +127,7 @@ fn to_string(ptr: *const i64, length: i64, primitive_type: PrimitiveType) -> Res
         }
         PrimitiveType::Boolean => {
             let ptr: *const i8 = ptr.cast();
-            let val = unsafe { *ptr as i8 };
+            let val = unsafe { *ptr };
 
             match val {
                 0 => "false",
@@ -147,13 +147,13 @@ fn to_string(ptr: *const i64, length: i64, primitive_type: PrimitiveType) -> Res
 #[no_mangle]
 extern "C" fn puts(ptr: *const i64, length: i64, primitive_type: i8) {
     let s = to_string(ptr, length, primitive_type.try_into().unwrap()).unwrap();
-    println!("{}", s);
+    println!("{s}");
 }
 
 #[no_mangle]
 extern "C" fn to_file(ptr: *const i64, length: i64, primitive_type: i8, file_name_suffix: i64) {
     let s = to_string(ptr, length, primitive_type.try_into().unwrap()).unwrap();
-    let mut file = File::create(format!("output/{}.output", file_name_suffix)).unwrap();
+    let mut file = File::create(format!("output/{file_name_suffix}.output")).unwrap();
     file.write_all(s.as_bytes()).unwrap();
 }
 
@@ -1045,12 +1045,12 @@ mod tests {
 
             let program = match parser.parse_program() {
                 Ok(p) => p,
-                Err(e) => panic!("Parser error: {} by {}", e, input),
+                Err(e) => panic!("Parser error: {e} by {input}"),
             };
 
             let main_fn = match compiler.gen(&program.into(), false, Output::CStringPtr) {
                 Ok(f) => f,
-                Err(e) => panic!("LLVM error: {} by {}", e, input),
+                Err(e) => panic!("LLVM error: {e} by {input}"),
             };
 
             let result_string = {
@@ -1070,6 +1070,6 @@ mod tests {
     }
 
     fn make_err_msg(input: &'static str, expected: &'static str) -> String {
-        format!("input: {}\nexpected: {:?}", input, expected)
+        format!("input: {input}\nexpected: {expected:?}")
     }
 }

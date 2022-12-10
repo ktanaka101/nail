@@ -38,7 +38,7 @@ impl Display for Closure {
             format!("|{}| {}", params, self.body)
         };
 
-        write!(f, "{}", out)
+        write!(f, "{out}")
     }
 }
 
@@ -48,7 +48,7 @@ impl TryFrom<Expr> for Closure {
     fn try_from(value: Expr) -> Result<Self> {
         match value {
             Expr::Closure(func) => Ok(func),
-            expr => Err(ParserError::Convert(format!("{:?}", expr), "Closure".into()).into()),
+            expr => Err(ParserError::Convert(format!("{expr:?}"), "Closure".into()).into()),
         }
     }
 }

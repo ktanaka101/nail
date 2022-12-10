@@ -18,7 +18,7 @@ impl Display for Call {
                 .join(", ")
         );
 
-        write!(f, "{}", out)
+        write!(f, "{out}")
     }
 }
 
@@ -28,7 +28,7 @@ impl TryFrom<Expr> for Call {
     fn try_from(value: Expr) -> Result<Self> {
         match value {
             Expr::Call(call) => Ok(call),
-            expr => Err(ParserError::Convert(format!("{:?}", expr), "Call".into()).into()),
+            expr => Err(ParserError::Convert(format!("{expr:?}"), "Call".into()).into()),
         }
     }
 }

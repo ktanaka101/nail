@@ -62,7 +62,7 @@ impl Diagnostic {
                 message.push_str(format!("actual: {}", err.actual()).as_str());
                 message.push_str(" expected ");
                 for expected in err.expected() {
-                    message.push_str(format!("{}, ", expected).as_str());
+                    message.push_str(format!("{expected}, ").as_str());
                 }
 
                 message
@@ -70,11 +70,11 @@ impl Diagnostic {
             Self::Parsing(err) => {
                 let mut message = String::new();
                 if let Some(token) = err.found() {
-                    message.push_str(format!("actual: {}", token).as_str());
+                    message.push_str(format!("actual: {token}").as_str());
                 }
                 message.push_str(" expected ");
                 for expected in err.expected() {
-                    message.push_str(format!("{}, ", expected).as_str());
+                    message.push_str(format!("{expected}, ").as_str());
                 }
 
                 message

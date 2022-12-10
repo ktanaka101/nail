@@ -71,7 +71,7 @@ impl Terminal {
     }
 
     pub fn write(&mut self, string: &str) {
-        write!(self.stdout, "{}", string).unwrap();
+        write!(self.stdout, "{string}").unwrap();
         self.stdout.flush().unwrap();
         let len: u16 = string.len().try_into().unwrap();
         self.cursor_pos.right(len);

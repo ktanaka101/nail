@@ -46,7 +46,7 @@ impl Parse {
         s.push('\n');
 
         for error in &self.errors {
-            s.push_str(&format!("{}\n", error));
+            s.push_str(&format!("{error}\n"));
         }
 
         s

@@ -11,10 +11,10 @@ pub enum Stmt {
 impl Display for Stmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::ExprStmt(s) => write!(f, "{}", s),
-            Self::Let(s) => write!(f, "{}", s),
-            Self::Block(s) => write!(f, "{}", s),
-            Self::Return(s) => write!(f, "{}", s),
+            Self::ExprStmt(s) => write!(f, "{s}"),
+            Self::Let(s) => write!(f, "{s}"),
+            Self::Block(s) => write!(f, "{s}"),
+            Self::Return(s) => write!(f, "{s}"),
         }
     }
 }
@@ -49,7 +49,7 @@ impl TryFrom<Node> for Stmt {
         match value {
             Node::Stmt(stmt) => Ok(stmt),
             Node::Program(program) => {
-                Err(ParserError::Convert(format!("{:?}", program), "Stmt".into()).into())
+                Err(ParserError::Convert(format!("{program:?}"), "Stmt".into()).into())
             }
             Node::Expr(expr) => Ok(Stmt::ExprStmt(ExprStmt { expr })),
         }

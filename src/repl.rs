@@ -84,12 +84,12 @@ fn dev_run(code: &str) -> Result<String> {
     let syntax = parse.syntax();
 
     for error in ast::validation::validate(&syntax) {
-        message.push_str(format!("\n{}", error).as_str());
+        message.push_str(format!("\n{error}").as_str());
     }
 
     let source_file = ast::SourceFile::cast(syntax).unwrap();
     let lower_result = hir::lower(source_file);
-    message.push_str(format!("\n{:?}", lower_result).as_str());
+    message.push_str(format!("\n{lower_result:?}").as_str());
 
     Ok(message)
 }
@@ -212,8 +212,8 @@ fn start_terminal(executer: Executer) {
                     term.move_cursor(terminal::MoveCursorAction::Right(1));
                 }
             },
-            Key::Alt(c) => println!("Alt-{}", c),
-            Key::Ctrl(c) => println!("Ctrl-{}", c),
+            Key::Alt(c) => println!("Alt-{c}"),
+            Key::Ctrl(c) => println!("Ctrl-{c}"),
             Key::Left => {
                 let left_limit = u16::try_from(PROMPT.len()).unwrap() + 1;
                 if term.cursor_pos().col <= left_limit {

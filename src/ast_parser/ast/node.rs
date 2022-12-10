@@ -10,9 +10,9 @@ pub enum Node {
 impl Display for Node {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Program(n) => write!(f, "{}", n),
-            Self::Stmt(n) => write!(f, "{}", n),
-            Self::Expr(n) => write!(f, "{}", n),
+            Self::Program(n) => write!(f, "{n}"),
+            Self::Stmt(n) => write!(f, "{n}"),
+            Self::Expr(n) => write!(f, "{n}"),
         }
     }
 }

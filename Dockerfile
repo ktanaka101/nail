@@ -44,7 +44,7 @@ RUN curl -sL https://deb.nodesource.com/setup_18.x | bash -
 RUN apt install -y nodejs
 
 # using by rustfmt and cargo-fuzz
-RUN rustup toolchain install nightly
+RUN rustup default nightly
 
 # for development
 
@@ -62,11 +62,9 @@ RUN apt-get install -y g++
 RUN cargo install cargo-fuzz
 
 RUN rustup component add rustfmt clippy rust-analysis rust-src
-RUN rustup component add rustfmt --toolchain nightly
 
 # for CI
 
 FROM base AS ci
 
 RUN rustup component add rustfmt clippy
-RUN rustup component add rustfmt --toolchain nightly

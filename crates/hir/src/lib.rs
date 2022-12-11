@@ -33,6 +33,7 @@ pub fn lower(ast: ast::SourceFile) -> LowerResult {
     let mut shared_ctx = SharedBodyLowerContext::new();
 
     let mut root_ctx = BodyLowerContext::new(HashMap::new());
+    // TODO: Update stmts to items
     let toplevel_stmts = ast
         .stmts()
         .filter_map(|stmt| {

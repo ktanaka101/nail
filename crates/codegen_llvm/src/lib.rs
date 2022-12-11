@@ -42,6 +42,10 @@ struct Codegen<'a, 'ctx> {
 
 impl<'a, 'ctx> Codegen<'a, 'ctx> {
     fn gen(mut self) -> CodegenResult<'ctx> {
+        if self.hir_result.entry_point.is_none() {
+            unimplemented!();
+        }
+
         let entry_point = self.entry_point();
         self.builder.position_at_end(entry_point);
 

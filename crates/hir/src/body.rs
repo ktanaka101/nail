@@ -384,7 +384,7 @@ mod tests {
     use super::*;
     use crate::{
         item_tree::{Function, Type},
-        lower, LowerResult,
+        lower, LowerError, LowerResult,
     };
 
     fn indent(nesting: usize) -> String {
@@ -401,6 +401,14 @@ mod tests {
                 &lower_result.top_level_ctx,
                 0,
             ));
+        }
+
+        for error in &lower_result.errors {
+            match error {
+                LowerError::UndefinedEntryPoint => {
+                    msg.push_str("error: Undefined entry point.(help: fn main() { ... })\n");
+                }
+            }
         }
 
         msg
@@ -643,6 +651,29 @@ mod tests {
         let result = lower(source_file);
 
         expected.assert_eq(&debug(&result));
+    }
+
+    #[test]
+    fn entry_point() {
+        check(
+            r#"
+                fn no_main() { }
+            "#,
+            expect![[r#"
+                fn no_main() -> () {
+                }
+                error: Undefined entry point.(help: fn main() { ... })
+            "#]],
+        );
+        check(
+            r#"
+                fn main() { }
+            "#,
+            expect![[r#"
+                fn entry:main() -> () {
+                }
+            "#]],
+        );
     }
 
     #[test]
@@ -1221,6 +1252,7 @@ mod tests {
                     let a = 10
                     expr:10
                 }
+                error: Undefined entry point.(help: fn main() { ... })
             "#]],
         );
     }
@@ -1237,6 +1269,7 @@ mod tests {
                 fn foo(a: int, b: string) -> () {
                     expr:1
                 }
+                error: Undefined entry point.(help: fn main() { ... })
             "#]],
         );
     }
@@ -1259,6 +1292,7 @@ mod tests {
                 }
                 fn bar() -> bool {
                 }
+                error: Undefined entry point.(help: fn main() { ... })
             "#]],
         );
     }
@@ -1275,6 +1309,7 @@ mod tests {
                 fn foo(a: char, b: bool) -> () {
                     expr:param:a + param:b
                 }
+                error: Undefined entry point.(help: fn main() { ... })
             "#]],
         );
     }
@@ -1516,6 +1551,7 @@ mod tests {
             expect![[r#"
                 fn a(a: <unknown>, <missing>: <unknown>) -> () {
                 }
+                error: Undefined entry point.(help: fn main() { ... })
             "#]],
         );
     }
@@ -1527,13 +1563,19 @@ mod tests {
             expect![[r#"
                 fn a() -> <unknown> {
                 }
+                error: Undefined entry point.(help: fn main() { ... })
             "#]],
         );
     }
 
     #[test]
     fn function_missing_block() {
-        check("fn a(a, )", expect![""]);
+        check(
+            "fn a(a, )",
+            expect![[r#"
+                error: Undefined entry point.(help: fn main() { ... })
+            "#]],
+        );
     }
 
     #[test]
@@ -1541,9 +1583,10 @@ mod tests {
         check(
             "fn (a, ) {}",
             expect![[r#"
-            fn <missing>(a: <unknown>, <missing>: <unknown>) -> () {
-            }
-        "#]],
+                fn <missing>(a: <unknown>, <missing>: <unknown>) -> () {
+                }
+                error: Undefined entry point.(help: fn main() { ... })
+            "#]],
         );
     }
 

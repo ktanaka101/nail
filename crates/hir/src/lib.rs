@@ -15,6 +15,11 @@ use string_interner::{Interner, Key};
 use syntax::SyntaxNodePtr;
 
 #[derive(Debug)]
+pub enum LowerError {
+    UndefinedEntryPoint,
+}
+
+#[derive(Debug)]
 pub struct LowerResult {
     pub shared_ctx: SharedBodyLowerContext,
     pub top_level_ctx: BodyLowerContext,
@@ -23,6 +28,7 @@ pub struct LowerResult {
     pub db: Database,
     pub item_tree: ItemTree,
     pub interner: Interner,
+    pub errors: Vec<LowerError>,
 }
 
 pub fn lower(ast: ast::SourceFile) -> LowerResult {
@@ -42,7 +48,11 @@ pub fn lower(ast: ast::SourceFile) -> LowerResult {
         })
         .collect::<Vec<_>>();
 
+    let mut errors = vec![];
     let entry_point = get_entry_point(&top_level_stmts, &db, &interner);
+    if entry_point.is_none() {
+        errors.push(LowerError::UndefinedEntryPoint);
+    }
 
     LowerResult {
         shared_ctx,
@@ -52,6 +62,7 @@ pub fn lower(ast: ast::SourceFile) -> LowerResult {
         db,
         item_tree,
         interner,
+        errors,
     }
 }
 

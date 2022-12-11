@@ -33,17 +33,17 @@ pub fn lower(ast: ast::SourceFile) -> LowerResult {
     let mut shared_ctx = SharedBodyLowerContext::new();
 
     let mut root_ctx = BodyLowerContext::new(HashMap::new());
-    let stmts = ast
+    let toplevel_stmts = ast
         .stmts()
         .filter_map(|stmt| {
-            root_ctx.lower_stmt(stmt, &mut shared_ctx, &db, &item_tree, &mut interner)
+            root_ctx.lower_toplevel(stmt, &mut shared_ctx, &db, &item_tree, &mut interner)
         })
         .collect();
 
     LowerResult {
         shared_ctx,
         root_ctx,
-        stmts,
+        stmts: toplevel_stmts,
         db,
         item_tree,
         interner,

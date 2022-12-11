@@ -71,7 +71,45 @@ impl BodyLowerContext {
         }
     }
 
-    pub(super) fn lower_stmt(
+    pub(super) fn lower_toplevel(
+        &mut self,
+        ast: ast::Stmt,
+        ctx: &mut SharedBodyLowerContext,
+        db: &Database,
+        item_tree: &ItemTree,
+        interner: &mut Interner,
+    ) -> Option<Stmt> {
+        match ast {
+            ast::Stmt::FunctionDef(def) => {
+                self.lower_function_on_parent_ctx(def, ctx, db, item_tree, interner)
+            }
+            _ => None,
+        }
+    }
+
+    fn lower_function_on_parent_ctx(
+        &mut self,
+        def: ast::FunctionDef,
+        ctx: &mut SharedBodyLowerContext,
+        db: &Database,
+        item_tree: &ItemTree,
+        interner: &mut Interner,
+    ) -> Option<Stmt> {
+        let body = def.body()?;
+        let body_ast_id = db.lookup_ast_id(&body).unwrap();
+        let function = item_tree.block_to_function(db, &body_ast_id).unwrap();
+
+        let mut body_lower_ctx = BodyLowerContext::new(function.param_by_name.clone());
+        let stmt = body_lower_ctx.lower_function(def, ctx, db, item_tree, interner)?;
+
+        let ctx_idx = ctx.contexts.alloc(body_lower_ctx);
+        ctx.body_context_mapping
+            .insert(db.lookup_ast_id(&body).unwrap(), ctx_idx);
+
+        Some(stmt)
+    }
+
+    fn lower_stmt(
         &mut self,
         ast: ast::Stmt,
         ctx: &mut SharedBodyLowerContext,
@@ -92,18 +130,7 @@ impl BodyLowerContext {
                 Stmt::Expr(ctx.exprs.alloc(expr))
             }
             ast::Stmt::FunctionDef(def) => {
-                let body = def.body()?;
-                let body_ast_id = db.lookup_ast_id(&body).unwrap();
-                let function = item_tree.block_to_function(db, &body_ast_id).unwrap();
-
-                let mut body_lower_ctx = BodyLowerContext::new(function.param_by_name.clone());
-                let stmt = body_lower_ctx.lower_function(def, ctx, db, item_tree, interner)?;
-
-                let ctx_idx = ctx.contexts.alloc(body_lower_ctx);
-                ctx.body_context_mapping
-                    .insert(db.lookup_ast_id(&body).unwrap(), ctx_idx);
-
-                stmt
+                self.lower_function_on_parent_ctx(def, ctx, db, item_tree, interner)?
             }
         };
 

@@ -4,7 +4,7 @@ use crate::{AstId, ExprIdx, Name};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum CurrentBlock {
-    Root,
+    TopLevel,
     Block(AstId<ast::Block>),
 }
 
@@ -19,7 +19,7 @@ impl Scopes {
             inner: Vec::new(),
             current_block_stacks: vec![],
         };
-        scopes.enter(CurrentBlock::Root);
+        scopes.enter(CurrentBlock::TopLevel);
 
         scopes
     }

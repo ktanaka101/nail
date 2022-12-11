@@ -295,7 +295,7 @@ impl BodyLowerContext {
             }
         } else {
             let item_scope = match self.scopes.current_block() {
-                CurrentBlock::Root => item_tree.root_scope(db),
+                CurrentBlock::TopLevel => item_tree.top_level_scope(db),
                 CurrentBlock::Block(block_ast_id) => {
                     item_tree.block_scope(db, block_ast_id).unwrap()
                 }
@@ -394,8 +394,13 @@ mod tests {
     fn debug(lower_result: &LowerResult) -> String {
         let mut msg = "".to_string();
 
-        for stmt in &lower_result.stmts {
-            msg.push_str(&debug_stmt(lower_result, stmt, &lower_result.root_ctx, 0));
+        for stmt in &lower_result.top_level_stmts {
+            msg.push_str(&debug_stmt(
+                lower_result,
+                stmt,
+                &lower_result.top_level_ctx,
+                0,
+            ));
         }
 
         msg

@@ -42,9 +42,9 @@ impl ItemScope {
 
         if let Some(parent) = &self.parent {
             match parent {
-                Parent::Root => {
-                    let root_item_scope = &db.item_scopes[item_tree.root_scope];
-                    root_item_scope.lookup(name_str, db, item_tree, interner)
+                Parent::TopLevel => {
+                    let top_level_item_scope = &db.item_scopes[item_tree.top_level_scope];
+                    top_level_item_scope.lookup(name_str, db, item_tree, interner)
                 }
                 Parent::Block(block) => {
                     let block_item_scope = &db.item_scopes[item_tree.scope[block]];
@@ -65,6 +65,6 @@ impl ItemScope {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Parent {
-    Root,
+    TopLevel,
     Block(BlockAstId),
 }

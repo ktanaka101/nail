@@ -106,7 +106,10 @@ impl<'a> TypeInferencer<'a> {
             };
         }
 
-        self.infer_stmts(&self.hir_result.stmts, &self.hir_result.root_ctx);
+        self.infer_stmts(
+            &self.hir_result.top_level_stmts,
+            &self.hir_result.top_level_ctx,
+        );
 
         InferenceResult {
             type_by_exprs: self.ctx.type_by_exprs,

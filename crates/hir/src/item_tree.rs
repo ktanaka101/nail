@@ -12,15 +12,15 @@ type BlockAstId = AstId<ast::Block>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemTree {
-    pub root_scope: ItemScopeIdx,
+    pub top_level_scope: ItemScopeIdx,
     scope: HashMap<BlockAstId, ItemScopeIdx>,
     back_scope: HashMap<ItemScopeIdx, BlockAstId>,
     block_to_function: HashMap<BlockAstId, FunctionIdx>,
     function_to_block: HashMap<FunctionIdx, BlockAstId>,
 }
 impl ItemTree {
-    pub fn root_scope<'a>(&self, db: &'a Database) -> &'a ItemScope {
-        &db.item_scopes[self.root_scope]
+    pub fn top_level_scope<'a>(&self, db: &'a Database) -> &'a ItemScope {
+        &db.item_scopes[self.top_level_scope]
     }
 
     pub fn block_scope_idx(&self, ast: &BlockAstId) -> Option<ItemScopeIdx> {
@@ -68,15 +68,15 @@ impl<'a> ItemTreeBuilderContext<'a> {
     }
 
     pub fn build(mut self, ast: &ast::SourceFile, db: &mut Database) -> ItemTree {
-        let mut root_scope = ItemScope::new(None);
+        let mut top_level_scope = ItemScope::new(None);
 
         for stmt in ast.stmts() {
-            self.build_stmt(stmt, &mut root_scope, Parent::Root, db);
+            self.build_stmt(stmt, &mut top_level_scope, Parent::TopLevel, db);
         }
 
-        let root_scope = db.item_scopes.alloc(root_scope);
+        let top_level_scope = db.item_scopes.alloc(top_level_scope);
         ItemTree {
-            root_scope,
+            top_level_scope,
             scope: self.scope,
             back_scope: self.back_scope,
             block_to_function: self.block_to_function,

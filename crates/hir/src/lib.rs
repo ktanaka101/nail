@@ -17,8 +17,8 @@ use syntax::SyntaxNodePtr;
 #[derive(Debug)]
 pub struct LowerResult {
     pub shared_ctx: SharedBodyLowerContext,
-    pub root_ctx: BodyLowerContext,
-    pub stmts: Vec<Stmt>,
+    pub top_level_ctx: BodyLowerContext,
+    pub top_level_stmts: Vec<Stmt>,
     pub db: Database,
     pub item_tree: ItemTree,
     pub interner: Interner,
@@ -32,19 +32,19 @@ pub fn lower(ast: ast::SourceFile) -> LowerResult {
 
     let mut shared_ctx = SharedBodyLowerContext::new();
 
-    let mut root_ctx = BodyLowerContext::new(HashMap::new());
+    let mut top_level_ctx = BodyLowerContext::new(HashMap::new());
     // TODO: Update stmts to items
-    let toplevel_stmts = ast
+    let top_level_stmts = ast
         .stmts()
         .filter_map(|stmt| {
-            root_ctx.lower_toplevel(stmt, &mut shared_ctx, &db, &item_tree, &mut interner)
+            top_level_ctx.lower_toplevel(stmt, &mut shared_ctx, &db, &item_tree, &mut interner)
         })
         .collect();
 
     LowerResult {
         shared_ctx,
-        root_ctx,
-        stmts: toplevel_stmts,
+        top_level_ctx,
+        top_level_stmts,
         db,
         item_tree,
         interner,

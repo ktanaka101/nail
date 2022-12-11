@@ -10,3 +10,9 @@ inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", feat
 
 hir = { path = "../hir" }
 hir_ty = { path = "../hir_ty" }
+
+[dev-dependencies]
+expect-test = "1.4"
+
+ast = { path = "../ast" }
+parser = { path = "../parser" }

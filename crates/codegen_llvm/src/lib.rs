@@ -46,15 +46,68 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             unimplemented!();
         }
 
-        let entry_point = self.entry_point();
-        self.builder.position_at_end(entry_point);
-
-        todo!()
-    }
-
-    fn entry_point(&self) -> BasicBlock {
         let fn_type = self.context.void_type().fn_type(&[], false);
         let main_fn = self.module.add_function("main", fn_type, None);
-        self.context.append_basic_block(main_fn, "entry")
+        let entry_point = self.context.append_basic_block(main_fn, "entry");
+        self.builder.position_at_end(entry_point);
+        self.builder.build_return(None);
+
+        CodegenResult {
+            function: unsafe { self.execution_engine.get_function("main").unwrap() },
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ast::AstNode;
+    use expect_test::{expect, Expect};
+    use inkwell::OptimizationLevel;
+
+    use super::*;
+
+    fn check(input: &str, expect: Expect) {
+        let parsed = parser::parse(input);
+        let ast = ast::SourceFile::cast(parsed.syntax()).unwrap();
+        let hir_result = hir::lower(ast);
+        let ty_result = hir_ty::lower(&hir_result);
+        let context = Context::create();
+        let module = context.create_module("top");
+        let builder = context.create_builder();
+        let execution_engine = module
+            .create_jit_execution_engine(OptimizationLevel::None)
+            .unwrap();
+
+        codegen(
+            &hir_result,
+            &ty_result,
+            &context,
+            &module,
+            &builder,
+            &execution_engine,
+        );
+
+        expect.assert_eq(&module.to_string());
+    }
+
+    #[test]
+    fn ir() {
+        check(
+            r#"
+            fn main() {
+                10
+            }
+        "#,
+            expect![[r#"
+                ; ModuleID = 'top'
+                source_filename = "top"
+                target datalayout = "e-m:e-i8:8:32-i16:16:32-i64:64-i128:128-n32:64-S128"
+
+                define void @main() {
+                entry:
+                  ret void
+                }
+            "#]],
+        );
     }
 }

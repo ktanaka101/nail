@@ -462,13 +462,11 @@ mod tests {
         };
 
         let body = debug_expr(lower_result, body_expr, function_ctx, nesting);
+        let is_entry_point = lower_result.entry_point == Some(function_idx);
         format!(
-            "{}fn {}({}) -> {} {}\n",
+            "{}fn {}{name}({params}) -> {return_type} {body}\n",
             indent(nesting),
-            name,
-            params,
-            return_type,
-            body
+            if is_entry_point { "entry:" } else { "" }
         )
     }
 
@@ -656,7 +654,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     let foo = <missing>
                 }
             "#]],
@@ -672,7 +670,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                 }
             "#]],
         );
@@ -687,7 +685,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     let foo = <missing>
                 }
             "#]],
@@ -703,7 +701,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     let a = <missing>
                 }
             "#]],
@@ -719,7 +717,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     expr:123
                 }
             "#]],
@@ -735,7 +733,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     expr:1 + 2
                 }
             "#]],
@@ -751,7 +749,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     expr:10 - <missing>
                 }
             "#]],
@@ -767,7 +765,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     expr:999
                 }
             "#]],
@@ -783,7 +781,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     expr:"aaa"
                 }
             "#]],
@@ -799,7 +797,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     expr:'a'
                 }
             "#]],
@@ -815,7 +813,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     expr:true
                 }
             "#]],
@@ -831,7 +829,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     expr:false
                 }
             "#]],
@@ -847,7 +845,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     expr:<missing>
                 }
             "#]],
@@ -863,7 +861,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     expr:-10
                 }
             "#]],
@@ -879,7 +877,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     expr:-<missing>
                 }
             "#]],
@@ -895,7 +893,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     expr:<missing>
                 }
             "#]],
@@ -912,7 +910,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     let foo = 10
                     expr:10
                 }
@@ -931,7 +929,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     expr:{
                         let foo = 10
                     }
@@ -956,7 +954,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     expr:{
                         let a = 10
                         {
@@ -982,7 +980,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     {
                         let a = 10
                     }
@@ -1009,7 +1007,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     let a = 10
                     {
                         let b = 20
@@ -1036,7 +1034,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     let a = 10
                     10
                     let a = 20
@@ -1068,7 +1066,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     <missing>
                     let a = 10
                     10
@@ -1107,7 +1105,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     let a = {
                         <missing>
                         let a = 10
@@ -1138,7 +1136,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     expr:{
                         let a = 10
                         expr:10
@@ -1171,7 +1169,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     expr:{
                         let a = 10
                         expr:{
@@ -1197,7 +1195,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     expr:-{
                         let a = 10
                         expr:-{
@@ -1303,7 +1301,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     fn foo(a: <unknown>, b: <unknown>) -> () {
                         let a = 0
                         0
@@ -1337,7 +1335,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     let a = 10
                     fn foo() -> () {
                         <missing>
@@ -1372,7 +1370,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     expr:{
                         fn foo() -> () {
                             let a = 10
@@ -1422,7 +1420,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     <missing>
                     let a = 10
                     10
@@ -1475,7 +1473,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     fn foo() -> () {
                         fn:foo
                         fn:bar
@@ -1504,10 +1502,10 @@ mod tests {
         check(
             "fn main() { ($10/{ }",
             expect![[r#"
-            fn main() -> () {
-                expr:<missing> / <missing>
-            }
-        "#]],
+                fn entry:main() -> () {
+                    expr:<missing> / <missing>
+                }
+            "#]],
         );
     }
 
@@ -1554,10 +1552,10 @@ mod tests {
         check(
             "fn main() { a() }",
             expect![[r#"
-            fn main() -> () {
-                expr:<missing>()
-            }
-        "#]],
+                fn entry:main() -> () {
+                    expr:<missing>()
+                }
+            "#]],
         );
 
         check(
@@ -1568,7 +1566,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     fn a() -> () {
                         expr:10
                     }
@@ -1583,10 +1581,10 @@ mod tests {
         check(
             "fn main() { a(10, 20) }",
             expect![[r#"
-            fn main() -> () {
-                expr:<missing>(10, 20)
-            }
-        "#]],
+                fn entry:main() -> () {
+                    expr:<missing>(10, 20)
+                }
+            "#]],
         );
 
         check(
@@ -1598,7 +1596,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     fn a() -> () {
                         expr:10
                     }
@@ -1618,7 +1616,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn entry:main() -> () {
                     fn aaa(x: bool, y: string) -> int {
                         expr:10 + 20
                     }

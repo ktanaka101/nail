@@ -19,6 +19,7 @@ pub struct LowerResult {
     pub shared_ctx: SharedBodyLowerContext,
     pub top_level_ctx: BodyLowerContext,
     pub top_level_stmts: Vec<Stmt>,
+    pub entry_point: Option<FunctionIdx>,
     pub db: Database,
     pub item_tree: ItemTree,
     pub interner: Interner,
@@ -39,16 +40,38 @@ pub fn lower(ast: ast::SourceFile) -> LowerResult {
         .filter_map(|stmt| {
             top_level_ctx.lower_toplevel(stmt, &mut shared_ctx, &db, &item_tree, &mut interner)
         })
-        .collect();
+        .collect::<Vec<_>>();
+
+    let entry_point = get_entry_point(&top_level_stmts, &db, &interner);
 
     LowerResult {
         shared_ctx,
         top_level_ctx,
         top_level_stmts,
+        entry_point,
         db,
         item_tree,
         interner,
     }
+}
+
+fn get_entry_point(
+    top_level_stmts: &[Stmt],
+    db: &Database,
+    interner: &Interner,
+) -> Option<FunctionIdx> {
+    for stmt in top_level_stmts {
+        if let Stmt::FunctionDef { signature, .. } = stmt {
+            let function = &db.functions[*signature];
+            if let Some(name) = function.name {
+                if interner.lookup(name.key()) == "main" {
+                    return Some(*signature);
+                }
+            }
+        }
+    }
+
+    None
 }
 
 pub type ExprIdx = Idx<Expr>;

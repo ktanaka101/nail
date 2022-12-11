@@ -1,5 +1,4 @@
 use inkwell::{
-    basic_block::BasicBlock,
     builder::Builder,
     context::Context,
     execution_engine::{ExecutionEngine, JitFunction},
@@ -66,18 +65,23 @@ mod tests {
 
     use super::*;
 
-    fn check(input: &str, expect: Expect) {
+    fn lower(input: &str) -> (hir::LowerResult, hir_ty::TyLowerResult) {
         let parsed = parser::parse(input);
         let ast = ast::SourceFile::cast(parsed.syntax()).unwrap();
         let hir_result = hir::lower(ast);
         let ty_result = hir_ty::lower(&hir_result);
+        (hir_result, ty_result)
+    }
+
+    fn check_ir(input: &str, expect: Expect) {
+        let (hir_result, ty_result) = lower(input);
+
         let context = Context::create();
         let module = context.create_module("top");
         let builder = context.create_builder();
         let execution_engine = module
             .create_jit_execution_engine(OptimizationLevel::None)
             .unwrap();
-
         codegen(
             &hir_result,
             &ty_result,
@@ -86,13 +90,12 @@ mod tests {
             &builder,
             &execution_engine,
         );
-
         expect.assert_eq(&module.to_string());
     }
 
     #[test]
     fn ir() {
-        check(
+        check_ir(
             r#"
             fn main() {
                 10

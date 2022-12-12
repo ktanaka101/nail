@@ -1,7 +1,6 @@
-use std::{
-    collections::HashMap,
-    ffi::{c_char, CString},
-};
+mod builtin_function;
+
+use std::collections::HashMap;
 
 use inkwell::{
     builder::Builder,
@@ -9,39 +8,7 @@ use inkwell::{
     execution_engine::{ExecutionEngine, JitFunction},
     module::Module,
     values::FunctionValue,
-    AddressSpace,
 };
-use serde::Serialize;
-use serde_json::Value;
-
-#[derive(Serialize)]
-enum OutputType {
-    Int,
-}
-
-#[derive(Serialize)]
-struct Output {
-    nail_type: OutputType,
-    value: Value,
-}
-
-const FN_NAME_PTR_TO_STRING: &str = "ptr_to_string";
-#[no_mangle]
-extern "C" fn ptr_to_string(ptr: *const i64) -> *const c_char {
-    let s = {
-        let int = unsafe { *ptr };
-        let out = Output {
-            nail_type: OutputType::Int,
-            value: Value::Number(int.into()),
-        };
-
-        let mut json = serde_json::to_string_pretty(&out).unwrap();
-        json.push('\n');
-        json
-    };
-    let s = CString::new(s).unwrap();
-    s.into_raw()
-}
 
 const BLOCK_ENTRY_NAME: &str = "start";
 const ENTRY_POINT_NAME: &str = "main";
@@ -121,14 +88,9 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         let int = self.context.i64_type().const_int(10, false);
         let ptr = self.builder.build_alloca(int.get_type(), "alloca_i");
         self.builder.build_store(ptr, int);
-        let length = self.context.i64_type().const_int(1, false);
 
         if should_return_string {
-            let call_v = self.builder.build_call(
-                *self.builtin_functions.get(FN_NAME_PTR_TO_STRING).unwrap(),
-                &[ptr.into(), length.into()],
-                FN_NAME_PTR_TO_STRING,
-            );
+            let call_v = self.build_call_ptr_to_string(ptr);
             let return_v = call_v.try_as_basic_value().left().unwrap();
 
             self.builder.build_return(Some(&return_v));
@@ -144,34 +106,12 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             },
         }
     }
-
-    fn add_builtin_function(&mut self) {
-        {
-            let return_ty = self.context.i8_type().ptr_type(AddressSpace::Generic);
-            let fn_type = return_ty.fn_type(
-                &[
-                    self.context
-                        .i64_type()
-                        .ptr_type(AddressSpace::Generic)
-                        .into(),
-                    self.context.i64_type().into(),
-                    self.context.i8_type().into(),
-                ],
-                false,
-            );
-            let func_value = self
-                .module
-                .add_function(FN_NAME_PTR_TO_STRING, fn_type, None);
-            self.execution_engine
-                .add_global_mapping(&func_value, ptr_to_string as usize);
-            self.builtin_functions
-                .insert(FN_NAME_PTR_TO_STRING.to_string(), func_value);
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::ffi::{c_char, CString};
+
     use ast::AstNode;
     use expect_test::{expect, Expect};
     use inkwell::OptimizationLevel;
@@ -247,7 +187,7 @@ mod tests {
                 source_filename = "top"
                 target datalayout = "e-m:e-i8:8:32-i16:16:32-i64:64-i128:128-n32:64-S128"
 
-                declare i8* @ptr_to_string(i64*, i64, i8)
+                declare i8* @ptr_to_string(i64*, i64)
 
                 define void @main() {
                 start:

@@ -95,7 +95,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
 
         let fn_type = self.context.void_type().fn_type(&[], false);
         let main_fn = self.module.add_function("main", fn_type, None);
-        let entry_point = self.context.append_basic_block(main_fn, "entry");
+        let entry_point = self.context.append_basic_block(main_fn, "start");
         self.builder.position_at_end(entry_point);
 
         let int = self.context.i64_type().const_int(10, false);
@@ -224,7 +224,7 @@ mod tests {
                 declare i8* @return_to_string(i64*, i64, i8)
 
                 define void @main() {
-                entry:
+                start:
                   %alloca_i = alloca i64, align 8
                   store i64 10, i64* %alloca_i, align 8
                   ret void

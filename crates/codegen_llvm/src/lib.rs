@@ -48,11 +48,13 @@ pub fn codegen<'a, 'ctx>(
 
 type MainFunc = unsafe extern "C" fn() -> *mut i8;
 pub struct CodegenResult<'ctx> {
+    #[allow(dead_code)]
     function: JitFunction<'ctx, MainFunc>,
 }
 
 struct Codegen<'a, 'ctx> {
     hir_result: &'a hir::LowerResult,
+    #[allow(dead_code)]
     ty_result: &'a hir_ty::TyLowerResult,
 
     context: &'ctx Context,
@@ -86,7 +88,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         codegen
     }
 
-    fn gen(mut self, should_return_string: bool) -> CodegenResult<'ctx> {
+    fn gen(self, should_return_string: bool) -> CodegenResult<'ctx> {
         if self.hir_result.entry_point.is_none() {
             unimplemented!();
         }

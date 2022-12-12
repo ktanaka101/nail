@@ -11,13 +11,33 @@ use inkwell::{
     values::FunctionValue,
     AddressSpace,
 };
+use serde::Serialize;
+use serde_json::Value;
+
+#[derive(Serialize)]
+enum OutputType {
+    Int,
+}
+
+#[derive(Serialize)]
+struct Output {
+    nail_type: OutputType,
+    value: Value,
+}
 
 const FN_NAME_PTR_TO_STRING: &str = "ptr_to_string";
 #[no_mangle]
 extern "C" fn ptr_to_string(ptr: *const i64) -> *const c_char {
     let s = {
         let int = unsafe { *ptr };
-        int.to_string()
+        let out = Output {
+            nail_type: OutputType::Int,
+            value: Value::Number(int.into()),
+        };
+
+        let mut json = serde_json::to_string_pretty(&out).unwrap();
+        json.push('\n');
+        json
     };
     let s = CString::new(s).unwrap();
     s.into_raw()
@@ -247,7 +267,12 @@ mod tests {
                 10
             }
         "#,
-            expect!["10"],
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 10
+                }
+            "#]],
         );
     }
 }

@@ -107,6 +107,8 @@ dependencies = [
  "hir_ty",
  "inkwell",
  "parser",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

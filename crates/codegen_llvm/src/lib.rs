@@ -144,7 +144,16 @@ mod tests {
             &execution_engine,
             false,
         );
-        expect.assert_eq(&module.to_string());
+
+        let ir = module.to_string();
+        // Remove environment dependent IR.
+        let ir = ir
+            .lines()
+            .filter(|line| !line.starts_with("target datalayout = \""))
+            .collect::<Vec<&str>>()
+            .join("\n");
+
+        expect.assert_eq(&ir);
     }
 
     fn check_result(input: &str, expect: Expect) {
@@ -185,7 +194,6 @@ mod tests {
             expect![[r#"
                 ; ModuleID = 'top'
                 source_filename = "top"
-                target datalayout = "e-m:e-i8:8:32-i16:16:32-i64:64-i128:128-n32:64-S128"
 
                 declare i8* @ptr_to_string(i64*, i64)
 
@@ -194,8 +202,7 @@ mod tests {
                   %alloca_i = alloca i64, align 8
                   store i64 10, i64* %alloca_i, align 8
                   ret void
-                }
-            "#]],
+                }"#]],
         );
     }
 

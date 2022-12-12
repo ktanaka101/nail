@@ -12,16 +12,13 @@ use inkwell::{
     AddressSpace,
 };
 
-fn ptr_to_string(ptr: *const i64) -> String {
-    let ptr: *const i64 = ptr.cast();
-    let int = unsafe { *ptr };
-
-    int.to_string()
-}
-
+const FN_NAME_PTR_TO_STRING: &str = "ptr_to_string";
 #[no_mangle]
-extern "C" fn return_to_string(ptr: *const i64) -> *const c_char {
-    let s = ptr_to_string(ptr);
+extern "C" fn ptr_to_string(ptr: *const i64) -> *const c_char {
+    let s = {
+        let int = unsafe { *ptr };
+        int.to_string()
+    };
     let s = CString::new(s).unwrap();
     s.into_raw()
 }
@@ -108,9 +105,9 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
 
         if should_return_string {
             let call_v = self.builder.build_call(
-                *self.builtin_functions.get("return_to_string").unwrap(),
+                *self.builtin_functions.get(FN_NAME_PTR_TO_STRING).unwrap(),
                 &[ptr.into(), length.into()],
-                "return_to_string",
+                FN_NAME_PTR_TO_STRING,
             );
             let return_v = call_v.try_as_basic_value().left().unwrap();
 
@@ -142,11 +139,13 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 ],
                 false,
             );
-            let func_value = self.module.add_function("return_to_string", fn_type, None);
+            let func_value = self
+                .module
+                .add_function(FN_NAME_PTR_TO_STRING, fn_type, None);
             self.execution_engine
-                .add_global_mapping(&func_value, return_to_string as usize);
+                .add_global_mapping(&func_value, ptr_to_string as usize);
             self.builtin_functions
-                .insert("return_to_string".to_string(), func_value);
+                .insert(FN_NAME_PTR_TO_STRING.to_string(), func_value);
         }
     }
 }
@@ -228,7 +227,7 @@ mod tests {
                 source_filename = "top"
                 target datalayout = "e-m:e-i8:8:32-i16:16:32-i64:64-i128:128-n32:64-S128"
 
-                declare i8* @return_to_string(i64*, i64, i8)
+                declare i8* @ptr_to_string(i64*, i64, i8)
 
                 define void @main() {
                 start:

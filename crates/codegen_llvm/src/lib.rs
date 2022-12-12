@@ -26,6 +26,8 @@ extern "C" fn return_to_string(ptr: *const i64) -> *const c_char {
     s.into_raw()
 }
 
+const BLOCK_ENTRY_NAME: &str = "start";
+
 pub fn codegen<'a, 'ctx>(
     hir_result: &'a hir::LowerResult,
     ty_result: &'a hir_ty::TyLowerResult,
@@ -95,7 +97,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
 
         let fn_type = self.context.void_type().fn_type(&[], false);
         let main_fn = self.module.add_function("main", fn_type, None);
-        let entry_point = self.context.append_basic_block(main_fn, "start");
+        let entry_point = self.context.append_basic_block(main_fn, BLOCK_ENTRY_NAME);
         self.builder.position_at_end(entry_point);
 
         let int = self.context.i64_type().const_int(10, false);

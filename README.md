@@ -10,6 +10,8 @@ We create robust and flexible programming languages.
 - Type System: Rust, TypeScript
 - Concurrency: Go
 
+Furthermore, we want to make sure that once compiled, it works as intended.
+
 ## Supports
 
 - language features

@@ -40,12 +40,12 @@ extern "C" fn ptr_to_string(ptr: *const i64) -> *const c_char {
 
 impl<'a, 'ctx> Codegen<'a, 'ctx> {
     pub(super) fn add_builtin_function(&mut self) {
-        let return_ty = self.context.i8_type().ptr_type(AddressSpace::Generic);
+        let return_ty = self.context.i8_type().ptr_type(AddressSpace::default());
         let fn_type = return_ty.fn_type(
             &[
                 self.context
                     .i64_type()
-                    .ptr_type(AddressSpace::Generic)
+                    .ptr_type(AddressSpace::default())
                     .into(),
                 self.context.i64_type().into(),
             ],

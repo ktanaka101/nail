@@ -230,7 +230,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 &[
                     self.context
                         .i64_type()
-                        .ptr_type(AddressSpace::Generic)
+                        .ptr_type(AddressSpace::default())
                         .into(),
                     self.context.i64_type().into(),
                     self.context.i8_type().into(),
@@ -248,7 +248,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 &[
                     self.context
                         .i64_type()
-                        .ptr_type(AddressSpace::Generic)
+                        .ptr_type(AddressSpace::default())
                         .into(),
                     self.context.i64_type().into(),
                     self.context.i8_type().into(),
@@ -264,12 +264,12 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         }
 
         {
-            let return_ty = self.context.i8_type().ptr_type(AddressSpace::Generic);
+            let return_ty = self.context.i8_type().ptr_type(AddressSpace::default());
             let fn_type = return_ty.fn_type(
                 &[
                     self.context
                         .i64_type()
-                        .ptr_type(AddressSpace::Generic)
+                        .ptr_type(AddressSpace::default())
                         .into(),
                     self.context.i64_type().into(),
                     self.context.i8_type().into(),
@@ -290,7 +290,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         //     let ptr_ty = self
         //         .context
         //         .i64_type()
-        //         .ptr_type(AddressSpace::Generic);
+        //         .ptr_type(AddressSpace::default());
         //     let length_ty = self.context.i64_type();
         //     let primitive_type_ty = self.context.i8_type();
         //     let struct_type = self.context.struct_type(
@@ -414,7 +414,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                         let return_v = self
                             .context
                             .i8_type()
-                            .ptr_type(AddressSpace::Generic)
+                            .ptr_type(AddressSpace::default())
                             .const_null();
                         self.builder.build_return(Some(&return_v));
                     }
@@ -435,7 +435,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                         let return_v = self
                             .context
                             .i8_type()
-                            .ptr_type(AddressSpace::Generic)
+                            .ptr_type(AddressSpace::default())
                             .const_null();
                         self.builder.build_return(Some(&return_v));
                     }

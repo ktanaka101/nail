@@ -152,7 +152,8 @@ mod tests {
             .lines()
             .filter(|line| !line.starts_with("target datalayout = \""))
             .collect::<Vec<&str>>()
-            .join("\n");
+            .join("\n")
+            + "\n";
 
         expect.assert_eq(&ir);
     }
@@ -203,7 +204,8 @@ mod tests {
                   %alloca_i = alloca i64, align 8
                   store i64 10, i64* %alloca_i, align 8
                   ret void
-                }"#]],
+                }
+            "#]],
         );
     }
 

@@ -147,6 +147,7 @@ mod tests {
 
         let ir = module.to_string();
         // Remove environment dependent IR.
+        // ex. target datalayout = "e-m:e-i8:8:32-i16:16:32-i64:64-i128:128-n32:64-S128"
         let ir = ir
             .lines()
             .filter(|line| !line.starts_with("target datalayout = \""))

@@ -7,6 +7,7 @@ use inkwell::{
     context::Context,
     execution_engine::{ExecutionEngine, JitFunction},
     module::Module,
+    types::{BasicMetadataTypeEnum, FunctionType},
     values::FunctionValue,
 };
 
@@ -107,6 +108,62 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                     .unwrap()
             },
         }
+    }
+
+    fn gen_functions(&self) {
+        for (idx, function) in self.hir_result.db.functions.iter() {
+            let signature = self.ty_result.inference_result.signature_by_function[&idx];
+            let signature = &self.ty_result.inference_result.signatures[signature];
+
+            let fn_ty: FunctionType<'ctx> = match signature.return_type {
+                hir_ty::ResolvedType::Unit => {
+                    let ty = self.context.void_type();
+                    let params = signature
+                        .params
+                        .iter()
+                        .map(|param| match param {
+                            hir_ty::ResolvedType::Integer => {
+                                BasicMetadataTypeEnum::IntType(self.context.i64_type())
+                            }
+                            _ => unimplemented!(),
+                        })
+                        .collect::<Vec<_>>();
+                    ty.fn_type(&params, false)
+                }
+                _ => unimplemented!(),
+            };
+
+            let function_name = self
+                .hir_result
+                .interner
+                .lookup(function.name.unwrap().key());
+            let function = self.module.add_function(function_name, fn_ty, None);
+            let start_block = self
+                .context
+                .append_basic_block(function, FN_ENTRY_BLOCK_NAME);
+            self.builder.position_at_end(start_block);
+            let body_block = &self.hir_result.item_tree.function_to_block(&idx).unwrap();
+            let body_block = self
+                .hir_result
+                .shared_ctx
+                .function_body_by_block(body_block)
+                .unwrap();
+            match body_block {
+                hir::Expr::Block(block) => self.gen_body(block),
+                _ => unreachable!(),
+            }
+        }
+    }
+
+    fn gen_body(&self, block: &hir::Block) {
+        for stmt in &block.stmts {
+            self.gen_stmt(stmt);
+        }
+        // stmt.tail
+    }
+
+    fn gen_stmt(&self, stmt: &hir::Stmt) {
+        todo!()
     }
 }
 

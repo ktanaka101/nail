@@ -37,7 +37,7 @@ pub(in crate::tokens) use def_ast_token;
 
 def_ast_token!(Integer);
 impl Integer {
-    pub fn value(&self) -> Option<i64> {
+    pub fn value(&self) -> Option<u64> {
         self.syntax.text().parse().ok()
     }
 }

@@ -135,7 +135,7 @@ pub enum Stmt {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Literal {
-    Integer(i64),
+    Integer(u64),
     String(String),
     Char(char),
     Bool(bool),

@@ -163,6 +163,21 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
     }
 
     fn gen_stmt(&self, stmt: &hir::Stmt) {
+        match stmt {
+            hir::Stmt::Expr(expr) => {
+                let expr = &self.hir_result.shared_ctx.exprs[*expr];
+                match expr {
+                    hir::Expr::Literal(literal) => match literal {
+                        hir::Literal::Integer(integer) => {
+                            todo!()
+                        }
+                        _ => unimplemented!(),
+                    },
+                    _ => unimplemented!(),
+                }
+            }
+            _ => unimplemented!(),
+        }
         todo!()
     }
 }

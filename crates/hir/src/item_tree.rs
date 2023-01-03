@@ -23,12 +23,17 @@ impl ItemTree {
         &db.item_scopes[self.top_level_scope]
     }
 
-    pub fn block_scope_idx(&self, ast: &BlockAstId) -> Option<ItemScopeIdx> {
+    pub fn block_scope_idx_by_block(&self, ast: &BlockAstId) -> Option<ItemScopeIdx> {
         self.scope.get(ast).copied()
     }
 
-    pub fn block_scope<'a>(&self, db: &'a Database, ast: &BlockAstId) -> Option<&'a ItemScope> {
-        self.block_scope_idx(ast).map(|idx| &db.item_scopes[idx])
+    pub fn block_scope_by_block<'a>(
+        &self,
+        db: &'a Database,
+        ast: &BlockAstId,
+    ) -> Option<&'a ItemScope> {
+        self.block_scope_idx_by_block(ast)
+            .map(|idx| &db.item_scopes[idx])
     }
 
     pub fn block_to_function_idx(&self, block_ast_id: &BlockAstId) -> Option<FunctionIdx> {

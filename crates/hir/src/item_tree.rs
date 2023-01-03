@@ -36,16 +36,16 @@ impl ItemTree {
             .map(|idx| &db.item_scopes[idx])
     }
 
-    pub fn block_to_function_idx(&self, block_ast_id: &BlockAstId) -> Option<FunctionIdx> {
+    pub fn function_idx_by_block(&self, block_ast_id: &BlockAstId) -> Option<FunctionIdx> {
         self.block_to_function.get(block_ast_id).copied()
     }
 
-    pub fn block_to_function<'a>(
+    pub fn function_by_block<'a>(
         &self,
         db: &'a Database,
         block_ast_id: &BlockAstId,
     ) -> Option<&'a Function> {
-        self.block_to_function_idx(block_ast_id)
+        self.function_idx_by_block(block_ast_id)
             .map(|idx| &db.functions[idx])
     }
 

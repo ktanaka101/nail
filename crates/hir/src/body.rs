@@ -97,7 +97,7 @@ impl BodyLowerContext {
     ) -> Option<Stmt> {
         let body = def.body()?;
         let body_ast_id = db.lookup_ast_id(&body).unwrap();
-        let function = item_tree.block_to_function(db, &body_ast_id).unwrap();
+        let function = item_tree.function_by_block(db, &body_ast_id).unwrap();
 
         let mut body_lower_ctx = BodyLowerContext::new(function.param_by_name.clone());
         let stmt = body_lower_ctx.lower_function(def, ctx, db, item_tree, interner)?;
@@ -147,7 +147,7 @@ impl BodyLowerContext {
     ) -> Option<Stmt> {
         let body = ast.body()?;
         let ast_id = db.lookup_ast_id(&body)?;
-        let function_idx = item_tree.block_to_function_idx(&ast_id).unwrap();
+        let function_idx = item_tree.function_idx_by_block(&ast_id).unwrap();
         let block = self.lower_block(body, ctx, db, item_tree, interner);
         let body_idx = ctx.function_bodies.alloc(block);
         ctx.body_expr_mapping.insert(ast_id, body_idx);
@@ -510,7 +510,7 @@ mod tests {
                 if let Expr::Block(block) = body {
                     let function_idx = lower_result
                         .item_tree
-                        .block_to_function_idx(&block.ast)
+                        .function_idx_by_block(&block.ast)
                         .unwrap();
                     debug_function(lower_result, function_idx, nesting)
                 } else {

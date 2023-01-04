@@ -50,19 +50,19 @@ impl ItemTree {
 }
 
 pub struct ItemTreeBuilderContext<'a> {
-    pub scope: HashMap<BlockAstId, ItemScopeIdx>,
-    pub back_scope: HashMap<ItemScopeIdx, BlockAstId>,
-    pub block_to_function: HashMap<BlockAstId, FunctionIdx>,
-    pub function_to_block: HashMap<FunctionIdx, BlockAstId>,
+    pub scope_by_block: HashMap<BlockAstId, ItemScopeIdx>,
+    pub block_by_scope: HashMap<ItemScopeIdx, BlockAstId>,
+    pub function_by_block: HashMap<BlockAstId, FunctionIdx>,
+    pub block_by_function: HashMap<FunctionIdx, BlockAstId>,
     pub interner: &'a mut Interner,
 }
 impl<'a> ItemTreeBuilderContext<'a> {
     pub fn new(interner: &'a mut Interner) -> Self {
         Self {
-            scope: HashMap::new(),
-            back_scope: HashMap::new(),
-            block_to_function: HashMap::new(),
-            function_to_block: HashMap::new(),
+            scope_by_block: HashMap::new(),
+            block_by_scope: HashMap::new(),
+            function_by_block: HashMap::new(),
+            block_by_function: HashMap::new(),
             interner,
         }
     }
@@ -77,10 +77,10 @@ impl<'a> ItemTreeBuilderContext<'a> {
         let top_level_scope = db.item_scopes.alloc(top_level_scope);
         ItemTree {
             top_level_scope,
-            scope_by_block: self.scope,
-            block_by_scope: self.back_scope,
-            function_by_block: self.block_to_function,
-            block_by_function: self.function_to_block,
+            scope_by_block: self.scope_by_block,
+            block_by_scope: self.block_by_scope,
+            function_by_block: self.function_by_block,
+            block_by_function: self.block_by_function,
         }
     }
 
@@ -143,8 +143,8 @@ impl<'a> ItemTreeBuilderContext<'a> {
                 }
 
                 let block = self.build_block(block, parent, db);
-                self.block_to_function.insert(block.clone(), function);
-                self.function_to_block.insert(function, block);
+                self.function_by_block.insert(block.clone(), function);
+                self.block_by_function.insert(function, block);
             }
             ast::Stmt::Expr(expr) => self.build_expr(expr, current_scope, parent, db)?,
             ast::Stmt::VariableDef(def) => {
@@ -212,8 +212,8 @@ impl<'a> ItemTreeBuilderContext<'a> {
         }
 
         let scope = db.item_scopes.alloc(scope);
-        self.scope.insert(block_ast_id.clone(), scope);
-        self.back_scope.insert(scope, block_ast_id.clone());
+        self.scope_by_block.insert(block_ast_id.clone(), scope);
+        self.block_by_scope.insert(scope, block_ast_id.clone());
 
         block_ast_id
     }

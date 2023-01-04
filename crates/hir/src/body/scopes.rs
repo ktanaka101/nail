@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{AstId, ExprIdx, Name};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub(crate) enum CurrentBlock {
+pub(crate) enum ScopeType {
     TopLevel,
     Block(AstId<ast::Block>),
 }
@@ -11,7 +11,7 @@ pub(crate) enum CurrentBlock {
 #[derive(Debug)]
 pub(crate) struct Scopes {
     inner: Vec<HashMap<Name, ExprIdx>>,
-    current_block_stacks: Vec<CurrentBlock>,
+    current_block_stacks: Vec<ScopeType>,
 }
 impl Scopes {
     pub(crate) fn new() -> Self {
@@ -19,7 +19,7 @@ impl Scopes {
             inner: Vec::new(),
             current_block_stacks: vec![],
         };
-        scopes.enter(CurrentBlock::TopLevel);
+        scopes.enter(ScopeType::TopLevel);
 
         scopes
     }
@@ -48,11 +48,11 @@ impl Scopes {
         self.inner.last_mut().unwrap().insert(name, value);
     }
 
-    pub(crate) fn current_block(&self) -> &CurrentBlock {
+    pub(crate) fn current_block(&self) -> &ScopeType {
         self.current_block_stacks.last().unwrap()
     }
 
-    pub(crate) fn enter(&mut self, current_block: CurrentBlock) {
+    pub(crate) fn enter(&mut self, current_block: ScopeType) {
         self.inner.push(HashMap::default());
         self.current_block_stacks.push(current_block);
     }
@@ -64,3 +64,27 @@ impl Scopes {
         self.inner.pop();
     }
 }
+
+// struct Scope {
+//     table: HashMap<Name, ExprIdx>,
+//     block: CurrentBlock,
+// }
+
+// struct CurrentBlockStack(Vec<CurrentBlock>);
+// impl CurrentBlockStack {
+//     fn new() -> Self {
+//         Self(vec![])
+//     }
+
+//     fn current(&self) -> &CurrentBlock {
+//         self.0.last().unwrap()
+//     }
+
+//     fn push(&mut self, block: CurrentBlock) {
+//         self.0.push(self.current());
+//     }
+
+//     fn pop(&mut self) -> &CurrentBlock {
+//         assert!(self.0.is_empty());
+//     }
+// }

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use la_arena::{Arena, Idx};
 
-use self::scopes::CurrentBlock;
+use self::scopes::ScopeType;
 use crate::{
     body::scopes::Scopes, db::Database, item_tree::ItemTree, string_interner::Interner, AstId,
     BinaryOp, Block, Expr, ExprIdx, Literal, Name, ParamIdx, Stmt, Symbol, UnaryOp,
@@ -295,8 +295,8 @@ impl BodyLowerContext {
             }
         } else {
             let item_scope = match self.scopes.current_block() {
-                CurrentBlock::TopLevel => item_tree.top_level_scope(db),
-                CurrentBlock::Block(block_ast_id) => {
+                ScopeType::TopLevel => item_tree.top_level_scope(db),
+                ScopeType::Block(block_ast_id) => {
                     item_tree.scope_by_block(db, block_ast_id).unwrap()
                 }
             };
@@ -349,7 +349,7 @@ impl BodyLowerContext {
         } else {
             return Expr::Missing;
         };
-        self.scopes.enter(CurrentBlock::Block(block_ast_id.clone()));
+        self.scopes.enter(ScopeType::Block(block_ast_id.clone()));
 
         let mut stmts = vec![];
         for stmt in ast.stmts() {

@@ -47,7 +47,7 @@ impl ItemScope {
                     top_level_item_scope.lookup(name_str, db, item_tree, interner)
                 }
                 Parent::Block(block) => {
-                    let block_item_scope = &db.item_scopes[item_tree.scope[block]];
+                    let block_item_scope = &db.item_scopes[item_tree.scope_by_block[block]];
                     block_item_scope.lookup(name_str, db, item_tree, interner)
                 }
             }

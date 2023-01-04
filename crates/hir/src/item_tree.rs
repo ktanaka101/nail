@@ -13,31 +13,26 @@ type BlockAstId = AstId<ast::Block>;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemTree {
     pub top_level_scope: ItemScopeIdx,
-    scope: HashMap<BlockAstId, ItemScopeIdx>,
-    back_scope: HashMap<ItemScopeIdx, BlockAstId>,
-    block_to_function: HashMap<BlockAstId, FunctionIdx>,
-    function_to_block: HashMap<FunctionIdx, BlockAstId>,
+    scope_by_block: HashMap<BlockAstId, ItemScopeIdx>,
+    block_by_scope: HashMap<ItemScopeIdx, BlockAstId>,
+    function_by_block: HashMap<BlockAstId, FunctionIdx>,
+    block_by_function: HashMap<FunctionIdx, BlockAstId>,
 }
 impl ItemTree {
     pub fn top_level_scope<'a>(&self, db: &'a Database) -> &'a ItemScope {
         &db.item_scopes[self.top_level_scope]
     }
 
-    pub fn block_scope_idx_by_block(&self, ast: &BlockAstId) -> Option<ItemScopeIdx> {
-        self.scope.get(ast).copied()
+    pub fn scope_idx_by_block(&self, ast: &BlockAstId) -> Option<ItemScopeIdx> {
+        self.scope_by_block.get(ast).copied()
     }
 
-    pub fn block_scope_by_block<'a>(
-        &self,
-        db: &'a Database,
-        ast: &BlockAstId,
-    ) -> Option<&'a ItemScope> {
-        self.block_scope_idx_by_block(ast)
-            .map(|idx| &db.item_scopes[idx])
+    pub fn scope_by_block<'a>(&self, db: &'a Database, ast: &BlockAstId) -> Option<&'a ItemScope> {
+        self.scope_idx_by_block(ast).map(|idx| &db.item_scopes[idx])
     }
 
     pub fn function_idx_by_block(&self, block_ast_id: &BlockAstId) -> Option<FunctionIdx> {
-        self.block_to_function.get(block_ast_id).copied()
+        self.function_by_block.get(block_ast_id).copied()
     }
 
     pub fn function_by_block<'a>(
@@ -50,7 +45,7 @@ impl ItemTree {
     }
 
     pub fn function_to_block(&self, function_idx: &FunctionIdx) -> Option<BlockAstId> {
-        Some(self.function_to_block.get(function_idx)?.clone())
+        Some(self.block_by_function.get(function_idx)?.clone())
     }
 }
 
@@ -82,10 +77,10 @@ impl<'a> ItemTreeBuilderContext<'a> {
         let top_level_scope = db.item_scopes.alloc(top_level_scope);
         ItemTree {
             top_level_scope,
-            scope: self.scope,
-            back_scope: self.back_scope,
-            block_to_function: self.block_to_function,
-            function_to_block: self.function_to_block,
+            scope_by_block: self.scope,
+            block_by_scope: self.back_scope,
+            function_by_block: self.block_to_function,
+            block_by_function: self.function_to_block,
         }
     }
 

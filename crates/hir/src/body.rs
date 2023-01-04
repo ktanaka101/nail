@@ -297,7 +297,7 @@ impl BodyLowerContext {
             let item_scope = match self.scopes.current_block() {
                 CurrentBlock::TopLevel => item_tree.top_level_scope(db),
                 CurrentBlock::Block(block_ast_id) => {
-                    item_tree.block_scope_by_block(db, block_ast_id).unwrap()
+                    item_tree.scope_by_block(db, block_ast_id).unwrap()
                 }
             };
             if let Some(function) = item_scope.lookup(ast.name(), db, item_tree, interner) {

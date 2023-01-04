@@ -286,7 +286,7 @@ impl BodyLowerContext {
         interner: &mut Interner,
     ) -> Symbol {
         let name = Name::from_key(interner.intern(ast.name()));
-        if let Some(expr) = self.scopes.get_from_current_scope(name) {
+        if let Some(expr) = self.scopes.lookup_in_only_current_scope(name) {
             Symbol::Local { name, expr }
         } else if let Some(param_idx) = self.lookup_param(name) {
             Symbol::Param {
@@ -302,7 +302,7 @@ impl BodyLowerContext {
             };
             if let Some(function) = item_scope.lookup(ast.name(), db, item_tree, interner) {
                 Symbol::Function { name, function }
-            } else if let Some(expr) = self.scopes.get(name) {
+            } else if let Some(expr) = self.scopes.lookup(name) {
                 Symbol::Local { name, expr }
             } else {
                 Symbol::Missing { name }

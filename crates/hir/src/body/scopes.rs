@@ -19,13 +19,13 @@ impl Scopes {
         }
     }
 
-    pub(crate) fn get_from_current_scope(&self, name: Name) -> Option<ExprIdx> {
+    pub(crate) fn lookup_in_only_current_scope(&self, name: Name) -> Option<ExprIdx> {
         assert!(!self.inner.is_empty());
 
         self.inner.last().unwrap().table.get(&name).copied()
     }
 
-    pub(crate) fn get(&self, name: Name) -> Option<ExprIdx> {
+    pub(crate) fn lookup(&self, name: Name) -> Option<ExprIdx> {
         assert!(!self.inner.is_empty());
 
         for scope in self.inner.iter().rev() {

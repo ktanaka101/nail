@@ -294,7 +294,7 @@ impl BodyLowerContext {
                 param: param_idx,
             }
         } else {
-            let item_scope = match self.scopes.current_block() {
+            let item_scope = match self.scopes.current_scope() {
                 ScopeType::TopLevel => item_tree.top_level_scope(db),
                 ScopeType::SubLevel(block_ast_id) => {
                     item_tree.scope_by_block(db, block_ast_id).unwrap()

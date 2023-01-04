@@ -43,8 +43,8 @@ impl Scopes {
         self.inner.last_mut().unwrap().table.insert(name, value);
     }
 
-    pub(crate) fn current_block(&self) -> &ScopeType {
-        &self.inner.last().unwrap().block
+    pub(crate) fn current_scope(&self) -> &ScopeType {
+        &self.inner.last().unwrap().scope_type
     }
 
     pub(crate) fn enter(&mut self, block: AstId<ast::Block>) {
@@ -61,39 +61,20 @@ impl Scopes {
 #[derive(Debug)]
 struct Scope {
     table: HashMap<Name, ExprIdx>,
-    block: ScopeType,
+    scope_type: ScopeType,
 }
 impl Scope {
     fn top_level() -> Self {
         Self {
             table: HashMap::new(),
-            block: ScopeType::TopLevel,
+            scope_type: ScopeType::TopLevel,
         }
     }
 
     fn sub_level(block: AstId<ast::Block>) -> Self {
         Self {
             table: HashMap::new(),
-            block: ScopeType::SubLevel(block),
+            scope_type: ScopeType::SubLevel(block),
         }
     }
 }
-
-// struct CurrentBlockStack(Vec<CurrentBlock>);
-// impl CurrentBlockStack {
-//     fn new() -> Self {
-//         Self(vec![])
-//     }
-
-//     fn current(&self) -> &CurrentBlock {
-//         self.0.last().unwrap()
-//     }
-
-//     fn push(&mut self, block: CurrentBlock) {
-//         self.0.push(self.current());
-//     }
-
-//     fn pop(&mut self) -> &CurrentBlock {
-//         assert!(self.0.is_empty());
-//     }
-// }

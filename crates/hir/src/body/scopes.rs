@@ -14,11 +14,9 @@ pub(crate) struct Scopes {
 }
 impl Scopes {
     pub(crate) fn new() -> Self {
-        let mut scopes = Self {
+        Self {
             inner: vec![Scope::top_level()],
-        };
-
-        scopes
+        }
     }
 
     pub(crate) fn get_from_current_scope(&self, name: Name) -> Option<ExprIdx> {

@@ -349,7 +349,7 @@ impl BodyLowerContext {
         } else {
             return Expr::Missing;
         };
-        self.scopes.enter(ScopeType::SubLevel(block_ast_id.clone()));
+        self.scopes.enter(block_ast_id.clone());
 
         let mut stmts = vec![];
         for stmt in ast.stmts() {

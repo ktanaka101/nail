@@ -10,16 +10,13 @@ pub(crate) enum ScopeType {
 
 #[derive(Debug)]
 pub(crate) struct Scopes {
-    inner: Vec<HashMap<Name, ExprIdx>>,
-    current_block_stacks: Vec<ScopeType>,
+    inner: Vec<Scope>,
 }
 impl Scopes {
     pub(crate) fn new() -> Self {
         let mut scopes = Self {
-            inner: Vec::new(),
-            current_block_stacks: vec![],
+            inner: vec![Scope::top_level()],
         };
-        scopes.enter(ScopeType::TopLevel);
 
         scopes
     }
@@ -27,14 +24,14 @@ impl Scopes {
     pub(crate) fn get_from_current_scope(&self, name: Name) -> Option<ExprIdx> {
         assert!(!self.inner.is_empty());
 
-        self.inner.last().unwrap().get(&name).copied()
+        self.inner.last().unwrap().table.get(&name).copied()
     }
 
     pub(crate) fn get(&self, name: Name) -> Option<ExprIdx> {
         assert!(!self.inner.is_empty());
 
         for scope in self.inner.iter().rev() {
-            if let Some(idx) = scope.get(&name) {
+            if let Some(idx) = scope.table.get(&name) {
                 return Some(idx.to_owned());
             }
         }
@@ -45,30 +42,44 @@ impl Scopes {
     pub(crate) fn push(&mut self, name: Name, value: ExprIdx) {
         assert!(!self.inner.is_empty());
 
-        self.inner.last_mut().unwrap().insert(name, value);
+        self.inner.last_mut().unwrap().table.insert(name, value);
     }
 
     pub(crate) fn current_block(&self) -> &ScopeType {
-        self.current_block_stacks.last().unwrap()
+        &self.inner.last().unwrap().block
     }
 
-    pub(crate) fn enter(&mut self, current_block: ScopeType) {
-        self.inner.push(HashMap::default());
-        self.current_block_stacks.push(current_block);
+    pub(crate) fn enter(&mut self, block: AstId<ast::Block>) {
+        self.inner.push(Scope::sub_level(block));
     }
 
     pub(crate) fn leave(&mut self) {
-        assert!(self.inner.len() >= 2);
+        assert!(self.inner.len() > 1);
 
-        self.current_block_stacks.pop();
         self.inner.pop();
     }
 }
 
-// struct Scope {
-//     table: HashMap<Name, ExprIdx>,
-//     block: CurrentBlock,
-// }
+#[derive(Debug)]
+struct Scope {
+    table: HashMap<Name, ExprIdx>,
+    block: ScopeType,
+}
+impl Scope {
+    fn top_level() -> Self {
+        Self {
+            table: HashMap::new(),
+            block: ScopeType::TopLevel,
+        }
+    }
+
+    fn sub_level(block: AstId<ast::Block>) -> Self {
+        Self {
+            table: HashMap::new(),
+            block: ScopeType::SubLevel(block),
+        }
+    }
+}
 
 // struct CurrentBlockStack(Vec<CurrentBlock>);
 // impl CurrentBlockStack {

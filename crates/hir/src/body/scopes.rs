@@ -5,7 +5,7 @@ use crate::{AstId, ExprIdx, Name};
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum ScopeType {
     TopLevel,
-    Block(AstId<ast::Block>),
+    SubLevel(AstId<ast::Block>),
 }
 
 #[derive(Debug)]

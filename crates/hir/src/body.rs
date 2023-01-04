@@ -296,7 +296,7 @@ impl BodyLowerContext {
         } else {
             let item_scope = match self.scopes.current_block() {
                 ScopeType::TopLevel => item_tree.top_level_scope(db),
-                ScopeType::Block(block_ast_id) => {
+                ScopeType::SubLevel(block_ast_id) => {
                     item_tree.scope_by_block(db, block_ast_id).unwrap()
                 }
             };
@@ -349,7 +349,7 @@ impl BodyLowerContext {
         } else {
             return Expr::Missing;
         };
-        self.scopes.enter(ScopeType::Block(block_ast_id.clone()));
+        self.scopes.enter(ScopeType::SubLevel(block_ast_id.clone()));
 
         let mut stmts = vec![];
         for stmt in ast.stmts() {

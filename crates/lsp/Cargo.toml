@@ -10,7 +10,7 @@ anyhow = "1.0"
 rowan = "0.15"
 text-size = "1.0"
 thiserror = "1.0"
-tokio = { version = "1.23.0", features = ["full"] }
+tokio = { version = "1.23.1", features = ["full"] }
 tower-lsp = "0.17"
 
 parser = { path = "../parser" }

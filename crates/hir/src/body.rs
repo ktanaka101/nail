@@ -79,8 +79,8 @@ impl BodyLower {
         let function = item_tree.function_by_block(db, &body_ast_id).unwrap();
         let function_idx = item_tree.function_idx_by_block(&body_ast_id).unwrap();
 
-        let mut body_lower_ctx = BodyLower::new(function.param_by_name.clone());
-        let expr = body_lower_ctx.lower_block(body, ctx, db, item_tree, interner);
+        let mut body_lower = BodyLower::new(function.param_by_name.clone());
+        let expr = body_lower.lower_block(body, ctx, db, item_tree, interner);
         let body_idx = ctx.function_bodies.alloc(expr);
         ctx.function_body_by_block.insert(body_ast_id, body_idx);
 

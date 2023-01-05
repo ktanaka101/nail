@@ -14,8 +14,6 @@ use crate::{
 pub struct SharedBodyLowerContext {
     function_bodies: Arena<Expr>,
     pub exprs: Arena<Expr>,
-    contexts: Arena<BodyLowerContext>,
-    pub body_context_mapping: HashMap<AstId<ast::Block>, Idx<BodyLowerContext>>,
     pub body_expr_mapping: HashMap<AstId<ast::Block>, ExprIdx>,
 }
 impl SharedBodyLowerContext {
@@ -23,8 +21,6 @@ impl SharedBodyLowerContext {
         Self {
             function_bodies: Arena::new(),
             exprs: Arena::new(),
-            contexts: Arena::new(),
-            body_context_mapping: HashMap::new(),
             body_expr_mapping: HashMap::new(),
         }
     }
@@ -40,30 +36,15 @@ impl SharedBodyLowerContext {
         self.function_body_idx_by_block(block_ast_id)
             .map(|idx| &self.function_bodies[idx])
     }
-
-    pub fn body_context_idx_by_block(
-        &self,
-        block_ast_id: &AstId<ast::Block>,
-    ) -> Option<Idx<BodyLowerContext>> {
-        self.body_context_mapping.get(block_ast_id).copied()
-    }
-
-    pub fn body_context_by_block(
-        &self,
-        block_ast_id: &AstId<ast::Block>,
-    ) -> Option<&BodyLowerContext> {
-        self.body_context_idx_by_block(block_ast_id)
-            .map(|idx| &self.contexts[idx])
-    }
 }
 
 #[derive(Debug)]
-pub struct BodyLowerContext {
+pub struct BodyLower {
     scopes: Scopes,
     params: HashMap<Name, ParamIdx>,
 }
 
-impl BodyLowerContext {
+impl BodyLower {
     pub(super) fn new(params: HashMap<Name, ParamIdx>) -> Self {
         Self {
             scopes: Scopes::new(),
@@ -98,14 +79,10 @@ impl BodyLowerContext {
         let function = item_tree.function_by_block(db, &body_ast_id).unwrap();
         let function_idx = item_tree.function_idx_by_block(&body_ast_id).unwrap();
 
-        let mut body_lower_ctx = BodyLowerContext::new(function.param_by_name.clone());
-        let expr = body_lower_ctx.lower_block(body.clone(), ctx, db, item_tree, interner);
+        let mut body_lower_ctx = BodyLower::new(function.param_by_name.clone());
+        let expr = body_lower_ctx.lower_block(body, ctx, db, item_tree, interner);
         let body_idx = ctx.function_bodies.alloc(expr);
         ctx.body_expr_mapping.insert(body_ast_id, body_idx);
-
-        let ctx_idx = ctx.contexts.alloc(body_lower_ctx);
-        ctx.body_context_mapping
-            .insert(db.lookup_ast_id(&body).unwrap(), ctx_idx);
 
         Some(Stmt::FunctionDef {
             signature: function_idx,
@@ -378,12 +355,7 @@ mod tests {
         let mut msg = "".to_string();
 
         for stmt in &lower_result.top_level_stmts {
-            msg.push_str(&debug_stmt(
-                lower_result,
-                stmt,
-                &lower_result.top_level_ctx,
-                0,
-            ));
+            msg.push_str(&debug_stmt(lower_result, stmt, 0));
         }
 
         for error in &lower_result.errors {
@@ -406,10 +378,6 @@ mod tests {
         let block_ast_id = lower_result
             .item_tree
             .function_to_block(&function_idx)
-            .unwrap();
-        let function_ctx = lower_result
-            .shared_ctx
-            .body_context_by_block(&block_ast_id)
             .unwrap();
         let body_expr = lower_result
             .shared_ctx
@@ -452,7 +420,7 @@ mod tests {
             Type::Unknown => "<unknown>",
         };
 
-        let body = debug_expr(lower_result, body_expr, function_ctx, nesting);
+        let body = debug_expr(lower_result, body_expr, nesting);
         let is_entry_point = lower_result.entry_point == Some(function_idx);
         format!(
             "{}fn {}{name}({params}) -> {return_type} {body}\n",
@@ -461,19 +429,13 @@ mod tests {
         )
     }
 
-    fn debug_stmt(
-        lower_result: &LowerResult,
-        stmt: &Stmt,
-        ctx: &BodyLowerContext,
-        nesting: usize,
-    ) -> String {
+    fn debug_stmt(lower_result: &LowerResult, stmt: &Stmt, nesting: usize) -> String {
         match stmt {
             Stmt::VariableDef { name, value } => {
                 let name = lower_result.interner.lookup(name.key());
                 let expr_str = debug_expr(
                     lower_result,
                     &lower_result.shared_ctx.exprs[*value],
-                    ctx,
                     nesting,
                 );
                 format!("{}let {} = {}\n", indent(nesting), name, expr_str)
@@ -481,12 +443,7 @@ mod tests {
             Stmt::Expr(expr) => format!(
                 "{}{}\n",
                 indent(nesting),
-                debug_expr(
-                    lower_result,
-                    &lower_result.shared_ctx.exprs[*expr],
-                    ctx,
-                    nesting
-                )
+                debug_expr(lower_result, &lower_result.shared_ctx.exprs[*expr], nesting)
             ),
             Stmt::FunctionDef { body, .. } => {
                 let body = &lower_result.shared_ctx.function_bodies[*body];
@@ -503,12 +460,7 @@ mod tests {
         }
     }
 
-    fn debug_expr(
-        lower_result: &LowerResult,
-        expr: &Expr,
-        ctx: &BodyLowerContext,
-        nesting: usize,
-    ) -> String {
+    fn debug_expr(lower_result: &LowerResult, expr: &Expr, nesting: usize) -> String {
         match expr {
             Expr::Literal(literal) => match literal {
                 Literal::Bool(b) => b.to_string(),
@@ -523,44 +475,27 @@ mod tests {
                     BinaryOp::Mul => "*",
                     BinaryOp::Div => "/",
                 };
-                let lhs_str = debug_expr(
-                    lower_result,
-                    &lower_result.shared_ctx.exprs[*lhs],
-                    ctx,
-                    nesting,
-                );
-                let rhs_str = debug_expr(
-                    lower_result,
-                    &lower_result.shared_ctx.exprs[*rhs],
-                    ctx,
-                    nesting,
-                );
+                let lhs_str =
+                    debug_expr(lower_result, &lower_result.shared_ctx.exprs[*lhs], nesting);
+                let rhs_str =
+                    debug_expr(lower_result, &lower_result.shared_ctx.exprs[*rhs], nesting);
                 format!("{lhs_str} {op} {rhs_str}")
             }
             Expr::Unary { op, expr } => {
                 let op = match op {
                     UnaryOp::Neg => "-",
                 };
-                let expr_str = debug_expr(
-                    lower_result,
-                    &lower_result.shared_ctx.exprs[*expr],
-                    ctx,
-                    nesting,
-                );
+                let expr_str =
+                    debug_expr(lower_result, &lower_result.shared_ctx.exprs[*expr], nesting);
                 format!("{op}{expr_str}")
             }
-            Expr::VariableRef { var } => debug_symbol(lower_result, var, ctx, nesting),
+            Expr::VariableRef { var } => debug_symbol(lower_result, var, nesting),
             Expr::Call { callee, args } => {
-                let callee = debug_symbol(lower_result, callee, ctx, nesting);
+                let callee = debug_symbol(lower_result, callee, nesting);
                 let args = args
                     .iter()
                     .map(|arg| {
-                        debug_expr(
-                            lower_result,
-                            &lower_result.shared_ctx.exprs[*arg],
-                            ctx,
-                            nesting,
-                        )
+                        debug_expr(lower_result, &lower_result.shared_ctx.exprs[*arg], nesting)
                     })
                     .collect::<Vec<_>>()
                     .join(", ");
@@ -570,7 +505,7 @@ mod tests {
             Expr::Block(block) => {
                 let mut msg = "{\n".to_string();
                 for stmt in &block.stmts {
-                    msg.push_str(&debug_stmt(lower_result, stmt, ctx, nesting + 1));
+                    msg.push_str(&debug_stmt(lower_result, stmt, nesting + 1));
                 }
                 if let Some(tail) = block.tail {
                     msg.push_str(&format!(
@@ -579,7 +514,6 @@ mod tests {
                         debug_expr(
                             lower_result,
                             &lower_result.shared_ctx.exprs[tail],
-                            ctx,
                             nesting + 1
                         )
                     ));
@@ -592,12 +526,7 @@ mod tests {
         }
     }
 
-    fn debug_symbol(
-        lower_result: &LowerResult,
-        symbol: &Symbol,
-        ctx: &BodyLowerContext,
-        nesting: usize,
-    ) -> String {
+    fn debug_symbol(lower_result: &LowerResult, symbol: &Symbol, nesting: usize) -> String {
         match symbol {
             Symbol::Local { name, expr } => match lower_result.shared_ctx.exprs[*expr] {
                 Expr::Binary { .. }
@@ -605,12 +534,9 @@ mod tests {
                 | Expr::Literal(_)
                 | Expr::Unary { .. }
                 | Expr::VariableRef { .. }
-                | Expr::Call { .. } => debug_expr(
-                    lower_result,
-                    &lower_result.shared_ctx.exprs[*expr],
-                    ctx,
-                    nesting,
-                ),
+                | Expr::Call { .. } => {
+                    debug_expr(lower_result, &lower_result.shared_ctx.exprs[*expr], nesting)
+                }
                 Expr::Block { .. } => lower_result.interner.lookup(name.key()).to_string(),
             },
             Symbol::Param { name, .. } => {

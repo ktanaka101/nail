@@ -1,6 +1,5 @@
 use std::collections;
 
-use hir::BodyLowerContext;
 use la_arena::{Arena, Idx};
 
 pub fn infer(hir_result: &hir::LowerResult) -> InferenceResult {
@@ -90,26 +89,18 @@ impl<'a> TypeInferencer<'a> {
                 .item_tree
                 .function_to_block(&function_idx)
                 .unwrap();
-            let body_ctx = self
-                .hir_result
-                .shared_ctx
-                .body_context_by_block(body_ast_id)
-                .unwrap();
             let body = self
                 .hir_result
                 .shared_ctx
                 .function_body_by_block(body_ast_id)
                 .unwrap();
             match body {
-                hir::Expr::Block(block) => self.infer_block(block, body_ctx),
+                hir::Expr::Block(block) => self.infer_block(block),
                 _ => unreachable!(),
             };
         }
 
-        self.infer_stmts(
-            &self.hir_result.top_level_stmts,
-            &self.hir_result.top_level_ctx,
-        );
+        self.infer_stmts(&self.hir_result.top_level_stmts);
 
         InferenceResult {
             type_by_exprs: self.ctx.type_by_exprs,
@@ -130,15 +121,15 @@ impl<'a> TypeInferencer<'a> {
         }
     }
 
-    fn infer_stmts(&mut self, stmts: &[hir::Stmt], lower_ctx: &hir::BodyLowerContext) {
+    fn infer_stmts(&mut self, stmts: &[hir::Stmt]) {
         for stmt in stmts {
             match stmt {
                 hir::Stmt::Expr(expr) => {
-                    let ty = self.infer_expr_idx(*expr, lower_ctx);
+                    let ty = self.infer_expr_idx(*expr);
                     self.ctx.type_by_exprs.insert(*expr, ty);
                 }
                 hir::Stmt::VariableDef { value, .. } => {
-                    let ty = self.infer_expr_idx(*value, lower_ctx);
+                    let ty = self.infer_expr_idx(*value);
                     self.ctx.type_by_exprs.insert(*value, ty);
                 }
                 hir::Stmt::FunctionDef { .. } => (),
@@ -146,7 +137,7 @@ impl<'a> TypeInferencer<'a> {
         }
     }
 
-    fn infer_expr(&mut self, expr: &hir::Expr, lower_ctx: &BodyLowerContext) -> ResolvedType {
+    fn infer_expr(&mut self, expr: &hir::Expr) -> ResolvedType {
         match expr {
             hir::Expr::Literal(literal) => match literal {
                 hir::Literal::Integer(_) => ResolvedType::Integer,
@@ -155,8 +146,8 @@ impl<'a> TypeInferencer<'a> {
                 hir::Literal::Bool(_) => ResolvedType::Bool,
             },
             hir::Expr::Binary { lhs, rhs, .. } => {
-                let lhs_ty = self.infer_expr_idx(*lhs, lower_ctx);
-                let rhs_ty = self.infer_expr_idx(*rhs, lower_ctx);
+                let lhs_ty = self.infer_expr_idx(*lhs);
+                let rhs_ty = self.infer_expr_idx(*rhs);
 
                 if rhs_ty == lhs_ty && rhs_ty == ResolvedType::Integer {
                     return rhs_ty;
@@ -175,7 +166,7 @@ impl<'a> TypeInferencer<'a> {
                 }
             }
             hir::Expr::Unary { expr, .. } => {
-                let expr_ty = self.infer_expr_idx(*expr, lower_ctx);
+                let expr_ty = self.infer_expr_idx(*expr);
                 if expr_ty == ResolvedType::Integer {
                     return ResolvedType::Integer;
                 }
@@ -183,7 +174,7 @@ impl<'a> TypeInferencer<'a> {
                 ResolvedType::Unknown
             }
             hir::Expr::VariableRef { var } => match var {
-                hir::Symbol::Local { expr, .. } => self.infer_expr_idx(*expr, lower_ctx),
+                hir::Symbol::Local { expr, .. } => self.infer_expr_idx(*expr),
                 hir::Symbol::Param { param, .. } => {
                     let param = &self.hir_result.db.params[*param];
                     self.infer_ty(&param.ty)
@@ -199,7 +190,7 @@ impl<'a> TypeInferencer<'a> {
                     for (i, arg) in args.iter().enumerate() {
                         let param = signature.params[i];
 
-                        let arg_ty = self.infer_expr_idx(*arg, lower_ctx);
+                        let arg_ty = self.infer_expr_idx(*arg);
                         let param_ty = self.infer_ty(&self.hir_result.db.params[param].ty);
 
                         if arg_ty == param_ty {
@@ -219,30 +210,26 @@ impl<'a> TypeInferencer<'a> {
                 }
                 hir::Symbol::Local { .. } | hir::Symbol::Param { .. } => unimplemented!(),
             },
-            hir::Expr::Block(block) => self.infer_block(block, lower_ctx),
+            hir::Expr::Block(block) => self.infer_block(block),
             hir::Expr::Missing => ResolvedType::Unknown,
         }
     }
 
-    fn infer_block(&mut self, block: &hir::Block, lower_ctx: &BodyLowerContext) -> ResolvedType {
-        self.infer_stmts(&block.stmts, lower_ctx);
+    fn infer_block(&mut self, block: &hir::Block) -> ResolvedType {
+        self.infer_stmts(&block.stmts);
         if let Some(tail) = block.tail {
-            self.infer_expr_idx(tail, lower_ctx)
+            self.infer_expr_idx(tail)
         } else {
             ResolvedType::Unit
         }
     }
 
-    fn infer_expr_idx(
-        &mut self,
-        expr: hir::ExprIdx,
-        lower_ctx: &hir::BodyLowerContext,
-    ) -> ResolvedType {
+    fn infer_expr_idx(&mut self, expr: hir::ExprIdx) -> ResolvedType {
         if let Some(ty) = self.lookup_type(expr) {
             return ty;
         }
 
-        let ty = self.infer_expr(&self.hir_result.shared_ctx.exprs[expr], lower_ctx);
+        let ty = self.infer_expr(&self.hir_result.shared_ctx.exprs[expr]);
         self.ctx.type_by_exprs.insert(expr, ty);
 
         ty

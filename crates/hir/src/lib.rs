@@ -6,7 +6,7 @@ pub mod string_interner;
 use std::{collections::HashMap, marker::PhantomData};
 
 use ast::Ast;
-pub use body::{BodyLowerContext, SharedBodyLowerContext};
+pub use body::{BodyLower, SharedBodyLowerContext};
 pub use db::Database;
 use item_tree::ItemTreeBuilderContext;
 pub use item_tree::{FunctionIdx, ItemTree, ParamIdx, Type};
@@ -22,7 +22,7 @@ pub enum LowerError {
 #[derive(Debug)]
 pub struct LowerResult {
     pub shared_ctx: SharedBodyLowerContext,
-    pub top_level_ctx: BodyLowerContext,
+    pub top_level_ctx: BodyLower,
     pub top_level_stmts: Vec<Stmt>,
     pub entry_point: Option<FunctionIdx>,
     pub db: Database,
@@ -39,7 +39,7 @@ pub fn lower(ast: ast::SourceFile) -> LowerResult {
 
     let mut shared_ctx = SharedBodyLowerContext::new();
 
-    let mut top_level_ctx = BodyLowerContext::new(HashMap::new());
+    let mut top_level_ctx = BodyLower::new(HashMap::new());
     // TODO: Update stmts to items
     let top_level_stmts = ast
         .stmts()

@@ -46,7 +46,7 @@ impl ItemScope {
                     let top_level_item_scope = &db.item_scopes[item_tree.top_level_scope];
                     top_level_item_scope.lookup(name_str, db, item_tree, interner)
                 }
-                Parent::Block(block) => {
+                Parent::SubLevel(block) => {
                     let block_item_scope = &db.item_scopes[item_tree.scope_by_block[block]];
                     block_item_scope.lookup(name_str, db, item_tree, interner)
                 }
@@ -66,5 +66,5 @@ impl ItemScope {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Parent {
     TopLevel,
-    Block(BlockAstId),
+    SubLevel(BlockAstId),
 }

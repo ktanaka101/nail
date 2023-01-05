@@ -206,7 +206,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
     ) -> AstId<ast::Block> {
         let mut scope = ItemScope::new(Some(parent));
         let block_ast_id = db.alloc_node(&block);
-        let current = Parent::Block(block_ast_id.clone());
+        let current = Parent::SubLevel(block_ast_id.clone());
         for stmt in block.stmts() {
             self.build_stmt(stmt, &mut scope, current.clone(), db);
         }

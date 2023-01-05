@@ -14,7 +14,7 @@ pub struct Database {
     pub params: Arena<Param>,
     pub item_scopes: Arena<ItemScope>,
     syntax_node_ptrs: Arena<SyntaxNodePtr>,
-    syntax_node_ptr_to_idx: HashMap<SyntaxNodePtr, Idx<SyntaxNodePtr>>,
+    idx_by_syntax_node_ptr: HashMap<SyntaxNodePtr, Idx<SyntaxNodePtr>>,
 }
 impl Database {
     pub fn new() -> Self {
@@ -23,7 +23,7 @@ impl Database {
             params: Arena::default(),
             item_scopes: Arena::default(),
             syntax_node_ptrs: Arena::default(),
-            syntax_node_ptr_to_idx: HashMap::default(),
+            idx_by_syntax_node_ptr: HashMap::default(),
         }
     }
 
@@ -35,7 +35,7 @@ impl Database {
             _ty: std::marker::PhantomData,
         };
 
-        self.syntax_node_ptr_to_idx.insert(ptr, idx);
+        self.idx_by_syntax_node_ptr.insert(ptr, idx);
 
         AstId(InFile {
             file_id: FileId,
@@ -45,7 +45,7 @@ impl Database {
 
     pub fn lookup_ast_id<T: ast::AstNode>(&self, ast: &T) -> Option<AstId<T>> {
         let ptr = SyntaxNodePtr::new(ast.syntax());
-        let idx = self.syntax_node_ptr_to_idx.get(&ptr)?;
+        let idx = self.idx_by_syntax_node_ptr.get(&ptr)?;
 
         let ast_ptr = AstPtr {
             raw: *idx,

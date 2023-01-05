@@ -9,19 +9,19 @@ pub type ItemScopeIdx = Idx<ItemScope>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemScope {
-    functions: HashMap<Name, FunctionIdx>,
+    function_by_name: HashMap<Name, FunctionIdx>,
     parent: Option<Parent>,
 }
 impl ItemScope {
     pub fn new(parent: Option<Parent>) -> Self {
         Self {
-            functions: HashMap::new(),
+            function_by_name: HashMap::new(),
             parent,
         }
     }
 
     pub fn insert(&mut self, name: Name, function: FunctionIdx) {
-        self.functions.insert(name, function);
+        self.function_by_name.insert(name, function);
     }
 
     pub fn lookup(
@@ -34,7 +34,7 @@ impl ItemScope {
         let function_name_key = interner.get_key(name_str);
         if let Some(function_name_key) = function_name_key {
             let name = &Name::from_key(function_name_key);
-            let function_idx = self.functions.get(name).copied();
+            let function_idx = self.function_by_name.get(name).copied();
             if function_idx.is_some() {
                 return function_idx;
             }
@@ -57,7 +57,7 @@ impl ItemScope {
     }
 
     pub fn functions(&self) -> Vec<FunctionIdx> {
-        let mut functions = self.functions.values().copied().collect::<Vec<_>>();
+        let mut functions = self.function_by_name.values().copied().collect::<Vec<_>>();
         functions.sort_by_cached_key(|idx| idx.into_raw());
         functions
     }

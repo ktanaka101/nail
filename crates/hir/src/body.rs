@@ -14,14 +14,14 @@ use crate::{
 pub struct SharedBodyLowerContext {
     function_bodies: Arena<Expr>,
     pub exprs: Arena<Expr>,
-    pub body_expr_mapping: HashMap<AstId<ast::Block>, ExprIdx>,
+    pub function_body_by_block: HashMap<AstId<ast::Block>, ExprIdx>,
 }
 impl SharedBodyLowerContext {
     pub fn new() -> Self {
         Self {
             function_bodies: Arena::new(),
             exprs: Arena::new(),
-            body_expr_mapping: HashMap::new(),
+            function_body_by_block: HashMap::new(),
         }
     }
 
@@ -29,7 +29,7 @@ impl SharedBodyLowerContext {
         &self,
         block_ast_id: &AstId<ast::Block>,
     ) -> Option<Idx<Expr>> {
-        self.body_expr_mapping.get(block_ast_id).copied()
+        self.function_body_by_block.get(block_ast_id).copied()
     }
 
     pub fn function_body_by_block(&self, block_ast_id: &AstId<ast::Block>) -> Option<&Expr> {
@@ -82,7 +82,7 @@ impl BodyLower {
         let mut body_lower_ctx = BodyLower::new(function.param_by_name.clone());
         let expr = body_lower_ctx.lower_block(body, ctx, db, item_tree, interner);
         let body_idx = ctx.function_bodies.alloc(expr);
-        ctx.body_expr_mapping.insert(body_ast_id, body_idx);
+        ctx.function_body_by_block.insert(body_ast_id, body_idx);
 
         Some(Stmt::FunctionDef {
             signature: function_idx,

@@ -141,16 +141,8 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 .context
                 .append_basic_block(function, FN_ENTRY_BLOCK_NAME);
             self.builder.position_at_end(start_block);
-            let body_block = &self
-                .hir_result
-                .item_tree
-                .block_idx_by_function(&idx)
-                .unwrap();
-            let body_block = self
-                .hir_result
-                .shared_ctx
-                .function_body_by_block(body_block)
-                .unwrap();
+
+            let body_block = self.hir_result.function_body_by_function(&idx).unwrap();
             match body_block {
                 hir::Expr::Block(block) => self.gen_body(block),
                 _ => unreachable!(),

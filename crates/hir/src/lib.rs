@@ -30,6 +30,12 @@ pub struct LowerResult {
     pub interner: Interner,
     pub errors: Vec<LowerError>,
 }
+impl LowerResult {
+    pub fn function_body_by_function(&self, function: &FunctionIdx) -> Option<&Expr> {
+        let body_block = &self.item_tree.block_idx_by_function(function)?;
+        self.shared_ctx.function_body_by_block(body_block)
+    }
+}
 
 pub fn lower(ast: ast::SourceFile) -> LowerResult {
     let mut interner = Interner::new();

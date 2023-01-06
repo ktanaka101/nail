@@ -14,7 +14,7 @@ use crate::{
 pub struct SharedBodyLowerContext {
     function_bodies: Arena<Expr>,
     pub exprs: Arena<Expr>,
-    pub function_body_by_block: HashMap<AstId<ast::Block>, ExprIdx>,
+    function_body_by_block: HashMap<AstId<ast::Block>, ExprIdx>,
 }
 impl SharedBodyLowerContext {
     pub fn new() -> Self {

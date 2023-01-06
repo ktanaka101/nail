@@ -103,7 +103,7 @@ impl BodyLower {
                 let expr = self.lower_expr(def.value(), ctx, db, item_tree, interner);
                 let idx = ctx.exprs.alloc(expr);
                 let name = Name::from_key(interner.intern(def.name()?.name()));
-                self.scopes.push(name, idx);
+                self.scopes.define(name, idx);
                 Stmt::VariableDef { name, value: idx }
             }
             ast::Stmt::Expr(ast) => {

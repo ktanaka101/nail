@@ -37,7 +37,7 @@ impl Scopes {
         None
     }
 
-    pub(crate) fn push(&mut self, name: Name, value: ExprIdx) {
+    pub(crate) fn define(&mut self, name: Name, value: ExprIdx) {
         assert!(!self.inner.is_empty());
 
         self.inner.last_mut().unwrap().table.insert(name, value);

@@ -63,7 +63,7 @@ impl<'a> TypeChecker<'a> {
         let block_ast_id = self
             .lower_result
             .item_tree
-            .function_to_block(&function_idx)
+            .block_idx_by_function(&function_idx)
             .unwrap();
         let body = self
             .lower_result

@@ -377,7 +377,7 @@ mod tests {
         let function = &lower_result.db.functions[function_idx];
         let block_ast_id = lower_result
             .item_tree
-            .function_to_block(&function_idx)
+            .block_idx_by_function(&function_idx)
             .unwrap();
         let body_expr = lower_result
             .shared_ctx

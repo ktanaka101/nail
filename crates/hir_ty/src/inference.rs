@@ -87,7 +87,7 @@ impl<'a> TypeInferencer<'a> {
             let body_ast_id = &self
                 .hir_result
                 .item_tree
-                .function_to_block(&function_idx)
+                .block_idx_by_function(&function_idx)
                 .unwrap();
             let body = self
                 .hir_result

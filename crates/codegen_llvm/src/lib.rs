@@ -142,7 +142,11 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 .context
                 .append_basic_block(function, FN_ENTRY_BLOCK_NAME);
             self.builder.position_at_end(start_block);
-            let body_block = &self.hir_result.item_tree.function_to_block(&idx).unwrap();
+            let body_block = &self
+                .hir_result
+                .item_tree
+                .block_idx_by_function(&idx)
+                .unwrap();
             let body_block = self
                 .hir_result
                 .shared_ctx

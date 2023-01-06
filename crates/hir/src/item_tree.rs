@@ -44,7 +44,7 @@ impl ItemTree {
             .map(|idx| &db.functions[idx])
     }
 
-    pub fn function_to_block(&self, function_idx: &FunctionIdx) -> Option<BlockAstId> {
+    pub fn block_idx_by_function(&self, function_idx: &FunctionIdx) -> Option<BlockAstId> {
         Some(self.block_by_function.get(function_idx)?.clone())
     }
 }

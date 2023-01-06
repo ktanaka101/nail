@@ -16,8 +16,14 @@ pub fn lower(lower_result: &LowerResult) -> TyLowerResult {
 }
 
 pub struct TyLowerResult {
-    pub inference_result: InferenceResult,
+    inference_result: InferenceResult,
     pub type_check_result: TypeCheckResult,
+}
+impl TyLowerResult {
+    pub fn signature_by_function(&self, function: &hir::FunctionIdx) -> &Signature {
+        let signature_idx = self.inference_result.signature_by_function[function];
+        &self.inference_result.signatures[signature_idx]
+    }
 }
 
 #[cfg(test)]

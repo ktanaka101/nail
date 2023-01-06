@@ -112,8 +112,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
 
     fn gen_functions(&self) {
         for (idx, function) in self.hir_result.db.functions.iter() {
-            let signature = self.ty_result.inference_result.signature_by_function[&idx];
-            let signature = &self.ty_result.inference_result.signatures[signature];
+            let signature = self.ty_result.signature_by_function(&idx);
 
             let fn_ty: FunctionType<'ctx> = match signature.return_type {
                 hir_ty::ResolvedType::Unit => {

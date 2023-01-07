@@ -4,11 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+la-arena = { workspace = true }
+
 hir = { path = "../hir" }
-la-arena = "0.2"
 
 [dev-dependencies]
-expect-test = "1.4"
+expect-test = { workspace = true }
 
 ast = { path = "../ast" }
 parser = { path = "../parser" }

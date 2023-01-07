@@ -6,5 +6,5 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-logos = "0.12"
-text-size = "1.0"
+logos = { workspace = true }
+text-size = { workspace = true }

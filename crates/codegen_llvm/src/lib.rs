@@ -8,7 +8,7 @@ use inkwell::{
     execution_engine::{ExecutionEngine, JitFunction},
     module::Module,
     types::{BasicMetadataTypeEnum, FunctionType},
-    values::FunctionValue,
+    values::{BasicValueEnum, FunctionValue},
 };
 
 const FN_ENTRY_BLOCK_NAME: &str = "start";
@@ -162,36 +162,39 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             match body_block {
                 hir::Expr::Block(block) => self.gen_body(block),
                 _ => unreachable!(),
-            }
+            };
 
             self.builder.build_return(None);
         }
     }
 
-    fn gen_body(&self, block: &hir::Block) {
+    fn gen_body(&self, block: &hir::Block) -> Option<BasicValueEnum> {
         for stmt in &block.stmts {
             self.gen_stmt(stmt);
         }
-        // stmt.tail
+        block.tail.map(|tail| self.gen_expr(tail))
     }
 
     fn gen_stmt(&self, stmt: &hir::Stmt) {
         match stmt {
             hir::Stmt::Expr(expr) => {
-                let expr = &self.hir_result.shared_ctx.exprs[*expr];
-                match expr {
-                    hir::Expr::Literal(literal) => match literal {
-                        hir::Literal::Integer(integer) => {
-                            todo!()
-                        }
-                        _ => unimplemented!(),
-                    },
-                    _ => unimplemented!(),
-                }
+                self.gen_expr(*expr);
             }
             _ => unimplemented!(),
         }
-        todo!()
+    }
+
+    fn gen_expr(&self, expr: hir::ExprIdx) -> BasicValueEnum {
+        let expr = &self.hir_result.shared_ctx.exprs[expr];
+        match expr {
+            hir::Expr::Literal(literal) => match literal {
+                hir::Literal::Integer(value) => {
+                    self.context.i64_type().const_int(*value, false).into()
+                }
+                _ => unimplemented!(),
+            },
+            _ => unimplemented!(),
+        }
     }
 }
 
@@ -278,6 +281,38 @@ mod tests {
             r#"
             fn main() {
                 10
+            }
+        "#,
+            expect![[r#"
+                ; ModuleID = 'top'
+                source_filename = "top"
+
+                declare i8* @ptr_to_string(i64*, i64)
+
+                define void @main() {
+                start:
+                  ret void
+                }
+
+                define i8 @__main__() {
+                start:
+                  call void @main()
+                  %alloca_i = alloca i64, align 8
+                  store i64 10, i64* %alloca_i, align 8
+                  ret void
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_gen_block() {
+        check_ir(
+            r#"
+            fn main() {
+                10
+                20
+                30
             }
         "#,
             expect![[r#"

@@ -12,7 +12,7 @@ use inkwell::{
 };
 
 const FN_ENTRY_BLOCK_NAME: &str = "start";
-const ENTRY_POINT_NAME: &str = "main";
+const INTERNAL_ENTRY_POINT: &str = "__main__";
 
 pub fn codegen<'a, 'ctx>(
     hir_result: &'a hir::LowerResult,
@@ -51,6 +51,8 @@ struct Codegen<'a, 'ctx> {
     execution_engine: &'a ExecutionEngine<'ctx>,
 
     builtin_functions: HashMap<String, FunctionValue<'ctx>>,
+
+    defined_functions: HashMap<hir::FunctionIdx, FunctionValue<'ctx>>,
 }
 
 impl<'a, 'ctx> Codegen<'a, 'ctx> {
@@ -70,23 +72,35 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             builder,
             execution_engine,
             builtin_functions: HashMap::new(),
+            defined_functions: HashMap::new(),
         };
         codegen.add_builtin_function();
 
         codegen
     }
 
-    fn gen(self, should_return_string: bool) -> CodegenResult<'ctx> {
+    fn gen(mut self, should_return_string: bool) -> CodegenResult<'ctx> {
         if self.hir_result.entry_point.is_none() {
             unimplemented!();
         }
 
-        let fn_type = self.context.void_type().fn_type(&[], false);
-        let main_fn = self.module.add_function(ENTRY_POINT_NAME, fn_type, None);
-        let entry_point = self
+        self.gen_functions();
+
+        let fn_type = self.context.i8_type().fn_type(&[], false);
+        let main_fn = self
+            .module
+            .add_function(INTERNAL_ENTRY_POINT, fn_type, None);
+        let inner_entry_point_block = self
             .context
             .append_basic_block(main_fn, FN_ENTRY_BLOCK_NAME);
-        self.builder.position_at_end(entry_point);
+        self.builder.position_at_end(inner_entry_point_block);
+
+        let entry_point = self
+            .defined_functions
+            .get(&self.hir_result.entry_point.unwrap())
+            .unwrap();
+        self.builder
+            .build_call(*entry_point, &[], "call_entry_point");
 
         let int = self.context.i64_type().const_int(10, false);
         let ptr = self.builder.build_alloca(int.get_type(), "alloca_i");
@@ -104,13 +118,13 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         CodegenResult {
             function: unsafe {
                 self.execution_engine
-                    .get_function(ENTRY_POINT_NAME)
+                    .get_function(INTERNAL_ENTRY_POINT)
                     .unwrap()
             },
         }
     }
 
-    fn gen_functions(&self) {
+    fn gen_functions(&mut self) {
         for (idx, function) in self.hir_result.db.functions.iter() {
             let signature = self.ty_result.signature_by_function(&idx);
 
@@ -137,6 +151,8 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 .interner
                 .lookup(function.name.unwrap().key());
             let function = self.module.add_function(function_name, fn_ty, None);
+            self.defined_functions.insert(idx, function);
+
             let start_block = self
                 .context
                 .append_basic_block(function, FN_ENTRY_BLOCK_NAME);
@@ -147,6 +163,8 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 hir::Expr::Block(block) => self.gen_body(block),
                 _ => unreachable!(),
             }
+
+            self.builder.build_return(None);
         }
     }
 
@@ -270,6 +288,12 @@ mod tests {
 
                 define void @main() {
                 start:
+                  ret void
+                }
+
+                define i8 @__main__() {
+                start:
+                  call void @main()
                   %alloca_i = alloca i64, align 8
                   store i64 10, i64* %alloca_i, align 8
                   ret void

@@ -303,6 +303,44 @@ mod tests {
     }
 
     #[test]
+    fn test_gen_functions() {
+        check_ir(
+            r#"
+            fn main() {
+                10
+            }
+            fn func() {
+                20
+            }
+        "#,
+            expect![[r#"
+                ; ModuleID = 'top'
+                source_filename = "top"
+
+                declare i8* @ptr_to_string(i64*, i64)
+
+                define void @main() {
+                start:
+                  ret void
+                }
+
+                define void @func() {
+                start:
+                  ret void
+                }
+
+                define i8 @__main__() {
+                start:
+                  call void @main()
+                  %alloca_i = alloca i64, align 8
+                  store i64 10, i64* %alloca_i, align 8
+                  ret void
+                }
+            "#]],
+        );
+    }
+
+    #[test]
     fn result() {
         check_result(
             r#"

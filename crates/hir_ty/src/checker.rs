@@ -152,7 +152,7 @@ impl<'a> TypeChecker<'a> {
     }
 
     fn type_by_expr(&mut self, expr: hir::ExprIdx) -> ResolvedType {
-        let ty = self.infer_result.type_by_exprs[&expr];
+        let ty = self.infer_result.type_by_expr[&expr];
         if ty == ResolvedType::Unknown {
             self.errors.push(TypeCheckError::UnresolvedType { expr });
         }

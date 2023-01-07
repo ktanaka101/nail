@@ -68,14 +68,14 @@ mod tests {
 
         msg.push_str("---\n");
 
-        let mut indexes = inference_result.type_by_exprs.keys().collect::<Vec<_>>();
+        let mut indexes = inference_result.type_by_expr.keys().collect::<Vec<_>>();
         indexes.sort_by_cached_key(|idx| idx.into_raw());
         for idx in indexes {
             let expr = debug_hir_expr(idx, lower_result);
             msg.push_str(&format!(
                 "`{}`: {}\n",
                 expr,
-                debug_type(&inference_result.type_by_exprs[idx])
+                debug_type(&inference_result.type_by_expr[idx])
             ));
         }
 

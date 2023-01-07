@@ -9,7 +9,7 @@ pub fn infer(hir_result: &hir::LowerResult) -> InferenceResult {
 
 #[derive(Debug)]
 pub struct InferenceResult {
-    pub type_by_exprs: collections::HashMap<hir::ExprIdx, ResolvedType>,
+    pub type_by_expr: collections::HashMap<hir::ExprIdx, ResolvedType>,
     pub signatures: Arena<Signature>,
     pub signature_by_function: collections::HashMap<hir::FunctionIdx, Idx<Signature>>,
     pub errors: Vec<InferenceError>,
@@ -17,7 +17,7 @@ pub struct InferenceResult {
 
 #[derive(Debug)]
 struct InferenceContext {
-    type_by_exprs: collections::HashMap<hir::ExprIdx, ResolvedType>,
+    type_by_expr: collections::HashMap<hir::ExprIdx, ResolvedType>,
     signatures: Arena<Signature>,
     signature_by_function: collections::HashMap<hir::FunctionIdx, Idx<Signature>>,
     errors: Vec<InferenceError>,
@@ -26,7 +26,7 @@ struct InferenceContext {
 impl InferenceContext {
     fn new() -> Self {
         Self {
-            type_by_exprs: collections::HashMap::new(),
+            type_by_expr: collections::HashMap::new(),
             signatures: Arena::new(),
             signature_by_function: collections::HashMap::new(),
             errors: Vec::new(),
@@ -103,7 +103,7 @@ impl<'a> TypeInferencer<'a> {
         self.infer_stmts(&self.hir_result.top_level_stmts);
 
         InferenceResult {
-            type_by_exprs: self.ctx.type_by_exprs,
+            type_by_expr: self.ctx.type_by_expr,
             signatures: self.ctx.signatures,
             signature_by_function: self.ctx.signature_by_function,
             errors: self.ctx.errors,
@@ -126,11 +126,11 @@ impl<'a> TypeInferencer<'a> {
             match stmt {
                 hir::Stmt::Expr(expr) => {
                     let ty = self.infer_expr_idx(*expr);
-                    self.ctx.type_by_exprs.insert(*expr, ty);
+                    self.ctx.type_by_expr.insert(*expr, ty);
                 }
                 hir::Stmt::VariableDef { value, .. } => {
                     let ty = self.infer_expr_idx(*value);
-                    self.ctx.type_by_exprs.insert(*value, ty);
+                    self.ctx.type_by_expr.insert(*value, ty);
                 }
                 hir::Stmt::FunctionDef { .. } => (),
             }
@@ -155,11 +155,11 @@ impl<'a> TypeInferencer<'a> {
 
                 match (lhs_ty, rhs_ty) {
                     (ty, ResolvedType::Unknown) => {
-                        self.ctx.type_by_exprs.insert(*rhs, ty);
+                        self.ctx.type_by_expr.insert(*rhs, ty);
                         ty
                     }
                     (ResolvedType::Unknown, ty) => {
-                        self.ctx.type_by_exprs.insert(*lhs, ty);
+                        self.ctx.type_by_expr.insert(*lhs, ty);
                         ty
                     }
                     (_, _) => ResolvedType::Unknown,
@@ -200,7 +200,7 @@ impl<'a> TypeInferencer<'a> {
                         match (arg_ty, param_ty) {
                             (ResolvedType::Unknown, ResolvedType::Unknown) => (),
                             (ResolvedType::Unknown, ty) => {
-                                self.ctx.type_by_exprs.insert(*arg, ty);
+                                self.ctx.type_by_expr.insert(*arg, ty);
                             }
                             (_, _) => (),
                         }
@@ -230,12 +230,12 @@ impl<'a> TypeInferencer<'a> {
         }
 
         let ty = self.infer_expr(&self.hir_result.shared_ctx.exprs[expr]);
-        self.ctx.type_by_exprs.insert(expr, ty);
+        self.ctx.type_by_expr.insert(expr, ty);
 
         ty
     }
 
     fn lookup_type(&self, expr: hir::ExprIdx) -> Option<ResolvedType> {
-        self.ctx.type_by_exprs.get(&expr).copied()
+        self.ctx.type_by_expr.get(&expr).copied()
     }
 }

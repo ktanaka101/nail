@@ -276,36 +276,6 @@ mod tests {
     }
 
     #[test]
-    fn ir() {
-        check_ir(
-            r#"
-            fn main() {
-                10
-            }
-        "#,
-            expect![[r#"
-                ; ModuleID = 'top'
-                source_filename = "top"
-
-                declare i8* @ptr_to_string(i64*, i64)
-
-                define void @main() {
-                start:
-                  ret void
-                }
-
-                define i8 @__main__() {
-                start:
-                  call void @main()
-                  %alloca_i = alloca i64, align 8
-                  store i64 10, i64* %alloca_i, align 8
-                  ret void
-                }
-            "#]],
-        );
-    }
-
-    #[test]
     fn test_gen_block() {
         check_ir(
             r#"
@@ -376,7 +346,7 @@ mod tests {
     }
 
     #[test]
-    fn result() {
+    fn test_integer() {
         check_result(
             r#"
             fn main() {

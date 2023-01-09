@@ -8,7 +8,7 @@ use inkwell::{
     execution_engine::{ExecutionEngine, JitFunction},
     module::Module,
     types::{BasicMetadataTypeEnum, FunctionType},
-    values::{BasicValueEnum, FunctionValue},
+    values::{BasicValueEnum, FunctionValue, PointerValue},
 };
 
 const FN_ENTRY_BLOCK_NAME: &str = "start";
@@ -53,6 +53,8 @@ struct Codegen<'a, 'ctx> {
     builtin_functions: HashMap<String, FunctionValue<'ctx>>,
 
     defined_functions: HashMap<hir::FunctionIdx, FunctionValue<'ctx>>,
+
+    defined_variables: HashMap<hir::ExprIdx, PointerValue<'ctx>>,
 }
 
 impl<'a, 'ctx> Codegen<'a, 'ctx> {
@@ -73,6 +75,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             execution_engine,
             builtin_functions: HashMap::new(),
             defined_functions: HashMap::new(),
+            defined_variables: HashMap::new(),
         };
         codegen.add_builtin_function();
 
@@ -168,28 +171,46 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         }
     }
 
-    fn gen_body(&self, block: &hir::Block) -> Option<BasicValueEnum> {
+    fn gen_body(&mut self, block: &hir::Block) -> Option<BasicValueEnum> {
         for stmt in &block.stmts {
             self.gen_stmt(stmt);
         }
         block.tail.map(|tail| self.gen_expr(tail))
     }
 
-    fn gen_stmt(&self, stmt: &hir::Stmt) {
+    fn gen_stmt(&mut self, stmt: &hir::Stmt) {
         match stmt {
             hir::Stmt::Expr(expr) => {
                 self.gen_expr(*expr);
+            }
+            hir::Stmt::VariableDef { name, value } => {
+                let right_value = self.gen_expr(*value);
+                let ptr = self.builder.build_alloca(
+                    right_value.get_type(),
+                    &format!("alloca_{}", self.hir_result.interner.lookup(name.key())),
+                );
+                self.builder.build_store(ptr, right_value);
+                self.defined_variables.insert(*value, ptr);
             }
             _ => unimplemented!(),
         }
     }
 
-    fn gen_expr(&self, expr: hir::ExprIdx) -> BasicValueEnum {
+    fn gen_expr(&self, expr: hir::ExprIdx) -> BasicValueEnum<'ctx> {
         let expr = &self.hir_result.shared_ctx.exprs[expr];
         match expr {
             hir::Expr::Literal(literal) => match literal {
                 hir::Literal::Integer(value) => {
                     self.context.i64_type().const_int(*value, false).into()
+                }
+                _ => unimplemented!(),
+            },
+            hir::Expr::VariableRef { var } => match var {
+                hir::Symbol::Local { name, expr } => {
+                    let defined_var = &self.defined_variables[expr];
+                    let name = self.hir_result.interner.lookup(name.key());
+                    self.builder
+                        .build_load(*defined_var, &format!("load_{name}"))
                 }
                 _ => unimplemented!(),
             },
@@ -331,6 +352,40 @@ mod tests {
 
                 define void @func() {
                 start:
+                  ret void
+                }
+
+                define i8 @__main__() {
+                start:
+                  call void @main()
+                  %alloca_i = alloca i64, align 8
+                  store i64 10, i64* %alloca_i, align 8
+                  ret void
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_ir_gen_defined_variable() {
+        check_ir(
+            r#"
+            fn main() {
+                let x = 10
+                x
+            }
+        "#,
+            expect![[r#"
+                ; ModuleID = 'top'
+                source_filename = "top"
+
+                declare i8* @ptr_to_string(i64*, i64)
+
+                define void @main() {
+                start:
+                  %alloca_x = alloca i64, align 8
+                  store i64 10, i64* %alloca_x, align 8
+                  %load_x = load i64, i64* %alloca_x, align 8
                   ret void
                 }
 

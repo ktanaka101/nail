@@ -165,17 +165,19 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             match body_block {
                 hir::Expr::Block(block) => self.gen_body(block),
                 _ => unreachable!(),
-            };
-
-            self.builder.build_return(None);
+            }
         }
     }
 
-    fn gen_body(&mut self, block: &hir::Block) -> Option<BasicValueEnum> {
+    fn gen_body(&mut self, block: &hir::Block) {
         for stmt in &block.stmts {
             self.gen_stmt(stmt);
         }
-        block.tail.map(|tail| self.gen_expr(tail))
+        if let Some(tail) = block.tail.map(|tail| self.gen_expr(tail)) {
+            self.builder.build_return(Some(&tail));
+        } else {
+            self.builder.build_return(None);
+        }
     }
 
     fn gen_stmt(&mut self, stmt: &hir::Stmt) {
@@ -314,7 +316,7 @@ mod tests {
 
                 define void @main() {
                 start:
-                  ret void
+                  ret i64 30
                 }
 
                 define i8 @__main__() {
@@ -347,12 +349,12 @@ mod tests {
 
                 define void @main() {
                 start:
-                  ret void
+                  ret i64 10
                 }
 
                 define void @func() {
                 start:
-                  ret void
+                  ret i64 20
                 }
 
                 define i8 @__main__() {
@@ -386,7 +388,7 @@ mod tests {
                   %alloca_x = alloca i64, align 8
                   store i64 10, i64* %alloca_x, align 8
                   %load_x = load i64, i64* %alloca_x, align 8
-                  ret void
+                  ret i64 %load_x
                 }
 
                 define i8 @__main__() {

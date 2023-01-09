@@ -102,14 +102,17 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             .defined_functions
             .get(&self.hir_result.entry_point.unwrap())
             .unwrap();
-        self.builder
+        let result = self
+            .builder
             .build_call(*entry_point, &[], "call_entry_point");
-
-        let int = self.context.i64_type().const_int(10, false);
-        let ptr = self.builder.build_alloca(int.get_type(), "alloca_i");
-        self.builder.build_store(ptr, int);
+        let result_value = result.try_as_basic_value().left().unwrap();
 
         if should_return_string {
+            let ptr = self
+                .builder
+                .build_alloca(result_value.get_type(), "alloca_result");
+            self.builder.build_store(ptr, result_value);
+
             let call_v = self.build_call_ptr_to_string(ptr);
             let return_v = call_v.try_as_basic_value().left().unwrap();
 
@@ -134,6 +137,20 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             let fn_ty: FunctionType<'ctx> = match signature.return_type {
                 hir_ty::ResolvedType::Unit => {
                     let ty = self.context.void_type();
+                    let params = signature
+                        .params
+                        .iter()
+                        .map(|param| match param {
+                            hir_ty::ResolvedType::Integer => {
+                                BasicMetadataTypeEnum::IntType(self.context.i64_type())
+                            }
+                            _ => unimplemented!(),
+                        })
+                        .collect::<Vec<_>>();
+                    ty.fn_type(&params, false)
+                }
+                hir_ty::ResolvedType::Integer => {
+                    let ty = self.context.i64_type();
                     let params = signature
                         .params
                         .iter()
@@ -302,7 +319,7 @@ mod tests {
     fn test_gen_block() {
         check_ir(
             r#"
-            fn main() {
+            fn main() -> int {
                 10
                 20
                 30
@@ -314,16 +331,14 @@ mod tests {
 
                 declare i8* @ptr_to_string(i64*, i64)
 
-                define void @main() {
+                define i64 @main() {
                 start:
                   ret i64 30
                 }
 
                 define i8 @__main__() {
                 start:
-                  call void @main()
-                  %alloca_i = alloca i64, align 8
-                  store i64 10, i64* %alloca_i, align 8
+                  %call_entry_point = call i64 @main()
                   ret void
                 }
             "#]],
@@ -334,10 +349,10 @@ mod tests {
     fn test_gen_functions() {
         check_ir(
             r#"
-            fn main() {
+            fn main() -> int {
                 10
             }
-            fn func() {
+            fn func() -> int {
                 20
             }
         "#,
@@ -347,21 +362,19 @@ mod tests {
 
                 declare i8* @ptr_to_string(i64*, i64)
 
-                define void @main() {
+                define i64 @main() {
                 start:
                   ret i64 10
                 }
 
-                define void @func() {
+                define i64 @func() {
                 start:
                   ret i64 20
                 }
 
                 define i8 @__main__() {
                 start:
-                  call void @main()
-                  %alloca_i = alloca i64, align 8
-                  store i64 10, i64* %alloca_i, align 8
+                  %call_entry_point = call i64 @main()
                   ret void
                 }
             "#]],
@@ -372,7 +385,7 @@ mod tests {
     fn test_ir_gen_defined_variable() {
         check_ir(
             r#"
-            fn main() {
+            fn main() -> int {
                 let x = 10
                 x
             }
@@ -383,7 +396,7 @@ mod tests {
 
                 declare i8* @ptr_to_string(i64*, i64)
 
-                define void @main() {
+                define i64 @main() {
                 start:
                   %alloca_x = alloca i64, align 8
                   store i64 10, i64* %alloca_x, align 8
@@ -393,9 +406,7 @@ mod tests {
 
                 define i8 @__main__() {
                 start:
-                  call void @main()
-                  %alloca_i = alloca i64, align 8
-                  store i64 10, i64* %alloca_i, align 8
+                  %call_entry_point = call i64 @main()
                   ret void
                 }
             "#]],
@@ -406,8 +417,26 @@ mod tests {
     fn test_integer() {
         check_result(
             r#"
-            fn main() {
-                10
+            fn main() -> int {
+                100
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 100
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_gen_variable() {
+        check_result(
+            r#"
+            fn main() -> int {
+                let x = 10
+                x
             }
         "#,
             expect![[r#"

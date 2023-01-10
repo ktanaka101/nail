@@ -130,37 +130,34 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         }
     }
 
+    fn signature_to_params(
+        &self,
+        signature: &hir_ty::Signature,
+    ) -> Vec<BasicMetadataTypeEnum<'ctx>> {
+        signature
+            .params
+            .iter()
+            .map(|param| match param {
+                hir_ty::ResolvedType::Integer => {
+                    BasicMetadataTypeEnum::IntType(self.context.i64_type())
+                }
+                _ => unimplemented!(),
+            })
+            .collect::<Vec<_>>()
+    }
+
     fn gen_functions(&mut self) {
         for (idx, function) in self.hir_result.db.functions.iter() {
             let signature = self.ty_result.signature_by_function(&idx);
+            let params = self.signature_to_params(signature);
 
             let fn_ty: FunctionType<'ctx> = match signature.return_type {
                 hir_ty::ResolvedType::Unit => {
                     let ty = self.context.void_type();
-                    let params = signature
-                        .params
-                        .iter()
-                        .map(|param| match param {
-                            hir_ty::ResolvedType::Integer => {
-                                BasicMetadataTypeEnum::IntType(self.context.i64_type())
-                            }
-                            _ => unimplemented!(),
-                        })
-                        .collect::<Vec<_>>();
                     ty.fn_type(&params, false)
                 }
                 hir_ty::ResolvedType::Integer => {
                     let ty = self.context.i64_type();
-                    let params = signature
-                        .params
-                        .iter()
-                        .map(|param| match param {
-                            hir_ty::ResolvedType::Integer => {
-                                BasicMetadataTypeEnum::IntType(self.context.i64_type())
-                            }
-                            _ => unimplemented!(),
-                        })
-                        .collect::<Vec<_>>();
                     ty.fn_type(&params, false)
                 }
                 _ => unimplemented!(),

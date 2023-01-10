@@ -37,27 +37,33 @@ extern "C" fn ptr_to_string(ptr: *const i64) -> *const c_char {
     let s = CString::new(s).unwrap();
     s.into_raw()
 }
-
-impl<'a, 'ctx> Codegen<'a, 'ctx> {
-    pub(super) fn add_builtin_function(&mut self) {
-        let return_ty = self.context.i8_type().ptr_type(AddressSpace::default());
+fn define_ptr_to_string(codegen: &mut Codegen) {
+    let return_ty = codegen.context.i8_type().ptr_type(AddressSpace::default());
         let fn_type = return_ty.fn_type(
             &[
-                self.context
+            codegen
+                .context
                     .i64_type()
                     .ptr_type(AddressSpace::default())
                     .into(),
-                self.context.i64_type().into(),
+            codegen.context.i64_type().into(),
             ],
             false,
         );
-        let func_value = self
+    let func_value = codegen
             .module
             .add_function(FN_NAME_PTR_TO_STRING, fn_type, None);
-        self.execution_engine
+    codegen
+        .execution_engine
             .add_global_mapping(&func_value, ptr_to_string as usize);
-        self.builtin_functions
+    codegen
+        .builtin_functions
             .insert(FN_NAME_PTR_TO_STRING.to_string(), func_value);
+}
+
+impl<'a, 'ctx> Codegen<'a, 'ctx> {
+    pub(super) fn add_builtin_function(&mut self) {
+        define_ptr_to_string(self);
     }
 
     pub(super) fn get_fn_ptr_to_string(&self) -> FunctionValue {

@@ -146,6 +146,10 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             .collect::<Vec<_>>()
     }
 
+    fn lookup_name(&self, name: &hir::Name) -> &str {
+        self.hir_result.interner.lookup(name.key())
+    }
+
     fn gen_functions(&mut self) {
         for (idx, function) in self.hir_result.db.functions.iter() {
             let signature = self.ty_result.signature_by_function(&idx);
@@ -163,10 +167,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 _ => unimplemented!(),
             };
 
-            let function_name = self
-                .hir_result
-                .interner
-                .lookup(function.name.unwrap().key());
+            let function_name = self.lookup_name(&function.name.unwrap());
             let function = self.module.add_function(function_name, fn_ty, None);
             self.defined_functions.insert(idx, function);
 
@@ -203,7 +204,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 let right_value = self.gen_expr(*value);
                 let ptr = self.builder.build_alloca(
                     right_value.get_type(),
-                    &format!("alloca_{}", self.hir_result.interner.lookup(name.key())),
+                    &format!("alloca_{}", self.lookup_name(name)),
                 );
                 self.builder.build_store(ptr, right_value);
                 self.defined_variables.insert(*value, ptr);
@@ -224,7 +225,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             hir::Expr::VariableRef { var } => match var {
                 hir::Symbol::Local { name, expr } => {
                     let defined_var = &self.defined_variables[expr];
-                    let name = self.hir_result.interner.lookup(name.key());
+                    let name = self.lookup_name(name);
                     self.builder
                         .build_load(*defined_var, &format!("load_{name}"))
                 }

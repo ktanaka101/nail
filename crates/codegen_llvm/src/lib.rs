@@ -113,7 +113,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 .build_alloca(result_value.get_type(), "alloca_result");
             self.builder.build_store(ptr, result_value);
 
-            let call_v = self.build_call_ptr_to_string(ptr);
+            let call_v = self.build_call_ptr_to_string(result_value.get_type(), ptr);
             let return_v = call_v.try_as_basic_value().left().unwrap();
 
             self.builder.build_return(Some(&return_v));
@@ -327,7 +327,7 @@ mod tests {
                 ; ModuleID = 'top'
                 source_filename = "top"
 
-                declare i8* @ptr_to_string(i64*, i64)
+                declare i8* @ptr_to_string(i64, i64*)
 
                 define i64 @main() {
                 start:
@@ -358,7 +358,7 @@ mod tests {
                 ; ModuleID = 'top'
                 source_filename = "top"
 
-                declare i8* @ptr_to_string(i64*, i64)
+                declare i8* @ptr_to_string(i64, i64*)
 
                 define i64 @main() {
                 start:
@@ -392,7 +392,7 @@ mod tests {
                 ; ModuleID = 'top'
                 source_filename = "top"
 
-                declare i8* @ptr_to_string(i64*, i64)
+                declare i8* @ptr_to_string(i64, i64*)
 
                 define i64 @main() {
                 start:

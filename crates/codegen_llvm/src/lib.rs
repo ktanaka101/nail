@@ -7,8 +7,8 @@ use inkwell::{
     context::Context,
     execution_engine::{ExecutionEngine, JitFunction},
     module::Module,
-    types::{BasicMetadataTypeEnum, FunctionType},
-    values::{BasicValueEnum, FunctionValue, PointerValue},
+    types::{BasicMetadataTypeEnum, FunctionType, StructType},
+    values::{BasicValueEnum, FunctionValue, PointerValue, StructValue},
 };
 
 const FN_ENTRY_BLOCK_NAME: &str = "start";
@@ -108,12 +108,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         let result_value = result.try_as_basic_value().left().unwrap();
 
         if should_return_string {
-            let ptr = self
-                .builder
-                .build_alloca(result_value.get_type(), "alloca_result");
-            self.builder.build_store(ptr, result_value);
-
-            let call_v = self.build_call_ptr_to_string(result_value.get_type(), ptr);
+            let call_v = self.build_to_string(result_value);
             let return_v = call_v.try_as_basic_value().left().unwrap();
 
             self.builder.build_return(Some(&return_v));
@@ -150,6 +145,28 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         self.hir_result.interner.lookup(name.key())
     }
 
+    fn string_type(&self) -> StructType<'ctx> {
+        self.context.struct_type(
+            &[
+                self.context.i64_type().into(),
+                self.context.i64_type().into(),
+            ],
+            false,
+        )
+    }
+
+    fn build_string_value(&self, string: &str) -> StructValue<'ctx> {
+        let str = self.context.const_string(string.as_bytes(), false);
+        let string_ptr = self.builder.build_alloca(str.get_type(), "alloc_string");
+        self.builder.build_store(string_ptr, str);
+        let len = self
+            .context
+            .i64_type()
+            .const_int(string.len().try_into().unwrap(), false);
+        self.context
+            .const_struct(&[string_ptr.into(), len.into()], false)
+    }
+
     fn gen_functions(&mut self) {
         for (idx, function) in self.hir_result.db.functions.iter() {
             let signature = self.ty_result.signature_by_function(&idx);
@@ -162,6 +179,10 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 }
                 hir_ty::ResolvedType::Integer => {
                     let ty = self.context.i64_type();
+                    ty.fn_type(&params, false)
+                }
+                hir_ty::ResolvedType::String => {
+                    let ty = self.string_type();
                     ty.fn_type(&params, false)
                 }
                 _ => unimplemented!(),
@@ -220,6 +241,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 hir::Literal::Integer(value) => {
                     self.context.i64_type().const_int(*value, false).into()
                 }
+                hir::Literal::String(string) => self.build_string_value(string).into(),
                 _ => unimplemented!(),
             },
             hir::Expr::VariableRef { var } => match var {
@@ -314,6 +336,42 @@ mod tests {
     }
 
     #[test]
+    fn test_ir_literals() {
+        check_ir(
+            r#"
+            fn main() -> int {
+                let a = "aaa"
+                let b = 10
+                30
+            }
+        "#,
+            expect![[r#"
+                ; ModuleID = 'top'
+                source_filename = "top"
+
+                declare i8* @ptr_to_string(i64, i64*, i64)
+
+                define i64 @main() {
+                start:
+                  %alloc_string = alloca [3 x i8], align 4
+                  store [3 x i8] c"aaa", [3 x i8]* %alloc_string, align 1
+                  %alloca_a = alloca { [3 x i8]*, i64 }, align 8
+                  store { [3 x i8]*, i64 } { [3 x i8]* %alloc_string, i64 3 }, { [3 x i8]*, i64 }* %alloca_a, align 8
+                  %alloca_b = alloca i64, align 8
+                  store i64 10, i64* %alloca_b, align 8
+                  ret i64 30
+                }
+
+                define i8 @__main__() {
+                start:
+                  %call_entry_point = call i64 @main()
+                  ret void
+                }
+            "#]],
+        );
+    }
+
+    #[test]
     fn test_gen_block() {
         check_ir(
             r#"
@@ -327,7 +385,7 @@ mod tests {
                 ; ModuleID = 'top'
                 source_filename = "top"
 
-                declare i8* @ptr_to_string(i64, i64*)
+                declare i8* @ptr_to_string(i64, i64*, i64)
 
                 define i64 @main() {
                 start:
@@ -358,7 +416,7 @@ mod tests {
                 ; ModuleID = 'top'
                 source_filename = "top"
 
-                declare i8* @ptr_to_string(i64, i64*)
+                declare i8* @ptr_to_string(i64, i64*, i64)
 
                 define i64 @main() {
                 start:
@@ -392,7 +450,7 @@ mod tests {
                 ; ModuleID = 'top'
                 source_filename = "top"
 
-                declare i8* @ptr_to_string(i64, i64*)
+                declare i8* @ptr_to_string(i64, i64*, i64)
 
                 define i64 @main() {
                 start:

@@ -61,7 +61,20 @@ extern "C" fn ptr_to_string(ty: i64, value_ptr: *const i64, length: i64) -> *con
                 }
             }
             PrimitiveType::String => {
-                todo!()
+                let length = usize::try_from(length).unwrap();
+                let ptr: *const u8 = value_ptr.cast();
+                let mut bytes: Vec<u8> = vec![];
+
+                for i in 0..length {
+                    let v = unsafe { *ptr.add(i) };
+                    bytes.push(v);
+                }
+
+                let string = String::from_utf8(bytes).unwrap();
+                Output {
+                    nail_type: OutputType::String,
+                    value: Value::String(string),
+                }
             }
         };
 
@@ -110,18 +123,33 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         let value_ptr = self.builder.build_alloca(value.get_type(), "alloca_value");
         self.builder.build_store(value_ptr, value);
 
-        let (ty, length) = match value.get_type() {
-            BasicTypeEnum::IntType(_) => (PrimitiveType::Int, None),
-            BasicTypeEnum::VectorType(vec) => (PrimitiveType::String, Some(vec.get_size())),
-            _ => unimplemented!(),
-        };
-        let length = if let Some(length) = length {
-            self.context.i64_type().const_int(length.into(), false)
-        } else {
-            self.context.i64_type().const_int(0, false)
-        };
+        match value.get_type() {
+            BasicTypeEnum::IntType(_) => self.build_call_ptr_to_string(
+                PrimitiveType::Int,
+                value_ptr,
+                self.context.i64_type().const_zero(),
+            ),
+            BasicTypeEnum::StructType(_) => {
+                let string_ptr = self
+                    .builder
+                    .build_struct_gep(value_ptr, 0, "ref_string_ptr")
+                    .unwrap();
+                let string_len_ptr = self
+                    .builder
+                    .build_struct_gep(value_ptr, 1, "ref_string_length_ptr")
+                    .unwrap();
+                let len = self
+                    .builder
+                    .build_load(string_len_ptr, "load_string_length");
 
-        self.build_call_ptr_to_string(ty, value_ptr, length)
+                self.build_call_ptr_to_string(
+                    PrimitiveType::String,
+                    string_ptr,
+                    len.into_int_value(),
+                )
+            }
+            _ => unimplemented!(),
+        }
     }
 
     pub(super) fn build_call_ptr_to_string(

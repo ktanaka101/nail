@@ -142,6 +142,18 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                     .builder
                     .build_load(string_len_ptr, "load_string_length");
 
+                let string_ptr = self
+                    .builder
+                    .build_load(string_ptr, "load_string")
+                    .into_pointer_value();
+                let string_ptr = unsafe {
+                    self.builder.build_in_bounds_gep(
+                        string_ptr,
+                        &[self.context.i32_type().const_int(0, false)],
+                        "string_head_ptr",
+                    )
+                };
+
                 self.build_call_ptr_to_string(
                     PrimitiveType::String,
                     string_ptr,

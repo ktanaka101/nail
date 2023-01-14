@@ -9,6 +9,7 @@ use inkwell::{
     module::Module,
     types::{BasicMetadataTypeEnum, FunctionType, StructType},
     values::{BasicValueEnum, FunctionValue, PointerValue, StructValue},
+    AddressSpace,
 };
 
 const FN_ENTRY_BLOCK_NAME: &str = "start";
@@ -148,7 +149,10 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
     fn string_type(&self) -> StructType<'ctx> {
         self.context.struct_type(
             &[
-                self.context.i64_type().into(),
+                self.context
+                    .i8_type()
+                    .ptr_type(AddressSpace::default())
+                    .into(),
                 self.context.i64_type().into(),
             ],
             false,
@@ -159,16 +163,6 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         let str = self.context.const_string(string.as_bytes(), false);
         let string_ptr = self.builder.build_alloca(str.get_type(), "alloc_string");
         self.builder.build_store(string_ptr, str);
-        let string_ptr = unsafe {
-            self.builder.build_in_bounds_gep(
-                string_ptr,
-                &[
-                    self.context.i32_type().const_int(0, false),
-                    self.context.i32_type().const_int(0, false),
-                ],
-                "ptr",
-            )
-        };
 
         let len = self
             .context
@@ -369,9 +363,8 @@ mod tests {
                 start:
                   %alloc_string = alloca [3 x i8], align 4
                   store [3 x i8] c"aaa", [3 x i8]* %alloc_string, align 1
-                  %ptr = getelementptr inbounds [3 x i8], [3 x i8]* %alloc_string, i32 0, i32 0
-                  %alloca_a = alloca { i8*, i64 }, align 8
-                  store { i8*, i64 } { i8* %ptr, i64 3 }, { i8*, i64 }* %alloca_a, align 8
+                  %alloca_a = alloca { [3 x i8]*, i64 }, align 8
+                  store { [3 x i8]*, i64 } { [3 x i8]* %alloc_string, i64 3 }, { [3 x i8]*, i64 }* %alloca_a, align 8
                   %alloca_b = alloca i64, align 8
                   store i64 10, i64* %alloca_b, align 8
                   ret i64 30
@@ -512,7 +505,7 @@ mod tests {
             expect![[r#"
                 {
                   "nail_type": "String",
-                  "value": "L9\u0011"
+                  "value": "L9?"
                 }
             "#]],
         );

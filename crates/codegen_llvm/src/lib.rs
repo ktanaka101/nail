@@ -504,5 +504,20 @@ mod tests {
                 }
             "#]],
         );
+
+        check_result(
+            r#"
+            fn main() -> string {
+                let x = "aaa"
+                x
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "String",
+                  "value": "aaa"
+                }
+            "#]],
+        );
     }
 }

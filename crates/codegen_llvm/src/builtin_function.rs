@@ -1,7 +1,6 @@
 use std::ffi::{c_char, CString};
 
 use inkwell::{
-    types::BasicTypeEnum,
     values::{BasicValueEnum, CallSiteValue, FunctionValue, IntValue, PointerValue},
     AddressSpace,
 };
@@ -120,32 +119,20 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
     }
 
     pub(super) fn build_to_string(&'a self, value: BasicValueEnum<'ctx>) -> CallSiteValue<'ctx> {
-        let value_ptr = self.builder.build_alloca(value.get_type(), "alloca_value");
-        self.builder.build_store(value_ptr, value);
+        match value {
+            BasicValueEnum::IntValue(int) => {
+                let value_ptr = self.builder.build_alloca(int.get_type(), "alloca_value");
+                self.builder.build_store(value_ptr, value);
 
-        match value.get_type() {
-            BasicTypeEnum::IntType(_) => self.build_call_ptr_to_string(
-                PrimitiveType::Int,
-                value_ptr,
-                self.context.i64_type().const_zero(),
-            ),
-            BasicTypeEnum::StructType(_) => {
-                let string_ptr = self
-                    .builder
-                    .build_struct_gep(value_ptr, 0, "ref_string_ptr")
-                    .unwrap();
-                let string_len_ptr = self
-                    .builder
-                    .build_struct_gep(value_ptr, 1, "ref_string_length_ptr")
-                    .unwrap();
-                let len = self
-                    .builder
-                    .build_load(string_len_ptr, "load_string_length");
-
-                let string_ptr = self
-                    .builder
-                    .build_load(string_ptr, "load_string")
-                    .into_pointer_value();
+                self.build_call_ptr_to_string(
+                    PrimitiveType::Int,
+                    value_ptr,
+                    self.context.i64_type().const_zero(),
+                )
+            }
+            BasicValueEnum::VectorValue(vector) => {
+                let string_ptr = self.builder.build_alloca(vector.get_type(), "alloc_string");
+                self.builder.build_store(string_ptr, vector);
                 let string_ptr = unsafe {
                     self.builder.build_in_bounds_gep(
                         string_ptr,
@@ -153,12 +140,12 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                         "string_head_ptr",
                     )
                 };
+                let len = self
+                    .context
+                    .i64_type()
+                    .const_int(vector.get_type().get_size().into(), false);
 
-                self.build_call_ptr_to_string(
-                    PrimitiveType::String,
-                    string_ptr,
-                    len.into_int_value(),
-                )
+                self.build_call_ptr_to_string(PrimitiveType::String, string_ptr, len)
             }
             _ => unimplemented!(),
         }

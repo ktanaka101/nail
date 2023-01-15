@@ -7,9 +7,8 @@ use inkwell::{
     context::Context,
     execution_engine::{ExecutionEngine, JitFunction},
     module::Module,
-    types::{BasicMetadataTypeEnum, FunctionType, StructType},
-    values::{BasicValueEnum, FunctionValue, PointerValue, StructValue},
-    AddressSpace,
+    types::{BasicMetadataTypeEnum, FunctionType, VectorType},
+    values::{BasicValueEnum, FunctionValue, PointerValue, VectorValue},
 };
 
 const FN_ENTRY_BLOCK_NAME: &str = "start";
@@ -146,32 +145,13 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         self.hir_result.interner.lookup(name.key())
     }
 
-    fn string_type(&self) -> StructType<'ctx> {
-        self.context.struct_type(
-            &[
-                self.context
-                    .i8_type()
-                    .ptr_type(AddressSpace::default())
-                    .into(),
-                self.context.i64_type().into(),
-            ],
-            false,
-        )
+    fn string_type(&self) -> VectorType<'ctx> {
+        // TODO: fix type
+        self.context.i8_type().vec_type(3)
     }
 
-    fn build_string_value(&self, string: &str) -> StructValue<'ctx> {
-        let str = self.context.const_string(string.as_bytes(), false);
-        let string_ptr = self.builder.build_alloca(str.get_type(), "alloc_string");
-        self.builder.build_store(string_ptr, str);
-
-        let len = self
-            .context
-            .i64_type()
-            .const_int(str.get_type().get_size().into(), false);
-        let string = self
-            .context
-            .const_struct(&[string_ptr.into(), len.into()], false);
-        string
+    fn build_string_value(&self, string: &str) -> VectorValue<'ctx> {
+        self.context.const_string(string.as_bytes(), false)
     }
 
     fn gen_functions(&mut self) {
@@ -333,7 +313,6 @@ mod tests {
             &execution_engine,
             true,
         );
-        module.print_to_stderr();
         let result_string = {
             let c_string_ptr = unsafe { result.function.call() };
             unsafe { CString::from_raw(c_string_ptr as *mut c_char) }
@@ -361,10 +340,8 @@ mod tests {
 
                 define i64 @main() {
                 start:
-                  %alloc_string = alloca [3 x i8], align 4
-                  store [3 x i8] c"aaa", [3 x i8]* %alloc_string, align 1
-                  %alloca_a = alloca { [3 x i8]*, i64 }, align 8
-                  store { [3 x i8]*, i64 } { [3 x i8]* %alloc_string, i64 3 }, { [3 x i8]*, i64 }* %alloca_a, align 8
+                  %alloca_a = alloca [3 x i8], align 4
+                  store [3 x i8] c"aaa", [3 x i8]* %alloca_a, align 1
                   %alloca_b = alloca i64, align 8
                   store i64 10, i64* %alloca_b, align 8
                   ret i64 30
@@ -505,7 +482,7 @@ mod tests {
             expect![[r#"
                 {
                   "nail_type": "String",
-                  "value": "L9?"
+                  "value": "aaa"
                 }
             "#]],
         );

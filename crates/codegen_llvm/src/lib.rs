@@ -167,7 +167,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         let len = self
             .context
             .i64_type()
-            .const_int(string.len().try_into().unwrap(), false);
+            .const_int(str.get_type().get_size().into(), false);
         let string = self
             .context
             .const_struct(&[string_ptr.into(), len.into()], false);

@@ -1,6 +1,7 @@
 use std::ffi::{c_char, CString};
 
 use inkwell::{
+    module::Linkage,
     values::{BasicValueEnum, CallSiteValue, FunctionValue, IntValue, PointerValue},
     AddressSpace,
 };
@@ -48,7 +49,7 @@ impl From<PrimitiveType> for u64 {
 
 const FN_NAME_PTR_TO_STRING: &str = "ptr_to_string";
 #[no_mangle]
-extern "C" fn ptr_to_string(ty: i64, value_ptr: *const i64, length: i64) -> *const c_char {
+extern "C" fn ptr_to_string(ty: i64, value_ptr: *const i64, _length: i64) -> *const c_char {
     let s = {
         let ty = PrimitiveType::try_from(ty).unwrap();
         let out = match ty {
@@ -60,12 +61,15 @@ extern "C" fn ptr_to_string(ty: i64, value_ptr: *const i64, length: i64) -> *con
                 }
             }
             PrimitiveType::String => {
-                let length = usize::try_from(length).unwrap();
                 let ptr: *const u8 = value_ptr.cast();
                 let mut bytes: Vec<u8> = vec![];
 
-                for i in 0..length {
+                let max = 256;
+                for i in 0..max {
                     let v = unsafe { *ptr.add(i) };
+                    if v == 0 {
+                        break;
+                    }
                     bytes.push(v);
                 }
 
@@ -109,13 +113,38 @@ fn define_ptr_to_string(codegen: &mut Codegen) {
         .insert(FN_NAME_PTR_TO_STRING.to_string(), func_value);
 }
 
+fn define_libc(codegen: &mut Codegen) {
+    let return_ty = codegen.context.i8_type().ptr_type(AddressSpace::default());
+    let fn_type = return_ty.fn_type(&[codegen.context.i64_type().into()], false);
+    let func_value = codegen
+        .module
+        .add_function("malloc", fn_type, Some(Linkage::External));
+    codegen
+        .builtin_functions
+        .insert("malloc".to_string(), func_value);
+}
+
 impl<'a, 'ctx> Codegen<'a, 'ctx> {
     pub(super) fn add_builtin_function(&mut self) {
         define_ptr_to_string(self);
+        define_libc(self);
     }
 
     pub(super) fn get_fn_ptr_to_string(&self) -> FunctionValue<'ctx> {
         *self.builtin_functions.get(FN_NAME_PTR_TO_STRING).unwrap()
+    }
+
+    pub(super) fn get_fn_malloc(&self) -> FunctionValue<'ctx> {
+        *self.builtin_functions.get("malloc").unwrap()
+    }
+
+    pub(super) fn build_malloc(&'a self, size: IntValue<'ctx>) -> PointerValue<'ctx> {
+        self.builder
+            .build_call(self.get_fn_malloc(), &[size.into()], "malloced_ptr")
+            .try_as_basic_value()
+            .left()
+            .unwrap()
+            .into_pointer_value()
     }
 
     pub(super) fn build_to_string(&'a self, value: BasicValueEnum<'ctx>) -> CallSiteValue<'ctx> {
@@ -130,23 +159,11 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                     self.context.i64_type().const_zero(),
                 )
             }
-            BasicValueEnum::VectorValue(vector) => {
-                let string_ptr = self.builder.build_alloca(vector.get_type(), "alloc_string");
-                self.builder.build_store(string_ptr, vector);
-                let string_ptr = unsafe {
-                    self.builder.build_in_bounds_gep(
-                        string_ptr,
-                        &[self.context.i32_type().const_int(0, false)],
-                        "string_head_ptr",
-                    )
-                };
-                let len = self
-                    .context
-                    .i64_type()
-                    .const_int(vector.get_type().get_size().into(), false);
-
-                self.build_call_ptr_to_string(PrimitiveType::String, string_ptr, len)
-            }
+            BasicValueEnum::PointerValue(ptr) => self.build_call_ptr_to_string(
+                PrimitiveType::String,
+                ptr,
+                self.context.i64_type().const_zero(),
+            ),
             _ => unimplemented!(),
         }
     }

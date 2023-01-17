@@ -155,10 +155,9 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
     }
 
     fn build_string_value(&self, string: &str) -> PointerValue<'ctx> {
-        let str = self.context.const_string(string.as_bytes(), true);
-        let string = self.module.add_global(str.get_type(), None, "const_string");
-        string.set_initializer(&str);
-        string.as_pointer_value()
+        self.builder
+            .build_global_string_ptr(&format!("{string}\0"), "const_string")
+            .as_pointer_value()
     }
 
     fn gen_functions(&mut self) {
@@ -343,14 +342,14 @@ mod tests {
                 ; ModuleID = 'top'
                 source_filename = "top"
 
-                @const_string = global [4 x i8] c"aaa\00"
+                @const_string = private unnamed_addr constant [4 x i8] c"aaa\00", align 1
 
                 declare i8* @ptr_to_string(i64, i64*, i64)
 
                 define i64 @main() {
                 start:
-                  %alloca_a = alloca [4 x i8]*, align 8
-                  store [4 x i8]* @const_string, [4 x i8]** %alloca_a, align 8
+                  %alloca_a = alloca i8*, align 8
+                  store i8* getelementptr inbounds ([4 x i8], [4 x i8]* @const_string, i32 0, i32 0), i8** %alloca_a, align 8
                   %alloca_b = alloca i64, align 8
                   store i64 10, i64* %alloca_b, align 8
                   ret i64 30
@@ -378,16 +377,16 @@ mod tests {
                 ; ModuleID = 'top'
                 source_filename = "top"
 
-                @const_string = global [4 x i8] c"aaa\00"
+                @const_string = private unnamed_addr constant [4 x i8] c"aaa\00", align 1
 
                 declare i8* @ptr_to_string(i64, i64*, i64)
 
                 define i8* @main() {
                 start:
-                  %alloca_a = alloca [4 x i8]*, align 8
-                  store [4 x i8]* @const_string, [4 x i8]** %alloca_a, align 8
-                  %load_a = load [4 x i8]*, [4 x i8]** %alloca_a, align 8
-                  ret [4 x i8]* %load_a
+                  %alloca_a = alloca i8*, align 8
+                  store i8* getelementptr inbounds ([4 x i8], [4 x i8]* @const_string, i32 0, i32 0), i8** %alloca_a, align 8
+                  %load_a = load i8*, i8** %alloca_a, align 8
+                  ret i8* %load_a
                 }
 
                 define i8* @__main__() {

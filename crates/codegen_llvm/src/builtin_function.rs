@@ -13,6 +13,7 @@ use crate::Codegen;
 enum OutputType {
     Int,
     String,
+    Unit,
 }
 
 #[derive(Serialize)]
@@ -24,6 +25,7 @@ struct Output {
 pub(super) enum PrimitiveType {
     Int,
     String,
+    Unit,
 }
 
 impl TryFrom<i64> for PrimitiveType {
@@ -33,7 +35,13 @@ impl TryFrom<i64> for PrimitiveType {
         Ok(match value {
             1 => PrimitiveType::Int,
             2 => PrimitiveType::String,
-            other => return Err(anyhow::format_err!("Expected 1 or 2. Received {}", other)),
+            3 => PrimitiveType::Unit,
+            other => {
+                return Err(anyhow::format_err!(
+                    "Expected 1, 2 or 3. Received {}",
+                    other
+                ))
+            }
         })
     }
 }
@@ -42,6 +50,7 @@ impl From<PrimitiveType> for u64 {
         match val {
             PrimitiveType::Int => 1,
             PrimitiveType::String => 2,
+            PrimitiveType::Unit => 3,
         }
     }
 }
@@ -78,6 +87,10 @@ extern "C" fn ptr_to_string(ty: i64, value_ptr: *const i64, _length: i64) -> *co
                     value: Value::String(string),
                 }
             }
+            PrimitiveType::Unit => Output {
+                nail_type: OutputType::Unit,
+                value: Value::Null,
+            },
         };
 
         let mut json = serde_json::to_string_pretty(&out).unwrap();
@@ -119,6 +132,17 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
 
     pub(super) fn get_fn_ptr_to_string(&self) -> FunctionValue<'ctx> {
         *self.builtin_functions.get(FN_NAME_PTR_TO_STRING).unwrap()
+    }
+
+    pub(super) fn build_call_unit_string(&'a self) -> CallSiteValue<'ctx> {
+        self.build_call_ptr_to_string(
+            PrimitiveType::Unit,
+            self.context
+                .i64_type()
+                .ptr_type(AddressSpace::default())
+                .const_zero(),
+            self.context.i64_type().const_zero(),
+        )
     }
 
     pub(super) fn build_to_string(&'a self, value: BasicValueEnum<'ctx>) -> CallSiteValue<'ctx> {

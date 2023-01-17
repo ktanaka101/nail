@@ -2,6 +2,7 @@ mod builtin_function;
 
 use std::collections::HashMap;
 
+use either::Either;
 use inkwell::{
     builder::Builder,
     context::Context,
@@ -110,13 +111,22 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         let result = self
             .builder
             .build_call(*entry_point, &[], "call_entry_point");
-        let result_value = result.try_as_basic_value().left().unwrap();
 
         if should_return_string {
-            let call_v = self.build_to_string(result_value);
-            let return_v = call_v.try_as_basic_value().left().unwrap();
+            match result.try_as_basic_value() {
+                Either::Left(result_value) => {
+                    let call_v = self.build_to_string(result_value);
+                    let return_v = call_v.try_as_basic_value().left().unwrap();
 
-            self.builder.build_return(Some(&return_v));
+                    self.builder.build_return(Some(&return_v));
+                }
+                Either::Right(_) => {
+                    let call_v = self.build_call_unit_string();
+                    let return_v = call_v.try_as_basic_value().left().unwrap();
+
+                    self.builder.build_return(Some(&return_v));
+                }
+            }
         } else {
             self.builder.build_return(None);
         }
@@ -319,6 +329,7 @@ mod tests {
             &execution_engine,
             true,
         );
+        module.print_to_stderr();
         let result_string = {
             let c_string_ptr = unsafe { result.function.call() };
             unsafe { CString::from_raw(c_string_ptr as *mut c_char) }
@@ -578,6 +589,23 @@ mod tests {
                 {
                   "nail_type": "String",
                   "value": "aaa"
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_main_return_unit() {
+        check_result(
+            r#"
+            fn main() {
+                let a = 10
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Unit",
+                  "value": null
                 }
             "#]],
         );

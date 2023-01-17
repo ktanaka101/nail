@@ -103,6 +103,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ast",
+ "either",
  "expect-test",
  "hir",
  "hir_ty",

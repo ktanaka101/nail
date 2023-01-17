@@ -410,7 +410,7 @@ mod tests {
     }
 
     #[test]
-    fn test_gen_block() {
+    fn test_ir_block() {
         check_ir(
             r#"
             fn main() -> int {
@@ -440,7 +440,7 @@ mod tests {
     }
 
     #[test]
-    fn test_gen_functions() {
+    fn test_ir_functions() {
         check_ir(
             r#"
             fn main() -> int {
@@ -476,7 +476,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ir_gen_defined_variable() {
+    fn test_ir_defined_variable() {
         check_ir(
             r#"
             fn main() -> int {
@@ -508,7 +508,7 @@ mod tests {
     }
 
     #[test]
-    fn test_integer() {
+    fn test_return_integer_of_main() {
         check_result(
             r#"
             fn main() -> int {
@@ -525,7 +525,7 @@ mod tests {
     }
 
     #[test]
-    fn test_string() {
+    fn test_return_string_of_main() {
         check_result(
             r#"
             fn main() -> string {
@@ -542,7 +542,24 @@ mod tests {
     }
 
     #[test]
-    fn test_gen_variable() {
+    fn test_return_unit_of_main() {
+        check_result(
+            r#"
+            fn main() {
+                let a = 10
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Unit",
+                  "value": null
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_let_binding() {
         check_result(
             r#"
             fn main() -> int {
@@ -589,23 +606,6 @@ mod tests {
                 {
                   "nail_type": "String",
                   "value": "aaa"
-                }
-            "#]],
-        );
-    }
-
-    #[test]
-    fn test_main_return_unit() {
-        check_result(
-            r#"
-            fn main() {
-                let a = 10
-            }
-        "#,
-            expect![[r#"
-                {
-                  "nail_type": "Unit",
-                  "value": null
                 }
             "#]],
         );

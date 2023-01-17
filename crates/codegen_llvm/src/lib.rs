@@ -156,17 +156,9 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
 
     fn build_string_value(&self, string: &str) -> PointerValue<'ctx> {
         let str = self.context.const_string(string.as_bytes(), true);
-        let byte_length = self
-            .context
-            .i64_type()
-            .const_int(string.as_bytes().len().try_into().unwrap(), false);
-        let string_ptr = self
-            .builder
-            .build_array_malloc(self.context.i8_type(), byte_length, "malloc_string")
-            .unwrap();
-        self.builder.build_store(string_ptr, str);
-
-        string_ptr
+        let string = self.module.add_global(str.get_type(), None, "const_string");
+        string.set_initializer(&str);
+        string.as_pointer_value()
     }
 
     fn gen_functions(&mut self) {
@@ -351,22 +343,18 @@ mod tests {
                 ; ModuleID = 'top'
                 source_filename = "top"
 
+                @const_string = global [4 x i8] c"aaa\00"
+
                 declare i8* @ptr_to_string(i64, i64*, i64)
 
                 define i64 @main() {
                 start:
-                  %0 = trunc i64 3 to i32
-                  %mallocsize = mul i32 %0, ptrtoint (i8* getelementptr (i8, i8* null, i32 1) to i32)
-                  %malloc_string = tail call i8* @malloc(i32 %mallocsize)
-                  store [4 x i8] c"aaa\00", i8* %malloc_string, align 1
-                  %alloca_a = alloca i8*, align 8
-                  store i8* %malloc_string, i8** %alloca_a, align 8
+                  %alloca_a = alloca [4 x i8]*, align 8
+                  store [4 x i8]* @const_string, [4 x i8]** %alloca_a, align 8
                   %alloca_b = alloca i64, align 8
                   store i64 10, i64* %alloca_b, align 8
                   ret i64 30
                 }
-
-                declare noalias i8* @malloc(i32)
 
                 define i8* @__main__() {
                 start:
@@ -390,21 +378,17 @@ mod tests {
                 ; ModuleID = 'top'
                 source_filename = "top"
 
+                @const_string = global [4 x i8] c"aaa\00"
+
                 declare i8* @ptr_to_string(i64, i64*, i64)
 
                 define i8* @main() {
                 start:
-                  %0 = trunc i64 3 to i32
-                  %mallocsize = mul i32 %0, ptrtoint (i8* getelementptr (i8, i8* null, i32 1) to i32)
-                  %malloc_string = tail call i8* @malloc(i32 %mallocsize)
-                  store [4 x i8] c"aaa\00", i8* %malloc_string, align 1
-                  %alloca_a = alloca i8*, align 8
-                  store i8* %malloc_string, i8** %alloca_a, align 8
-                  %load_a = load i8*, i8** %alloca_a, align 8
-                  ret i8* %load_a
+                  %alloca_a = alloca [4 x i8]*, align 8
+                  store [4 x i8]* @const_string, [4 x i8]** %alloca_a, align 8
+                  %load_a = load [4 x i8]*, [4 x i8]** %alloca_a, align 8
+                  ret [4 x i8]* %load_a
                 }
-
-                declare noalias i8* @malloc(i32)
 
                 define i8* @__main__() {
                 start:

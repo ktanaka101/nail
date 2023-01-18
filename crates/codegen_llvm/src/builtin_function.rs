@@ -13,6 +13,7 @@ use crate::Codegen;
 enum OutputType {
     Int,
     String,
+    Boolean,
     Unit,
 }
 
@@ -25,6 +26,7 @@ struct Output {
 pub(super) enum PrimitiveType {
     Int,
     String,
+    Boolean,
     Unit,
 }
 
@@ -35,10 +37,11 @@ impl TryFrom<i64> for PrimitiveType {
         Ok(match value {
             1 => PrimitiveType::Int,
             2 => PrimitiveType::String,
-            3 => PrimitiveType::Unit,
+            3 => PrimitiveType::Boolean,
+            4 => PrimitiveType::Unit,
             other => {
                 return Err(anyhow::format_err!(
-                    "Expected 1, 2 or 3. Received {}",
+                    "Expected 1, 2, 3 or 4. Received {}",
                     other
                 ))
             }
@@ -50,7 +53,8 @@ impl From<PrimitiveType> for u64 {
         match val {
             PrimitiveType::Int => 1,
             PrimitiveType::String => 2,
-            PrimitiveType::Unit => 3,
+            PrimitiveType::Boolean => 3,
+            PrimitiveType::Unit => 4,
         }
     }
 }
@@ -85,6 +89,14 @@ extern "C" fn ptr_to_string(ty: i64, value_ptr: *const i64, _length: i64) -> *co
                 Output {
                     nail_type: OutputType::String,
                     value: Value::String(string),
+                }
+            }
+            PrimitiveType::Boolean => {
+                let value_ptr: *const bool = value_ptr.cast();
+                let boolean: bool = unsafe { *value_ptr };
+                Output {
+                    nail_type: OutputType::Boolean,
+                    value: Value::Bool(boolean),
                 }
             }
             PrimitiveType::Unit => Output {
@@ -151,11 +163,19 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 let value_ptr = self.builder.build_alloca(int.get_type(), "alloca_value");
                 self.builder.build_store(value_ptr, value);
 
-                self.build_call_ptr_to_string(
-                    PrimitiveType::Int,
-                    value_ptr,
-                    self.context.i64_type().const_zero(),
-                )
+                if int.get_type().get_bit_width() == 1 {
+                    self.build_call_ptr_to_string(
+                        PrimitiveType::Boolean,
+                        value_ptr,
+                        self.context.i64_type().const_zero(),
+                    )
+                } else {
+                    self.build_call_ptr_to_string(
+                        PrimitiveType::Int,
+                        value_ptr,
+                        self.context.i64_type().const_zero(),
+                    )
+                }
             }
             BasicValueEnum::PointerValue(ptr) => self.build_call_ptr_to_string(
                 PrimitiveType::String,

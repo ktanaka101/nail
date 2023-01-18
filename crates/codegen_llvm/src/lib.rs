@@ -188,6 +188,10 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                     let ty = self.string_type();
                     ty.fn_type(&params, false)
                 }
+                hir_ty::ResolvedType::Bool => {
+                    let ty = self.context.bool_type();
+                    ty.fn_type(&params, false)
+                }
                 _ => unimplemented!(),
             };
 
@@ -245,6 +249,11 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                     self.context.i64_type().const_int(*value, false).into()
                 }
                 hir::Literal::String(string) => self.build_string_value(string).into(),
+                hir::Literal::Bool(bool) => self
+                    .context
+                    .bool_type()
+                    .const_int(if *bool { 1 } else { 0 }, false)
+                    .into(),
                 _ => unimplemented!(),
             },
             hir::Expr::VariableRef { var } => match var {
@@ -536,6 +545,23 @@ mod tests {
                 {
                   "nail_type": "String",
                   "value": "aaa"
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_return_bool_of_main() {
+        check_result(
+            r#"
+            fn main() -> bool {
+                true
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Boolean",
+                  "value": true
                 }
             "#]],
         );

@@ -241,7 +241,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         }
     }
 
-    fn gen_expr(&self, expr: hir::ExprIdx) -> BasicValueEnum<'ctx> {
+    fn gen_expr(&mut self, expr: hir::ExprIdx) -> BasicValueEnum<'ctx> {
         let expr = &self.hir_result.shared_ctx.exprs[expr];
         match expr {
             hir::Expr::Literal(literal) => match literal {
@@ -265,6 +265,16 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 }
                 _ => unimplemented!(),
             },
+            hir::Expr::Block(block) => {
+                for stmt in &block.stmts {
+                    self.gen_stmt(stmt);
+                }
+                if let Some(tail) = block.tail {
+                    self.gen_expr(tail)
+                } else {
+                    self.context.const_struct(&[], false).into()
+                }
+            }
             _ => unimplemented!(),
         }
     }
@@ -632,6 +642,59 @@ mod tests {
                 {
                   "nail_type": "String",
                   "value": "aaa"
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_block() {
+        check_result(
+            r#"
+            fn main() {
+                {
+                }
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Unit",
+                  "value": null
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_block_binding() {
+        check_result(
+            r#"
+            fn main() {
+                let a = {
+                }
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Unit",
+                  "value": null
+                }
+            "#]],
+        );
+
+        check_result(
+            r#"
+            fn main() -> int {
+                let a = {
+                    10
+                }
+                a
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 10
                 }
             "#]],
         );

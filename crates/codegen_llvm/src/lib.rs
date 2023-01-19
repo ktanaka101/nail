@@ -275,6 +275,22 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                     self.context.const_struct(&[], false).into()
                 }
             }
+            hir::Expr::Call { callee, args } => match callee {
+                hir::Symbol::Function { name, function } => {
+                    let function = self.defined_functions[function];
+                    let args = args
+                        .iter()
+                        .map(|arg| self.gen_expr(*arg).into())
+                        .collect::<Vec<_>>();
+                    let call_value = self.builder.build_call(
+                        function,
+                        &args,
+                        &format!("call_{}", self.lookup_name(name)),
+                    );
+                    call_value.try_as_basic_value().left().unwrap()
+                }
+                _ => unimplemented!(),
+            },
             _ => unimplemented!(),
         }
     }
@@ -688,6 +704,28 @@ mod tests {
                 let a = {
                     10
                 }
+                a
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 10
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_call() {
+        check_result(
+            r#"
+            fn test() -> int {
+                10
+            }
+
+            fn main() -> int {
+                let a = test()
                 a
             }
         "#,

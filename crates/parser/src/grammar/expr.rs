@@ -962,6 +962,46 @@ mod tests {
     }
 
     #[test]
+    fn parse_if_is_expr() {
+        check(
+            "let a = if true { 10 } else { 20 }",
+            expect![[r#"
+                SourceFile@0..34
+                  VariableDef@0..34
+                    LetKw@0..3 "let"
+                    Whitespace@3..4 " "
+                    Ident@4..5 "a"
+                    Whitespace@5..6 " "
+                    Eq@6..7 "="
+                    Whitespace@7..8 " "
+                    IfExpr@8..34
+                      IfKw@8..10 "if"
+                      Whitespace@10..11 " "
+                      Literal@11..16
+                        TrueKw@11..15 "true"
+                        Whitespace@15..16 " "
+                      Block@16..23
+                        LCurly@16..17 "{"
+                        Whitespace@17..18 " "
+                        Literal@18..21
+                          Integer@18..20 "10"
+                          Whitespace@20..21 " "
+                        RCurly@21..22 "}"
+                        Whitespace@22..23 " "
+                      ElseKw@23..27 "else"
+                      Whitespace@27..28 " "
+                      Block@28..34
+                        LCurly@28..29 "{"
+                        Whitespace@29..30 " "
+                        Literal@30..33
+                          Integer@30..32 "20"
+                          Whitespace@32..33 " "
+                        RCurly@33..34 "}"
+            "#]],
+        )
+    }
+
+    #[test]
     fn parse_if_expr_missing_condition() {
         check(
             "if { 10 } else { 20 }",

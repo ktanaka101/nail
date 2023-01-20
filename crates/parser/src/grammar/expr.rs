@@ -107,6 +107,8 @@ fn parse_lhs(parser: &mut Parser) -> Option<CompletedMarker> {
         parse_paren_expr(parser)
     } else if parser.at(TokenKind::LCurly) {
         parse_block(parser)
+    } else if parser.at(TokenKind::IfKw) {
+        parse_if(parser)
     } else {
         parser.error_with_recovery_set_only_default_on_block();
         return None;
@@ -226,6 +228,38 @@ fn parse_block(parser: &mut Parser) -> CompletedMarker {
     parser.expect_on_block(TokenKind::RCurly);
 
     marker.complete(parser, SyntaxKind::Block)
+}
+
+fn parse_if(parser: &mut Parser) -> CompletedMarker {
+    assert!(parser.at(TokenKind::IfKw));
+
+    let marker = parser.start();
+    parser.bump();
+    parse_expr(parser);
+
+    {
+        let marker = parser.start();
+        parser.expect_on_block(TokenKind::LCurly);
+        while !parser.at(TokenKind::RCurly) && !parser.at_end() {
+            parse_stmt_on_block(parser);
+        }
+        parser.expect_on_block(TokenKind::RCurly);
+        marker.complete(parser, SyntaxKind::Block);
+    }
+
+    if parser.at(TokenKind::ElseKw) {
+        parser.bump();
+
+        let marker = parser.start();
+        parser.expect_on_block(TokenKind::LCurly);
+        while !parser.at(TokenKind::RCurly) && !parser.at_end() {
+            parse_stmt_on_block(parser);
+        }
+        parser.expect_on_block(TokenKind::RCurly);
+        marker.complete(parser, SyntaxKind::Block);
+    }
+
+    marker.complete(parser, SyntaxKind::IfExpr)
 }
 
 #[cfg(test)]
@@ -583,7 +617,7 @@ mod tests {
                       Literal@1..2
                         Integer@1..2 "1"
                       Plus@2..3 "+"
-                error at 2..3: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '(' or '{'
+                error at 2..3: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '(', '{' or 'if'
                 error at 2..3: expected ')'
             "#]],
         );
@@ -830,7 +864,7 @@ mod tests {
                   Error@5..6
                     RParen@5..6 ")"
                 error at 4..5: expected '+', '-', '*', '/', ',' or ')', but found identifier
-                error at 5..6: expected '+', '-', '*', '/', 'let', 'fn', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '(' or '{', but found ')'
+                error at 5..6: expected '+', '-', '*', '/', 'let', 'fn', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '(', '{' or 'if', but found ')'
             "#]],
         );
     }
@@ -883,5 +917,38 @@ mod tests {
                       RParen@11..12 ")"
             "#]],
         );
+    }
+
+    #[test]
+    fn parse_if_expr() {
+        check(
+            "if true { 10 } else { 20 }",
+            expect![[r#"
+                SourceFile@0..26
+                  IfExpr@0..26
+                    IfKw@0..2 "if"
+                    Whitespace@2..3 " "
+                    Literal@3..8
+                      TrueKw@3..7 "true"
+                      Whitespace@7..8 " "
+                    Block@8..15
+                      LCurly@8..9 "{"
+                      Whitespace@9..10 " "
+                      Literal@10..13
+                        Integer@10..12 "10"
+                        Whitespace@12..13 " "
+                      RCurly@13..14 "}"
+                      Whitespace@14..15 " "
+                    ElseKw@15..19 "else"
+                    Whitespace@19..20 " "
+                    Block@20..26
+                      LCurly@20..21 "{"
+                      Whitespace@21..22 " "
+                      Literal@22..25
+                        Integer@22..24 "20"
+                        Whitespace@24..25 " "
+                      RCurly@25..26 "}"
+            "#]],
+        )
     }
 }

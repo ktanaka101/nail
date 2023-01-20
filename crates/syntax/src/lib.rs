@@ -30,6 +30,7 @@ pub enum SyntaxKind {
     VariableRef,
     Block,
     Call,
+    IfExpr,
 
     // statement nodes
     VariableDef,

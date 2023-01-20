@@ -14,10 +14,10 @@ RUN echo 'deb http://apt.llvm.org/bullseye/ llvm-toolchain-bullseye-15 main' >> 
 RUN apt-get update
 
 # LLVM
-RUN apt-get install -y libllvm-15-ocaml-dev libllvm15 llvm-15 llvm-15-dev llvm-15-doc llvm-15-runtime
+RUN apt-get install -y libllvm-15-ocaml-dev libllvm15 llvm-15 llvm-15-dev llvm-15-doc llvm-15-examples llvm-15-runtime
 # Clang and co
 # Replaced python-clang-10 to python3-clang-10
-RUN apt-get install -y clang-15 clang-tools-15 clang-15-doc libclang-common-15-dev libclang-15-dev libclang1-15 clang-format-15 python3-clang-15 clangd-15
+RUN apt-get install -y clang-15 clang-tools-15 clang-15-doc libclang-common-15-dev libclang-15-dev libclang1-15 clang-format-15 python3-clang-15 clangd-15 clang-tidy-15
 # When compile `llvm-sys`,
 #   output `error: could not find native static library `Polly`, perhaps an -L flag is missing?`
 RUN apt-get install -y libpolly-15-dev
@@ -31,6 +31,14 @@ RUN apt-get install -y lld-15
 RUN apt-get install -y libc++-15-dev libc++abi-15-dev
 # OpenMP
 RUN apt-get install -y libomp-15-dev
+# libclc
+RUN apt-get install -y libclc-15-dev
+# libunwind
+RUN apt-get install -y libunwind-15-dev
+# mlir
+RUN apt-get install -y libmlir-15-dev mlir-15-tools
+# bolt
+# RUN apt-get install -y libbolt-15-dev bolt-15
 
 # Building error for rust: note: /usr/bin/ld: cannot find -lz
 # Required zlib1g-dev

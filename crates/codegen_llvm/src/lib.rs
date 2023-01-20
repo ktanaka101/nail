@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use either::Either;
 use inkwell::{
+    basic_block::BasicBlock,
     builder::Builder,
     context::Context,
     execution_engine::{ExecutionEngine, JitFunction},
@@ -55,6 +56,7 @@ struct Codegen<'a, 'ctx> {
     builtin_functions: HashMap<String, FunctionValue<'ctx>>,
 
     defined_functions: HashMap<hir::FunctionIdx, FunctionValue<'ctx>>,
+    entry_blocks: HashMap<hir::FunctionIdx, BasicBlock<'ctx>>,
 
     defined_variables: HashMap<hir::ExprIdx, (BasicTypeEnum<'ctx>, PointerValue<'ctx>)>,
 
@@ -80,6 +82,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             builtin_functions: HashMap::new(),
             defined_functions: HashMap::new(),
             defined_variables: HashMap::new(),
+            entry_blocks: HashMap::new(),
             curr_function: None,
         };
         codegen.add_builtin_function();
@@ -96,6 +99,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             unimplemented!();
         }
 
+        self.gen_function_signatures();
         self.gen_functions();
 
         let fn_type = self
@@ -185,7 +189,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             .as_pointer_value()
     }
 
-    fn gen_functions(&mut self) {
+    fn gen_function_signatures(&mut self) {
         for (idx, function) in self.hir_result.db.functions.iter() {
             let signature = self.ty_result.signature_by_function(&idx);
             let params = self.signature_to_params(signature);
@@ -213,12 +217,22 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             let function_name = self.lookup_name(&function.name.unwrap());
             let function = self.module.add_function(function_name, fn_ty, None);
             self.defined_functions.insert(idx, function);
-            self.set_function(function);
 
             let start_block = self
                 .context
                 .append_basic_block(function, FN_ENTRY_BLOCK_NAME);
             self.builder.position_at_end(start_block);
+            self.entry_blocks.insert(idx, start_block);
+        }
+    }
+
+    fn gen_functions(&mut self) {
+        for (idx, _function) in self.hir_result.db.functions.iter() {
+            let function_value = self.defined_functions.get(&idx).unwrap();
+            self.set_function(*function_value);
+
+            let entry_block = self.entry_blocks.get(&idx).unwrap();
+            self.builder.position_at_end(*entry_block);
 
             let body_block = self.hir_result.function_body_by_function(&idx).unwrap();
             match body_block {
@@ -852,6 +866,36 @@ mod tests {
             fn main() -> bool {
                 let a = test(true)
                 a
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Boolean",
+                  "value": true
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_gen_signature_preorder() {
+        check_result(
+            r#"
+            fn main() -> bool {
+                let a = test1(true)
+                a
+            }
+
+            fn test3(x: bool) -> bool {
+                x
+            }
+
+            fn test1(x: bool) -> bool {
+                test2(x)
+            }
+
+            fn test2(x: bool) -> bool {
+                test3(x)
             }
         "#,
             expect![[r#"

@@ -8,7 +8,7 @@ use inkwell::{
     context::Context,
     execution_engine::{ExecutionEngine, JitFunction},
     module::Module,
-    types::{BasicMetadataTypeEnum, FunctionType, PointerType},
+    types::{BasicMetadataTypeEnum, BasicTypeEnum, FunctionType, PointerType},
     values::{BasicValueEnum, FunctionValue, PointerValue},
     AddressSpace,
 };
@@ -56,7 +56,7 @@ struct Codegen<'a, 'ctx> {
 
     defined_functions: HashMap<hir::FunctionIdx, FunctionValue<'ctx>>,
 
-    defined_variables: HashMap<hir::ExprIdx, PointerValue<'ctx>>,
+    defined_variables: HashMap<hir::ExprIdx, (BasicTypeEnum<'ctx>, PointerValue<'ctx>)>,
 }
 
 impl<'a, 'ctx> Codegen<'a, 'ctx> {
@@ -235,7 +235,8 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                     &format!("alloca_{}", self.lookup_name(name)),
                 );
                 self.builder.build_store(ptr, right_value);
-                self.defined_variables.insert(*value, ptr);
+                self.defined_variables
+                    .insert(*value, (right_value.get_type(), ptr));
             }
             _ => unimplemented!(),
         }
@@ -258,10 +259,10 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             },
             hir::Expr::VariableRef { var } => match var {
                 hir::Symbol::Local { name, expr } => {
-                    let defined_var = &self.defined_variables[expr];
+                    let (defined_ty, defined_ptr) = &self.defined_variables[expr];
                     let name = self.lookup_name(name);
                     self.builder
-                        .build_load(*defined_var, &format!("load_{name}"))
+                        .build_load(*defined_ty, *defined_ptr, &format!("load_{name}"))
                 }
                 _ => unimplemented!(),
             },

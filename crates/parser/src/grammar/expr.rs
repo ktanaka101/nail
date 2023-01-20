@@ -1111,4 +1111,42 @@ mod tests {
             "#]],
         );
     }
+
+    #[test]
+    fn parse_if_block_condition() {
+        check(
+            "if { true } { 10 } else { 20 }",
+            expect![[r#"
+                SourceFile@0..30
+                  IfExpr@0..30
+                    IfKw@0..2 "if"
+                    Whitespace@2..3 " "
+                    Block@3..12
+                      LCurly@3..4 "{"
+                      Whitespace@4..5 " "
+                      Literal@5..10
+                        TrueKw@5..9 "true"
+                        Whitespace@9..10 " "
+                      RCurly@10..11 "}"
+                      Whitespace@11..12 " "
+                    Block@12..19
+                      LCurly@12..13 "{"
+                      Whitespace@13..14 " "
+                      Literal@14..17
+                        Integer@14..16 "10"
+                        Whitespace@16..17 " "
+                      RCurly@17..18 "}"
+                      Whitespace@18..19 " "
+                    ElseKw@19..23 "else"
+                    Whitespace@23..24 " "
+                    Block@24..30
+                      LCurly@24..25 "{"
+                      Whitespace@25..26 " "
+                      Literal@26..29
+                        Integer@26..28 "20"
+                        Whitespace@28..29 " "
+                      RCurly@29..30 "}"
+            "#]],
+        );
+    }
 }

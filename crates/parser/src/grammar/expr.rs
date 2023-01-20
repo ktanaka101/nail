@@ -236,11 +236,16 @@ fn parse_if(parser: &mut Parser) -> CompletedMarker {
     let marker = parser.start();
     parser.bump();
     parse_expr(parser);
-    parse_block(parser);
+
+    if parser.at(TokenKind::LCurly) {
+        parse_block(parser);
+    }
 
     if parser.at(TokenKind::ElseKw) {
         parser.bump();
-        parse_block(parser);
+        if parser.at(TokenKind::LCurly) {
+            parse_block(parser);
+        }
     }
 
     marker.complete(parser, SyntaxKind::IfExpr)
@@ -954,5 +959,116 @@ mod tests {
                       RCurly@25..26 "}"
             "#]],
         )
+    }
+
+    #[test]
+    fn parse_if_expr_missing_condition() {
+        check(
+            "if { 10 } else { 20 }",
+            expect![[r#"
+                SourceFile@0..21
+                  IfExpr@0..21
+                    IfKw@0..2 "if"
+                    Whitespace@2..3 " "
+                    Block@3..10
+                      LCurly@3..4 "{"
+                      Whitespace@4..5 " "
+                      Literal@5..8
+                        Integer@5..7 "10"
+                        Whitespace@7..8 " "
+                      RCurly@8..9 "}"
+                      Whitespace@9..10 " "
+                    ElseKw@10..14 "else"
+                    Whitespace@14..15 " "
+                    Block@15..21
+                      LCurly@15..16 "{"
+                      Whitespace@16..17 " "
+                      Literal@17..20
+                        Integer@17..19 "20"
+                        Whitespace@19..20 " "
+                      RCurly@20..21 "}"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_if_expr_missing_then_block() {
+        check(
+            "if true else { 20 }",
+            expect![[r#"
+                SourceFile@0..19
+                  IfExpr@0..19
+                    IfKw@0..2 "if"
+                    Whitespace@2..3 " "
+                    Literal@3..8
+                      TrueKw@3..7 "true"
+                      Whitespace@7..8 " "
+                    ElseKw@8..12 "else"
+                    Whitespace@12..13 " "
+                    Block@13..19
+                      LCurly@13..14 "{"
+                      Whitespace@14..15 " "
+                      Literal@15..18
+                        Integer@15..17 "20"
+                        Whitespace@17..18 " "
+                      RCurly@18..19 "}"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_if_expr_missing_else() {
+        check(
+            "if true { 10 } { 20 }",
+            expect![[r#"
+                SourceFile@0..21
+                  IfExpr@0..15
+                    IfKw@0..2 "if"
+                    Whitespace@2..3 " "
+                    Literal@3..8
+                      TrueKw@3..7 "true"
+                      Whitespace@7..8 " "
+                    Block@8..15
+                      LCurly@8..9 "{"
+                      Whitespace@9..10 " "
+                      Literal@10..13
+                        Integer@10..12 "10"
+                        Whitespace@12..13 " "
+                      RCurly@13..14 "}"
+                      Whitespace@14..15 " "
+                  Block@15..21
+                    LCurly@15..16 "{"
+                    Whitespace@16..17 " "
+                    Literal@17..20
+                      Integer@17..19 "20"
+                      Whitespace@19..20 " "
+                    RCurly@20..21 "}"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_if_expr_missing_else_block() {
+        check(
+            "if true { 10 } else",
+            expect![[r#"
+                SourceFile@0..19
+                  IfExpr@0..19
+                    IfKw@0..2 "if"
+                    Whitespace@2..3 " "
+                    Literal@3..8
+                      TrueKw@3..7 "true"
+                      Whitespace@7..8 " "
+                    Block@8..15
+                      LCurly@8..9 "{"
+                      Whitespace@9..10 " "
+                      Literal@10..13
+                        Integer@10..12 "10"
+                        Whitespace@12..13 " "
+                      RCurly@13..14 "}"
+                      Whitespace@14..15 " "
+                    ElseKw@15..19 "else"
+            "#]],
+        );
     }
 }

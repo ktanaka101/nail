@@ -236,27 +236,11 @@ fn parse_if(parser: &mut Parser) -> CompletedMarker {
     let marker = parser.start();
     parser.bump();
     parse_expr(parser);
-
-    {
-        let marker = parser.start();
-        parser.expect_on_block(TokenKind::LCurly);
-        while !parser.at(TokenKind::RCurly) && !parser.at_end() {
-            parse_stmt_on_block(parser);
-        }
-        parser.expect_on_block(TokenKind::RCurly);
-        marker.complete(parser, SyntaxKind::Block);
-    }
+    parse_block(parser);
 
     if parser.at(TokenKind::ElseKw) {
         parser.bump();
-
-        let marker = parser.start();
-        parser.expect_on_block(TokenKind::LCurly);
-        while !parser.at(TokenKind::RCurly) && !parser.at_end() {
-            parse_stmt_on_block(parser);
-        }
-        parser.expect_on_block(TokenKind::RCurly);
-        marker.complete(parser, SyntaxKind::Block);
+        parse_block(parser);
     }
 
     marker.complete(parser, SyntaxKind::IfExpr)

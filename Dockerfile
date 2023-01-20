@@ -18,6 +18,9 @@ RUN apt-get install -y libllvm-14-ocaml-dev libllvm14 llvm-14 llvm-14-dev llvm-1
 # Clang and co
 # Replaced python-clang-10 to python3-clang-10
 RUN apt-get install -y clang-14 clang-tools-14 clang-14-doc libclang-common-14-dev libclang-14-dev libclang1-14 clang-format-14 python3-clang-14 clangd-14
+# When compile `llvm-sys`,
+#   output `error: could not find native static library `Polly`, perhaps an -L flag is missing?`
+RUN apt-get install -y libpolly-14-dev
 # libfuzzer
 RUN apt-get install -y libfuzzer-14-dev
 # lldb

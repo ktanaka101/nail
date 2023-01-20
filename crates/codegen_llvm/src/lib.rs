@@ -268,7 +268,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 self.defined_variables
                     .insert(*value, (right_value.get_type(), ptr));
             }
-            _ => unimplemented!(),
+            hir::Stmt::FunctionDef { .. } => unreachable!(),
         }
     }
 

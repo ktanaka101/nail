@@ -13,7 +13,7 @@ use inkwell::{
     context::Context,
     execution_engine::{ExecutionEngine, JitFunction},
     module::Module,
-    types::StructType,
+    types::{BasicTypeEnum, StructType},
     values::{
         ArrayValue, BasicValueEnum, FloatValue, FunctionValue, IntValue, PointerValue, StructValue,
         VectorValue,
@@ -194,7 +194,7 @@ pub struct Codegen<'a, 'ctx> {
     builder: &'a Builder<'ctx>,
     execution_engine: &'a ExecutionEngine<'ctx>,
 
-    variables: HashMap<String, PointerValue<'ctx>>,
+    variables: HashMap<String, (BasicTypeEnum<'ctx>, PointerValue<'ctx>)>,
     fn_value_opt: Option<FunctionValue<'ctx>>,
     builtin_functions: HashMap<String, FunctionValue<'ctx>>,
     _builtin_structs: HashMap<String, StructType<'ctx>>,
@@ -346,6 +346,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
 
                         let ptr = unsafe {
                             self.builder.build_in_bounds_gep(
+                                vec.get_type(),
                                 ptr,
                                 &[
                                     self.context.i32_type().const_int(0, false),
@@ -374,6 +375,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
 
                         let ptr = unsafe {
                             self.builder.build_in_bounds_gep(
+                                arr.get_type(),
                                 ptr,
                                 &[
                                     self.context.i32_type().const_int(0, false),
@@ -499,7 +501,8 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
 
                 self.builder.build_store(alloca, value);
 
-                self.variables.insert(l.name.value.clone(), alloca);
+                self.variables
+                    .insert(l.name.value.clone(), (value.get_type(), alloca));
 
                 value
             }
@@ -620,12 +623,12 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
 
     fn gen_identifier(&self, id: &ast::Identifier) -> Result<BasicValueEnum<'ctx>> {
         let name = id.value.as_str();
-        let id = self
+        let (ty, id) = self
             .variables
             .get(name)
             .ok_or_else(|| Error::UndefinedIdentfier(name.to_string()))?;
 
-        Ok(self.builder.build_load(*id, name))
+        Ok(self.builder.build_load(*ty, *id, name))
     }
 
     fn gen_array(&mut self, arr: &ast::Array) -> Result<ArrayValue<'ctx>> {
@@ -633,7 +636,10 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         let ty = self.context.i64_type().array_type(size.try_into()?);
         let size = self.context.i64_type().const_int(size.try_into()?, false);
         let arr_ptr = self.builder.build_array_alloca(ty, size, "array_alloca");
-        let mut array = self.builder.build_load(arr_ptr, "array").into_array_value();
+        let mut array = self
+            .builder
+            .build_load(ty, arr_ptr, "array")
+            .into_array_value();
 
         for (i, element) in arr.elements.iter().enumerate() {
             array = self

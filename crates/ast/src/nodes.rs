@@ -53,6 +53,7 @@ pub enum Expr {
     VariableRef(VariableRef),
     Call(Call),
     Block(Block),
+    IfExpr(IfExpr),
 }
 impl Ast for Expr {}
 impl AstNode for Expr {
@@ -66,6 +67,7 @@ impl AstNode for Expr {
                 | SyntaxKind::VariableRef
                 | SyntaxKind::Call
                 | SyntaxKind::Block
+                | SyntaxKind::IfExpr
         )
     }
 
@@ -78,6 +80,7 @@ impl AstNode for Expr {
             SyntaxKind::VariableRef => Self::VariableRef(VariableRef { syntax }),
             SyntaxKind::Call => Self::Call(Call { syntax }),
             SyntaxKind::Block => Self::Block(Block { syntax }),
+            SyntaxKind::IfExpr => Self::IfExpr(IfExpr { syntax }),
             _ => return None,
         };
 
@@ -93,6 +96,7 @@ impl AstNode for Expr {
             Expr::VariableRef(it) => it.syntax(),
             Expr::Call(it) => it.syntax(),
             Expr::Block(it) => it.syntax(),
+            Expr::IfExpr(it) => it.syntax(),
         }
     }
 }
@@ -202,6 +206,25 @@ def_ast_node!(Block);
 impl Block {
     pub fn stmts(&self) -> impl Iterator<Item = Stmt> {
         ast_node::children_nodes(self)
+    }
+}
+
+def_ast_node!(IfExpr);
+impl IfExpr {
+    pub fn condition(&self) -> Option<Expr> {
+        ast_node::child_node(self)
+    }
+
+    pub fn then_branch(&self) -> Option<Block> {
+        self.children_after_condition().next()
+    }
+
+    pub fn else_branch(&self) -> Option<Block> {
+        self.children_after_condition().nth(1)
+    }
+
+    fn children_after_condition<N: AstNode>(&self) -> impl Iterator<Item = N> {
+        self.syntax().children().skip(1).filter_map(N::cast)
     }
 }
 

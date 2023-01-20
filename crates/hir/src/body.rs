@@ -139,6 +139,7 @@ impl BodyLower {
                 }
                 ast::Expr::Call(ast) => self.lower_call(ast, ctx, db, item_tree, interner),
                 ast::Expr::Block(ast) => self.lower_block(ast, ctx, db, item_tree, interner),
+                ast::Expr::IfExpr(_) => todo!(),
             }
         } else {
             Expr::Missing

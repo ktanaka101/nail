@@ -391,18 +391,18 @@ mod tests {
 
                 @const_string = private unnamed_addr constant [4 x i8] c"aaa\00", align 1
 
-                declare i8* @ptr_to_string(i64, i64*, i64)
+                declare ptr @ptr_to_string(i64, ptr, i64)
 
                 define i64 @main() {
                 start:
-                  %alloca_a = alloca i8*, align 8
-                  store i8* getelementptr inbounds ([4 x i8], [4 x i8]* @const_string, i32 0, i32 0), i8** %alloca_a, align 8
+                  %alloca_a = alloca ptr, align 8
+                  store ptr @const_string, ptr %alloca_a, align 8
                   %alloca_b = alloca i64, align 8
-                  store i64 10, i64* %alloca_b, align 8
+                  store i64 10, ptr %alloca_b, align 8
                   ret i64 30
                 }
 
-                define i8* @__main__() {
+                define ptr @__main__() {
                 start:
                   %call_entry_point = call i64 @main()
                   ret void
@@ -426,19 +426,19 @@ mod tests {
 
                 @const_string = private unnamed_addr constant [4 x i8] c"aaa\00", align 1
 
-                declare i8* @ptr_to_string(i64, i64*, i64)
+                declare ptr @ptr_to_string(i64, ptr, i64)
 
-                define i8* @main() {
+                define ptr @main() {
                 start:
-                  %alloca_a = alloca i8*, align 8
-                  store i8* getelementptr inbounds ([4 x i8], [4 x i8]* @const_string, i32 0, i32 0), i8** %alloca_a, align 8
-                  %load_a = load i8*, i8** %alloca_a, align 8
-                  ret i8* %load_a
+                  %alloca_a = alloca ptr, align 8
+                  store ptr @const_string, ptr %alloca_a, align 8
+                  %load_a = load ptr, ptr %alloca_a, align 8
+                  ret ptr %load_a
                 }
 
-                define i8* @__main__() {
+                define ptr @__main__() {
                 start:
-                  %call_entry_point = call i8* @main()
+                  %call_entry_point = call ptr @main()
                   ret void
                 }
             "#]],
@@ -459,14 +459,14 @@ mod tests {
                 ; ModuleID = 'top'
                 source_filename = "top"
 
-                declare i8* @ptr_to_string(i64, i64*, i64)
+                declare ptr @ptr_to_string(i64, ptr, i64)
 
                 define i64 @main() {
                 start:
                   ret i64 30
                 }
 
-                define i8* @__main__() {
+                define ptr @__main__() {
                 start:
                   %call_entry_point = call i64 @main()
                   ret void
@@ -490,7 +490,7 @@ mod tests {
                 ; ModuleID = 'top'
                 source_filename = "top"
 
-                declare i8* @ptr_to_string(i64, i64*, i64)
+                declare ptr @ptr_to_string(i64, ptr, i64)
 
                 define i64 @main() {
                 start:
@@ -502,7 +502,7 @@ mod tests {
                   ret i64 20
                 }
 
-                define i8* @__main__() {
+                define ptr @__main__() {
                 start:
                   %call_entry_point = call i64 @main()
                   ret void
@@ -524,17 +524,17 @@ mod tests {
                 ; ModuleID = 'top'
                 source_filename = "top"
 
-                declare i8* @ptr_to_string(i64, i64*, i64)
+                declare ptr @ptr_to_string(i64, ptr, i64)
 
                 define i64 @main() {
                 start:
                   %alloca_x = alloca i64, align 8
-                  store i64 10, i64* %alloca_x, align 8
-                  %load_x = load i64, i64* %alloca_x, align 8
+                  store i64 10, ptr %alloca_x, align 8
+                  %load_x = load i64, ptr %alloca_x, align 8
                   ret i64 %load_x
                 }
 
-                define i8* @__main__() {
+                define ptr @__main__() {
                 start:
                   %call_entry_point = call i64 @main()
                   ret void

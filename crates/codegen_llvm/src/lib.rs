@@ -165,6 +165,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                     .vec_type(1)
                     .ptr_type(AddressSpace::default())
                     .into(),
+                hir_ty::ResolvedType::Bool => self.context.bool_type().into(),
                 _ => unimplemented!(),
             })
             .collect::<Vec<_>>()
@@ -838,6 +839,25 @@ mod tests {
                 {
                   "nail_type": "String",
                   "value": "aaa"
+                }
+            "#]],
+        );
+
+        check_result(
+            r#"
+            fn test(x: bool) -> bool {
+                x
+            }
+
+            fn main() -> bool {
+                let a = test(true)
+                a
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Boolean",
+                  "value": true
                 }
             "#]],
         );

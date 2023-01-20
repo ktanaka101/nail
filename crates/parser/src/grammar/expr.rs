@@ -906,6 +906,26 @@ mod tests {
     #[test]
     fn parse_if_expr() {
         check(
+            "if true { 10 }",
+            expect![[r#"
+                SourceFile@0..14
+                  IfExpr@0..14
+                    IfKw@0..2 "if"
+                    Whitespace@2..3 " "
+                    Literal@3..8
+                      TrueKw@3..7 "true"
+                      Whitespace@7..8 " "
+                    Block@8..14
+                      LCurly@8..9 "{"
+                      Whitespace@9..10 " "
+                      Literal@10..13
+                        Integer@10..12 "10"
+                        Whitespace@12..13 " "
+                      RCurly@13..14 "}"
+            "#]],
+        );
+
+        check(
             "if true { 10 } else { 20 }",
             expect![[r#"
                 SourceFile@0..26

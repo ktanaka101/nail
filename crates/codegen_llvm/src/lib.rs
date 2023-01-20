@@ -57,6 +57,8 @@ struct Codegen<'a, 'ctx> {
     defined_functions: HashMap<hir::FunctionIdx, FunctionValue<'ctx>>,
 
     defined_variables: HashMap<hir::ExprIdx, (BasicTypeEnum<'ctx>, PointerValue<'ctx>)>,
+
+    curr_function: Option<FunctionValue<'ctx>>,
 }
 
 impl<'a, 'ctx> Codegen<'a, 'ctx> {
@@ -78,10 +80,15 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             builtin_functions: HashMap::new(),
             defined_functions: HashMap::new(),
             defined_variables: HashMap::new(),
+            curr_function: None,
         };
         codegen.add_builtin_function();
 
         codegen
+    }
+
+    fn set_function(&mut self, function: FunctionValue<'ctx>) {
+        self.curr_function = Some(function);
     }
 
     fn gen(mut self, should_return_string: bool) -> CodegenResult<'ctx> {
@@ -99,6 +106,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         let main_fn = self
             .module
             .add_function(INTERNAL_ENTRY_POINT, fn_type, None);
+        self.set_function(main_fn);
         let inner_entry_point_block = self
             .context
             .append_basic_block(main_fn, FN_ENTRY_BLOCK_NAME);
@@ -198,6 +206,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             let function_name = self.lookup_name(&function.name.unwrap());
             let function = self.module.add_function(function_name, fn_ty, None);
             self.defined_functions.insert(idx, function);
+            self.set_function(function);
 
             let start_block = self
                 .context
@@ -263,6 +272,13 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                     let name = self.lookup_name(name);
                     self.builder
                         .build_load(*defined_ty, *defined_ptr, &format!("load_{name}"))
+                }
+                hir::Symbol::Param { param, .. } => {
+                    let function = self.curr_function.unwrap();
+                    let param = &self.hir_result.db.params[*param];
+                    function
+                        .get_nth_param(param.pos.try_into().unwrap())
+                        .unwrap()
                 }
                 _ => unimplemented!(),
             },
@@ -727,6 +743,69 @@ mod tests {
 
             fn main() -> int {
                 let a = test()
+                a
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 10
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_call_with_params() {
+        check_result(
+            r#"
+            fn test(x: int) -> int {
+                x
+            }
+
+            fn main() -> int {
+                let a = test(10)
+                a
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 10
+                }
+            "#]],
+        );
+
+        check_result(
+            r#"
+            fn test(x: int, y: int) -> int {
+                y
+            }
+
+            fn main() -> int {
+                let a = test(10, 20)
+                a
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 20
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_call_with_param_types() {
+        check_result(
+            r#"
+            fn test(x: int) -> int {
+                x
+            }
+
+            fn main() -> int {
+                let a = test(10)
                 a
             }
         "#,

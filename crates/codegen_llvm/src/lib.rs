@@ -159,6 +159,12 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 hir_ty::ResolvedType::Integer => {
                     BasicMetadataTypeEnum::IntType(self.context.i64_type())
                 }
+                hir_ty::ResolvedType::String => self
+                    .context
+                    .i8_type()
+                    .vec_type(1)
+                    .ptr_type(AddressSpace::default())
+                    .into(),
                 _ => unimplemented!(),
             })
             .collect::<Vec<_>>()
@@ -813,6 +819,25 @@ mod tests {
                 {
                   "nail_type": "Int",
                   "value": 10
+                }
+            "#]],
+        );
+
+        check_result(
+            r#"
+            fn test(x: string) -> string {
+                x
+            }
+
+            fn main() -> string {
+                let a = test("aaa")
+                a
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "String",
+                  "value": "aaa"
                 }
             "#]],
         );

@@ -114,6 +114,30 @@ mod tests {
                     debug_type(found_ty),
                     debug_hir_expr(found_expr, lower_result)
                 )),
+                TypeCheckError::MismatchedTypeIfCondition {
+                    expected_ty,
+                    found_expr,
+                    found_ty,
+                } => {
+                    msg.push_str(&format!(
+                        "error: expected {}, found {} by `{}`\n",
+                        debug_type(expected_ty),
+                        debug_type(found_ty),
+                        debug_hir_expr(found_expr, lower_result)
+                    ));
+                }
+                TypeCheckError::MismatchedTypeElseBranch {
+                    expected_ty,
+                    found_expr,
+                    found_ty,
+                } => {
+                    msg.push_str(&format!(
+                        "error: expected {}, found {} by `{}`\n",
+                        debug_type(expected_ty),
+                        debug_type(found_ty),
+                        debug_hir_expr(found_expr, lower_result)
+                    ));
+                }
             }
         }
 
@@ -182,7 +206,25 @@ mod tests {
                 hir::Literal::Integer(i) => i.to_string(),
                 hir::Literal::String(s) => format!("\"{s}\""),
             },
-            hir::Expr::If { .. } => todo!(),
+            hir::Expr::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                let mut if_expr = format!(
+                    "if {} {}",
+                    debug_hir_expr(condition, lower_result),
+                    debug_hir_expr(then_branch, lower_result)
+                );
+                if let Some(else_branch) = else_branch {
+                    if_expr.push_str(&format!(
+                        " else {}",
+                        debug_hir_expr(else_branch, lower_result)
+                    ));
+                }
+
+                if_expr
+            }
         }
     }
 
@@ -601,6 +643,148 @@ mod tests {
                 ---
                 error: expected bool, found string by `"aaa"`
                 error: expected string, found bool by `true`
+            "#]],
+        );
+    }
+
+    #[test]
+    fn infer_if_expr() {
+        check(
+            r#"
+                fn main() {
+                    if true {
+                        10
+                    } else {
+                        20
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn() -> ()
+                ---
+                `true`: bool
+                `10`: int
+                `{ .., 10 }`: int
+                `20`: int
+                `{ .., 20 }`: int
+                `if true { .., 10 } else { .., 20 }`: int
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn infer_if_expr_else_is_unit() {
+        check(
+            r#"
+                fn main() {
+                    if true {
+                        10
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn() -> ()
+                ---
+                `true`: bool
+                `10`: int
+                `{ .., 10 }`: int
+                `if true { .., 10 }`: unknown
+                ---
+                error: expected (), found int by `{ .., 10 }`
+            "#]],
+        );
+    }
+
+    #[test]
+    fn infer_if_expr_empty_block_is_unit() {
+        check(
+            r#"
+                fn main() {
+                    if true {
+                    } else {
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn() -> ()
+                ---
+                `true`: bool
+                `{{ .. }}`: ()
+                `{{ .. }}`: ()
+                `if true {{ .. }} else {{ .. }}`: ()
+                ---
+            "#]],
+        );
+
+        check(
+            r#"
+                fn main() {
+                    if true {
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn() -> ()
+                ---
+                `true`: bool
+                `{{ .. }}`: ()
+                `if true {{ .. }}`: ()
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn infer_if_expr_mismatched_type() {
+        check(
+            r#"
+                fn main() {
+                    if true {
+                        10
+                    } else {
+                        "aaa"
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn() -> ()
+                ---
+                `true`: bool
+                `10`: int
+                `{ .., 10 }`: int
+                `"aaa"`: string
+                `{ .., "aaa" }`: string
+                `if true { .., 10 } else { .., "aaa" }`: unknown
+                ---
+                error: expected int, found string by `{ .., 10 }` and `{ .., "aaa" }`
+            "#]],
+        );
+    }
+
+    #[test]
+    fn infer_if_expr_condition_is_not_bool() {
+        check(
+            r#"
+                fn main() {
+                    if 10 {
+                        "aaa"
+                    } else {
+                        "aaa"
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn() -> ()
+                ---
+                `10`: int
+                `"aaa"`: string
+                `{ .., "aaa" }`: string
+                `"aaa"`: string
+                `{ .., "aaa" }`: string
+                `if 10 { .., "aaa" } else { .., "aaa" }`: string
+                ---
+                error: expected bool, found int by `10`
             "#]],
         );
     }

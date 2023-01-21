@@ -211,7 +211,33 @@ impl<'a> TypeInferencer<'a> {
                 hir::Symbol::Local { .. } | hir::Symbol::Param { .. } => unimplemented!(),
             },
             hir::Expr::Block(block) => self.infer_block(block),
-            hir::Expr::If { .. } => todo!(),
+            hir::Expr::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                self.infer_expr_idx(*condition);
+                let then_branch_ty = self.infer_expr_idx(*then_branch);
+                let else_branch_ty = if let Some(else_branch) = else_branch {
+                    self.infer_expr_idx(*else_branch)
+                } else {
+                    ResolvedType::Unit
+                };
+
+                match (then_branch_ty, else_branch_ty) {
+                    (ResolvedType::Unknown, ResolvedType::Unknown) => ResolvedType::Unknown,
+                    (ResolvedType::Unknown, ty) => {
+                        self.ctx.type_by_expr.insert(*then_branch, ty);
+                        ty
+                    }
+                    (ty, ResolvedType::Unknown) => {
+                        self.ctx.type_by_expr.insert(else_branch.unwrap(), ty);
+                        ty
+                    }
+                    (ty_a, ty_b) if ty_a == ty_b => ty_a,
+                    (_, _) => ResolvedType::Unknown,
+                }
+            }
             hir::Expr::Missing => ResolvedType::Unknown,
         }
     }

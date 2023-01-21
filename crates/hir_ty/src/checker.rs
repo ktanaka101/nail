@@ -18,6 +18,16 @@ pub enum TypeCheckError {
         found_expr: hir::ExprIdx,
         found_ty: ResolvedType,
     },
+    MismatchedTypeIfCondition {
+        expected_ty: ResolvedType,
+        found_expr: hir::ExprIdx,
+        found_ty: ResolvedType,
+    },
+    MismatchedTypeElseBranch {
+        expected_ty: ResolvedType,
+        found_expr: hir::ExprIdx,
+        found_ty: ResolvedType,
+    },
     MismaatchedSignature {
         expected_ty: ResolvedType,
         signature: Signature,
@@ -147,7 +157,43 @@ impl<'a> TypeChecker<'a> {
                 }
             }
             hir::Expr::VariableRef { .. } => (),
-            hir::Expr::If { .. } => todo!(),
+            hir::Expr::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                let condition_ty = self.infer_result.type_by_expr[condition];
+                let expected_condition_ty = ResolvedType::Bool;
+                if condition_ty != expected_condition_ty {
+                    self.errors.push(TypeCheckError::MismatchedTypeIfCondition {
+                        expected_ty: expected_condition_ty,
+                        found_expr: *condition,
+                        found_ty: condition_ty,
+                    });
+                }
+
+                let then_branch_ty = self.infer_result.type_by_expr[then_branch];
+                if let Some(else_branch) = else_branch {
+                    let else_branch_ty = self.infer_result.type_by_expr[else_branch];
+                    if then_branch_ty != else_branch_ty {
+                        self.errors.push(TypeCheckError::MismatchedTypes {
+                            expected_expr: *then_branch,
+                            expected_ty: then_branch_ty,
+                            found_expr: *else_branch,
+                            found_ty: else_branch_ty,
+                        });
+                    }
+                } else {
+                    let else_branch_ty = ResolvedType::Unit;
+                    if then_branch_ty != else_branch_ty {
+                        self.errors.push(TypeCheckError::MismatchedTypeElseBranch {
+                            expected_ty: else_branch_ty,
+                            found_expr: *then_branch,
+                            found_ty: then_branch_ty,
+                        });
+                    }
+                }
+            }
             hir::Expr::Missing => (),
         }
     }

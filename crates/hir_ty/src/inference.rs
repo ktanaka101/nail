@@ -146,6 +146,7 @@ impl<'a> TypeInferencer<'a> {
                 hir::Literal::Bool(_) => ResolvedType::Bool,
             },
             hir::Expr::Binary { lhs, rhs, .. } => {
+                // TODO: supports string equal
                 let lhs_ty = self.infer_expr_idx(*lhs);
                 let rhs_ty = self.infer_expr_idx(*rhs);
 

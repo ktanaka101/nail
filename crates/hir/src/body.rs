@@ -192,6 +192,7 @@ impl BodyLower {
             ast::BinaryOp::Sub(_) => BinaryOp::Sub,
             ast::BinaryOp::Mul(_) => BinaryOp::Mul,
             ast::BinaryOp::Div(_) => BinaryOp::Div,
+            ast::BinaryOp::Equal(_) => BinaryOp::Equal,
         };
 
         let lhs = self.lower_expr(ast.lhs(), ctx, db, item_tree, interner);
@@ -504,6 +505,7 @@ mod tests {
                     BinaryOp::Sub => "-",
                     BinaryOp::Mul => "*",
                     BinaryOp::Div => "/",
+                    BinaryOp::Equal => "==",
                 };
                 let lhs_str =
                     debug_expr(lower_result, &lower_result.shared_ctx.exprs[*lhs], nesting);

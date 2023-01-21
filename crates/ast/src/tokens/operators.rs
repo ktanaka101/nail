@@ -9,18 +9,24 @@ pub enum BinaryOp {
     Sub(Minus),
     Mul(Star),
     Div(Slash),
+    Equal(Eq2),
 }
 def_ast_token!(Plus);
 def_ast_token!(Minus);
 def_ast_token!(Star);
 def_ast_token!(Slash);
+def_ast_token!(Eq2);
 
 impl Ast for BinaryOp {}
 impl AstToken for BinaryOp {
     fn can_cast(token: SyntaxKind) -> bool {
         matches!(
             token,
-            SyntaxKind::Plus | SyntaxKind::Minus | SyntaxKind::Star | SyntaxKind::Slash
+            SyntaxKind::Plus
+                | SyntaxKind::Minus
+                | SyntaxKind::Star
+                | SyntaxKind::Slash
+                | SyntaxKind::Eq2
         )
     }
 
@@ -30,6 +36,7 @@ impl AstToken for BinaryOp {
             SyntaxKind::Minus => Some(Self::Sub(Minus { syntax })),
             SyntaxKind::Star => Some(Self::Mul(Star { syntax })),
             SyntaxKind::Slash => Some(Self::Div(Slash { syntax })),
+            SyntaxKind::Eq2 => Some(Self::Equal(Eq2 { syntax })),
             _ => None,
         }
     }
@@ -40,6 +47,7 @@ impl AstToken for BinaryOp {
             Self::Sub(it) => it.syntax(),
             Self::Mul(it) => it.syntax(),
             Self::Div(it) => it.syntax(),
+            Self::Equal(it) => it.syntax(),
         }
     }
 }

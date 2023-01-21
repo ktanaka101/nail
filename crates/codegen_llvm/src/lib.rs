@@ -298,6 +298,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                         .builder
                         .build_int_signed_div(lhs, rhs, "div_number")
                         .into(),
+                    hir::BinaryOp::Equal => todo!(),
                 }
             }
             hir::Expr::Unary { op, expr } => {

@@ -161,6 +161,7 @@ mod tests {
                     hir::BinaryOp::Sub => "+",
                     hir::BinaryOp::Mul => "+",
                     hir::BinaryOp::Div => "+",
+                    hir::BinaryOp::Equal => "==",
                 }
                 .to_string();
                 let lhs = debug_hir_expr(lhs, lower_result);
@@ -376,6 +377,10 @@ mod tests {
                     true + true
                     10 + true
                     10 + (10 + "aaa")
+                    10 - 20
+                    10 * 20
+                    10 / 20
+                    10 == 20
                 }
             "#,
             expect![[r#"
@@ -407,6 +412,18 @@ mod tests {
                 `10`: int
                 `10 + "aaa"`: int
                 `10 + 10 + "aaa"`: int
+                `10`: int
+                `20`: int
+                `10 + 20`: int
+                `10`: int
+                `20`: int
+                `10 + 20`: int
+                `10`: int
+                `20`: int
+                `10 + 20`: int
+                `10`: int
+                `20`: int
+                `10 == 20`: int
                 ---
                 error: expected int, found string by `10` and `"aaa"`
                 error: expected int, found char by `10` and `'a'`

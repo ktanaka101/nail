@@ -1660,5 +1660,67 @@ mod tests {
                 }
             "#]],
         );
+
+        check(
+            r#"
+                fn main() {
+                    if true {
+                        10
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn entry:main() -> () {
+                    expr:if true {
+                        expr:10
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn if_expr_block_condition() {
+        check(
+            r#"
+                fn main() {
+                    if { true } {
+                        10
+                    } else {
+                        20
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn entry:main() -> () {
+                    expr:if {
+                        expr:true
+                    } {
+                        expr:10
+                    } else {
+                        expr:20
+                    }
+                }
+            "#]],
+        );
+
+        check(
+            r#"
+                fn main() {
+                    if { true } {
+                        10
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn entry:main() -> () {
+                    expr:if {
+                        expr:true
+                    } {
+                        expr:10
+                    }
+                }
+            "#]],
+        );
     }
 }

@@ -182,6 +182,7 @@ mod tests {
                 hir::Literal::Integer(i) => i.to_string(),
                 hir::Literal::String(s) => format!("\"{s}\""),
             },
+            hir::Expr::If { .. } => todo!(),
         }
     }
 

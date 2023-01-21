@@ -167,6 +167,11 @@ pub enum Expr {
         args: Vec<ExprIdx>,
     },
     Block(Block),
+    If {
+        condition: ExprIdx,
+        then_branch: ExprIdx,
+        else_branch: Option<ExprIdx>,
+    },
     Missing,
 }
 

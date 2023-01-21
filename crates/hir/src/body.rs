@@ -139,7 +139,7 @@ impl BodyLower {
                 }
                 ast::Expr::Call(ast) => self.lower_call(ast, ctx, db, item_tree, interner),
                 ast::Expr::Block(ast) => self.lower_block(ast, ctx, db, item_tree, interner),
-                ast::Expr::IfExpr(_) => todo!(),
+                ast::Expr::IfExpr(ast) => self.lower_if(ast, ctx, db, item_tree, interner),
             }
         } else {
             Expr::Missing
@@ -335,6 +335,35 @@ impl BodyLower {
             ast: block_ast_id,
         })
     }
+
+    fn lower_if(
+        &mut self,
+        ast: ast::IfExpr,
+        ctx: &mut SharedBodyLowerContext,
+        db: &Database,
+        item_tree: &ItemTree,
+        interner: &mut Interner,
+    ) -> Expr {
+        let condition = self.lower_expr(ast.condition(), ctx, db, item_tree, interner);
+        let condition = ctx.exprs.alloc(condition);
+
+        let then_branch =
+            self.lower_block(ast.then_branch().unwrap(), ctx, db, item_tree, interner);
+        let then_branch = ctx.exprs.alloc(then_branch);
+
+        let else_branch = if let Some(else_branch) = ast.else_branch() {
+            let else_branch = self.lower_block(else_branch, ctx, db, item_tree, interner);
+            Some(ctx.exprs.alloc(else_branch))
+        } else {
+            None
+        };
+
+        Expr::If {
+            condition,
+            then_branch,
+            else_branch,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -523,6 +552,35 @@ mod tests {
 
                 msg
             }
+            Expr::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                let mut msg = "if ".to_string();
+                msg.push_str(&debug_expr(
+                    lower_result,
+                    &lower_result.shared_ctx.exprs[*condition],
+                    nesting,
+                ));
+                msg.push(' ');
+                msg.push_str(&debug_expr(
+                    lower_result,
+                    &lower_result.shared_ctx.exprs[*then_branch],
+                    nesting,
+                ));
+
+                if let Some(else_branch) = else_branch {
+                    msg.push_str(" else ");
+                    msg.push_str(&debug_expr(
+                        lower_result,
+                        &lower_result.shared_ctx.exprs[*else_branch],
+                        nesting,
+                    ));
+                }
+
+                msg
+            }
             Expr::Missing => "<missing>".to_string(),
         }
     }
@@ -535,7 +593,8 @@ mod tests {
                 | Expr::Literal(_)
                 | Expr::Unary { .. }
                 | Expr::VariableRef { .. }
-                | Expr::Call { .. } => {
+                | Expr::Call { .. }
+                | Expr::If { .. } => {
                     debug_expr(lower_result, &lower_result.shared_ctx.exprs[*expr], nesting)
                 }
                 Expr::Block { .. } => lower_result.interner.lookup(name.key()).to_string(),
@@ -1574,6 +1633,26 @@ mod tests {
                         expr:10 + 20
                     }
                     expr:fn:aaa("aaa", true)
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn if_expr() {
+        check(
+            r#"
+                fn main() {
+                    if true {
+                        10
+                    } else {
+                        20
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn entry:main() -> () {
+                    expr:if true <missing> else <missing>
                 }
             "#]],
         );

@@ -211,6 +211,7 @@ impl<'a> TypeInferencer<'a> {
                 hir::Symbol::Local { .. } | hir::Symbol::Param { .. } => unimplemented!(),
             },
             hir::Expr::Block(block) => self.infer_block(block),
+            hir::Expr::If { .. } => todo!(),
             hir::Expr::Missing => ResolvedType::Unknown,
         }
     }

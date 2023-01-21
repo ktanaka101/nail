@@ -147,6 +147,7 @@ impl<'a> TypeChecker<'a> {
                 }
             }
             hir::Expr::VariableRef { .. } => (),
+            hir::Expr::If { .. } => todo!(),
             hir::Expr::Missing => (),
         }
     }

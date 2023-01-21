@@ -300,6 +300,12 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                         .into(),
                 }
             }
+            hir::Expr::Unary { op, expr } => {
+                let expr = self.gen_expr(*expr).into_int_value();
+                match op {
+                    hir::UnaryOp::Neg => self.builder.build_int_neg(expr, "neg_number").into(),
+                }
+            }
             hir::Expr::VariableRef { var } => match var {
                 hir::Symbol::Local { name, expr } => {
                     let (defined_ty, defined_ptr) = &self.defined_variables[expr];
@@ -1129,6 +1135,29 @@ mod tests {
                 {
                   "nail_type": "Int",
                   "value": 6
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_negative_number() {
+        check_result(
+            r#"
+            fn main() -> int {
+                let a = -10
+                let b = 20
+                let c = -30
+                let d = -{
+                    40
+                }
+                a + (-b) + (-c) - d
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 40
                 }
             "#]],
         );

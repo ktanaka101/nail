@@ -329,6 +329,62 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 }
                 _ => unimplemented!(),
             },
+            hir::Expr::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                let condition = self.gen_expr(*condition);
+                let condition = condition.into_int_value();
+                if condition.get_type().get_bit_width() != 1 {
+                    panic!("expected bool because type checked.");
+                }
+
+                let condition = self.builder.build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    condition,
+                    self.context.bool_type().const_int(1, false),
+                    "if_condition",
+                );
+
+                let curr_function = self.curr_function.unwrap();
+
+                // build branches
+                let then_bb = self
+                    .context
+                    .append_basic_block(curr_function, "then_branch");
+                let else_bb = self
+                    .context
+                    .append_basic_block(curr_function, "else_branch");
+                let cont_bb = self.context.append_basic_block(curr_function, "ifcont");
+
+                self.builder
+                    .build_conditional_branch(condition, then_bb, else_bb);
+
+                // build a then branch
+                self.builder.position_at_end(then_bb);
+                let then_val = self.gen_expr(*then_branch);
+                self.builder.build_unconditional_branch(cont_bb);
+                let then_bb = self.builder.get_insert_block().unwrap();
+
+                // build an else branch
+                self.builder.position_at_end(else_bb);
+                let else_val = if let Some(else_branch) = else_branch {
+                    self.gen_expr(*else_branch)
+                } else {
+                    self.context.const_struct(&[], false).into()
+                };
+                self.builder.build_unconditional_branch(cont_bb);
+                let else_bb = self.builder.get_insert_block().unwrap();
+
+                // emit merge block
+                self.builder.position_at_end(cont_bb);
+                let phi = self
+                    .builder
+                    .build_phi(self.context.i64_type(), "if_expr_tmp");
+                phi.add_incoming(&[(&then_val, then_bb), (&else_val, else_bb)]);
+                phi.as_basic_value()
+            }
             _ => unimplemented!(),
         }
     }
@@ -902,6 +958,66 @@ mod tests {
                 {
                   "nail_type": "Boolean",
                   "value": true
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_gen_if_expr() {
+        check_result(
+            r#"
+            fn main() -> int {
+                if true {
+                    10
+                } else {
+                    20
+                }
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 10
+                }
+            "#]],
+        );
+
+        check_result(
+            r#"
+            fn main() -> int {
+                if false {
+                    10
+                } else {
+                    20
+                }
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 20
+                }
+            "#]],
+        );
+
+        check_result(
+            r#"
+            fn main() -> int {
+                let a = true
+                let b = 10
+                let c = 20
+                if a {
+                    b
+                } else {
+                    c
+                }
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 10
                 }
             "#]],
         );

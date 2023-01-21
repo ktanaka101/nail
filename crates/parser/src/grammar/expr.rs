@@ -39,6 +39,8 @@ fn parse_expr_binding_power(
             BinaryOp::Mul
         } else if parser.at(TokenKind::Slash) {
             BinaryOp::Div
+        } else if parser.at(TokenKind::Eq2) {
+            BinaryOp::Equal
         } else {
             break;
         };
@@ -68,13 +70,15 @@ enum BinaryOp {
     Sub,
     Mul,
     Div,
+    Equal,
 }
 
 impl BinaryOp {
     fn binding_power(&self) -> (u8, u8) {
         match self {
-            Self::Add | Self::Sub => (1, 2),
-            Self::Mul | Self::Div => (3, 4),
+            Self::Equal => (1, 2),
+            Self::Add | Self::Sub => (3, 4),
+            Self::Mul | Self::Div => (5, 6),
         }
     }
 }
@@ -346,6 +350,36 @@ mod tests {
     }
 
     #[test]
+    fn parse_low_precedence_of_equality_operator() {
+        check(
+            "1 + 2 == 3 * 4",
+            expect![[r#"
+                SourceFile@0..14
+                  BinaryExpr@0..14
+                    BinaryExpr@0..6
+                      Literal@0..2
+                        Integer@0..1 "1"
+                        Whitespace@1..2 " "
+                      Plus@2..3 "+"
+                      Whitespace@3..4 " "
+                      Literal@4..6
+                        Integer@4..5 "2"
+                        Whitespace@5..6 " "
+                    Eq2@6..8 "=="
+                    Whitespace@8..9 " "
+                    BinaryExpr@9..14
+                      Literal@9..11
+                        Integer@9..10 "3"
+                        Whitespace@10..11 " "
+                      Star@11..12 "*"
+                      Whitespace@12..13 " "
+                      Literal@13..14
+                        Integer@13..14 "4"
+            "#]],
+        );
+    }
+
+    #[test]
     fn parse_negation() {
         check(
             "-10",
@@ -589,7 +623,7 @@ mod tests {
                     LParen@0..1 "("
                     VariableRef@1..4
                       Ident@1..4 "foo"
-                error at 1..4: expected '+', '-', '*', '/' or ')'
+                error at 1..4: expected '+', '-', '*', '/', '==' or ')'
             "#]],
         );
     }
@@ -641,7 +675,7 @@ mod tests {
                     Literal@2..4
                       Integer@2..3 "1"
                       Whitespace@3..4 " "
-                error at 3..4: expected '+', '-', '*', '/' or '}'
+                error at 3..4: expected '+', '-', '*', '/', '==' or '}'
             "#]],
         );
     }
@@ -767,7 +801,7 @@ mod tests {
                       Arg@5..6
                         VariableRef@5..6
                           Ident@5..6 "y"
-                error at 5..6: expected '+', '-', '*', '/', ',' or ')'
+                error at 5..6: expected '+', '-', '*', '/', '==', ',' or ')'
             "#]],
         );
 
@@ -798,7 +832,7 @@ mod tests {
                       Arg@2..3
                         VariableRef@2..3
                           Ident@2..3 "x"
-                error at 2..3: expected '+', '-', '*', '/', ',' or ')'
+                error at 2..3: expected '+', '-', '*', '/', '==', ',' or ')'
             "#]],
         );
 
@@ -852,8 +886,8 @@ mod tests {
                         Ident@4..5 "y"
                   Error@5..6
                     RParen@5..6 ")"
-                error at 4..5: expected '+', '-', '*', '/', ',' or ')', but found identifier
-                error at 5..6: expected '+', '-', '*', '/', 'let', 'fn', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '(', '{' or 'if', but found ')'
+                error at 4..5: expected '+', '-', '*', '/', '==', ',' or ')', but found identifier
+                error at 5..6: expected '+', '-', '*', '/', '==', 'let', 'fn', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '(', '{' or 'if', but found ')'
             "#]],
         );
     }
@@ -1146,6 +1180,24 @@ mod tests {
                         Integer@26..28 "20"
                         Whitespace@28..29 " "
                       RCurly@29..30 "}"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_equal() {
+        check(
+            "10 == 20",
+            expect![[r#"
+                SourceFile@0..8
+                  BinaryExpr@0..8
+                    Literal@0..3
+                      Integer@0..2 "10"
+                      Whitespace@2..3 " "
+                    Eq2@3..5 "=="
+                    Whitespace@5..6 " "
+                    Literal@6..8
+                      Integer@6..8 "20"
             "#]],
         );
     }

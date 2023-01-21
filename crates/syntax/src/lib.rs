@@ -68,6 +68,7 @@ pub enum SyntaxKind {
     Slash,
     Bang,
     Eq,
+    Eq2,
     /// <
     LAngle,
     /// >
@@ -126,6 +127,7 @@ impl From<TokenKind> for SyntaxKind {
             TokenKind::Slash => Self::Slash,
             TokenKind::Bang => Self::Bang,
             TokenKind::Eq => Self::Eq,
+            TokenKind::Eq2 => Self::Eq2,
             TokenKind::LAngle => Self::LAngle,
             TokenKind::RAngle => Self::RAngle,
 

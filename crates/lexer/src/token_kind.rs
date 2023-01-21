@@ -51,6 +51,8 @@ pub enum TokenKind {
     Bang,
     #[token("=")]
     Eq,
+    #[token("==")]
+    Eq2,
     #[token("<")]
     LAngle,
     #[token(">")]
@@ -122,6 +124,7 @@ impl fmt::Display for TokenKind {
             Self::Slash => "'/'",
             Self::Bang => "'!'",
             Self::Eq => "'='",
+            Self::Eq2 => "'=='",
             Self::LAngle => "'<'",
             Self::RAngle => "'>'",
             Self::ThinArrow => "->",
@@ -290,6 +293,11 @@ mod tests {
     #[test]
     fn lex_equals() {
         check("=", TokenKind::Eq);
+    }
+
+    #[test]
+    fn lex_equals2() {
+        check("==", TokenKind::Eq2);
     }
 
     #[test]

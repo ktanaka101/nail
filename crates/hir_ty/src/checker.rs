@@ -175,7 +175,7 @@ impl<'a> TypeChecker<'a> {
                 then_branch,
                 else_branch,
             } => {
-                let condition_ty = self.infer_result.type_by_expr[condition];
+                let condition_ty = self.type_by_expr(*condition);
                 let expected_condition_ty = ResolvedType::Bool;
                 if condition_ty != expected_condition_ty {
                     self.errors.push(TypeCheckError::MismatchedTypeIfCondition {
@@ -185,9 +185,9 @@ impl<'a> TypeChecker<'a> {
                     });
                 }
 
-                let then_branch_ty = self.infer_result.type_by_expr[then_branch];
+                let then_branch_ty = self.type_by_expr(*then_branch);
                 if let Some(else_branch) = else_branch {
-                    let else_branch_ty = self.infer_result.type_by_expr[else_branch];
+                    let else_branch_ty = self.type_by_expr(*else_branch);
                     if then_branch_ty != else_branch_ty {
                         self.errors.push(TypeCheckError::MismatchedTypes {
                             expected_expr: *then_branch,

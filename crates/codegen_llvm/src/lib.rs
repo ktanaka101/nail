@@ -298,7 +298,11 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                         .builder
                         .build_int_signed_div(lhs, rhs, "div_number")
                         .into(),
-                    hir::BinaryOp::Equal => todo!(),
+                    hir::BinaryOp::Equal => self
+                        .builder
+                        .build_int_compare(inkwell::IntPredicate::EQ, lhs, rhs, "compare_number")
+                        .const_cast(self.context.bool_type(), false)
+                        .into(),
                 }
             }
             hir::Expr::Unary { op, expr } => {
@@ -1159,6 +1163,41 @@ mod tests {
                 {
                   "nail_type": "Int",
                   "value": 40
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_equal_number() {
+        check_result(
+            r#"
+            fn main() -> bool {
+                let a = 10
+                let b = 10
+                a == b
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Boolean",
+                  "value": true
+                }
+            "#]],
+        );
+
+        check_result(
+            r#"
+            fn main() -> bool {
+                let a = 10
+                let b = 20
+                a == b
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Boolean",
+                  "value": false
                 }
             "#]],
         );

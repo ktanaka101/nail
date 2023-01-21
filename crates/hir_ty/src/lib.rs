@@ -138,6 +138,24 @@ mod tests {
                         debug_hir_expr(found_expr, lower_result)
                     ));
                 }
+                TypeCheckError::MismatchedReturnType {
+                    expected_ty,
+                    found_expr,
+                    found_ty,
+                } => {
+                    msg.push_str(&format!(
+                        "error: expected {}, found {}",
+                        debug_type(expected_ty),
+                        debug_type(found_ty)
+                    ));
+                    if let Some(found_expr) = found_expr {
+                        msg.push_str(&format!(
+                            " by `{}`",
+                            debug_hir_expr(found_expr, lower_result)
+                        ));
+                    }
+                    msg.push('\n');
+                }
             }
         }
 
@@ -226,7 +244,14 @@ mod tests {
 
                 if_expr
             }
-            hir::Expr::Return { value } => todo!(),
+            hir::Expr::Return { value } => {
+                let mut msg = "return".to_string();
+                if let Some(value) = value {
+                    msg.push_str(&format!(" {}", debug_hir_expr(value, lower_result)));
+                }
+
+                msg
+            }
         }
     }
 
@@ -238,6 +263,7 @@ mod tests {
             ResolvedType::Char => "char",
             ResolvedType::Bool => "bool",
             ResolvedType::Unit => "()",
+            ResolvedType::Never => "!",
             ResolvedType::Function(_) => "fn",
         }
         .to_string()
@@ -803,6 +829,72 @@ mod tests {
                 `if 10 { .., "aaa" } else { .., "aaa" }`: string
                 ---
                 error: expected bool, found int by `10`
+            "#]],
+        );
+    }
+
+    #[test]
+    fn infer_return_in_function() {
+        check(
+            r#"
+                fn main() {
+                    return
+                }
+            "#,
+            expect![[r#"
+                fn() -> ()
+                ---
+                `return`: !
+                ---
+            "#]],
+        );
+
+        check(
+            r#"
+                fn main() -> int {
+                    return 10
+                }
+            "#,
+            expect![[r#"
+                fn() -> int
+                ---
+                `10`: int
+                `return 10`: !
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn infer_return_in_function_missing_types() {
+        check(
+            r#"
+                fn main() -> int {
+                    return
+                }
+            "#,
+            expect![[r#"
+                fn() -> int
+                ---
+                `return`: !
+                ---
+                error: expected int, found ()
+            "#]],
+        );
+
+        check(
+            r#"
+                fn main() -> int {
+                    return "aaa"
+                }
+            "#,
+            expect![[r#"
+                fn() -> int
+                ---
+                `"aaa"`: string
+                `return "aaa"`: !
+                ---
+                error: expected int, found string by `"aaa"`
             "#]],
         );
     }

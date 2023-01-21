@@ -34,6 +34,11 @@ pub enum TypeCheckError {
         found_expr: hir::ExprIdx,
         found_ty: ResolvedType,
     },
+    MismatchedReturnType {
+        expected_ty: ResolvedType,
+        found_expr: Option<hir::ExprIdx>,
+        found_ty: ResolvedType,
+    },
 }
 
 pub struct TypeCheckResult {
@@ -44,6 +49,7 @@ struct TypeChecker<'a> {
     lower_result: &'a LowerResult,
     infer_result: &'a InferenceResult,
     errors: Vec<TypeCheckError>,
+    current_function: Option<hir::FunctionIdx>,
 }
 
 impl<'a> TypeChecker<'a> {
@@ -52,6 +58,7 @@ impl<'a> TypeChecker<'a> {
             lower_result,
             infer_result,
             errors: vec![],
+            current_function: None,
         }
     }
 
@@ -69,7 +76,13 @@ impl<'a> TypeChecker<'a> {
         }
     }
 
+    fn set_function(&mut self, function_idx: hir::FunctionIdx) {
+        self.current_function = Some(function_idx);
+    }
+
     fn check_function(&mut self, function_idx: hir::FunctionIdx) {
+        self.set_function(function_idx);
+
         let block_ast_id = self
             .lower_result
             .item_tree
@@ -194,7 +207,28 @@ impl<'a> TypeChecker<'a> {
                     }
                 }
             }
-            hir::Expr::Return { value } => todo!(),
+            hir::Expr::Return { value } => {
+                let return_value_ty = if let Some(value) = value {
+                    self.type_by_expr(*value)
+                } else {
+                    ResolvedType::Unit
+                };
+
+                let signature = self
+                    .infer_result
+                    .signature_by_function
+                    .get(&self.current_function.unwrap())
+                    .unwrap();
+                let signature = &self.infer_result.signatures[*signature];
+
+                if return_value_ty != signature.return_type {
+                    self.errors.push(TypeCheckError::MismatchedReturnType {
+                        expected_ty: signature.return_type,
+                        found_expr: *value,
+                        found_ty: return_value_ty,
+                    });
+                }
+            }
             hir::Expr::Missing => (),
         }
     }

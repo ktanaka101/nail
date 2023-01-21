@@ -45,6 +45,7 @@ pub enum ResolvedType {
     Char,
     Bool,
     Unit,
+    Never,
     #[allow(dead_code)]
     Function(Idx<Signature>),
 }
@@ -239,7 +240,12 @@ impl<'a> TypeInferencer<'a> {
                     (_, _) => ResolvedType::Unknown,
                 }
             }
-            hir::Expr::Return { value } => todo!(),
+            hir::Expr::Return { value } => {
+                if let Some(value) = value {
+                    self.infer_expr_idx(*value);
+                }
+                ResolvedType::Never
+            }
             hir::Expr::Missing => ResolvedType::Unknown,
         }
     }

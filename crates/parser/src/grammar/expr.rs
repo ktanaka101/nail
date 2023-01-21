@@ -113,6 +113,8 @@ fn parse_lhs(parser: &mut Parser) -> Option<CompletedMarker> {
         parse_block(parser)
     } else if parser.at(TokenKind::IfKw) {
         parse_if(parser)
+    } else if parser.at(TokenKind::ReturnKw) {
+        parse_return(parser)
     } else {
         parser.error_with_recovery_set_only_default_on_block();
         return None;
@@ -253,6 +255,18 @@ fn parse_if(parser: &mut Parser) -> CompletedMarker {
     }
 
     marker.complete(parser, SyntaxKind::IfExpr)
+}
+
+fn parse_return(parser: &mut Parser) -> CompletedMarker {
+    assert!(parser.at(TokenKind::ReturnKw));
+
+    let marker = parser.start();
+    parser.bump();
+    if parser.at_set(&EXPR_FIRST) {
+        parse_expr(parser);
+    }
+
+    marker.complete(parser, SyntaxKind::ReturnExpr)
 }
 
 #[cfg(test)]
@@ -640,7 +654,7 @@ mod tests {
                       Literal@1..2
                         Integer@1..2 "1"
                       Plus@2..3 "+"
-                error at 2..3: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '(', '{' or 'if'
+                error at 2..3: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '(', '{', 'if' or 'return'
                 error at 2..3: expected ')'
             "#]],
         );
@@ -887,7 +901,7 @@ mod tests {
                   Error@5..6
                     RParen@5..6 ")"
                 error at 4..5: expected '+', '-', '*', '/', '==', ',' or ')', but found identifier
-                error at 5..6: expected '+', '-', '*', '/', '==', 'let', 'fn', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '(', '{' or 'if', but found ')'
+                error at 5..6: expected '+', '-', '*', '/', '==', 'let', 'fn', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '(', '{', 'if' or 'return', but found ')'
             "#]],
         );
     }
@@ -1198,6 +1212,33 @@ mod tests {
                     Whitespace@5..6 " "
                     Literal@6..8
                       Integer@6..8 "20"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_return() {
+        check(
+            "return",
+            expect![[r#"
+                SourceFile@0..6
+                  ReturnExpr@0..6
+                    ReturnKw@0..6 "return"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_return_with_value() {
+        check(
+            "return 10",
+            expect![[r#"
+                SourceFile@0..9
+                  ReturnExpr@0..9
+                    ReturnKw@0..6 "return"
+                    Whitespace@6..7 " "
+                    Literal@7..9
+                      Integer@7..9 "10"
             "#]],
         );
     }

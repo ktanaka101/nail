@@ -6,7 +6,7 @@ use crate::{
     parser::{marker::CompletedMarker, Parser},
 };
 
-pub(super) const EXPR_FIRST: [TokenKind; 11] = [
+pub(super) const EXPR_FIRST: [TokenKind; 13] = [
     TokenKind::StringLiteral,
     TokenKind::CharLiteral(false),
     TokenKind::CharLiteral(true),
@@ -18,6 +18,8 @@ pub(super) const EXPR_FIRST: [TokenKind; 11] = [
     TokenKind::Minus,
     TokenKind::LParen,
     TokenKind::LCurly,
+    TokenKind::IfKw,
+    TokenKind::ReturnKw,
 ];
 
 pub(super) fn parse_expr(parser: &mut Parser) -> Option<CompletedMarker> {
@@ -1331,33 +1333,33 @@ mod tests {
                     VariableRef@251..269
                       Ident@251..252 "a"
                       Whitespace@252..269 "\n                "
-                  ReturnExpr@269..276
+                  ReturnExpr@269..319
                     ReturnKw@269..275 "return"
                     Whitespace@275..276 " "
-                  IfExpr@276..319
-                    IfKw@276..278 "if"
-                    Whitespace@278..279 " "
-                    Literal@279..284
-                      TrueKw@279..283 "true"
-                      Whitespace@283..284 " "
-                    Block@284..291
-                      LCurly@284..285 "{"
-                      Whitespace@285..286 " "
-                      Literal@286..289
-                        Integer@286..288 "10"
-                        Whitespace@288..289 " "
-                      RCurly@289..290 "}"
-                      Whitespace@290..291 " "
-                    ElseKw@291..295 "else"
-                    Whitespace@295..296 " "
-                    Block@296..319
-                      LCurly@296..297 "{"
-                      Whitespace@297..298 " "
-                      Literal@298..301
-                        Integer@298..300 "20"
-                        Whitespace@300..301 " "
-                      RCurly@301..302 "}"
-                      Whitespace@302..319 "\n                "
+                    IfExpr@276..319
+                      IfKw@276..278 "if"
+                      Whitespace@278..279 " "
+                      Literal@279..284
+                        TrueKw@279..283 "true"
+                        Whitespace@283..284 " "
+                      Block@284..291
+                        LCurly@284..285 "{"
+                        Whitespace@285..286 " "
+                        Literal@286..289
+                          Integer@286..288 "10"
+                          Whitespace@288..289 " "
+                        RCurly@289..290 "}"
+                        Whitespace@290..291 " "
+                      ElseKw@291..295 "else"
+                      Whitespace@295..296 " "
+                      Block@296..319
+                        LCurly@296..297 "{"
+                        Whitespace@297..298 " "
+                        Literal@298..301
+                          Integer@298..300 "20"
+                          Whitespace@300..301 " "
+                        RCurly@301..302 "}"
+                        Whitespace@302..319 "\n                "
                   ReturnExpr@319..349
                     ReturnKw@319..325 "return"
                     Whitespace@325..326 " "
@@ -1369,15 +1371,15 @@ mod tests {
                         Whitespace@330..331 " "
                       RCurly@331..332 "}"
                       Whitespace@332..349 "\n                "
-                  ReturnExpr@349..356
+                  ReturnExpr@349..378
                     ReturnKw@349..355 "return"
                     Whitespace@355..356 " "
-                  ReturnExpr@356..378
-                    ReturnKw@356..362 "return"
-                    Whitespace@362..363 " "
-                    Literal@363..378
-                      Integer@363..365 "10"
-                      Whitespace@365..378 "\n            "
+                    ReturnExpr@356..378
+                      ReturnKw@356..362 "return"
+                      Whitespace@362..363 " "
+                      Literal@363..378
+                        Integer@363..365 "10"
+                        Whitespace@365..378 "\n            "
             "#]],
         );
     }

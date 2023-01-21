@@ -292,7 +292,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 let rhs = self.gen_expr(*rhs).into_int_value();
                 match op {
                     hir::BinaryOp::Add => self.builder.build_int_add(lhs, rhs, "add_number").into(),
-                    hir::BinaryOp::Sub => todo!(),
+                    hir::BinaryOp::Sub => self.builder.build_int_sub(lhs, rhs, "sub_number").into(),
                     hir::BinaryOp::Mul => todo!(),
                     hir::BinaryOp::Div => todo!(),
                 }
@@ -1050,6 +1050,25 @@ mod tests {
                 {
                   "nail_type": "Int",
                   "value": 100
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_sub() {
+        check_result(
+            r#"
+            fn main() -> int {
+                let a = 10
+                let b = 20
+                a - b - 30
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": -40
                 }
             "#]],
         );

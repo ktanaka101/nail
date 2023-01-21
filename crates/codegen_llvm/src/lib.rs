@@ -409,7 +409,8 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 phi.add_incoming(&[(&then_val, then_bb), (&else_val, else_bb)]);
                 phi.as_basic_value()
             }
-            _ => unimplemented!(),
+            hir::Expr::Return { value } => todo!(),
+            hir::Expr::Missing => unreachable!(),
         }
     }
 }

@@ -1652,7 +1652,11 @@ mod tests {
             "#,
             expect![[r#"
                 fn entry:main() -> () {
-                    expr:if true <missing> else <missing>
+                    expr:if true {
+                        expr:10
+                    } else {
+                        expr:20
+                    }
                 }
             "#]],
         );

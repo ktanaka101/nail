@@ -192,6 +192,11 @@ impl<'a> ItemTreeBuilderContext<'a> {
             ast::Expr::Block(block) => {
                 self.build_block(block, parent, db);
             }
+            ast::Expr::IfExpr(if_expr) => {
+                self.build_expr(if_expr.condition()?, _current_scope, parent.clone(), db)?;
+                self.build_block(if_expr.then_branch()?, parent.clone(), db);
+                self.build_block(if_expr.else_branch()?, parent, db);
+            }
             _ => (),
         };
 

@@ -287,6 +287,16 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                     .into(),
                 _ => unimplemented!(),
             },
+            hir::Expr::Binary { op, lhs, rhs } => {
+                let lhs = self.gen_expr(*lhs).into_int_value();
+                let rhs = self.gen_expr(*rhs).into_int_value();
+                match op {
+                    hir::BinaryOp::Add => self.builder.build_int_add(lhs, rhs, "add_number").into(),
+                    hir::BinaryOp::Sub => todo!(),
+                    hir::BinaryOp::Mul => todo!(),
+                    hir::BinaryOp::Div => todo!(),
+                }
+            }
             hir::Expr::VariableRef { var } => match var {
                 hir::Symbol::Local { name, expr } => {
                     let (defined_ty, defined_ptr) = &self.defined_variables[expr];
@@ -1018,6 +1028,28 @@ mod tests {
                 {
                   "nail_type": "Int",
                   "value": 10
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_add() {
+        check_result(
+            r#"
+            fn main() -> int {
+                let a = 10
+                let b = 20
+                let c = {
+                    a + 30
+                }
+                b + c + 40
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 100
                 }
             "#]],
         );

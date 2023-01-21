@@ -226,6 +226,7 @@ mod tests {
 
                 if_expr
             }
+            hir::Expr::Return { value } => todo!(),
         }
     }
 

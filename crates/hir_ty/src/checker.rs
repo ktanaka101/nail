@@ -194,6 +194,7 @@ impl<'a> TypeChecker<'a> {
                     }
                 }
             }
+            hir::Expr::Return { value } => todo!(),
             hir::Expr::Missing => (),
         }
     }

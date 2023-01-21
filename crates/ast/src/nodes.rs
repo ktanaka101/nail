@@ -54,6 +54,7 @@ pub enum Expr {
     Call(Call),
     Block(Block),
     IfExpr(IfExpr),
+    ReturnExpr(ReturnExpr),
 }
 impl Ast for Expr {}
 impl AstNode for Expr {
@@ -68,6 +69,7 @@ impl AstNode for Expr {
                 | SyntaxKind::Call
                 | SyntaxKind::Block
                 | SyntaxKind::IfExpr
+                | SyntaxKind::ReturnExpr
         )
     }
 
@@ -81,6 +83,7 @@ impl AstNode for Expr {
             SyntaxKind::Call => Self::Call(Call { syntax }),
             SyntaxKind::Block => Self::Block(Block { syntax }),
             SyntaxKind::IfExpr => Self::IfExpr(IfExpr { syntax }),
+            SyntaxKind::ReturnExpr => Self::ReturnExpr(ReturnExpr { syntax }),
             _ => return None,
         };
 
@@ -97,6 +100,7 @@ impl AstNode for Expr {
             Expr::Call(it) => it.syntax(),
             Expr::Block(it) => it.syntax(),
             Expr::IfExpr(it) => it.syntax(),
+            Expr::ReturnExpr(it) => it.syntax(),
         }
     }
 }
@@ -225,6 +229,13 @@ impl IfExpr {
 
     fn children_after_condition<N: AstNode>(&self) -> impl Iterator<Item = N> {
         self.syntax().children().skip(1).filter_map(N::cast)
+    }
+}
+
+def_ast_node!(ReturnExpr);
+impl ReturnExpr {
+    pub fn value(&self) -> Option<Expr> {
+        ast_node::child_node(self)
     }
 }
 

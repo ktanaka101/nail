@@ -172,6 +172,9 @@ pub enum Expr {
         then_branch: ExprIdx,
         else_branch: Option<ExprIdx>,
     },
+    Return {
+        value: Option<ExprIdx>,
+    },
     Missing,
 }
 

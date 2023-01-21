@@ -239,6 +239,7 @@ impl<'a> TypeInferencer<'a> {
                     (_, _) => ResolvedType::Unknown,
                 }
             }
+            hir::Expr::Return { value } => todo!(),
             hir::Expr::Missing => ResolvedType::Unknown,
         }
     }

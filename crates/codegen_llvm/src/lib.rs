@@ -1034,7 +1034,7 @@ mod tests {
     }
 
     #[test]
-    fn test_add() {
+    fn test_add_number() {
         check_result(
             r#"
             fn main() -> int {
@@ -1056,7 +1056,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sub() {
+    fn test_sub_number() {
         check_result(
             r#"
             fn main() -> int {

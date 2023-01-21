@@ -1242,4 +1242,143 @@ mod tests {
             "#]],
         );
     }
+
+    #[test]
+    fn support_return_values() {
+        check(
+            r#"
+                return 10
+                return 'a'
+                return "aaa"
+                return true
+                return false
+                return -10
+                return (10)
+                return (10 + 20)
+                return a
+                return if true { 10 } else { 20 }
+                return { 10 }
+                return return 10
+            "#,
+            expect![[r#"
+                SourceFile@0..378
+                  Whitespace@0..17 "\n                "
+                  ReturnExpr@17..43
+                    ReturnKw@17..23 "return"
+                    Whitespace@23..24 " "
+                    Literal@24..43
+                      Integer@24..26 "10"
+                      Whitespace@26..43 "\n                "
+                  ReturnExpr@43..70
+                    ReturnKw@43..49 "return"
+                    Whitespace@49..50 " "
+                    Literal@50..70
+                      Char@50..53 "'a'"
+                      Whitespace@53..70 "\n                "
+                  ReturnExpr@70..99
+                    ReturnKw@70..76 "return"
+                    Whitespace@76..77 " "
+                    Literal@77..99
+                      String@77..82 "\"aaa\""
+                      Whitespace@82..99 "\n                "
+                  ReturnExpr@99..127
+                    ReturnKw@99..105 "return"
+                    Whitespace@105..106 " "
+                    Literal@106..127
+                      TrueKw@106..110 "true"
+                      Whitespace@110..127 "\n                "
+                  ReturnExpr@127..156
+                    ReturnKw@127..133 "return"
+                    Whitespace@133..134 " "
+                    Literal@134..156
+                      FalseKw@134..139 "false"
+                      Whitespace@139..156 "\n                "
+                  ReturnExpr@156..183
+                    ReturnKw@156..162 "return"
+                    Whitespace@162..163 " "
+                    UnaryExpr@163..183
+                      Minus@163..164 "-"
+                      Literal@164..183
+                        Integer@164..166 "10"
+                        Whitespace@166..183 "\n                "
+                  ReturnExpr@183..211
+                    ReturnKw@183..189 "return"
+                    Whitespace@189..190 " "
+                    ParenExpr@190..211
+                      LParen@190..191 "("
+                      Literal@191..193
+                        Integer@191..193 "10"
+                      RParen@193..194 ")"
+                      Whitespace@194..211 "\n                "
+                  ReturnExpr@211..244
+                    ReturnKw@211..217 "return"
+                    Whitespace@217..218 " "
+                    ParenExpr@218..244
+                      LParen@218..219 "("
+                      BinaryExpr@219..226
+                        Literal@219..222
+                          Integer@219..221 "10"
+                          Whitespace@221..222 " "
+                        Plus@222..223 "+"
+                        Whitespace@223..224 " "
+                        Literal@224..226
+                          Integer@224..226 "20"
+                      RParen@226..227 ")"
+                      Whitespace@227..244 "\n                "
+                  ReturnExpr@244..269
+                    ReturnKw@244..250 "return"
+                    Whitespace@250..251 " "
+                    VariableRef@251..269
+                      Ident@251..252 "a"
+                      Whitespace@252..269 "\n                "
+                  ReturnExpr@269..276
+                    ReturnKw@269..275 "return"
+                    Whitespace@275..276 " "
+                  IfExpr@276..319
+                    IfKw@276..278 "if"
+                    Whitespace@278..279 " "
+                    Literal@279..284
+                      TrueKw@279..283 "true"
+                      Whitespace@283..284 " "
+                    Block@284..291
+                      LCurly@284..285 "{"
+                      Whitespace@285..286 " "
+                      Literal@286..289
+                        Integer@286..288 "10"
+                        Whitespace@288..289 " "
+                      RCurly@289..290 "}"
+                      Whitespace@290..291 " "
+                    ElseKw@291..295 "else"
+                    Whitespace@295..296 " "
+                    Block@296..319
+                      LCurly@296..297 "{"
+                      Whitespace@297..298 " "
+                      Literal@298..301
+                        Integer@298..300 "20"
+                        Whitespace@300..301 " "
+                      RCurly@301..302 "}"
+                      Whitespace@302..319 "\n                "
+                  ReturnExpr@319..349
+                    ReturnKw@319..325 "return"
+                    Whitespace@325..326 " "
+                    Block@326..349
+                      LCurly@326..327 "{"
+                      Whitespace@327..328 " "
+                      Literal@328..331
+                        Integer@328..330 "10"
+                        Whitespace@330..331 " "
+                      RCurly@331..332 "}"
+                      Whitespace@332..349 "\n                "
+                  ReturnExpr@349..356
+                    ReturnKw@349..355 "return"
+                    Whitespace@355..356 " "
+                  ReturnExpr@356..378
+                    ReturnKw@356..362 "return"
+                    Whitespace@362..363 " "
+                    Literal@363..378
+                      Integer@363..365 "10"
+                      Whitespace@365..378 "\n            "
+            "#]],
+        );
+    }
 }

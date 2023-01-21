@@ -294,7 +294,10 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                     hir::BinaryOp::Add => self.builder.build_int_add(lhs, rhs, "add_number").into(),
                     hir::BinaryOp::Sub => self.builder.build_int_sub(lhs, rhs, "sub_number").into(),
                     hir::BinaryOp::Mul => self.builder.build_int_mul(lhs, rhs, "mul_number").into(),
-                    hir::BinaryOp::Div => todo!(),
+                    hir::BinaryOp::Div => self
+                        .builder
+                        .build_int_signed_div(lhs, rhs, "div_number")
+                        .into(),
                 }
             }
             hir::Expr::VariableRef { var } => match var {
@@ -1088,6 +1091,44 @@ mod tests {
                 {
                   "nail_type": "Int",
                   "value": 6000
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_div_number() {
+        check_result(
+            r#"
+            fn main() -> int {
+                let a = 10
+                let b = 20
+                2000 / a / b
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 10
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_div_number_truncation() {
+        check_result(
+            r#"
+            fn main() -> int {
+                let a = 20
+                let b = 3
+                a / b
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 6
                 }
             "#]],
         );

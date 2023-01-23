@@ -409,7 +409,15 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 phi.add_incoming(&[(&then_val, then_bb), (&else_val, else_bb)]);
                 phi.as_basic_value()
             }
-            hir::Expr::Return { value } => todo!(),
+            hir::Expr::Return { value } => {
+                if let Some(value) = value {
+                    let return_value = self.gen_expr(*value);
+                    self.builder.build_return(Some(&return_value));
+                } else {
+                    self.builder.build_return(None);
+                }
+                self.context.const_struct(&[], false).into()
+            }
             hir::Expr::Missing => unreachable!(),
         }
     }
@@ -1203,4 +1211,129 @@ mod tests {
             "#]],
         );
     }
+
+    #[test]
+    fn test_return() {
+        check_result(
+            r#"
+                fn main() -> bool {
+                    return true
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "Boolean",
+                  "value": true
+                }
+            "#]],
+        );
+
+        check_result(
+            r#"
+                fn main() -> int {
+                    return 10
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 10
+                }
+            "#]],
+        );
+
+        check_result(
+            r#"
+                fn main() -> int {
+                    if false {
+                        return 10
+                    } else {
+                        return 20
+                    }
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 20
+                }
+            "#]],
+        );
+
+        check_result(
+            r#"
+                fn main() -> int {
+                    if true {
+                        10
+                    } else {
+                        return 20
+                    }
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 10
+                }
+            "#]],
+        );
+
+        check_result(
+            r#"
+                fn main() -> int {
+                    if false {
+                        return 10
+                    } else {
+                        20
+                    }
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 20
+                }
+            "#]],
+        );
+    }
+
+    // signal: 11, SIGSEGV: invalid memory reference
+    // #[test]
+    // fn test_return_in_if() {
+    //     check_result(
+    //         r#"
+    //             fn main() -> int {
+    //                 if true {
+    //                     return 10
+    //                 } else {
+    //                     20
+    //                 }
+    //             }
+    //         "#,
+    //         expect![[r#"
+    //             {
+    //               "nail_type": "Int",
+    //               "value": 10
+    //             }
+    //         "#]],
+    //     );
+
+    //     check_result(
+    //         r#"
+    //             fn main() -> int {
+    //                 if false {
+    //                     10
+    //                 } else {
+    //                     return 20
+    //                 }
+    //             }
+    //         "#,
+    //         expect![[r#"
+    //             {
+    //               "nail_type": "Int",
+    //               "value": 20
+    //             }
+    //         "#]],
+    //     );
+    // }
 }

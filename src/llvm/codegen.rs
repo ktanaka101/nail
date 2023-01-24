@@ -361,13 +361,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                             .i64_type()
                             .const_int(vec.get_type().get_size().into(), false);
 
-                        let primitive_type = if vec.is_const_string() {
-                            PrimitiveType::String
-                        } else {
-                            PrimitiveType::IntegerArray
-                        };
-
-                        (ptr, arr_size, primitive_type)
+                        (ptr, arr_size, PrimitiveType::IntegerArray)
                     }
                     BasicValueEnum::ArrayValue(arr) => {
                         let ptr = self.builder.build_alloca(arr.get_type(), "test");
@@ -390,7 +384,13 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                             .i64_type()
                             .const_int(arr.get_type().len().into(), false);
 
-                        (ptr, arr_size, PrimitiveType::IntegerArray)
+                        let primitive_type = if arr.is_const_string() {
+                            PrimitiveType::String
+                        } else {
+                            PrimitiveType::IntegerArray
+                        };
+
+                        (ptr, arr_size, primitive_type)
                     }
                     _ => unimplemented!(),
                 };
@@ -613,11 +613,11 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         self.context.bool_type().const_int(b.value.into(), false)
     }
 
-    fn gen_string(&self, string: &ast::StringLit) -> VectorValue<'ctx> {
+    fn gen_string(&self, string: &ast::StringLit) -> ArrayValue<'ctx> {
         self.context.const_string(string.value.as_bytes(), false)
     }
 
-    fn gen_char(&self, c: &ast::Char) -> VectorValue<'ctx> {
+    fn gen_char(&self, c: &ast::Char) -> ArrayValue<'ctx> {
         self.context.const_string(c.value.as_bytes(), false)
     }
 

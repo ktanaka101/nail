@@ -512,6 +512,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "mir"
+version = "0.1.0"
+
+[[package]]
 name = "nail"
 version = "0.1.0"
 dependencies = [
@@ -522,6 +526,7 @@ dependencies = [
  "inkwell",
  "lexer",
  "lsp",
+ "mir",
  "parser",
  "syntax",
  "termion",

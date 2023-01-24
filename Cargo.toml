@@ -19,6 +19,7 @@ parser = { path = "crates/parser" }
 ast = { path = "crates/ast" }
 hir = { path = "crates/hir" }
 hir_ty = { path = "crates/hir_ty" }
+mir = { path = "crates/mir" }
 lsp = { path = "crates/lsp" }
 
 [workspace]

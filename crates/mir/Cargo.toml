@@ -4,5 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+la-arena = { workspace = true }
+
 hir = { path = "../hir" }
 hir_ty = { path = "../hir_ty" }
+
+[dev-dependencies]
+expect-test = { workspace = true }

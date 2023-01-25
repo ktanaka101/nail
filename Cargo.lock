@@ -514,6 +514,10 @@ dependencies = [
 [[package]]
 name = "mir"
 version = "0.1.0"
+dependencies = [
+ "hir",
+ "hir_ty",
+]
 
 [[package]]
 name = "nail"

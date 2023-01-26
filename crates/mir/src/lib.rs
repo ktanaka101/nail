@@ -33,7 +33,7 @@ impl MirLower {
         }
     }
 
-    fn lower_function(&self, function_idx: &hir::FunctionIdx) -> Body {
+    fn lower_function_idx(&self, function_idx: hir::FunctionIdx) -> Body {
         Body {
             params: todo!(),
             variables: todo!(),

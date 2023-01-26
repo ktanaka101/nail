@@ -4,13 +4,58 @@ pub fn lower(hir_result: hir::LowerResult, hir_ty_result: hir_ty::TyLowerResult)
     todo!()
 }
 
-#[derive(Debug)]
-pub struct LowerResult {
-    bodies: Vec<Body>,
+struct MirLower {
+    hir_result: hir::LowerResult,
+    hir_ty_result: hir_ty::TyLowerResult,
+}
+
+impl MirLower {
+    fn lower(self) -> LowerResult {
+        let mut entry_point_idx = None;
+        let mut bodies = vec![];
+        for (idx, function) in self.hir_result.db.functions.iter() {
+            let name = self
+                .hir_result
+                .interner
+                .lookup(function.name.unwrap().key());
+            if name == "main" {
+                assert!(matches!(entry_point_idx, Some(_)));
+                entry_point_idx = Some(bodies.len());
+            }
+
+            let body = self.lower_function_idx(idx);
+            bodies.push(body);
+        }
+
+        LowerResult {
+            entry_point_idx,
+            bodies,
+        }
+    }
+
+    fn lower_function(&self, function_idx: &hir::FunctionIdx) -> Body {
+        Body {
+            params: todo!(),
+            variables: todo!(),
+            blocks: todo!(),
+        }
+    }
 }
 
 #[derive(Debug)]
-struct Body {
+pub struct LowerResult {
+    entry_point_idx: Option<usize>,
+    bodies: Vec<Body>,
+}
+
+impl LowerResult {
+    fn entry_point(&self) -> Option<&Body> {
+        self.entry_point_idx.map(|idx| &self.bodies[idx])
+    }
+}
+
+#[derive(Debug)]
+pub struct Body {
     params: Vec<Idx<Param>>,
     variables: Vec<Idx<Variable>>,
     blocks: Vec<Idx<BasicBlock>>,

@@ -10,6 +10,7 @@ pub fn infer(hir_result: &hir::LowerResult) -> InferenceResult {
 #[derive(Debug)]
 pub struct InferenceResult {
     pub type_by_expr: collections::HashMap<hir::ExprIdx, ResolvedType>,
+    pub type_by_param: collections::HashMap<hir::ParamIdx, ResolvedType>,
     pub signatures: Arena<Signature>,
     pub signature_by_function: collections::HashMap<hir::FunctionIdx, Idx<Signature>>,
     pub errors: Vec<InferenceError>,
@@ -18,6 +19,7 @@ pub struct InferenceResult {
 #[derive(Debug)]
 struct InferenceContext {
     type_by_expr: collections::HashMap<hir::ExprIdx, ResolvedType>,
+    type_by_param: collections::HashMap<hir::ParamIdx, ResolvedType>,
     signatures: Arena<Signature>,
     signature_by_function: collections::HashMap<hir::FunctionIdx, Idx<Signature>>,
     errors: Vec<InferenceError>,
@@ -27,6 +29,7 @@ impl InferenceContext {
     fn new() -> Self {
         Self {
             type_by_expr: collections::HashMap::new(),
+            type_by_param: collections::HashMap::new(),
             signatures: Arena::new(),
             signature_by_function: collections::HashMap::new(),
             errors: Vec::new(),
@@ -70,12 +73,15 @@ impl<'a> TypeInferencer<'a> {
 
     fn infer(mut self) -> InferenceResult {
         for (function_idx, function) in self.hir_result.db.functions.iter() {
+            let mut params = vec![];
+            for param in &function.params {
+                let ty = self.infer_ty(&self.hir_result.db.params[*param].ty);
+                params.push(ty);
+                self.ctx.type_by_param.insert(*param, ty);
+            }
+
             let signature = Signature {
-                params: function
-                    .params
-                    .iter()
-                    .map(|param| self.infer_ty(&self.hir_result.db.params[*param].ty))
-                    .collect(),
+                params,
                 return_type: self.infer_ty(&function.return_type),
             };
             let signature_idx = self.ctx.signatures.alloc(signature);
@@ -105,6 +111,7 @@ impl<'a> TypeInferencer<'a> {
 
         InferenceResult {
             type_by_expr: self.ctx.type_by_expr,
+            type_by_param: self.ctx.type_by_param,
             signatures: self.ctx.signatures,
             signature_by_function: self.ctx.signature_by_function,
             errors: self.ctx.errors,

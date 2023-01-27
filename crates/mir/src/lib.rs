@@ -1,7 +1,15 @@
-use la_arena::Idx;
+use std::collections::HashMap;
+
+use hir_ty::ResolvedType;
+use la_arena::{Arena, Idx};
 
 pub fn lower(hir_result: hir::LowerResult, hir_ty_result: hir_ty::TyLowerResult) -> LowerResult {
-    todo!()
+    let mir_lower = MirLower {
+        hir_result,
+        hir_ty_result,
+    };
+
+    mir_lower.lower()
 }
 
 struct MirLower {
@@ -34,10 +42,32 @@ impl MirLower {
     }
 
     fn lower_function_idx(&self, function_idx: hir::FunctionIdx) -> Body {
+        let function = &self.hir_result.db.functions[function_idx];
+
+        let body_block = self
+            .hir_result
+            .function_body_by_function(&function_idx)
+            .unwrap();
+        let body_block = match body_block {
+            hir::Expr::Block(block) => block,
+            _ => unreachable!(),
+        };
+
+        for stmt in &body_block.stmts {
+            match stmt {
+                hir::Stmt::VariableDef { name, value } => todo!(),
+                hir::Stmt::Expr(_) => todo!(),
+                hir::Stmt::FunctionDef { .. } => unreachable!(),
+            }
+        }
+
         Body {
+            name: function.name.unwrap(),
             params: todo!(),
             variables: todo!(),
             blocks: todo!(),
+            param_by_hir: todo!(),
+            variable_by_hir: todo!(),
         }
     }
 }
@@ -56,13 +86,18 @@ impl LowerResult {
 
 #[derive(Debug)]
 pub struct Body {
-    params: Vec<Idx<Param>>,
-    variables: Vec<Idx<Variable>>,
-    blocks: Vec<Idx<BasicBlock>>,
+    name: hir::Name,
+    params: Arena<Param>,
+    param_by_hir: HashMap<Idx<hir::Param>, Idx<Param>>,
+    variables: Arena<Variable>,
+    variable_by_hir: HashMap<Idx<hir::Expr>, Idx<Variable>>,
+    blocks: Arena<BasicBlock>,
 }
 
 #[derive(Debug)]
-struct Param {}
+struct Param {
+    ty: ResolvedType,
+}
 
 #[derive(Debug)]
 struct Variable {}
@@ -70,11 +105,18 @@ struct Variable {}
 #[derive(Debug)]
 struct BasicBlock {
     kind: BasicBlockKind,
-    statements: Vec<Idx<Stmt>>,
+    statements: Vec<Idx<Statement>>,
+    termination: Termination,
 }
 
 #[derive(Debug)]
-enum Stmt {}
+enum Statement {}
+
+#[derive(Debug)]
+enum Termination {
+    Return(Idx<Variable>),
+    Goto(Idx<BasicBlock>),
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 enum BasicBlockKind {
@@ -93,7 +135,8 @@ mod tests {
         expected.assert_eq(actual);
     }
 
-    fn test_switch() {
+    #[test]
+    fn test_return() {
         check(
             r#"
                 fn main() -> int {

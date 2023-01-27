@@ -9,7 +9,7 @@ use ast::Ast;
 pub use body::{BodyLower, SharedBodyLowerContext};
 pub use db::Database;
 use item_tree::ItemTreeBuilderContext;
-pub use item_tree::{Function, FunctionIdx, ItemTree, ParamIdx, Type};
+pub use item_tree::{Function, FunctionIdx, ItemTree, Param, ParamIdx, Type};
 use la_arena::Idx;
 use string_interner::{Interner, Key};
 use syntax::SyntaxNodePtr;

@@ -402,7 +402,7 @@ mod tests {
     }
 
     #[test]
-    fn test_return() {
+    fn test_main_return_int() {
         check(
             r#"
                 fn main() -> int {

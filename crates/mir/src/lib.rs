@@ -288,20 +288,7 @@ mod tests {
                 for statement in &basic_block.statements {
                     match statement {
                         crate::Statement::Assign { place, value } => {
-                            let place_msg = match place {
-                                crate::Place::Param(param_idx) => {
-                                    let param = &body.params[*param_idx];
-                                    format!("_{}", param.idx)
-                                }
-                                crate::Place::Local(local_idx) => {
-                                    let local = &body.variables[*local_idx];
-                                    format!("_{}", local.idx)
-                                }
-                                crate::Place::ReturnLocal(return_local_idx) => {
-                                    let return_local = &body.return_variable[*return_local_idx];
-                                    format!("_{}", return_local.idx)
-                                }
-                            };
+                            let place_msg = debug_place(place, body);
                             let value_msg = match value {
                                 crate::Value::Constant(constant) => match constant {
                                     crate::Constant::Integer(integer) => integer.to_string(),
@@ -340,6 +327,23 @@ mod tests {
 
     fn debug_param(param: &crate::Param) -> String {
         format!("_{}: {}", param.idx, debug_ty(&param.ty))
+    }
+
+    fn debug_place(place: &crate::Place, body: &crate::Body) -> String {
+        match place {
+            crate::Place::Param(param_idx) => {
+                let param = &body.params[*param_idx];
+                format!("_{}", param.idx)
+            }
+            crate::Place::Local(local_idx) => {
+                let local = &body.variables[*local_idx];
+                format!("_{}", local.idx)
+            }
+            crate::Place::ReturnLocal(return_local_idx) => {
+                let return_local = &body.return_variable[*return_local_idx];
+                format!("_{}", return_local.idx)
+            }
+        }
     }
 
     fn debug_termination(termination: &crate::Termination, body: &crate::Body) -> String {

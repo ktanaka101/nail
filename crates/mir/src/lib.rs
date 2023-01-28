@@ -244,6 +244,10 @@ mod tests {
         expect.assert_eq(&debug(&hir_result, &ty_hir_result, &mir_result));
     }
 
+    fn indent(nesting: usize) -> String {
+        "  ".repeat(nesting)
+    }
+
     fn debug(
         hir_result: &hir::LowerResult,
         hir_ty_result: &hir_ty::TyLowerResult,
@@ -266,7 +270,8 @@ mod tests {
             msg.push_str(&format!(") -> {} {{\n", debug_ty(&return_local.ty)));
 
             msg.push_str(&format!(
-                "let _{}: {}\n",
+                "{}let _{}: {}\n",
+                indent(1),
                 return_local.idx,
                 debug_ty(&return_local.ty)
             ));
@@ -274,7 +279,11 @@ mod tests {
             msg.push('\n');
 
             for (_basic_block_idx, basic_block) in body.blocks.iter() {
-                msg.push_str(&format!("{}: {{\n", debug_bb_name(basic_block)));
+                msg.push_str(&format!(
+                    "{}{}: {{\n",
+                    indent(1),
+                    debug_bb_name(basic_block)
+                ));
 
                 for statement in &basic_block.statements {
                     match statement {
@@ -299,7 +308,7 @@ mod tests {
                                 },
                             };
 
-                            msg.push_str(&format!("{place_msg} = {value_msg}\n"));
+                            msg.push_str(&format!("{}{place_msg} = {value_msg}\n", indent(2)));
                         }
                     }
                 }
@@ -316,11 +325,10 @@ mod tests {
                         }
                     };
 
-                    msg.push_str(&termination_msg);
-                    msg.push('\n');
+                    msg.push_str(&format!("{}{termination_msg}\n", indent(2)));
                 }
 
-                msg.push_str("}\n");
+                msg.push_str(&format!("{}}}\n", indent(1)));
             }
 
             msg.push_str("}\n");
@@ -381,15 +389,15 @@ mod tests {
             "#,
             expect![[r#"
                 fn main() -> int {
-                let _0: int
+                  let _0: int
 
-                entry: {
-                _0 = 10
-                goto -> exit
-                }
-                exit: {
-                return _0
-                }
+                  entry: {
+                    _0 = 10
+                    goto -> exit
+                  }
+                  exit: {
+                    return _0
+                  }
                 }
             "#]],
         );

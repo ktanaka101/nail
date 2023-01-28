@@ -245,7 +245,7 @@ mod tests {
     }
 
     fn indent(nesting: usize) -> String {
-        "  ".repeat(nesting)
+        "    ".repeat(nesting)
     }
 
     fn debug(
@@ -389,16 +389,16 @@ mod tests {
             "#,
             expect![[r#"
                 fn main() -> int {
-                  let _0: int
+                    let _0: int
 
-                  entry: {
-                    _0 = 10
-                    goto -> exit
-                  }
+                    entry: {
+                        _0 = 10
+                        goto -> exit
+                    }
 
-                  exit: {
-                    return _0
-                  }
+                    exit: {
+                        return _0
+                    }
                 }
             "#]],
         );

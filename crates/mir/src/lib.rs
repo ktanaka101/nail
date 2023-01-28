@@ -112,12 +112,18 @@ impl<'a> MirLower<'a> {
             let tail = &self.hir_result.shared_ctx.exprs[tail];
             match tail {
                 hir::Expr::Literal(literal) => {
+                    let entry_bb = &mut blocks[entry_bb_idx];
                     match literal {
                         hir::Literal::Integer(value) => {
-                            let entry_bb = &mut blocks[entry_bb_idx];
                             entry_bb.add_statement(Statement::Assign {
                                 place: Place::ReturnLocal(return_var_idx),
                                 value: Value::Constant(Constant::Integer(*value)),
+                            });
+                        }
+                        hir::Literal::Bool(value) => {
+                            entry_bb.add_statement(Statement::Assign {
+                                place: Place::ReturnLocal(return_var_idx),
+                                value: Value::Constant(Constant::Boolean(*value)),
                             });
                         }
                         _ => todo!(),
@@ -205,6 +211,7 @@ enum Value {
 #[derive(Debug)]
 enum Constant {
     Integer(u64),
+    Boolean(bool),
 }
 
 #[derive(Debug)]
@@ -354,6 +361,7 @@ mod tests {
         match value {
             crate::Value::Constant(constant) => match constant {
                 crate::Constant::Integer(integer) => integer.to_string(),
+                crate::Constant::Boolean(boolean) => boolean.to_string(),
             },
         }
     }
@@ -415,6 +423,31 @@ mod tests {
 
                     entry: {
                         _0 = 10
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_main_return_bool() {
+        check(
+            r#"
+                fn main() -> bool {
+                    true
+                }
+            "#,
+            expect![[r#"
+                fn main() -> bool {
+                    let _0: bool
+
+                    entry: {
+                        _0 = true
                         goto -> exit
                     }
 

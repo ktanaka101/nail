@@ -286,14 +286,11 @@ mod tests {
                 ));
 
                 for statement in &basic_block.statements {
-                    match statement {
-                        crate::Statement::Assign { place, value } => {
-                            let place_msg = debug_place(place, body);
-                            let value_msg = debug_value(value);
-
-                            msg.push_str(&format!("{}{place_msg} = {value_msg}\n", indent(2)));
-                        }
-                    }
+                    msg.push_str(&format!(
+                        "{}{}\n",
+                        indent(2),
+                        debug_statement(statement, body)
+                    ));
                 }
 
                 if let Some(termination) = &basic_block.termination {
@@ -323,6 +320,17 @@ mod tests {
 
     fn debug_param(param: &crate::Param) -> String {
         format!("_{}: {}", param.idx, debug_ty(&param.ty))
+    }
+
+    fn debug_statement(statement: &crate::Statement, body: &crate::Body) -> String {
+        match statement {
+            crate::Statement::Assign { place, value } => {
+                let place_msg = debug_place(place, body);
+                let value_msg = debug_value(value);
+
+                format!("{place_msg} = {value_msg}")
+            }
+        }
     }
 
     fn debug_place(place: &crate::Place, body: &crate::Body) -> String {

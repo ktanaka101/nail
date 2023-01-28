@@ -276,9 +276,9 @@ mod tests {
                 debug_ty(&return_local.ty)
             ));
 
-            msg.push('\n');
-
             for (_basic_block_idx, basic_block) in body.blocks.iter() {
+                msg.push('\n');
+
                 msg.push_str(&format!(
                     "{}{}: {{\n",
                     indent(1),
@@ -395,6 +395,7 @@ mod tests {
                     _0 = 10
                     goto -> exit
                   }
+
                   exit: {
                     return _0
                   }

@@ -24,6 +24,10 @@ impl TyLowerResult {
         let signature_idx = self.inference_result.signature_by_function[function];
         &self.inference_result.signatures[signature_idx]
     }
+
+    pub fn type_by_param(&self, param: hir::ParamIdx) -> ResolvedType {
+        self.inference_result.type_by_param[&param]
+    }
 }
 
 #[cfg(test)]

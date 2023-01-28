@@ -515,10 +515,12 @@ dependencies = [
 name = "mir"
 version = "0.1.0"
 dependencies = [
+ "ast",
  "expect-test",
  "hir",
  "hir_ty",
  "la-arena",
+ "parser",
 ]
 
 [[package]]

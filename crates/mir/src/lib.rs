@@ -314,18 +314,11 @@ mod tests {
                 }
 
                 if let Some(termination) = &basic_block.termination {
-                    let termination_msg = match termination {
-                        crate::Termination::Return(return_local_idx) => {
-                            let return_local = &body.return_variable[*return_local_idx];
-                            format!("return _{}", return_local.idx)
-                        }
-                        crate::Termination::Goto(to_bb_idx) => {
-                            let to_bb = &body.blocks[*to_bb_idx];
-                            format!("goto -> {}", debug_bb_name(to_bb))
-                        }
-                    };
-
-                    msg.push_str(&format!("{}{termination_msg}\n", indent(2)));
+                    msg.push_str(&format!(
+                        "{}{}\n",
+                        indent(2),
+                        debug_termination(termination, body)
+                    ));
                 }
 
                 msg.push_str(&format!("{}}}\n", indent(1)));
@@ -347,6 +340,19 @@ mod tests {
 
     fn debug_param(param: &crate::Param) -> String {
         format!("_{}: {}", param.idx, debug_ty(&param.ty))
+    }
+
+    fn debug_termination(termination: &crate::Termination, body: &crate::Body) -> String {
+        match termination {
+            crate::Termination::Return(return_local_idx) => {
+                let return_local = &body.return_variable[*return_local_idx];
+                format!("return _{}", return_local.idx)
+            }
+            crate::Termination::Goto(to_bb_idx) => {
+                let to_bb = &body.blocks[*to_bb_idx];
+                format!("goto -> {}", debug_bb_name(to_bb))
+            }
+        }
     }
 
     fn debug_ty(ty: &ResolvedType) -> String {

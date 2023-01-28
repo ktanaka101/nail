@@ -289,11 +289,7 @@ mod tests {
                     match statement {
                         crate::Statement::Assign { place, value } => {
                             let place_msg = debug_place(place, body);
-                            let value_msg = match value {
-                                crate::Value::Constant(constant) => match constant {
-                                    crate::Constant::Integer(integer) => integer.to_string(),
-                                },
-                            };
+                            let value_msg = debug_value(value);
 
                             msg.push_str(&format!("{}{place_msg} = {value_msg}\n", indent(2)));
                         }
@@ -343,6 +339,14 @@ mod tests {
                 let return_local = &body.return_variable[*return_local_idx];
                 format!("_{}", return_local.idx)
             }
+        }
+    }
+
+    fn debug_value(value: &crate::Value) -> String {
+        match value {
+            crate::Value::Constant(constant) => match constant {
+                crate::Constant::Integer(integer) => integer.to_string(),
+            },
         }
     }
 

@@ -28,6 +28,10 @@ impl TyLowerResult {
     pub fn type_by_param(&self, param: hir::ParamIdx) -> ResolvedType {
         self.inference_result.type_by_param[&param]
     }
+
+    pub fn type_by_expr(&self, expr: hir::ExprIdx) -> ResolvedType {
+        self.inference_result.type_by_expr[&expr]
+    }
 }
 
 #[cfg(test)]

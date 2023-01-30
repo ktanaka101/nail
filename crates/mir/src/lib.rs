@@ -16,6 +16,7 @@ struct FunctionLower<'a> {
     hir_result: &'a hir::LowerResult,
     hir_ty_result: &'a hir_ty::TyLowerResult,
     function_idx: Idx<hir::Function>,
+    local_idx: u64,
 }
 
 impl<'a> FunctionLower<'a> {
@@ -28,10 +29,11 @@ impl<'a> FunctionLower<'a> {
             hir_result,
             hir_ty_result,
             function_idx,
+            local_idx: 1,
         }
     }
 
-    fn lower(self) -> Body {
+    fn lower(mut self) -> Body {
         let function = &self.hir_result.db.functions[self.function_idx];
         let signature = &self.hir_ty_result.signature_by_function(&self.function_idx);
 
@@ -43,16 +45,15 @@ impl<'a> FunctionLower<'a> {
 
         let mut params = Arena::<Param>::new();
         let mut param_by_hir = HashMap::<hir::ParamIdx, Idx<Param>>::new();
-        let mut local_idx = 1;
         for param in &function.params {
             let param_ty = self.hir_ty_result.type_by_param(*param);
             let param_idx = params.alloc(Param {
                 ty: param_ty,
-                idx: local_idx,
+                idx: self.local_idx,
             });
             param_by_hir.insert(*param, param_idx);
 
-            local_idx += 1;
+            self.local_idx += 1;
         }
 
         let body_block = self
@@ -132,9 +133,9 @@ impl<'a> FunctionLower<'a> {
                     let cond_ty = self.hir_ty_result.type_by_expr(*condition);
                     let cond_tmp_var = Local {
                         ty: cond_ty,
-                        idx: local_idx,
+                        idx: self.local_idx,
                     };
-                    local_idx += 1;
+                    self.local_idx += 1;
 
                     let cond_idx = variables.alloc(cond_tmp_var);
 
@@ -249,7 +250,7 @@ impl<'a> MirLower<'a> {
     fn lower(self) -> LowerResult {
         let mut entry_point_idx = None;
         let mut bodies = vec![];
-        for (idx, function) in self.hir_result.db.functions.iter() {
+        for (function_idx, function) in self.hir_result.db.functions.iter() {
             let name = self
                 .hir_result
                 .interner
@@ -259,11 +260,7 @@ impl<'a> MirLower<'a> {
                 entry_point_idx = Some(bodies.len());
             }
 
-            let lower = FunctionLower {
-                hir_result: self.hir_result,
-                hir_ty_result: self.hir_ty_result,
-                function_idx: idx,
-            };
+            let lower = FunctionLower::new(self.hir_result, self.hir_ty_result, function_idx);
             let body = lower.lower();
             bodies.push(body);
         }

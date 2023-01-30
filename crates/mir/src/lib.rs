@@ -12,38 +12,28 @@ pub fn lower(hir_result: &hir::LowerResult, hir_ty_result: &hir_ty::TyLowerResul
     mir_lower.lower()
 }
 
-struct MirLower<'a> {
+struct FunctionLower<'a> {
     hir_result: &'a hir::LowerResult,
     hir_ty_result: &'a hir_ty::TyLowerResult,
+    function_idx: Idx<hir::Function>,
 }
 
-impl<'a> MirLower<'a> {
-    fn lower(self) -> LowerResult {
-        let mut entry_point_idx = None;
-        let mut bodies = vec![];
-        for (idx, function) in self.hir_result.db.functions.iter() {
-            let name = self
-                .hir_result
-                .interner
-                .lookup(function.name.unwrap().key());
-            if name == "main" {
-                assert_eq!(entry_point_idx, None);
-                entry_point_idx = Some(bodies.len());
-            }
-
-            let body = self.lower_function_idx(idx);
-            bodies.push(body);
-        }
-
-        LowerResult {
-            entry_point_idx,
-            bodies,
+impl<'a> FunctionLower<'a> {
+    fn new(
+        hir_result: &'a hir::LowerResult,
+        hir_ty_result: &'a hir_ty::TyLowerResult,
+        function_idx: Idx<hir::Function>,
+    ) -> Self {
+        FunctionLower {
+            hir_result,
+            hir_ty_result,
+            function_idx,
         }
     }
 
-    fn lower_function_idx(&self, function_idx: hir::FunctionIdx) -> Body {
-        let function = &self.hir_result.db.functions[function_idx];
-        let signature = &self.hir_ty_result.signature_by_function(&function_idx);
+    fn lower(self) -> Body {
+        let function = &self.hir_result.db.functions[self.function_idx];
+        let signature = &self.hir_ty_result.signature_by_function(&self.function_idx);
 
         let mut return_variable = Arena::<ReturnLocal>::new();
         let return_var_idx = return_variable.alloc(ReturnLocal {
@@ -67,7 +57,7 @@ impl<'a> MirLower<'a> {
 
         let body_block = self
             .hir_result
-            .function_body_by_function(&function_idx)
+            .function_body_by_function(&self.function_idx)
             .unwrap();
         let body_block = match body_block {
             hir::Expr::Block(block) => block,
@@ -246,6 +236,41 @@ impl<'a> MirLower<'a> {
             return_variable,
             variables,
             blocks,
+        }
+    }
+}
+
+struct MirLower<'a> {
+    hir_result: &'a hir::LowerResult,
+    hir_ty_result: &'a hir_ty::TyLowerResult,
+}
+
+impl<'a> MirLower<'a> {
+    fn lower(self) -> LowerResult {
+        let mut entry_point_idx = None;
+        let mut bodies = vec![];
+        for (idx, function) in self.hir_result.db.functions.iter() {
+            let name = self
+                .hir_result
+                .interner
+                .lookup(function.name.unwrap().key());
+            if name == "main" {
+                assert_eq!(entry_point_idx, None);
+                entry_point_idx = Some(bodies.len());
+            }
+
+            let lower = FunctionLower {
+                hir_result: self.hir_result,
+                hir_ty_result: self.hir_ty_result,
+                function_idx: idx,
+            };
+            let body = lower.lower();
+            bodies.push(body);
+        }
+
+        LowerResult {
+            entry_point_idx,
+            bodies,
         }
     }
 }

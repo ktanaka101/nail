@@ -16,6 +16,10 @@ struct FunctionLower<'a> {
     hir_result: &'a hir::LowerResult,
     hir_ty_result: &'a hir_ty::TyLowerResult,
     function_idx: Idx<hir::Function>,
+
+    return_variable: Arena<ReturnLocal>,
+    params: Arena<Param>,
+    param_by_hir: HashMap<hir::ParamIdx, Idx<Param>>,
     local_idx: u64,
 }
 
@@ -30,28 +34,36 @@ impl<'a> FunctionLower<'a> {
             hir_ty_result,
             function_idx,
             local_idx: 1,
+            return_variable: Arena::new(),
+            params: Arena::new(),
+            param_by_hir: HashMap::new(),
         }
+    }
+
+    fn return_variable_idx(&self) -> Idx<ReturnLocal> {
+        self.return_variable
+            .iter()
+            .map(|(idx, _)| idx)
+            .next()
+            .unwrap()
     }
 
     fn lower(mut self) -> Body {
         let function = &self.hir_result.db.functions[self.function_idx];
         let signature = &self.hir_ty_result.signature_by_function(&self.function_idx);
 
-        let mut return_variable = Arena::<ReturnLocal>::new();
-        let return_var_idx = return_variable.alloc(ReturnLocal {
+        self.return_variable.alloc(ReturnLocal {
             ty: signature.return_type,
             idx: 0,
         });
 
-        let mut params = Arena::<Param>::new();
-        let mut param_by_hir = HashMap::<hir::ParamIdx, Idx<Param>>::new();
         for param in &function.params {
             let param_ty = self.hir_ty_result.type_by_param(*param);
-            let param_idx = params.alloc(Param {
+            let param_idx = self.params.alloc(Param {
                 ty: param_ty,
                 idx: self.local_idx,
             });
-            param_by_hir.insert(*param, param_idx);
+            self.param_by_hir.insert(*param, param_idx);
 
             self.local_idx += 1;
         }
@@ -79,7 +91,7 @@ impl<'a> FunctionLower<'a> {
         let exit_bb = BasicBlock {
             kind: BasicBlockKind::Exit,
             statements: vec![],
-            termination: Some(Termination::Return(return_var_idx)),
+            termination: Some(Termination::Return(self.return_variable_idx())),
             idx: 1,
         };
         let exit_bb_idx = blocks.alloc(exit_bb);
@@ -112,13 +124,13 @@ impl<'a> FunctionLower<'a> {
                     match literal {
                         hir::Literal::Integer(value) => {
                             entry_bb.add_statement(Statement::Assign {
-                                place: Place::ReturnLocal(return_var_idx),
+                                place: Place::ReturnLocal(self.return_variable_idx()),
                                 value: Value::Constant(Constant::Integer(*value)),
                             });
                         }
                         hir::Literal::Bool(value) => {
                             entry_bb.add_statement(Statement::Assign {
-                                place: Place::ReturnLocal(return_var_idx),
+                                place: Place::ReturnLocal(self.return_variable_idx()),
                                 value: Value::Constant(Constant::Boolean(*value)),
                             });
                         }
@@ -183,7 +195,7 @@ impl<'a> FunctionLower<'a> {
                         hir::Expr::Literal(literal) => match literal {
                             hir::Literal::Integer(value) => {
                                 then_bb.add_statement(Statement::Assign {
-                                    place: Place::ReturnLocal(return_var_idx),
+                                    place: Place::ReturnLocal(self.return_variable_idx()),
                                     value: Value::Constant(Constant::Integer(*value)),
                                 });
                             }
@@ -210,7 +222,7 @@ impl<'a> FunctionLower<'a> {
                         hir::Expr::Literal(literal) => match literal {
                             hir::Literal::Integer(value) => {
                                 else_bb.add_statement(Statement::Assign {
-                                    place: Place::ReturnLocal(return_var_idx),
+                                    place: Place::ReturnLocal(self.return_variable_idx()),
                                     value: Value::Constant(Constant::Integer(*value)),
                                 });
                             }
@@ -233,8 +245,8 @@ impl<'a> FunctionLower<'a> {
 
         Body {
             name: function.name.unwrap(),
-            params,
-            return_variable,
+            params: self.params,
+            return_variable: self.return_variable,
             variables,
             blocks,
         }

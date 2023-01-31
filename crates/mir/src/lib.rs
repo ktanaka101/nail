@@ -23,6 +23,9 @@ struct FunctionLower<'a> {
     variables: Arena<Local>,
     local_idx: u64,
     blocks: Arena<BasicBlock>,
+    switch_idx: u64,
+    current_bb: Option<Idx<BasicBlock>>,
+    block_idx: u64,
 }
 
 impl<'a> FunctionLower<'a> {
@@ -41,6 +44,9 @@ impl<'a> FunctionLower<'a> {
             param_by_hir: HashMap::new(),
             variables: Arena::new(),
             blocks: Arena::new(),
+            switch_idx: 0,
+            current_bb: None,
+            block_idx: 0,
         }
     }
 
@@ -50,6 +56,130 @@ impl<'a> FunctionLower<'a> {
             .map(|(idx, _)| idx)
             .next()
             .unwrap()
+    }
+
+    fn add_statement_to_current_bb(&mut self, statement: Statement) {
+        let current_bb = &mut self.blocks[self.current_bb.unwrap()];
+        current_bb.add_statement(statement);
+    }
+
+    fn add_termination_to_current_bb(&mut self, termination: Termination) {
+        let current_bb = &mut self.blocks[self.current_bb.unwrap()];
+        assert!(matches!(current_bb.termination, None));
+        current_bb.termination = Some(termination);
+    }
+
+    fn lower_expr(&mut self, expr: hir::ExprIdx) -> Value {
+        let expr = &self.hir_result.shared_ctx.exprs[expr];
+        match expr {
+            hir::Expr::Literal(literal) => match literal {
+                hir::Literal::Integer(value) => Value::Constant(Constant::Integer(*value)),
+                hir::Literal::Bool(value) => Value::Constant(Constant::Boolean(*value)),
+                _ => todo!(),
+            },
+            hir::Expr::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                {
+                    let cond_ty = self.hir_ty_result.type_by_expr(*condition);
+                    let cond_local = Local {
+                        ty: cond_ty,
+                        idx: self.local_idx,
+                    };
+                    self.local_idx += 1;
+                    let cond_local_idx = self.variables.alloc(cond_local);
+                    let cond_value = self.lower_expr(*condition);
+                    let place = Place::Local(cond_local_idx);
+                    self.add_statement_to_current_bb(Statement::Assign {
+                        place,
+                        value: cond_value,
+                    });
+                }
+
+                let dest_bb_idx = {
+                    let dest_bb = BasicBlock {
+                        kind: BasicBlockKind::Standard,
+                        statements: vec![],
+                        termination: None,
+                        idx: self.block_idx,
+                    };
+                    self.block_idx += 1;
+                    self.blocks.alloc(dest_bb)
+                };
+
+                let result_local_idx = {
+                    let then_ty = self.hir_ty_result.type_by_expr(*then_branch);
+                    let result_local = Local {
+                        ty: then_ty,
+                        idx: self.local_idx,
+                    };
+                    self.local_idx += 1;
+                    self.variables.alloc(result_local)
+                };
+
+                {
+                    let then_block = match &self.hir_result.shared_ctx.exprs[*then_branch] {
+                        hir::Expr::Block(block) => block,
+                        _ => unreachable!(),
+                    };
+                    let then_bb = BasicBlock {
+                        kind: BasicBlockKind::Then,
+                        statements: vec![],
+                        termination: None,
+                        idx: self.switch_idx,
+                    };
+                    let then_bb_idx = self.blocks.alloc(then_bb);
+                    self.current_bb = Some(then_bb_idx);
+
+                    if let Some(tail) = then_block.tail {
+                        let value = self.lower_expr(tail);
+                        self.add_statement_to_current_bb(Statement::Assign {
+                            place: Place::Local(result_local_idx),
+                            value,
+                        });
+                    }
+
+                    self.add_termination_to_current_bb(Termination::Goto(dest_bb_idx));
+                }
+
+                {
+                    let else_block = match else_branch {
+                        Some(else_block) => match &self.hir_result.shared_ctx.exprs[*else_block] {
+                            hir::Expr::Block(block) => block,
+                            _ => unreachable!(),
+                        },
+                        None => todo!(),
+                    };
+
+                    let else_bb = BasicBlock {
+                        kind: BasicBlockKind::Else,
+                        statements: vec![],
+                        termination: None,
+                        idx: self.switch_idx,
+                    };
+                    let else_bb_idx = self.blocks.alloc(else_bb);
+                    self.current_bb = Some(else_bb_idx);
+
+                    if let Some(tail) = else_block.tail {
+                        let value = self.lower_expr(tail);
+                        self.add_statement_to_current_bb(Statement::Assign {
+                            place: Place::Local(result_local_idx),
+                            value,
+                        });
+                    }
+
+                    self.add_termination_to_current_bb(Termination::Goto(dest_bb_idx));
+                }
+
+                self.current_bb = Some(dest_bb_idx);
+                self.switch_idx += 1;
+
+                Value::Place(Place::Local(result_local_idx))
+            }
+            _ => todo!(),
+        }
     }
 
     fn lower(mut self) -> Body {
@@ -88,6 +218,7 @@ impl<'a> FunctionLower<'a> {
             idx: 0,
         };
         let entry_bb_idx = self.blocks.alloc(entry_bb);
+        self.current_bb = Some(entry_bb_idx);
 
         let exit_bb = BasicBlock {
             kind: BasicBlockKind::Exit,
@@ -97,9 +228,6 @@ impl<'a> FunctionLower<'a> {
         };
         let exit_bb_idx = self.blocks.alloc(exit_bb);
 
-        let mut switch_idx = 0;
-
-        let is_returned = false;
         for stmt in &body_block.stmts {
             match stmt {
                 hir::Stmt::VariableDef { name, value } => {
@@ -112,138 +240,16 @@ impl<'a> FunctionLower<'a> {
             }
         }
 
-        if !is_returned {
-            let entry_bb = &mut self.blocks[entry_bb_idx];
-            entry_bb.termination = Some(Termination::Goto(exit_bb_idx));
-        }
-
         if let Some(tail) = body_block.tail {
-            let tail = &self.hir_result.shared_ctx.exprs[tail];
-            match tail {
-                hir::Expr::Literal(literal) => {
-                    let return_var_idx = self.return_variable_idx();
-                    let entry_bb = &mut self.blocks[entry_bb_idx];
-                    match literal {
-                        hir::Literal::Integer(value) => {
-                            entry_bb.add_statement(Statement::Assign {
-                                place: Place::ReturnLocal(return_var_idx),
-                                value: Value::Constant(Constant::Integer(*value)),
-                            });
-                        }
-                        hir::Literal::Bool(value) => {
-                            entry_bb.add_statement(Statement::Assign {
-                                place: Place::ReturnLocal(return_var_idx),
-                                value: Value::Constant(Constant::Boolean(*value)),
-                            });
-                        }
-                        _ => todo!(),
-                    };
-                }
-                hir::Expr::If {
-                    condition,
-                    then_branch,
-                    else_branch,
-                } => {
-                    let cond_ty = self.hir_ty_result.type_by_expr(*condition);
-                    let cond_tmp_var = Local {
-                        ty: cond_ty,
-                        idx: self.local_idx,
-                    };
-                    self.local_idx += 1;
-
-                    let cond_idx = self.variables.alloc(cond_tmp_var);
-
-                    let cond = &self.hir_result.shared_ctx.exprs[*condition];
-                    match cond {
-                        hir::Expr::Literal(literal) => {
-                            match literal {
-                                hir::Literal::Bool(value) => {
-                                    let entry_bb = &mut self.blocks[entry_bb_idx];
-                                    entry_bb.add_statement(Statement::Assign {
-                                        place: Place::Local(cond_idx),
-                                        value: Value::Constant(Constant::Boolean(*value)),
-                                    });
-                                }
-                                _ => todo!(),
-                            };
-                        }
-                        _ => todo!(),
-                    }
-
-                    let then_block = match &self.hir_result.shared_ctx.exprs[*then_branch] {
-                        hir::Expr::Block(block) => block,
-                        _ => unreachable!(),
-                    };
-                    let else_block = match else_branch {
-                        Some(else_block) => match &self.hir_result.shared_ctx.exprs[*else_block] {
-                            hir::Expr::Block(block) => block,
-                            _ => unreachable!(),
-                        },
-                        None => todo!(),
-                    };
-
-                    let mut then_bb = BasicBlock {
-                        kind: BasicBlockKind::Then,
-                        statements: vec![],
-                        termination: Some(Termination::Goto(exit_bb_idx)),
-                        idx: switch_idx,
-                    };
-
-                    let then_tail_expr = match then_block.tail {
-                        Some(tail) => &self.hir_result.shared_ctx.exprs[tail],
-                        None => unimplemented!(),
-                    };
-                    match then_tail_expr {
-                        hir::Expr::Literal(literal) => match literal {
-                            hir::Literal::Integer(value) => {
-                                then_bb.add_statement(Statement::Assign {
-                                    place: Place::ReturnLocal(self.return_variable_idx()),
-                                    value: Value::Constant(Constant::Integer(*value)),
-                                });
-                            }
-                            _ => todo!(),
-                        },
-                        _ => todo!(),
-                    };
-                    let then_bb_idx = self.blocks.alloc(then_bb);
-
-                    let mut else_bb = BasicBlock {
-                        kind: BasicBlockKind::Else,
-                        statements: vec![],
-                        termination: Some(Termination::Goto(exit_bb_idx)),
-                        idx: switch_idx,
-                    };
-
-                    switch_idx += 1;
-
-                    let then_tail_expr = match else_block.tail {
-                        Some(tail) => &self.hir_result.shared_ctx.exprs[tail],
-                        None => unimplemented!(),
-                    };
-                    match then_tail_expr {
-                        hir::Expr::Literal(literal) => match literal {
-                            hir::Literal::Integer(value) => {
-                                else_bb.add_statement(Statement::Assign {
-                                    place: Place::ReturnLocal(self.return_variable_idx()),
-                                    value: Value::Constant(Constant::Integer(*value)),
-                                });
-                            }
-                            _ => todo!(),
-                        },
-                        _ => todo!(),
-                    };
-                    let else_bb_idx = self.blocks.alloc(else_bb);
-
-                    let entry_bb = &mut self.blocks[entry_bb_idx];
-                    entry_bb.termination = Some(Termination::Switch {
-                        condition: Place::Local(cond_idx),
-                        then_bb: then_bb_idx,
-                        else_bb: else_bb_idx,
-                    });
-                }
-                _ => todo!(),
-            }
+            let value = self.lower_expr(tail);
+            self.add_statement_to_current_bb(Statement::Assign {
+                place: Place::ReturnLocal(self.return_variable_idx()),
+                value,
+            });
         }
+
+        self.add_termination_to_current_bb(Termination::Goto(exit_bb_idx));
+        self.current_bb = Some(exit_bb_idx);
 
         Body {
             name: function.name.unwrap(),
@@ -349,6 +355,7 @@ enum Place {
 #[derive(Debug)]
 enum Value {
     Constant(Constant),
+    Place(Place),
 }
 
 #[derive(Debug)]
@@ -490,7 +497,7 @@ mod tests {
         match statement {
             crate::Statement::Assign { place, value } => {
                 let place_msg = debug_place(place, body);
-                let value_msg = debug_value(value);
+                let value_msg = debug_value(value, body);
 
                 format!("{place_msg} = {value_msg}")
             }
@@ -514,12 +521,13 @@ mod tests {
         }
     }
 
-    fn debug_value(value: &crate::Value) -> String {
+    fn debug_value(value: &crate::Value, body: &crate::Body) -> String {
         match value {
             crate::Value::Constant(constant) => match constant {
                 crate::Constant::Integer(integer) => integer.to_string(),
                 crate::Constant::Boolean(boolean) => boolean.to_string(),
             },
+            crate::Value::Place(place) => debug_place(place, body),
         }
     }
 
@@ -650,24 +658,29 @@ mod tests {
                 fn main() -> int {
                     let _0: int
                     let _1: bool
+                    let _2: int
 
                     entry: {
                         _1 = true
-                        switch(_1) -> [true: then0, false: else0]
                     }
 
                     exit: {
                         return _0
                     }
 
-                    then0: {
-                        _0 = 10
+                    bb0: {
+                        _0 = _2
                         goto -> exit
                     }
 
+                    then0: {
+                        _2 = 10
+                        goto -> bb0
+                    }
+
                     else0: {
-                        _0 = 20
-                        goto -> exit
+                        _2 = 20
+                        goto -> bb0
                     }
                 }
             "#]],

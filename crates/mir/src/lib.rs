@@ -20,6 +20,7 @@ struct FunctionLower<'a> {
     return_variable: Arena<ReturnLocal>,
     params: Arena<Param>,
     param_by_hir: HashMap<hir::ParamIdx, Idx<Param>>,
+    variables: Arena<Local>,
     local_idx: u64,
 }
 
@@ -37,6 +38,7 @@ impl<'a> FunctionLower<'a> {
             return_variable: Arena::new(),
             params: Arena::new(),
             param_by_hir: HashMap::new(),
+            variables: Arena::new(),
         }
     }
 
@@ -77,7 +79,6 @@ impl<'a> FunctionLower<'a> {
             _ => unreachable!(),
         };
 
-        let mut variables = Arena::new();
         let mut blocks = Arena::new();
 
         let entry_bb = BasicBlock {
@@ -149,7 +150,7 @@ impl<'a> FunctionLower<'a> {
                     };
                     self.local_idx += 1;
 
-                    let cond_idx = variables.alloc(cond_tmp_var);
+                    let cond_idx = self.variables.alloc(cond_tmp_var);
 
                     let cond = &self.hir_result.shared_ctx.exprs[*condition];
                     match cond {
@@ -247,7 +248,7 @@ impl<'a> FunctionLower<'a> {
             name: function.name.unwrap(),
             params: self.params,
             return_variable: self.return_variable,
-            variables,
+            variables: self.variables,
             blocks,
         }
     }

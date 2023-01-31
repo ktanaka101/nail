@@ -220,14 +220,6 @@ impl<'a> FunctionLower<'a> {
         let entry_bb_idx = self.blocks.alloc(entry_bb);
         self.current_bb = Some(entry_bb_idx);
 
-        let exit_bb = BasicBlock {
-            kind: BasicBlockKind::Exit,
-            statements: vec![],
-            termination: Some(Termination::Return(self.return_variable_idx())),
-            idx: 1,
-        };
-        let exit_bb_idx = self.blocks.alloc(exit_bb);
-
         for stmt in &body_block.stmts {
             match stmt {
                 hir::Stmt::VariableDef { name, value } => {
@@ -247,6 +239,14 @@ impl<'a> FunctionLower<'a> {
                 value,
             });
         }
+
+        let exit_bb = BasicBlock {
+            kind: BasicBlockKind::Exit,
+            statements: vec![],
+            termination: Some(Termination::Return(self.return_variable_idx())),
+            idx: 1,
+        };
+        let exit_bb_idx = self.blocks.alloc(exit_bb);
 
         self.add_termination_to_current_bb(Termination::Goto(exit_bb_idx));
         self.current_bb = Some(exit_bb_idx);
@@ -664,10 +664,6 @@ mod tests {
                         _1 = true
                     }
 
-                    exit: {
-                        return _0
-                    }
-
                     bb0: {
                         _0 = _2
                         goto -> exit
@@ -681,6 +677,10 @@ mod tests {
                     else0: {
                         _2 = 20
                         goto -> bb0
+                    }
+
+                    exit: {
+                        return _0
                     }
                 }
             "#]],

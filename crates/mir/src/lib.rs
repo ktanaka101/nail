@@ -22,6 +22,7 @@ struct FunctionLower<'a> {
     param_by_hir: HashMap<hir::ParamIdx, Idx<Param>>,
     variables: Arena<Local>,
     local_idx: u64,
+    blocks: Arena<BasicBlock>,
 }
 
 impl<'a> FunctionLower<'a> {
@@ -39,6 +40,7 @@ impl<'a> FunctionLower<'a> {
             params: Arena::new(),
             param_by_hir: HashMap::new(),
             variables: Arena::new(),
+            blocks: Arena::new(),
         }
     }
 
@@ -79,15 +81,13 @@ impl<'a> FunctionLower<'a> {
             _ => unreachable!(),
         };
 
-        let mut blocks = Arena::new();
-
         let entry_bb = BasicBlock {
             kind: BasicBlockKind::Entry,
             statements: vec![],
             termination: None,
             idx: 0,
         };
-        let entry_bb_idx = blocks.alloc(entry_bb);
+        let entry_bb_idx = self.blocks.alloc(entry_bb);
 
         let exit_bb = BasicBlock {
             kind: BasicBlockKind::Exit,
@@ -95,7 +95,7 @@ impl<'a> FunctionLower<'a> {
             termination: Some(Termination::Return(self.return_variable_idx())),
             idx: 1,
         };
-        let exit_bb_idx = blocks.alloc(exit_bb);
+        let exit_bb_idx = self.blocks.alloc(exit_bb);
 
         let mut switch_idx = 0;
 
@@ -113,7 +113,7 @@ impl<'a> FunctionLower<'a> {
         }
 
         if !is_returned {
-            let entry_bb = &mut blocks[entry_bb_idx];
+            let entry_bb = &mut self.blocks[entry_bb_idx];
             entry_bb.termination = Some(Termination::Goto(exit_bb_idx));
         }
 
@@ -121,17 +121,18 @@ impl<'a> FunctionLower<'a> {
             let tail = &self.hir_result.shared_ctx.exprs[tail];
             match tail {
                 hir::Expr::Literal(literal) => {
-                    let entry_bb = &mut blocks[entry_bb_idx];
+                    let return_var_idx = self.return_variable_idx();
+                    let entry_bb = &mut self.blocks[entry_bb_idx];
                     match literal {
                         hir::Literal::Integer(value) => {
                             entry_bb.add_statement(Statement::Assign {
-                                place: Place::ReturnLocal(self.return_variable_idx()),
+                                place: Place::ReturnLocal(return_var_idx),
                                 value: Value::Constant(Constant::Integer(*value)),
                             });
                         }
                         hir::Literal::Bool(value) => {
                             entry_bb.add_statement(Statement::Assign {
-                                place: Place::ReturnLocal(self.return_variable_idx()),
+                                place: Place::ReturnLocal(return_var_idx),
                                 value: Value::Constant(Constant::Boolean(*value)),
                             });
                         }
@@ -157,7 +158,7 @@ impl<'a> FunctionLower<'a> {
                         hir::Expr::Literal(literal) => {
                             match literal {
                                 hir::Literal::Bool(value) => {
-                                    let entry_bb = &mut blocks[entry_bb_idx];
+                                    let entry_bb = &mut self.blocks[entry_bb_idx];
                                     entry_bb.add_statement(Statement::Assign {
                                         place: Place::Local(cond_idx),
                                         value: Value::Constant(Constant::Boolean(*value)),
@@ -204,7 +205,7 @@ impl<'a> FunctionLower<'a> {
                         },
                         _ => todo!(),
                     };
-                    let then_bb_idx = blocks.alloc(then_bb);
+                    let then_bb_idx = self.blocks.alloc(then_bb);
 
                     let mut else_bb = BasicBlock {
                         kind: BasicBlockKind::Else,
@@ -231,9 +232,9 @@ impl<'a> FunctionLower<'a> {
                         },
                         _ => todo!(),
                     };
-                    let else_bb_idx = blocks.alloc(else_bb);
+                    let else_bb_idx = self.blocks.alloc(else_bb);
 
-                    let entry_bb = &mut blocks[entry_bb_idx];
+                    let entry_bb = &mut self.blocks[entry_bb_idx];
                     entry_bb.termination = Some(Termination::Switch {
                         condition: Place::Local(cond_idx),
                         then_bb: then_bb_idx,
@@ -249,7 +250,7 @@ impl<'a> FunctionLower<'a> {
             params: self.params,
             return_variable: self.return_variable,
             variables: self.variables,
-            blocks,
+            blocks: self.blocks,
         }
     }
 }

@@ -69,6 +69,16 @@ impl<'a> FunctionLower<'a> {
         current_bb.termination = Some(termination);
     }
 
+    fn alloc_local(&mut self, expr: Idx<hir::Expr>) -> Idx<Local> {
+        let ty = self.hir_ty_result.type_by_expr(expr);
+        let cond_local = Local {
+            ty,
+            idx: self.local_idx,
+        };
+        self.local_idx += 1;
+        self.variables.alloc(cond_local)
+    }
+
     fn lower_expr(&mut self, expr: hir::ExprIdx) -> Value {
         let expr = &self.hir_result.shared_ctx.exprs[expr];
         match expr {
@@ -83,13 +93,7 @@ impl<'a> FunctionLower<'a> {
                 else_branch,
             } => {
                 {
-                    let cond_ty = self.hir_ty_result.type_by_expr(*condition);
-                    let cond_local = Local {
-                        ty: cond_ty,
-                        idx: self.local_idx,
-                    };
-                    self.local_idx += 1;
-                    let cond_local_idx = self.variables.alloc(cond_local);
+                    let cond_local_idx = self.alloc_local(*condition);
                     let cond_value = self.lower_expr(*condition);
                     let place = Place::Local(cond_local_idx);
                     self.add_statement_to_current_bb(Statement::Assign {
@@ -109,15 +113,7 @@ impl<'a> FunctionLower<'a> {
                     self.blocks.alloc(dest_bb)
                 };
 
-                let result_local_idx = {
-                    let then_ty = self.hir_ty_result.type_by_expr(*then_branch);
-                    let result_local = Local {
-                        ty: then_ty,
-                        idx: self.local_idx,
-                    };
-                    self.local_idx += 1;
-                    self.variables.alloc(result_local)
-                };
+                let result_local_idx = self.alloc_local(*then_branch);
 
                 {
                     let then_block = match &self.hir_result.shared_ctx.exprs[*then_branch] {

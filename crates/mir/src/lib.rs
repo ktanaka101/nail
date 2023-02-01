@@ -79,6 +79,21 @@ impl<'a> FunctionLower<'a> {
         self.variables.alloc(cond_local)
     }
 
+    fn alloc_switch_bb(&mut self) -> AllocatedSwitchBB {
+        let then_bb = BasicBlock::new_then_bb(self.switch_idx);
+        let then_bb_idx = self.blocks.alloc(then_bb);
+
+        let else_bb = BasicBlock::new_else_bb(self.switch_idx);
+        let else_bb_idx = self.blocks.alloc(else_bb);
+
+        self.switch_idx += 1;
+
+        AllocatedSwitchBB {
+            then_bb_idx,
+            else_bb_idx,
+        }
+    }
+
     fn lower_expr(&mut self, expr: hir::ExprIdx) -> Value {
         let expr = &self.hir_result.shared_ctx.exprs[expr];
         match expr {
@@ -103,31 +118,21 @@ impl<'a> FunctionLower<'a> {
                 }
 
                 let dest_bb_idx = {
-                    let dest_bb = BasicBlock {
-                        kind: BasicBlockKind::Standard,
-                        statements: vec![],
-                        termination: None,
-                        idx: self.block_idx,
-                    };
+                    let dest_bb = BasicBlock::new_standard_bb(self.block_idx);
                     self.block_idx += 1;
                     self.blocks.alloc(dest_bb)
                 };
 
                 let result_local_idx = self.alloc_local(*then_branch);
 
+                let switch_bb = self.alloc_switch_bb();
                 {
+                    self.current_bb = Some(switch_bb.then_bb_idx);
+
                     let then_block = match &self.hir_result.shared_ctx.exprs[*then_branch] {
                         hir::Expr::Block(block) => block,
                         _ => unreachable!(),
                     };
-                    let then_bb = BasicBlock {
-                        kind: BasicBlockKind::Then,
-                        statements: vec![],
-                        termination: None,
-                        idx: self.switch_idx,
-                    };
-                    let then_bb_idx = self.blocks.alloc(then_bb);
-                    self.current_bb = Some(then_bb_idx);
 
                     if let Some(tail) = then_block.tail {
                         let value = self.lower_expr(tail);
@@ -141,6 +146,8 @@ impl<'a> FunctionLower<'a> {
                 }
 
                 {
+                    self.current_bb = Some(switch_bb.else_bb_idx);
+
                     let else_block = match else_branch {
                         Some(else_block) => match &self.hir_result.shared_ctx.exprs[*else_block] {
                             hir::Expr::Block(block) => block,
@@ -148,15 +155,6 @@ impl<'a> FunctionLower<'a> {
                         },
                         None => todo!(),
                     };
-
-                    let else_bb = BasicBlock {
-                        kind: BasicBlockKind::Else,
-                        statements: vec![],
-                        termination: None,
-                        idx: self.switch_idx,
-                    };
-                    let else_bb_idx = self.blocks.alloc(else_bb);
-                    self.current_bb = Some(else_bb_idx);
 
                     if let Some(tail) = else_block.tail {
                         let value = self.lower_expr(tail);
@@ -207,12 +205,7 @@ impl<'a> FunctionLower<'a> {
             _ => unreachable!(),
         };
 
-        let entry_bb = BasicBlock {
-            kind: BasicBlockKind::Entry,
-            statements: vec![],
-            termination: None,
-            idx: 0,
-        };
+        let entry_bb = BasicBlock::new_entry_bb(0);
         let entry_bb_idx = self.blocks.alloc(entry_bb);
         self.current_bb = Some(entry_bb_idx);
 
@@ -336,9 +329,59 @@ struct BasicBlock {
 }
 
 impl BasicBlock {
+    fn new_entry_bb(idx: u64) -> Self {
+        Self {
+            kind: BasicBlockKind::Entry,
+            statements: vec![],
+            termination: None,
+            idx,
+        }
+    }
+
+    fn new_exit_bb(idx: u64) -> Self {
+        Self {
+            kind: BasicBlockKind::Exit,
+            statements: vec![],
+            termination: None,
+            idx,
+        }
+    }
+
+    fn new_then_bb(idx: u64) -> Self {
+        Self {
+            kind: BasicBlockKind::Then,
+            statements: vec![],
+            termination: None,
+            idx,
+        }
+    }
+
+    fn new_else_bb(idx: u64) -> Self {
+        Self {
+            kind: BasicBlockKind::Else,
+            statements: vec![],
+            termination: None,
+            idx,
+        }
+    }
+
+    fn new_standard_bb(idx: u64) -> Self {
+        Self {
+            kind: BasicBlockKind::Standard,
+            statements: vec![],
+            termination: None,
+            idx,
+        }
+    }
+
     fn add_statement(&mut self, stmt: Statement) {
         self.statements.push(stmt);
     }
+}
+
+struct AllocatedSwitchBB {
+    then_bb_idx: Idx<BasicBlock>,
+    else_bb_idx: Idx<BasicBlock>,
 }
 
 #[derive(Debug, Clone, Copy)]

@@ -168,7 +168,6 @@ impl<'a> FunctionLower<'a> {
                 }
 
                 self.current_bb = Some(dest_bb_idx);
-                self.switch_idx += 1;
 
                 Value::Place(Place::Local(result_local_idx))
             }

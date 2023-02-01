@@ -26,6 +26,7 @@ struct FunctionLower<'a> {
     switch_idx: u64,
     current_bb: Option<Idx<BasicBlock>>,
     block_idx: u64,
+    local_by_hir: HashMap<hir::ExprIdx, Idx<Local>>,
 }
 
 impl<'a> FunctionLower<'a> {
@@ -47,6 +48,7 @@ impl<'a> FunctionLower<'a> {
             switch_idx: 0,
             current_bb: None,
             block_idx: 0,
+            local_by_hir: HashMap::new(),
         }
     }
 
@@ -76,7 +78,14 @@ impl<'a> FunctionLower<'a> {
             idx: self.local_idx,
         };
         self.local_idx += 1;
-        self.variables.alloc(cond_local)
+        let local_idx = self.variables.alloc(cond_local);
+        self.local_by_hir.insert(expr, local_idx);
+
+        local_idx
+    }
+
+    fn get_local_by_expr(&self, expr: Idx<hir::Expr>) -> Idx<Local> {
+        *self.local_by_hir.get(&expr).unwrap()
     }
 
     fn alloc_entry_bb(&mut self) -> Idx<BasicBlock> {
@@ -113,6 +122,14 @@ impl<'a> FunctionLower<'a> {
                 hir::Literal::Integer(value) => Value::Constant(Constant::Integer(*value)),
                 hir::Literal::Bool(value) => Value::Constant(Constant::Boolean(*value)),
                 _ => todo!(),
+            },
+            hir::Expr::VariableRef { var } => match var {
+                hir::Symbol::Param { name, param } => todo!(),
+                hir::Symbol::Local { name, expr } => {
+                    Value::Place(Place::Local(self.get_local_by_expr(*expr)))
+                }
+                hir::Symbol::Function { name, function } => todo!(),
+                hir::Symbol::Missing { name } => todo!(),
             },
             hir::Expr::If {
                 condition,
@@ -222,7 +239,12 @@ impl<'a> FunctionLower<'a> {
         for stmt in &body_block.stmts {
             match stmt {
                 hir::Stmt::VariableDef { name, value } => {
-                    todo!()
+                    let local_idx = self.alloc_local(*value);
+                    let value = self.lower_expr(*value);
+                    self.add_statement_to_current_bb(Statement::Assign {
+                        place: Place::Local(local_idx),
+                        value,
+                    });
                 }
                 hir::Stmt::Expr(expr) => {
                     todo!()
@@ -674,6 +696,34 @@ mod tests {
 
                     entry: {
                         _0 = true
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_let() {
+        check(
+            r#"
+                fn main() -> int {
+                    let x = 10
+                    x
+                }
+            "#,
+            expect![[r#"
+                fn main() -> int {
+                    let _0: int
+                    let _1: int
+
+                    entry: {
+                        _1 = 10
+                        _0 = _1
                         goto -> exit
                     }
 

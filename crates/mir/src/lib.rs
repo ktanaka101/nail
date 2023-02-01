@@ -79,6 +79,18 @@ impl<'a> FunctionLower<'a> {
         self.variables.alloc(cond_local)
     }
 
+    fn alloc_entry_bb(&mut self) -> Idx<BasicBlock> {
+        let entry_bb = BasicBlock::new_entry_bb(0);
+        self.blocks.alloc(entry_bb)
+    }
+
+    fn alloc_exit_bb(&mut self) -> Idx<BasicBlock> {
+        let mut exit_bb = BasicBlock::new_exit_bb(0);
+        exit_bb.termination = Some(Termination::Return(self.return_variable_idx()));
+
+        self.blocks.alloc(exit_bb)
+    }
+
     fn alloc_switch_bb(&mut self) -> AllocatedSwitchBB {
         let then_bb = BasicBlock::new_then_bb(self.switch_idx);
         let then_bb_idx = self.blocks.alloc(then_bb);
@@ -204,8 +216,7 @@ impl<'a> FunctionLower<'a> {
             _ => unreachable!(),
         };
 
-        let entry_bb = BasicBlock::new_entry_bb(0);
-        let entry_bb_idx = self.blocks.alloc(entry_bb);
+        let entry_bb_idx = self.alloc_entry_bb();
         self.current_bb = Some(entry_bb_idx);
 
         for stmt in &body_block.stmts {
@@ -228,13 +239,7 @@ impl<'a> FunctionLower<'a> {
             });
         }
 
-        let exit_bb = BasicBlock {
-            kind: BasicBlockKind::Exit,
-            statements: vec![],
-            termination: Some(Termination::Return(self.return_variable_idx())),
-            idx: 1,
-        };
-        let exit_bb_idx = self.blocks.alloc(exit_bb);
+        let exit_bb_idx = self.alloc_exit_bb();
 
         self.add_termination_to_current_bb(Termination::Goto(exit_bb_idx));
         self.current_bb = Some(exit_bb_idx);

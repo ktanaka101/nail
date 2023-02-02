@@ -177,7 +177,7 @@ impl<'a> FunctionLower<'a> {
                 then_branch,
                 else_branch,
             } => {
-                {
+                let cond_local_idx = {
                     let cond_local_idx = self.alloc_local(*condition);
                     let cond_value = match self.lower_expr(*condition) {
                         ReturnOrValue::Value(value) => value,
@@ -188,11 +188,19 @@ impl<'a> FunctionLower<'a> {
                         place,
                         value: cond_value,
                     });
-                }
+
+                    cond_local_idx
+                };
 
                 let mut dest_bb_and_result_local_idx: Option<(Idx<BasicBlock>, Idx<Local>)> = None;
 
                 let switch_bb = self.alloc_switch_bb();
+                self.add_termination_to_current_bb(Termination::Switch {
+                    condition: Place::Local(cond_local_idx),
+                    then_bb: switch_bb.then_bb_idx,
+                    else_bb: switch_bb.else_bb_idx,
+                });
+
                 {
                     self.current_bb = Some(switch_bb.then_bb_idx);
 
@@ -888,6 +896,7 @@ mod tests {
 
                     entry: {
                         _1 = true
+                        switch(_1) -> [true: then0, false: else0]
                     }
 
                     exit: {
@@ -928,6 +937,7 @@ mod tests {
 
                     entry: {
                         _1 = true
+                        switch(_1) -> [true: then0, false: else0]
                     }
 
                     exit: {
@@ -973,6 +983,7 @@ mod tests {
 
                     entry: {
                         _1 = true
+                        switch(_1) -> [true: then0, false: else0]
                     }
 
                     exit: {
@@ -1018,6 +1029,7 @@ mod tests {
 
                     entry: {
                         _1 = true
+                        switch(_1) -> [true: then0, false: else0]
                     }
 
                     exit: {

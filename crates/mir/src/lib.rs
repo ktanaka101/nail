@@ -141,18 +141,28 @@ impl<'a> FunctionLower<'a> {
         (dest_bb_idx, result_local_idx)
     }
 
+    fn alloc_standard_bb(&mut self) -> Idx<BasicBlock> {
+        let dest_bb = BasicBlock::new_standard_bb(self.block_idx);
+        self.block_idx += 1;
+        self.blocks.alloc(dest_bb)
+    }
+
     fn lower_expr(&mut self, expr: hir::ExprIdx) -> ReturnOrValue {
         let expr = &self.hir_result.shared_ctx.exprs[expr];
-        let value = match expr {
+        match expr {
             hir::Expr::Literal(literal) => match literal {
-                hir::Literal::Integer(value) => Value::Constant(Constant::Integer(*value)),
-                hir::Literal::Bool(value) => Value::Constant(Constant::Boolean(*value)),
+                hir::Literal::Integer(value) => {
+                    ReturnOrValue::Value(Value::Constant(Constant::Integer(*value)))
+                }
+                hir::Literal::Bool(value) => {
+                    ReturnOrValue::Value(Value::Constant(Constant::Boolean(*value)))
+                }
                 _ => todo!(),
             },
             hir::Expr::VariableRef { var } => match var {
                 hir::Symbol::Param { name, param } => todo!(),
                 hir::Symbol::Local { name, expr } => {
-                    Value::Place(Place::Local(self.get_local_by_expr(*expr)))
+                    ReturnOrValue::Value(Value::Place(Place::Local(self.get_local_by_expr(*expr))))
                 }
                 hir::Symbol::Function { name, function } => todo!(),
                 hir::Symbol::Missing { name } => todo!(),
@@ -170,7 +180,7 @@ impl<'a> FunctionLower<'a> {
                     });
                 }
 
-                return ReturnOrValue::Return;
+                ReturnOrValue::Return
             }
             hir::Expr::If {
                 condition,
@@ -242,55 +252,81 @@ impl<'a> FunctionLower<'a> {
                 {
                     self.current_bb = Some(switch_bb.else_bb_idx);
 
-                    let else_block = match else_branch {
-                        Some(else_block) => match &self.hir_result.shared_ctx.exprs[*else_block] {
-                            hir::Expr::Block(block) => block,
-                            _ => unreachable!(),
-                        },
-                        None => todo!(),
-                    };
+                    match else_branch {
+                        Some(else_block) => {
+                            let else_block = match &self.hir_result.shared_ctx.exprs[*else_block] {
+                                hir::Expr::Block(block) => block,
+                                _ => unreachable!(),
+                            };
 
-                    if let Some(tail) = else_block.tail {
-                        match self.lower_expr(tail) {
-                            ReturnOrValue::Value(value) => {
-                                let (dest_bb_idx, result_local_idx) =
-                                    match dest_bb_and_result_local_idx {
-                                        Some(idxes) => idxes,
-                                        None => {
-                                            let idxes =
-                                                self.alloc_dest_bb_and_result_local(*then_branch);
-                                            dest_bb_and_result_local_idx = Some(idxes);
+                            if let Some(tail) = else_block.tail {
+                                match self.lower_expr(tail) {
+                                    ReturnOrValue::Value(value) => {
+                                        let (dest_bb_idx, result_local_idx) =
+                                            match dest_bb_and_result_local_idx {
+                                                Some(idxes) => idxes,
+                                                None => {
+                                                    let idxes = self
+                                                        .alloc_dest_bb_and_result_local(
+                                                            *then_branch,
+                                                        );
+                                                    dest_bb_and_result_local_idx = Some(idxes);
 
-                                            idxes
-                                        }
-                                    };
+                                                    idxes
+                                                }
+                                            };
 
+                                        self.add_statement_to_current_bb(Statement::Assign {
+                                            place: Place::Local(result_local_idx),
+                                            value,
+                                        });
+                                        self.add_termination_to_current_bb(Termination::Goto(
+                                            dest_bb_idx,
+                                        ));
+                                    }
+                                    ReturnOrValue::Return => {
+                                        self.add_termination_to_current_bb(Termination::Goto(
+                                            self.exit_bb_idx(),
+                                        ));
+                                    }
+                                };
+                            }
+
+                            if let Some((dest_bb_idx, result_local_idx)) =
+                                dest_bb_and_result_local_idx
+                            {
+                                self.current_bb = Some(dest_bb_idx);
+                                ReturnOrValue::Value(Value::Place(Place::Local(result_local_idx)))
+                            } else {
+                                ReturnOrValue::Return
+                            }
+                        }
+                        None => match dest_bb_and_result_local_idx {
+                            Some((dest_bb_idx, result_local_idx)) => {
+                                let unit = Value::Constant(Constant::Unit);
                                 self.add_statement_to_current_bb(Statement::Assign {
                                     place: Place::Local(result_local_idx),
-                                    value,
+                                    value: unit,
                                 });
-                                self.add_termination_to_current_bb(Termination::Goto(dest_bb_idx));
-                            }
-                            ReturnOrValue::Return => {
-                                self.add_termination_to_current_bb(Termination::Goto(
-                                    self.exit_bb_idx(),
-                                ));
-                            }
-                        };
-                    }
-                }
 
-                if let Some((dest_bb_idx, result_local_idx)) = dest_bb_and_result_local_idx {
-                    self.current_bb = Some(dest_bb_idx);
-                    Value::Place(Place::Local(result_local_idx))
-                } else {
-                    return ReturnOrValue::Return;
+                                self.add_termination_to_current_bb(Termination::Goto(dest_bb_idx));
+                                self.current_bb = Some(dest_bb_idx);
+
+                                ReturnOrValue::Value(Value::Place(Place::Local(result_local_idx)))
+                            }
+                            None => {
+                                let dest_bb_idx = self.alloc_standard_bb();
+                                self.add_termination_to_current_bb(Termination::Goto(dest_bb_idx));
+                                self.current_bb = Some(dest_bb_idx);
+
+                                ReturnOrValue::Value(Value::Constant(Constant::Unit))
+                            }
+                        },
+                    }
                 }
             }
             _ => todo!(),
-        };
-
-        ReturnOrValue::Value(value)
+        }
     }
 
     fn lower(mut self) -> Body {
@@ -543,6 +579,7 @@ enum ReturnOrValue {
 enum Constant {
     Integer(u64),
     Boolean(bool),
+    Unit,
 }
 
 #[derive(Debug)]
@@ -707,6 +744,7 @@ mod tests {
             crate::Value::Constant(constant) => match constant {
                 crate::Constant::Integer(integer) => integer.to_string(),
                 crate::Constant::Boolean(boolean) => boolean.to_string(),
+                crate::Constant::Unit => "()".to_string(),
             },
             crate::Value::Place(place) => debug_place(place, body),
         }
@@ -1048,6 +1086,102 @@ mod tests {
 
                     bb0: {
                         _0 = _2
+                        goto -> exit
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_switch_conditional_early_return() {
+        check(
+            r#"
+                fn main() -> int {
+                    let a = 10
+                    if true {
+                        return 20
+                    }
+
+                    a
+                }
+            "#,
+            expect![[r#"
+                fn main() -> int {
+                    let _0: int
+                    let _1: int
+                    let _2: bool
+
+                    entry: {
+                        _1 = 10
+                        _2 = true
+                        switch(_2) -> [true: then0, false: else0]
+                    }
+
+                    exit: {
+                        return _0
+                    }
+
+                    then0: {
+                        _0 = 20
+                        goto -> exit
+                    }
+
+                    else0: {
+                        goto -> bb0
+                    }
+
+                    bb0: {
+                        _0 = _1
+                        goto -> exit
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_switch_only_then_branch() {
+        check(
+            r#"
+                fn main() -> int {
+                    let a = 10
+                    if true {
+                        20
+                    }
+
+                    a
+                }
+            "#,
+            expect![[r#"
+                fn main() -> int {
+                    let _0: int
+                    let _1: int
+                    let _2: bool
+                    let _3: int
+
+                    entry: {
+                        _1 = 10
+                        _2 = true
+                        switch(_2) -> [true: then0, false: else0]
+                    }
+
+                    exit: {
+                        return _0
+                    }
+
+                    then0: {
+                        _3 = 20
+                        goto -> bb0
+                    }
+
+                    else0: {
+                        _3 = ()
+                        goto -> bb0
+                    }
+
+                    bb0: {
+                        _0 = _1
                         goto -> exit
                     }
                 }

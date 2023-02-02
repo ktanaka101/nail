@@ -147,22 +147,22 @@ impl<'a> FunctionLower<'a> {
         self.blocks.alloc(dest_bb)
     }
 
-    fn lower_expr(&mut self, expr: hir::ExprIdx) -> ReturnOrValue {
+    fn lower_expr(&mut self, expr: hir::ExprIdx) -> LoweredExpr {
         let expr = &self.hir_result.shared_ctx.exprs[expr];
         match expr {
             hir::Expr::Literal(literal) => match literal {
                 hir::Literal::Integer(value) => {
-                    ReturnOrValue::Value(Value::Constant(Constant::Integer(*value)))
+                    LoweredExpr::Value(Value::Constant(Constant::Integer(*value)))
                 }
                 hir::Literal::Bool(value) => {
-                    ReturnOrValue::Value(Value::Constant(Constant::Boolean(*value)))
+                    LoweredExpr::Value(Value::Constant(Constant::Boolean(*value)))
                 }
                 _ => todo!(),
             },
             hir::Expr::VariableRef { var } => match var {
                 hir::Symbol::Param { name, param } => todo!(),
                 hir::Symbol::Local { name, expr } => {
-                    ReturnOrValue::Value(Value::Place(Place::Local(self.get_local_by_expr(*expr))))
+                    LoweredExpr::Value(Value::Place(Place::Local(self.get_local_by_expr(*expr))))
                 }
                 hir::Symbol::Function { name, function } => todo!(),
                 hir::Symbol::Missing { name } => todo!(),
@@ -170,8 +170,8 @@ impl<'a> FunctionLower<'a> {
             hir::Expr::Return { value } => {
                 if let Some(value) = value {
                     let value = match self.lower_expr(*value) {
-                        ReturnOrValue::Value(value) => value,
-                        ReturnOrValue::Return => return ReturnOrValue::Return,
+                        LoweredExpr::Value(value) => value,
+                        LoweredExpr::Return => return LoweredExpr::Return,
                     };
                     let return_value_place = Place::ReturnLocal(self.return_variable_idx());
                     self.add_statement_to_current_bb(Statement::Assign {
@@ -180,7 +180,7 @@ impl<'a> FunctionLower<'a> {
                     });
                 }
 
-                ReturnOrValue::Return
+                LoweredExpr::Return
             }
             hir::Expr::If {
                 condition,
@@ -190,8 +190,8 @@ impl<'a> FunctionLower<'a> {
                 let cond_local_idx = {
                     let cond_local_idx = self.alloc_local(*condition);
                     let cond_value = match self.lower_expr(*condition) {
-                        ReturnOrValue::Value(value) => value,
-                        ReturnOrValue::Return => return ReturnOrValue::Return,
+                        LoweredExpr::Value(value) => value,
+                        LoweredExpr::Return => return LoweredExpr::Return,
                     };
                     let place = Place::Local(cond_local_idx);
                     self.add_statement_to_current_bb(Statement::Assign {
@@ -232,7 +232,7 @@ impl<'a> FunctionLower<'a> {
                     if !has_return {
                         if let Some(tail) = then_block.tail {
                             match self.lower_expr(tail) {
-                                ReturnOrValue::Value(value) => {
+                                LoweredExpr::Value(value) => {
                                     let (dest_bb_idx, result_local_idx) =
                                         match dest_bb_and_result_local_idx {
                                             Some(idxes) => idxes,
@@ -253,7 +253,7 @@ impl<'a> FunctionLower<'a> {
                                         dest_bb_idx,
                                     ));
                                 }
-                                ReturnOrValue::Return => {
+                                LoweredExpr::Return => {
                                     self.add_termination_to_current_bb(Termination::Goto(
                                         self.exit_bb_idx(),
                                     ));
@@ -287,7 +287,7 @@ impl<'a> FunctionLower<'a> {
                             if !has_return {
                                 if let Some(tail) = else_block.tail {
                                     match self.lower_expr(tail) {
-                                        ReturnOrValue::Value(value) => {
+                                        LoweredExpr::Value(value) => {
                                             let (dest_bb_idx, result_local_idx) =
                                                 match dest_bb_and_result_local_idx {
                                                     Some(idxes) => idxes,
@@ -310,7 +310,7 @@ impl<'a> FunctionLower<'a> {
                                                 dest_bb_idx,
                                             ));
                                         }
-                                        ReturnOrValue::Return => {
+                                        LoweredExpr::Return => {
                                             self.add_termination_to_current_bb(Termination::Goto(
                                                 self.exit_bb_idx(),
                                             ));
@@ -323,9 +323,9 @@ impl<'a> FunctionLower<'a> {
                                 dest_bb_and_result_local_idx
                             {
                                 self.current_bb = Some(dest_bb_idx);
-                                ReturnOrValue::Value(Value::Place(Place::Local(result_local_idx)))
+                                LoweredExpr::Value(Value::Place(Place::Local(result_local_idx)))
                             } else {
-                                ReturnOrValue::Return
+                                LoweredExpr::Return
                             }
                         }
                         None => match dest_bb_and_result_local_idx {
@@ -339,14 +339,14 @@ impl<'a> FunctionLower<'a> {
                                 self.add_termination_to_current_bb(Termination::Goto(dest_bb_idx));
                                 self.current_bb = Some(dest_bb_idx);
 
-                                ReturnOrValue::Value(Value::Place(Place::Local(result_local_idx)))
+                                LoweredExpr::Value(Value::Place(Place::Local(result_local_idx)))
                             }
                             None => {
                                 let dest_bb_idx = self.alloc_standard_bb();
                                 self.add_termination_to_current_bb(Termination::Goto(dest_bb_idx));
                                 self.current_bb = Some(dest_bb_idx);
 
-                                ReturnOrValue::Value(Value::Constant(Constant::Unit))
+                                LoweredExpr::Value(Value::Constant(Constant::Unit))
                             }
                         },
                     }
@@ -361,8 +361,8 @@ impl<'a> FunctionLower<'a> {
             hir::Stmt::VariableDef { name: _, value } => {
                 let local_idx = self.alloc_local(*value);
                 let value = match self.lower_expr(*value) {
-                    ReturnOrValue::Value(value) => value,
-                    ReturnOrValue::Return => {
+                    LoweredExpr::Value(value) => value,
+                    LoweredExpr::Return => {
                         return LoweredStmt::Return;
                     }
                 };
@@ -373,8 +373,8 @@ impl<'a> FunctionLower<'a> {
             }
             hir::Stmt::Expr(expr) => {
                 match self.lower_expr(*expr) {
-                    ReturnOrValue::Value(value) => value,
-                    ReturnOrValue::Return => {
+                    LoweredExpr::Value(value) => value,
+                    LoweredExpr::Return => {
                         return LoweredStmt::Return;
                     }
                 };
@@ -433,7 +433,7 @@ impl<'a> FunctionLower<'a> {
         if !has_return {
             if let Some(tail) = body_block.tail {
                 match self.lower_expr(tail) {
-                    ReturnOrValue::Value(value) => {
+                    LoweredExpr::Value(value) => {
                         self.add_statement_to_current_bb(Statement::Assign {
                             place: Place::ReturnLocal(self.return_variable_idx()),
                             value,
@@ -441,7 +441,7 @@ impl<'a> FunctionLower<'a> {
                         self.add_termination_to_current_bb(Termination::Goto(exit_bb_idx));
                         self.current_bb = Some(exit_bb_idx);
                     }
-                    ReturnOrValue::Return => (),
+                    LoweredExpr::Return => (),
                 };
             }
         } else {
@@ -607,7 +607,7 @@ enum Value {
 }
 
 #[derive(Debug)]
-enum ReturnOrValue {
+enum LoweredExpr {
     Return,
     Value(Value),
 }

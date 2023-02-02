@@ -922,6 +922,51 @@ mod tests {
     }
 
     #[test]
+    fn return_value_when_true() {
+        check(
+            r#"
+                fn main() -> int {
+                    if true {
+                        return 10
+                    } else {
+                        20
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn main() -> int {
+                    let _0: int
+                    let _1: bool
+                    let _2: !
+
+                    entry: {
+                        _1 = true
+                    }
+
+                    exit: {
+                        return _0
+                    }
+
+                    bb0: {
+                        _0 = _2
+                        goto -> exit
+                    }
+
+                    then0: {
+                        _0 = 10
+                        goto -> exit
+                    }
+
+                    else0: {
+                        _2 = 20
+                        goto -> bb0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
     fn test_switch() {
         check(
             r#"

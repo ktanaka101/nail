@@ -27,6 +27,7 @@ struct FunctionLower<'a> {
     current_bb: Option<Idx<BasicBlock>>,
     block_idx: u64,
     local_by_hir: HashMap<hir::ExprIdx, Idx<Local>>,
+    exit_bb_idx: Option<Idx<BasicBlock>>,
 }
 
 impl<'a> FunctionLower<'a> {
@@ -49,6 +50,7 @@ impl<'a> FunctionLower<'a> {
             current_bb: None,
             block_idx: 0,
             local_by_hir: HashMap::new(),
+            exit_bb_idx: None,
         }
     }
 
@@ -58,6 +60,10 @@ impl<'a> FunctionLower<'a> {
             .map(|(idx, _)| idx)
             .next()
             .unwrap()
+    }
+
+    fn exit_bb_idx(&self) -> Idx<BasicBlock> {
+        self.exit_bb_idx.unwrap()
     }
 
     fn add_statement_to_current_bb(&mut self, statement: Statement) {
@@ -94,10 +100,15 @@ impl<'a> FunctionLower<'a> {
     }
 
     fn alloc_exit_bb(&mut self) -> Idx<BasicBlock> {
+        assert!(matches!(self.exit_bb_idx, None));
+
         let mut exit_bb = BasicBlock::new_exit_bb(0);
         exit_bb.termination = Some(Termination::Return(self.return_variable_idx()));
 
-        self.blocks.alloc(exit_bb)
+        let exit_bb_idx = self.blocks.alloc(exit_bb);
+        self.exit_bb_idx = Some(exit_bb_idx);
+
+        exit_bb_idx
     }
 
     fn alloc_switch_bb(&mut self) -> AllocatedSwitchBB {
@@ -172,8 +183,6 @@ impl<'a> FunctionLower<'a> {
 
                 let result_local_idx = self.alloc_local(*then_branch);
 
-                let mut has_return = false;
-
                 let switch_bb = self.alloc_switch_bb();
                 {
                     self.current_bb = Some(switch_bb.then_bb_idx);
@@ -190,14 +199,15 @@ impl<'a> FunctionLower<'a> {
                                     place: Place::Local(result_local_idx),
                                     value,
                                 });
+                                self.add_termination_to_current_bb(Termination::Goto(dest_bb_idx));
                             }
                             ReturnOrValue::Return => {
-                                has_return = true;
+                                self.add_termination_to_current_bb(Termination::Goto(
+                                    self.exit_bb_idx(),
+                                ));
                             }
                         };
                     }
-
-                    self.add_termination_to_current_bb(Termination::Goto(dest_bb_idx));
                 }
 
                 {
@@ -218,23 +228,20 @@ impl<'a> FunctionLower<'a> {
                                     place: Place::Local(result_local_idx),
                                     value,
                                 });
+                                self.add_termination_to_current_bb(Termination::Goto(dest_bb_idx));
                             }
                             ReturnOrValue::Return => {
-                                has_return = true;
+                                self.add_termination_to_current_bb(Termination::Goto(
+                                    self.exit_bb_idx(),
+                                ));
                             }
                         };
                     }
-
-                    self.add_termination_to_current_bb(Termination::Goto(dest_bb_idx));
                 }
 
                 self.current_bb = Some(dest_bb_idx);
 
-                if has_return {
-                    return ReturnOrValue::Return;
-                } else {
-                    Value::Place(Place::Local(result_local_idx))
-                }
+                Value::Place(Place::Local(result_local_idx))
             }
             _ => todo!(),
         };
@@ -272,6 +279,8 @@ impl<'a> FunctionLower<'a> {
         };
 
         let entry_bb_idx = self.alloc_entry_bb();
+        let exit_bb_idx = self.alloc_exit_bb();
+
         self.current_bb = Some(entry_bb_idx);
 
         let mut has_return = false;
@@ -317,8 +326,6 @@ impl<'a> FunctionLower<'a> {
                 };
             }
         }
-
-        let exit_bb_idx = self.alloc_exit_bb();
 
         self.add_termination_to_current_bb(Termination::Goto(exit_bb_idx));
         self.current_bb = Some(exit_bb_idx);
@@ -846,22 +853,68 @@ mod tests {
                         _1 = true
                     }
 
+                    exit: {
+                        return _0
+                    }
+
                     bb0: {
+                        _0 = _2
                         goto -> exit
                     }
 
                     then0: {
                         _0 = 10
+                        goto -> exit
+                    }
+
+                    else0: {
+                        _0 = 20
+                        goto -> exit
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn return_value_when_false() {
+        check(
+            r#"
+                fn main() -> int {
+                    if true {
+                        10
+                    } else {
+                        return 20
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn main() -> int {
+                    let _0: int
+                    let _1: bool
+                    let _2: int
+
+                    entry: {
+                        _1 = true
+                    }
+
+                    exit: {
+                        return _0
+                    }
+
+                    bb0: {
+                        _0 = _2
+                        goto -> exit
+                    }
+
+                    then0: {
+                        _2 = 10
                         goto -> bb0
                     }
 
                     else0: {
                         _0 = 20
-                        goto -> bb0
-                    }
-
-                    exit: {
-                        return _0
+                        goto -> exit
                     }
                 }
             "#]],
@@ -890,6 +943,10 @@ mod tests {
                         _1 = true
                     }
 
+                    exit: {
+                        return _0
+                    }
+
                     bb0: {
                         _0 = _2
                         goto -> exit
@@ -903,10 +960,6 @@ mod tests {
                     else0: {
                         _2 = 20
                         goto -> bb0
-                    }
-
-                    exit: {
-                        return _0
                     }
                 }
             "#]],

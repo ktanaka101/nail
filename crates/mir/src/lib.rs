@@ -772,11 +772,14 @@ mod tests {
 
     fn debug_value(value: &crate::Value, body: &crate::Body) -> String {
         match value {
-            crate::Value::Constant(constant) => match constant {
-                crate::Constant::Integer(integer) => integer.to_string(),
-                crate::Constant::Boolean(boolean) => boolean.to_string(),
-                crate::Constant::Unit => "()".to_string(),
-            },
+            crate::Value::Constant(constant) => {
+                let const_value = match constant {
+                    crate::Constant::Integer(integer) => integer.to_string(),
+                    crate::Constant::Boolean(boolean) => boolean.to_string(),
+                    crate::Constant::Unit => "()".to_string(),
+                };
+                format!("const {const_value}")
+            }
             crate::Value::Place(place) => debug_place(place, body),
         }
     }
@@ -855,7 +858,7 @@ mod tests {
                     let _0: int
 
                     entry: {
-                        _0 = 10
+                        _0 = const 10
                         goto -> exit
                     }
 
@@ -880,7 +883,7 @@ mod tests {
                     let _0: bool
 
                     entry: {
-                        _0 = true
+                        _0 = const true
                         goto -> exit
                     }
 
@@ -907,7 +910,7 @@ mod tests {
                     let _1: int
 
                     entry: {
-                        _1 = 10
+                        _1 = const 10
                         _0 = _1
                         goto -> exit
                     }
@@ -934,7 +937,7 @@ mod tests {
                     let _0: int
 
                     entry: {
-                        _0 = 10
+                        _0 = const 10
                         goto -> exit
                     }
 
@@ -964,7 +967,7 @@ mod tests {
                     let _1: bool
 
                     entry: {
-                        _1 = true
+                        _1 = const true
                         switch(_1) -> [true: then0, false: else0]
                     }
 
@@ -973,12 +976,12 @@ mod tests {
                     }
 
                     then0: {
-                        _0 = 10
+                        _0 = const 10
                         goto -> exit
                     }
 
                     else0: {
-                        _0 = 20
+                        _0 = const 20
                         goto -> exit
                     }
                 }
@@ -1005,7 +1008,7 @@ mod tests {
                     let _2: int
 
                     entry: {
-                        _1 = true
+                        _1 = const true
                         switch(_1) -> [true: then0, false: else0]
                     }
 
@@ -1014,12 +1017,12 @@ mod tests {
                     }
 
                     then0: {
-                        _2 = 10
+                        _2 = const 10
                         goto -> bb0
                     }
 
                     else0: {
-                        _0 = 20
+                        _0 = const 20
                         goto -> exit
                     }
 
@@ -1051,7 +1054,7 @@ mod tests {
                     let _2: !
 
                     entry: {
-                        _1 = true
+                        _1 = const true
                         switch(_1) -> [true: then0, false: else0]
                     }
 
@@ -1060,12 +1063,12 @@ mod tests {
                     }
 
                     then0: {
-                        _0 = 10
+                        _0 = const 10
                         goto -> exit
                     }
 
                     else0: {
-                        _2 = 20
+                        _2 = const 20
                         goto -> bb0
                     }
 
@@ -1097,7 +1100,7 @@ mod tests {
                     let _2: int
 
                     entry: {
-                        _1 = true
+                        _1 = const true
                         switch(_1) -> [true: then0, false: else0]
                     }
 
@@ -1106,12 +1109,12 @@ mod tests {
                     }
 
                     then0: {
-                        _2 = 10
+                        _2 = const 10
                         goto -> bb0
                     }
 
                     else0: {
-                        _2 = 20
+                        _2 = const 20
                         goto -> bb0
                     }
 
@@ -1144,8 +1147,8 @@ mod tests {
                     let _2: bool
 
                     entry: {
-                        _1 = 10
-                        _2 = true
+                        _1 = const 10
+                        _2 = const true
                         switch(_2) -> [true: then0, false: else0]
                     }
 
@@ -1154,7 +1157,7 @@ mod tests {
                     }
 
                     then0: {
-                        _0 = 20
+                        _0 = const 20
                         goto -> exit
                     }
 
@@ -1192,8 +1195,8 @@ mod tests {
                     let _3: int
 
                     entry: {
-                        _1 = 10
-                        _2 = true
+                        _1 = const 10
+                        _2 = const true
                         switch(_2) -> [true: then0, false: else0]
                     }
 
@@ -1202,12 +1205,12 @@ mod tests {
                     }
 
                     then0: {
-                        _3 = 20
+                        _3 = const 20
                         goto -> bb0
                     }
 
                     else0: {
-                        _3 = ()
+                        _3 = const ()
                         goto -> bb0
                     }
 
@@ -1243,7 +1246,7 @@ mod tests {
                     let _4: int
 
                     entry: {
-                        _1 = true
+                        _1 = const true
                         switch(_1) -> [true: then0, false: else0]
                     }
 
@@ -1252,13 +1255,13 @@ mod tests {
                     }
 
                     then0: {
-                        _2 = 20
+                        _2 = const 20
                         _3 = _2
                         goto -> bb0
                     }
 
                     else0: {
-                        _4 = 20
+                        _4 = const 20
                         _3 = _4
                         goto -> bb0
                     }

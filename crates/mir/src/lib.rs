@@ -877,7 +877,7 @@ mod tests {
     }
 
     #[test]
-    fn return_value_when_false() {
+    fn return_value_when_false_in_switch() {
         check(
             r#"
                 fn main() -> int {
@@ -922,7 +922,7 @@ mod tests {
     }
 
     #[test]
-    fn return_value_when_true() {
+    fn return_value_when_true_in_switch() {
         check(
             r#"
                 fn main() -> int {

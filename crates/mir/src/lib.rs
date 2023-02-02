@@ -115,9 +115,9 @@ impl<'a> FunctionLower<'a> {
         }
     }
 
-    fn lower_expr(&mut self, expr: hir::ExprIdx) -> Value {
+    fn lower_expr(&mut self, expr: hir::ExprIdx) -> ReturnOrValue {
         let expr = &self.hir_result.shared_ctx.exprs[expr];
-        match expr {
+        let value = match expr {
             hir::Expr::Literal(literal) => match literal {
                 hir::Literal::Integer(value) => Value::Constant(Constant::Integer(*value)),
                 hir::Literal::Bool(value) => Value::Constant(Constant::Boolean(*value)),
@@ -131,6 +131,21 @@ impl<'a> FunctionLower<'a> {
                 hir::Symbol::Function { name, function } => todo!(),
                 hir::Symbol::Missing { name } => todo!(),
             },
+            hir::Expr::Return { value } => {
+                if let Some(value) = value {
+                    let value = match self.lower_expr(*value) {
+                        ReturnOrValue::Value(value) => value,
+                        ReturnOrValue::Return => return ReturnOrValue::Return,
+                    };
+                    let return_value_place = Place::ReturnLocal(self.return_variable_idx());
+                    self.add_statement_to_current_bb(Statement::Assign {
+                        place: return_value_place,
+                        value,
+                    });
+                }
+
+                return ReturnOrValue::Return;
+            }
             hir::Expr::If {
                 condition,
                 then_branch,
@@ -138,7 +153,10 @@ impl<'a> FunctionLower<'a> {
             } => {
                 {
                     let cond_local_idx = self.alloc_local(*condition);
-                    let cond_value = self.lower_expr(*condition);
+                    let cond_value = match self.lower_expr(*condition) {
+                        ReturnOrValue::Value(value) => value,
+                        ReturnOrValue::Return => return ReturnOrValue::Return,
+                    };
                     let place = Place::Local(cond_local_idx);
                     self.add_statement_to_current_bb(Statement::Assign {
                         place,
@@ -164,7 +182,10 @@ impl<'a> FunctionLower<'a> {
                     };
 
                     if let Some(tail) = then_block.tail {
-                        let value = self.lower_expr(tail);
+                        let value = match self.lower_expr(tail) {
+                            ReturnOrValue::Value(value) => value,
+                            ReturnOrValue::Return => return ReturnOrValue::Return,
+                        };
                         self.add_statement_to_current_bb(Statement::Assign {
                             place: Place::Local(result_local_idx),
                             value,
@@ -186,7 +207,10 @@ impl<'a> FunctionLower<'a> {
                     };
 
                     if let Some(tail) = else_block.tail {
-                        let value = self.lower_expr(tail);
+                        let value = match self.lower_expr(tail) {
+                            ReturnOrValue::Value(value) => value,
+                            ReturnOrValue::Return => return ReturnOrValue::Return,
+                        };
                         self.add_statement_to_current_bb(Statement::Assign {
                             place: Place::Local(result_local_idx),
                             value,
@@ -201,7 +225,9 @@ impl<'a> FunctionLower<'a> {
                 Value::Place(Place::Local(result_local_idx))
             }
             _ => todo!(),
-        }
+        };
+
+        ReturnOrValue::Value(value)
     }
 
     fn lower(mut self) -> Body {
@@ -236,29 +262,48 @@ impl<'a> FunctionLower<'a> {
         let entry_bb_idx = self.alloc_entry_bb();
         self.current_bb = Some(entry_bb_idx);
 
+        let mut has_return = false;
         for stmt in &body_block.stmts {
             match stmt {
                 hir::Stmt::VariableDef { name, value } => {
                     let local_idx = self.alloc_local(*value);
-                    let value = self.lower_expr(*value);
+                    let value = match self.lower_expr(*value) {
+                        ReturnOrValue::Value(value) => value,
+                        ReturnOrValue::Return => {
+                            has_return = true;
+                            break;
+                        }
+                    };
                     self.add_statement_to_current_bb(Statement::Assign {
                         place: Place::Local(local_idx),
                         value,
                     });
                 }
                 hir::Stmt::Expr(expr) => {
-                    todo!()
+                    match self.lower_expr(*expr) {
+                        ReturnOrValue::Value(value) => value,
+                        ReturnOrValue::Return => {
+                            has_return = true;
+                            break;
+                        }
+                    };
                 }
                 hir::Stmt::FunctionDef { .. } => unreachable!(),
             }
         }
 
-        if let Some(tail) = body_block.tail {
-            let value = self.lower_expr(tail);
-            self.add_statement_to_current_bb(Statement::Assign {
-                place: Place::ReturnLocal(self.return_variable_idx()),
-                value,
-            });
+        if !has_return {
+            if let Some(tail) = body_block.tail {
+                match self.lower_expr(tail) {
+                    ReturnOrValue::Value(value) => {
+                        self.add_statement_to_current_bb(Statement::Assign {
+                            place: Place::ReturnLocal(self.return_variable_idx()),
+                            value,
+                        });
+                    }
+                    ReturnOrValue::Return => (),
+                };
+            }
         }
 
         let exit_bb_idx = self.alloc_exit_bb();
@@ -421,6 +466,12 @@ enum Place {
 enum Value {
     Constant(Constant),
     Place(Place),
+}
+
+#[derive(Debug)]
+enum ReturnOrValue {
+    Return,
+    Value(Value),
 }
 
 #[derive(Debug)]
@@ -724,6 +775,32 @@ mod tests {
                     entry: {
                         _1 = 10
                         _0 = _1
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_return() {
+        check(
+            r#"
+                fn main() -> int {
+                    return 10
+                    20
+                }
+            "#,
+            expect![[r#"
+                fn main() -> int {
+                    let _0: int
+
+                    entry: {
+                        _0 = 10
                         goto -> exit
                     }
 

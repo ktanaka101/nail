@@ -221,10 +221,12 @@ impl<'a> FunctionLower<'a> {
 
                     let mut has_return = false;
                     for stmt in &then_block.stmts {
-                        let is_returned = self.lower_stmt(stmt);
-                        if is_returned {
-                            has_return = true;
-                            break;
+                        match self.lower_stmt(stmt) {
+                            LoweredStmt::Return => {
+                                has_return = true;
+                                break;
+                            }
+                            LoweredStmt::Unit => (),
                         }
                     }
                     if !has_return {
@@ -273,10 +275,12 @@ impl<'a> FunctionLower<'a> {
 
                             let mut has_return = false;
                             for stmt in &else_block.stmts {
-                                let is_returned = self.lower_stmt(stmt);
-                                if is_returned {
-                                    has_return = true;
-                                    break;
+                                match self.lower_stmt(stmt) {
+                                    LoweredStmt::Return => {
+                                        has_return = true;
+                                        break;
+                                    }
+                                    LoweredStmt::Unit => (),
                                 }
                             }
 
@@ -352,14 +356,14 @@ impl<'a> FunctionLower<'a> {
         }
     }
 
-    fn lower_stmt(&mut self, stmt: &hir::Stmt) -> bool {
+    fn lower_stmt(&mut self, stmt: &hir::Stmt) -> LoweredStmt {
         match stmt {
             hir::Stmt::VariableDef { name: _, value } => {
                 let local_idx = self.alloc_local(*value);
                 let value = match self.lower_expr(*value) {
                     ReturnOrValue::Value(value) => value,
                     ReturnOrValue::Return => {
-                        return true;
+                        return LoweredStmt::Return;
                     }
                 };
                 self.add_statement_to_current_bb(Statement::Assign {
@@ -371,14 +375,14 @@ impl<'a> FunctionLower<'a> {
                 match self.lower_expr(*expr) {
                     ReturnOrValue::Value(value) => value,
                     ReturnOrValue::Return => {
-                        return true;
+                        return LoweredStmt::Return;
                     }
                 };
             }
             hir::Stmt::FunctionDef { .. } => unreachable!(),
         }
 
-        false
+        LoweredStmt::Unit
     }
 
     fn lower(mut self) -> Body {
@@ -417,10 +421,12 @@ impl<'a> FunctionLower<'a> {
 
         let mut has_return = false;
         for stmt in &body_block.stmts {
-            let is_returned = self.lower_stmt(stmt);
-            if is_returned {
-                has_return = true;
-                break;
+            match self.lower_stmt(stmt) {
+                LoweredStmt::Return => {
+                    has_return = true;
+                    break;
+                }
+                LoweredStmt::Unit => (),
             }
         }
 
@@ -604,6 +610,12 @@ enum Value {
 enum ReturnOrValue {
     Return,
     Value(Value),
+}
+
+#[derive(Debug)]
+enum LoweredStmt {
+    Return,
+    Unit,
 }
 
 #[derive(Debug)]

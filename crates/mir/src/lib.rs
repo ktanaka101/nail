@@ -219,33 +219,45 @@ impl<'a> FunctionLower<'a> {
                         _ => unreachable!(),
                     };
 
-                    if let Some(tail) = then_block.tail {
-                        match self.lower_expr(tail) {
-                            ReturnOrValue::Value(value) => {
-                                let (dest_bb_idx, result_local_idx) =
-                                    match dest_bb_and_result_local_idx {
-                                        Some(idxes) => idxes,
-                                        None => {
-                                            let idxes =
-                                                self.alloc_dest_bb_and_result_local(*then_branch);
-                                            dest_bb_and_result_local_idx = Some(idxes);
+                    let mut has_return = false;
+                    for stmt in &then_block.stmts {
+                        let is_returned = self.lower_stmt(stmt);
+                        if is_returned {
+                            has_return = true;
+                            break;
+                        }
+                    }
+                    if !has_return {
+                        if let Some(tail) = then_block.tail {
+                            match self.lower_expr(tail) {
+                                ReturnOrValue::Value(value) => {
+                                    let (dest_bb_idx, result_local_idx) =
+                                        match dest_bb_and_result_local_idx {
+                                            Some(idxes) => idxes,
+                                            None => {
+                                                let idxes = self
+                                                    .alloc_dest_bb_and_result_local(*then_branch);
+                                                dest_bb_and_result_local_idx = Some(idxes);
 
-                                            idxes
-                                        }
-                                    };
+                                                idxes
+                                            }
+                                        };
 
-                                self.add_statement_to_current_bb(Statement::Assign {
-                                    place: Place::Local(result_local_idx),
-                                    value,
-                                });
-                                self.add_termination_to_current_bb(Termination::Goto(dest_bb_idx));
-                            }
-                            ReturnOrValue::Return => {
-                                self.add_termination_to_current_bb(Termination::Goto(
-                                    self.exit_bb_idx(),
-                                ));
-                            }
-                        };
+                                    self.add_statement_to_current_bb(Statement::Assign {
+                                        place: Place::Local(result_local_idx),
+                                        value,
+                                    });
+                                    self.add_termination_to_current_bb(Termination::Goto(
+                                        dest_bb_idx,
+                                    ));
+                                }
+                                ReturnOrValue::Return => {
+                                    self.add_termination_to_current_bb(Termination::Goto(
+                                        self.exit_bb_idx(),
+                                    ));
+                                }
+                            };
+                        }
                     }
                 }
 
@@ -259,37 +271,48 @@ impl<'a> FunctionLower<'a> {
                                 _ => unreachable!(),
                             };
 
-                            if let Some(tail) = else_block.tail {
-                                match self.lower_expr(tail) {
-                                    ReturnOrValue::Value(value) => {
-                                        let (dest_bb_idx, result_local_idx) =
-                                            match dest_bb_and_result_local_idx {
-                                                Some(idxes) => idxes,
-                                                None => {
-                                                    let idxes = self
-                                                        .alloc_dest_bb_and_result_local(
-                                                            *then_branch,
-                                                        );
-                                                    dest_bb_and_result_local_idx = Some(idxes);
+                            let mut has_return = false;
+                            for stmt in &else_block.stmts {
+                                let is_returned = self.lower_stmt(stmt);
+                                if is_returned {
+                                    has_return = true;
+                                    break;
+                                }
+                            }
 
-                                                    idxes
-                                                }
-                                            };
+                            if !has_return {
+                                if let Some(tail) = else_block.tail {
+                                    match self.lower_expr(tail) {
+                                        ReturnOrValue::Value(value) => {
+                                            let (dest_bb_idx, result_local_idx) =
+                                                match dest_bb_and_result_local_idx {
+                                                    Some(idxes) => idxes,
+                                                    None => {
+                                                        let idxes = self
+                                                            .alloc_dest_bb_and_result_local(
+                                                                *then_branch,
+                                                            );
+                                                        dest_bb_and_result_local_idx = Some(idxes);
 
-                                        self.add_statement_to_current_bb(Statement::Assign {
-                                            place: Place::Local(result_local_idx),
-                                            value,
-                                        });
-                                        self.add_termination_to_current_bb(Termination::Goto(
-                                            dest_bb_idx,
-                                        ));
-                                    }
-                                    ReturnOrValue::Return => {
-                                        self.add_termination_to_current_bb(Termination::Goto(
-                                            self.exit_bb_idx(),
-                                        ));
-                                    }
-                                };
+                                                        idxes
+                                                    }
+                                                };
+
+                                            self.add_statement_to_current_bb(Statement::Assign {
+                                                place: Place::Local(result_local_idx),
+                                                value,
+                                            });
+                                            self.add_termination_to_current_bb(Termination::Goto(
+                                                dest_bb_idx,
+                                            ));
+                                        }
+                                        ReturnOrValue::Return => {
+                                            self.add_termination_to_current_bb(Termination::Goto(
+                                                self.exit_bb_idx(),
+                                            ));
+                                        }
+                                    };
+                                }
                             }
 
                             if let Some((dest_bb_idx, result_local_idx)) =
@@ -329,6 +352,35 @@ impl<'a> FunctionLower<'a> {
         }
     }
 
+    fn lower_stmt(&mut self, stmt: &hir::Stmt) -> bool {
+        match stmt {
+            hir::Stmt::VariableDef { name, value } => {
+                let local_idx = self.alloc_local(*value);
+                let value = match self.lower_expr(*value) {
+                    ReturnOrValue::Value(value) => value,
+                    ReturnOrValue::Return => {
+                        return true;
+                    }
+                };
+                self.add_statement_to_current_bb(Statement::Assign {
+                    place: Place::Local(local_idx),
+                    value,
+                });
+            }
+            hir::Stmt::Expr(expr) => {
+                match self.lower_expr(*expr) {
+                    ReturnOrValue::Value(value) => value,
+                    ReturnOrValue::Return => {
+                        return true;
+                    }
+                };
+            }
+            hir::Stmt::FunctionDef { .. } => unreachable!(),
+        }
+
+        false
+    }
+
     fn lower(mut self) -> Body {
         let function = &self.hir_result.db.functions[self.function_idx];
         let signature = &self.hir_ty_result.signature_by_function(&self.function_idx);
@@ -365,31 +417,10 @@ impl<'a> FunctionLower<'a> {
 
         let mut has_return = false;
         for stmt in &body_block.stmts {
-            match stmt {
-                hir::Stmt::VariableDef { name, value } => {
-                    let local_idx = self.alloc_local(*value);
-                    let value = match self.lower_expr(*value) {
-                        ReturnOrValue::Value(value) => value,
-                        ReturnOrValue::Return => {
-                            has_return = true;
-                            break;
-                        }
-                    };
-                    self.add_statement_to_current_bb(Statement::Assign {
-                        place: Place::Local(local_idx),
-                        value,
-                    });
-                }
-                hir::Stmt::Expr(expr) => {
-                    match self.lower_expr(*expr) {
-                        ReturnOrValue::Value(value) => value,
-                        ReturnOrValue::Return => {
-                            has_return = true;
-                            break;
-                        }
-                    };
-                }
-                hir::Stmt::FunctionDef { .. } => unreachable!(),
+            let is_returned = self.lower_stmt(stmt);
+            if is_returned {
+                has_return = true;
+                break;
             }
         }
 
@@ -1182,6 +1213,58 @@ mod tests {
 
                     bb0: {
                         _0 = _1
+                        goto -> exit
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_statements_in_switch() {
+        check(
+            r#"
+                fn main() -> int {
+                    if true {
+                        let b = 20
+                        b
+                    } else {
+                        let c = 20
+                        c
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn main() -> int {
+                    let _0: int
+                    let _1: bool
+                    let _2: int
+                    let _3: int
+                    let _4: int
+
+                    entry: {
+                        _1 = true
+                        switch(_1) -> [true: then0, false: else0]
+                    }
+
+                    exit: {
+                        return _0
+                    }
+
+                    then0: {
+                        _2 = 20
+                        _3 = _2
+                        goto -> bb0
+                    }
+
+                    else0: {
+                        _4 = 20
+                        _3 = _4
+                        goto -> bb0
+                    }
+
+                    bb0: {
+                        _0 = _3
                         goto -> exit
                     }
                 }

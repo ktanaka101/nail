@@ -354,7 +354,7 @@ impl<'a> FunctionLower<'a> {
 
     fn lower_stmt(&mut self, stmt: &hir::Stmt) -> bool {
         match stmt {
-            hir::Stmt::VariableDef { name, value } => {
+            hir::Stmt::VariableDef { name: _, value } => {
                 let local_idx = self.alloc_local(*value);
                 let value = match self.lower_expr(*value) {
                     ReturnOrValue::Value(value) => value,

@@ -172,6 +172,8 @@ impl<'a> FunctionLower<'a> {
 
                 let result_local_idx = self.alloc_local(*then_branch);
 
+                let mut has_return = false;
+
                 let switch_bb = self.alloc_switch_bb();
                 {
                     self.current_bb = Some(switch_bb.then_bb_idx);
@@ -182,14 +184,17 @@ impl<'a> FunctionLower<'a> {
                     };
 
                     if let Some(tail) = then_block.tail {
-                        let value = match self.lower_expr(tail) {
-                            ReturnOrValue::Value(value) => value,
-                            ReturnOrValue::Return => return ReturnOrValue::Return,
+                        match self.lower_expr(tail) {
+                            ReturnOrValue::Value(value) => {
+                                self.add_statement_to_current_bb(Statement::Assign {
+                                    place: Place::Local(result_local_idx),
+                                    value,
+                                });
+                            }
+                            ReturnOrValue::Return => {
+                                has_return = true;
+                            }
                         };
-                        self.add_statement_to_current_bb(Statement::Assign {
-                            place: Place::Local(result_local_idx),
-                            value,
-                        });
                     }
 
                     self.add_termination_to_current_bb(Termination::Goto(dest_bb_idx));
@@ -207,14 +212,17 @@ impl<'a> FunctionLower<'a> {
                     };
 
                     if let Some(tail) = else_block.tail {
-                        let value = match self.lower_expr(tail) {
-                            ReturnOrValue::Value(value) => value,
-                            ReturnOrValue::Return => return ReturnOrValue::Return,
+                        match self.lower_expr(tail) {
+                            ReturnOrValue::Value(value) => {
+                                self.add_statement_to_current_bb(Statement::Assign {
+                                    place: Place::Local(result_local_idx),
+                                    value,
+                                });
+                            }
+                            ReturnOrValue::Return => {
+                                has_return = true;
+                            }
                         };
-                        self.add_statement_to_current_bb(Statement::Assign {
-                            place: Place::Local(result_local_idx),
-                            value,
-                        });
                     }
 
                     self.add_termination_to_current_bb(Termination::Goto(dest_bb_idx));
@@ -222,7 +230,11 @@ impl<'a> FunctionLower<'a> {
 
                 self.current_bb = Some(dest_bb_idx);
 
-                Value::Place(Place::Local(result_local_idx))
+                if has_return {
+                    return ReturnOrValue::Return;
+                } else {
+                    Value::Place(Place::Local(result_local_idx))
+                }
             }
             _ => todo!(),
         };
@@ -802,6 +814,50 @@ mod tests {
                     entry: {
                         _0 = 10
                         goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_return_in_switch() {
+        check(
+            r#"
+                fn main() -> int {
+                    if true {
+                        return 10
+                    } else {
+                        return 20
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn main() -> int {
+                    let _0: int
+                    let _1: bool
+                    let _2: !
+
+                    entry: {
+                        _1 = true
+                    }
+
+                    bb0: {
+                        goto -> exit
+                    }
+
+                    then0: {
+                        _0 = 10
+                        goto -> bb0
+                    }
+
+                    else0: {
+                        _0 = 20
+                        goto -> bb0
                     }
 
                     exit: {

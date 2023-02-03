@@ -24,6 +24,10 @@ fn parse_variable_def(parser: &mut Parser) -> CompletedMarker {
 
     expr::parse_expr(parser);
 
+    if parser.at(TokenKind::Semicolon) {
+        parser.bump();
+    }
+
     marker.complete(parser, SyntaxKind::VariableDef)
 }
 
@@ -159,6 +163,26 @@ mod tests {
                     Whitespace@9..10 " "
                     VariableRef@10..13
                       Ident@10..13 "bar"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_variable_definition_with_semicolon() {
+        check(
+            "let foo = 10;",
+            expect![[r#"
+                SourceFile@0..13
+                  VariableDef@0..13
+                    LetKw@0..3 "let"
+                    Whitespace@3..4 " "
+                    Ident@4..7 "foo"
+                    Whitespace@7..8 " "
+                    Eq@8..9 "="
+                    Whitespace@9..10 " "
+                    Literal@10..12
+                      Integer@10..12 "10"
+                    Semicolon@12..13 ";"
             "#]],
         );
     }

@@ -106,8 +106,8 @@ impl BodyLower {
                 self.scopes.define(name, idx);
                 Stmt::VariableDef { name, value: idx }
             }
-            ast::Stmt::Expr(ast) => {
-                let expr = self.lower_expr(Some(ast), ctx, db, item_tree, interner);
+            ast::Stmt::ExprStmt(ast) => {
+                let expr = self.lower_expr(ast.expr(), ctx, db, item_tree, interner);
                 Stmt::Expr(ctx.exprs.alloc(expr))
             }
             ast::Stmt::FunctionDef(def) => {

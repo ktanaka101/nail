@@ -119,20 +119,24 @@ impl AstNode for Expr {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Stmt {
     VariableDef(VariableDef),
-    Expr(Expr),
     FunctionDef(FunctionDef),
+    ExprStmt(ExprStmt),
 }
 impl Ast for Stmt {}
 impl AstNode for Stmt {
     fn can_cast(kind: SyntaxKind) -> bool {
-        matches!(kind, SyntaxKind::VariableDef | SyntaxKind::FunctionDef) || Expr::can_cast(kind)
+        matches!(
+            kind,
+            SyntaxKind::VariableDef | SyntaxKind::FunctionDef | SyntaxKind::ExprStmt
+        )
     }
 
     fn cast(syntax: SyntaxNode) -> Option<Self> {
         let result = match syntax.kind() {
             SyntaxKind::VariableDef => Self::VariableDef(VariableDef { syntax }),
             SyntaxKind::FunctionDef => Self::FunctionDef(FunctionDef { syntax }),
-            _ => Self::Expr(Expr::cast(syntax)?),
+            SyntaxKind::ExprStmt => Self::ExprStmt(ExprStmt::cast(syntax)?),
+            _ => return None,
         };
 
         Some(result)
@@ -141,8 +145,8 @@ impl AstNode for Stmt {
     fn syntax(&self) -> &SyntaxNode {
         match self {
             Stmt::VariableDef(it) => it.syntax(),
-            Stmt::Expr(it) => it.syntax(),
             Stmt::FunctionDef(it) => it.syntax(),
+            Stmt::ExprStmt(it) => it.syntax(),
         }
     }
 }

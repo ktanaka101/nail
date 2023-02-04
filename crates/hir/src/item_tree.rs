@@ -146,7 +146,9 @@ impl<'a> ItemTreeBuilderContext<'a> {
                 self.function_by_block.insert(block.clone(), function);
                 self.block_by_function.insert(function, block);
             }
-            ast::Stmt::Expr(expr) => self.build_expr(expr, current_scope, parent, db)?,
+            ast::Stmt::ExprStmt(expr_stmt) => {
+                self.build_expr(expr_stmt.expr()?, current_scope, parent, db)?
+            }
             ast::Stmt::VariableDef(def) => {
                 self.build_expr(def.value()?, current_scope, parent, db)?
             }

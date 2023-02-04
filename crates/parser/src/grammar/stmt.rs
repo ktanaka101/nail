@@ -10,7 +10,7 @@ pub(super) fn parse_stmt_on_block(parser: &mut Parser) -> Option<CompletedMarker
     } else if parser.at(TokenKind::FnKw) {
         Some(parse_function_def(parser, &BLOCK_RECOVERY_SET))
     } else {
-        expr::parse_expr(parser)
+        parse_expr_stmt(parser)
     }
 }
 
@@ -65,6 +65,18 @@ pub(super) fn parse_function_def(
     }
 
     marker.complete(parser, SyntaxKind::FunctionDef)
+}
+
+fn parse_expr_stmt(parser: &mut Parser) -> Option<CompletedMarker> {
+    let marker = parser.start();
+
+    expr::parse_expr(parser);
+
+    if parser.at(TokenKind::Semicolon) {
+        parser.bump();
+    }
+
+    Some(marker.complete(parser, SyntaxKind::ExprStmt))
 }
 
 fn parse_params(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedMarker {
@@ -163,6 +175,33 @@ mod tests {
                     Whitespace@9..10 " "
                     VariableRef@10..13
                       Ident@10..13 "bar"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_expr_stmt() {
+        check(
+            "10;",
+            expect![[r#"
+                SourceFile@0..3
+                  ExprStmt@0..3
+                    Literal@0..2
+                      Integer@0..2 "10"
+                    Semicolon@2..3 ";"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_expr_stmt_missing_semicolon() {
+        check(
+            "10",
+            expect![[r#"
+                SourceFile@0..2
+                  ExprStmt@0..2
+                    Literal@0..2
+                      Integer@0..2 "10"
             "#]],
         );
     }
@@ -296,8 +335,9 @@ mod tests {
                     Literal@8..10
                       Integer@8..9 "1"
                       Whitespace@9..10 "\n"
-                  VariableRef@10..11
-                    Ident@10..11 "a"
+                  ExprStmt@10..11
+                    VariableRef@10..11
+                      Ident@10..11 "a"
             "#]],
         );
     }
@@ -393,15 +433,16 @@ mod tests {
                     Block@16..27
                       LCurly@16..17 "{"
                       Whitespace@17..18 " "
-                      BinaryExpr@18..26
-                        Literal@18..21
-                          Integer@18..20 "10"
-                          Whitespace@20..21 " "
-                        Plus@21..22 "+"
-                        Whitespace@22..23 " "
-                        Literal@23..26
-                          Integer@23..25 "20"
-                          Whitespace@25..26 " "
+                      ExprStmt@18..26
+                        BinaryExpr@18..26
+                          Literal@18..21
+                            Integer@18..20 "10"
+                            Whitespace@20..21 " "
+                          Plus@21..22 "+"
+                          Whitespace@22..23 " "
+                          Literal@23..26
+                            Integer@23..25 "20"
+                            Whitespace@25..26 " "
                       RCurly@26..27 "}"
             "#]],
         );
@@ -439,9 +480,10 @@ mod tests {
                     Block@24..30
                       LCurly@24..25 "{"
                       Whitespace@25..26 " "
-                      Literal@26..29
-                        Integer@26..28 "10"
-                        Whitespace@28..29 " "
+                      ExprStmt@26..29
+                        Literal@26..29
+                          Integer@26..28 "10"
+                          Whitespace@28..29 " "
                       RCurly@29..30 "}"
                 error at 17..19: expected ':', but found ->
                 error at 17..19: expected identifier, ',' or ')', but found ->
@@ -476,9 +518,10 @@ mod tests {
                     Block@22..28
                       LCurly@22..23 "{"
                       Whitespace@23..24 " "
-                      Literal@24..27
-                        Integer@24..26 "10"
-                        Whitespace@26..27 " "
+                      ExprStmt@24..27
+                        Literal@24..27
+                          Integer@24..26 "10"
+                          Whitespace@26..27 " "
                       RCurly@27..28 "}"
                 error at 15..17: expected identifier, but found ->
                 error at 15..17: expected ':', but found ->
@@ -512,9 +555,10 @@ mod tests {
                     Block@21..27
                       LCurly@21..22 "{"
                       Whitespace@22..23 " "
-                      Literal@23..26
-                        Integer@23..25 "10"
-                        Whitespace@25..26 " "
+                      ExprStmt@23..26
+                        Literal@23..26
+                          Integer@23..25 "10"
+                          Whitespace@25..26 " "
                       RCurly@26..27 "}"
                 error at 14..16: expected ',' or ')', but found ->
             "#]],
@@ -543,9 +587,10 @@ mod tests {
                     Block@17..23
                       LCurly@17..18 "{"
                       Whitespace@18..19 " "
-                      Literal@19..22
-                        Integer@19..21 "10"
-                        Whitespace@21..22 " "
+                      ExprStmt@19..22
+                        Literal@19..22
+                          Integer@19..21 "10"
+                          Whitespace@21..22 " "
                       RCurly@22..23 "}"
                 error at 10..12: expected identifier, ',' or ')', but found ->
             "#]],
@@ -573,9 +618,10 @@ mod tests {
                     Block@16..22
                       LCurly@16..17 "{"
                       Whitespace@17..18 " "
-                      Literal@18..21
-                        Integer@18..20 "10"
-                        Whitespace@20..21 " "
+                      ExprStmt@18..21
+                        Literal@18..21
+                          Integer@18..20 "10"
+                          Whitespace@20..21 " "
                       RCurly@21..22 "}"
                 error at 9..11: expected ':', but found ->
                 error at 9..11: expected identifier, ',' or ')', but found ->
@@ -602,9 +648,10 @@ mod tests {
                     Block@15..21
                       LCurly@15..16 "{"
                       Whitespace@16..17 " "
-                      Literal@17..20
-                        Integer@17..19 "10"
-                        Whitespace@19..20 " "
+                      ExprStmt@17..20
+                        Literal@17..20
+                          Integer@17..19 "10"
+                          Whitespace@19..20 " "
                       RCurly@20..21 "}"
                 error at 8..10: expected identifier or ')', but found ->
             "#]],
@@ -639,9 +686,10 @@ mod tests {
                     Block@17..23
                       LCurly@17..18 "{"
                       Whitespace@18..19 " "
-                      Literal@19..22
-                        Integer@19..21 "10"
-                        Whitespace@21..22 " "
+                      ExprStmt@19..22
+                        Literal@19..22
+                          Integer@19..21 "10"
+                          Whitespace@21..22 " "
                       RCurly@22..23 "}"
                 error at 3..4: expected identifier, but found '('
                 error at 5..6: expected ':', but found ','
@@ -667,9 +715,10 @@ mod tests {
                     Block@7..13
                       LCurly@7..8 "{"
                       Whitespace@8..9 " "
-                      Literal@9..12
-                        Integer@9..11 "10"
-                        Whitespace@11..12 " "
+                      ExprStmt@9..12
+                        Literal@9..12
+                          Integer@9..11 "10"
+                          Whitespace@11..12 " "
                       RCurly@12..13 "}"
             "#]],
         );
@@ -693,9 +742,10 @@ mod tests {
                     Block@10..16
                       LCurly@10..11 "{"
                       Whitespace@11..12 " "
-                      Literal@12..15
-                        Integer@12..14 "10"
-                        Whitespace@14..15 " "
+                      ExprStmt@12..15
+                        Literal@12..15
+                          Integer@12..14 "10"
+                          Whitespace@14..15 " "
                       RCurly@15..16 "}"
                 error at 10..11: expected identifier, but found '{'
             "#]],
@@ -713,16 +763,19 @@ mod tests {
                       LParen@4..5 "("
                       RParen@5..6 ")"
                       Whitespace@6..7 " "
-                  VariableRef@7..11
-                    Ident@7..10 "int"
-                    Whitespace@10..11 " "
-                  Block@11..17
-                    LCurly@11..12 "{"
-                    Whitespace@12..13 " "
-                    Literal@13..16
-                      Integer@13..15 "10"
-                      Whitespace@15..16 " "
-                    RCurly@16..17 "}"
+                  ExprStmt@7..11
+                    VariableRef@7..11
+                      Ident@7..10 "int"
+                      Whitespace@10..11 " "
+                  ExprStmt@11..17
+                    Block@11..17
+                      LCurly@11..12 "{"
+                      Whitespace@12..13 " "
+                      ExprStmt@13..16
+                        Literal@13..16
+                          Integer@13..15 "10"
+                          Whitespace@15..16 " "
+                      RCurly@16..17 "}"
             "#]],
         );
     }

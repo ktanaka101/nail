@@ -134,12 +134,14 @@ mod tests {
                     Block@7..18
                       LCurly@7..8 "{"
                       Whitespace@8..9 " "
-                      Error@9..11
-                        Slash@9..10 "/"
-                        Whitespace@10..11 " "
-                      VariableRef@11..17
-                        Ident@11..16 "hello"
-                        Whitespace@16..17 " "
+                      ExprStmt@9..11
+                        Error@9..11
+                          Slash@9..10 "/"
+                          Whitespace@10..11 " "
+                      ExprStmt@11..17
+                        VariableRef@11..17
+                          Ident@11..16 "hello"
+                          Whitespace@16..17 " "
                       RCurly@17..18 "}"
                 error at 9..10: expected '}', 'let', 'fn', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '(', '{', 'if' or 'return', but found '/'
             "#]],
@@ -170,25 +172,26 @@ fn x() {
                     Block@8..69
                       LCurly@8..9 "{"
                       Whitespace@9..14 "\n    "
-                      BinaryExpr@14..55
-                        BinaryExpr@14..39
-                          Literal@14..20
-                            Integer@14..15 "1"
-                            Whitespace@15..20 "\n    "
-                          Plus@20..21 "+"
-                          Whitespace@21..22 " "
-                          Literal@22..39
-                            Integer@22..23 "1"
-                            Whitespace@23..24 " "
-                            CommentSingle@24..34 "// Add one"
-                            Whitespace@34..39 "\n    "
-                        Plus@39..40 "+"
-                        Whitespace@40..41 " "
-                        Literal@41..55
-                          Integer@41..43 "10"
-                          Whitespace@43..44 " "
-                          CommentSingle@44..54 "// Add ten"
-                          Whitespace@54..55 "\n"
+                      ExprStmt@14..55
+                        BinaryExpr@14..55
+                          BinaryExpr@14..39
+                            Literal@14..20
+                              Integer@14..15 "1"
+                              Whitespace@15..20 "\n    "
+                            Plus@20..21 "+"
+                            Whitespace@21..22 " "
+                            Literal@22..39
+                              Integer@22..23 "1"
+                              Whitespace@23..24 " "
+                              CommentSingle@24..34 "// Add one"
+                              Whitespace@34..39 "\n    "
+                          Plus@39..40 "+"
+                          Whitespace@40..41 " "
+                          Literal@41..55
+                            Integer@41..43 "10"
+                            Whitespace@43..44 " "
+                            CommentSingle@44..54 "// Add ten"
+                            Whitespace@54..55 "\n"
                       RCurly@55..56 "}"
                       Whitespace@56..69 "\n            "
             "#]],

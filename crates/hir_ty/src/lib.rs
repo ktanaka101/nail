@@ -282,7 +282,7 @@ mod tests {
         check(
             r#"
                 fn main() {
-                    10
+                    10;
                 }
             "#,
             expect![[r#"
@@ -299,7 +299,7 @@ mod tests {
         check(
             r#"
                 fn main() {
-                    "aaa"
+                    "aaa";
                 }
             "#,
             expect![[r#"
@@ -316,7 +316,7 @@ mod tests {
         check(
             r#"
                 fn main() {
-                    'a'
+                    'a';
                 }
             "#,
             expect![[r#"
@@ -333,7 +333,7 @@ mod tests {
         check(
             r#"
                 fn main() {
-                    true
+                    true;
                 }
             "#,
             expect![[r#"
@@ -347,7 +347,7 @@ mod tests {
         check(
             r#"
                 fn main() {
-                    false
+                    false;
                 }
             "#,
             expect![[r#"
@@ -415,7 +415,7 @@ mod tests {
                     10 - 20
                     10 * 20
                     10 / 20
-                    10 == 20
+                    10 == 20;
                 }
             "#,
             expect![[r#"
@@ -469,7 +469,7 @@ mod tests {
         check(
             r#"
                 fn main() {
-                    (10 + "aaa") + (10 + "aaa")
+                    (10 + "aaa") + (10 + "aaa");
                 }
             "#,
             expect![[r#"
@@ -520,13 +520,13 @@ mod tests {
     fn infer_variable_ref() {
         check(
             r#"
-                fn main() {
+                fn main() -> int {
                     let a = -10
                     a
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                fn() -> int
                 ---
                 `10`: int
                 `-10`: int
@@ -543,7 +543,7 @@ mod tests {
                 fn main() {
                     {
                         10
-                    }
+                    };
                 }
             "#,
             expect![[r#"
@@ -563,7 +563,7 @@ mod tests {
                             10
                             "aaa"
                         }
-                    }
+                    };
                 }
             "#,
             expect![[r#"
@@ -579,7 +579,7 @@ mod tests {
 
         check(
             r#"
-                fn main() {
+                fn main() -> int {
                     let a = 10;
                     let b = {
                         let c = 20;
@@ -589,7 +589,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                fn() -> int
                 ---
                 `10`: int
                 `20`: int
@@ -616,6 +616,7 @@ mod tests {
                 ---
                 `10`: int
                 ---
+                error: expected (), found int by `10`
             "#]],
         );
 
@@ -657,16 +658,60 @@ mod tests {
     }
 
     #[test]
-    fn infer_function() {
+    fn infer_nesting_last_expr_stmt_with_semicolon_only_as_expr() {
         check(
             r#"
                 fn aaa() {
+                    {
+                        {
+                            10
+                        }
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn() -> ()
+                ---
+                `10`: int
+                `{ .., 10 }`: int
+                `{ .., { .., 10 } }`: int
+                ---
+                error: expected (), found int by `{ .., { .., 10 } }`
+            "#]],
+        );
+
+        check(
+            r#"
+                fn aaa() {
+                    {
+                        {
+                            10;
+                        }
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn() -> ()
+                ---
+                `10`: int
+                `{{ .. }}`: ()
+                `{ .., {{ .. }} }`: ()
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn infer_function() {
+        check(
+            r#"
+                fn aaa() -> int {
                     let a = 10
                     a
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                fn() -> int
                 ---
                 `10`: int
                 `a`: int
@@ -720,6 +765,7 @@ mod tests {
                 `30`: int
                 `res + 30`: int
                 ---
+                error: expected (), found int by `res + 30`
             "#]],
         );
     }
@@ -761,7 +807,7 @@ mod tests {
                         10
                     } else {
                         20
-                    }
+                    };
                 }
             "#,
             expect![[r#"
@@ -782,14 +828,14 @@ mod tests {
     fn infer_if_expr_else_is_unit() {
         check(
             r#"
-                fn main() {
+                fn main() -> int {
                     if true {
                         10
                     }
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                fn() -> int
                 ---
                 `true`: bool
                 `10`: int
@@ -797,6 +843,7 @@ mod tests {
                 `if true { .., 10 }`: unknown
                 ---
                 error: expected (), found int by `{ .., 10 }`
+                error: expected int, found unknown by `if true { .., 10 }`
             "#]],
         );
     }
@@ -863,6 +910,7 @@ mod tests {
                 `if true { .., 10 } else { .., "aaa" }`: unknown
                 ---
                 error: expected int, found string by `{ .., 10 }` and `{ .., "aaa" }`
+                error: expected (), found unknown by `if true { .., 10 } else { .., "aaa" }`
             "#]],
         );
     }
@@ -890,6 +938,7 @@ mod tests {
                 `if 10 { .., "aaa" } else { .., "aaa" }`: string
                 ---
                 error: expected bool, found int by `10`
+                error: expected (), found string by `if 10 { .., "aaa" } else { .., "aaa" }`
             "#]],
         );
     }
@@ -907,6 +956,7 @@ mod tests {
                 ---
                 `return`: !
                 ---
+                error: expected (), found ! by `return`
             "#]],
         );
 
@@ -922,6 +972,7 @@ mod tests {
                 `10`: int
                 `return 10`: !
                 ---
+                error: expected int, found ! by `return 10`
             "#]],
         );
     }
@@ -940,6 +991,7 @@ mod tests {
                 `return`: !
                 ---
                 error: expected int, found ()
+                error: expected int, found ! by `return`
             "#]],
         );
 
@@ -956,6 +1008,7 @@ mod tests {
                 `return "aaa"`: !
                 ---
                 error: expected int, found string by `"aaa"`
+                error: expected int, found ! by `return "aaa"`
             "#]],
         );
     }

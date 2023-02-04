@@ -93,6 +93,9 @@ impl<'a> TypeChecker<'a> {
             .shared_ctx
             .function_body_by_block(&block_ast_id)
             .unwrap();
+
+        let signature =
+            &self.infer_result.signatures[self.infer_result.signature_by_function[&function_idx]];
         match body {
             hir::Expr::Block(block) => {
                 for stmt in &block.stmts {
@@ -100,6 +103,16 @@ impl<'a> TypeChecker<'a> {
                 }
                 if let Some(tail) = block.tail {
                     self.check_expr(tail);
+
+                    let tail_ty = self.infer_result.type_by_expr[&tail];
+                    if tail_ty != signature.return_type {
+                        self.errors.push(TypeCheckError::MismatchedReturnType {
+                            expected_ty: signature.return_type,
+                            found_expr: Some(tail),
+                            found_ty: tail_ty,
+                        });
+                    }
+                } else {
                 }
             }
             _ => unreachable!(),

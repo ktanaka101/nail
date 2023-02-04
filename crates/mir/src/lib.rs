@@ -371,7 +371,7 @@ impl<'a> FunctionLower<'a> {
                     value,
                 });
             }
-            hir::Stmt::Expr(expr) => {
+            hir::Stmt::ExprStmt { expr, .. } => {
                 match self.lower_expr(*expr) {
                     LoweredExpr::Value(value) => value,
                     LoweredExpr::Return => {

@@ -132,10 +132,13 @@ pub enum Stmt {
         name: Name,
         value: ExprIdx,
     },
-    Expr(ExprIdx),
     FunctionDef {
         signature: FunctionIdx,
         body: ExprIdx,
+    },
+    ExprStmt {
+        expr: ExprIdx,
+        has_semicolon: bool,
     },
 }
 

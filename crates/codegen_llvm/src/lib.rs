@@ -255,7 +255,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
 
     fn gen_stmt(&mut self, stmt: &hir::Stmt) {
         match stmt {
-            hir::Stmt::Expr(expr) => {
+            hir::Stmt::ExprStmt { expr, .. } => {
                 self.gen_expr(*expr);
             }
             hir::Stmt::VariableDef { name, value } => {

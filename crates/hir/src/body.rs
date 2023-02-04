@@ -108,7 +108,10 @@ impl BodyLower {
             }
             ast::Stmt::ExprStmt(ast) => {
                 let expr = self.lower_expr(ast.expr(), ctx, db, item_tree, interner);
-                Stmt::Expr(ctx.exprs.alloc(expr))
+                Stmt::ExprStmt {
+                    expr: ctx.exprs.alloc(expr),
+                    has_semicolon: ast.semicolon().is_some(),
+                }
             }
             ast::Stmt::FunctionDef(def) => {
                 self.lower_function(def, ctx, db, item_tree, interner)?
@@ -323,12 +326,16 @@ impl BodyLower {
 
         self.scopes.leave();
 
-        let tail = if let Some(Stmt::Expr(expr)) = stmts.last() {
-            let expr = *expr;
-            stmts.pop();
-            Some(expr)
-        } else {
-            None
+        let tail = match stmts.last() {
+            Some(Stmt::ExprStmt {
+                expr,
+                has_semicolon,
+            }) if !has_semicolon => {
+                let expr = *expr;
+                stmts.pop();
+                Some(expr)
+            }
+            _ => None,
         };
 
         Expr::Block(Block {
@@ -490,10 +497,14 @@ mod tests {
                 );
                 format!("{}let {} = {}\n", indent(nesting), name, expr_str)
             }
-            Stmt::Expr(expr) => format!(
-                "{}{}\n",
+            Stmt::ExprStmt {
+                expr,
+                has_semicolon,
+            } => format!(
+                "{}{}{}\n",
                 indent(nesting),
-                debug_expr(lower_result, &lower_result.shared_ctx.exprs[*expr], nesting)
+                debug_expr(lower_result, &lower_result.shared_ctx.exprs[*expr], nesting),
+                if *has_semicolon { ";" } else { "" }
             ),
             Stmt::FunctionDef { body, .. } => {
                 let body = &lower_result.shared_ctx.function_bodies[*body];
@@ -746,16 +757,38 @@ mod tests {
     }
 
     #[test]
-    fn lower_expr_stmt() {
+    fn lower_last_expr_stmt_with_semicolon_only_as_expr() {
         check(
             r#"
                 fn main() {
                     123
                 }
+                fn main_2() {
+                    123;
+                }
+                fn main_3() {
+                    123
+                    456;
+                }
+                fn main_4() {
+                    123;
+                    456;
+                }
             "#,
             expect![[r#"
                 fn entry:main() -> () {
                     expr:123
+                }
+                fn main_2() -> () {
+                    123;
+                }
+                fn main_3() -> () {
+                    123
+                    456;
+                }
+                fn main_4() -> () {
+                    123;
+                    456;
                 }
             "#]],
         );
@@ -1669,7 +1702,7 @@ mod tests {
                     fn aaa(x: bool, y: string) -> int {
                         expr:10 + 20
                     }
-                    expr:fn:aaa("aaa", true)
+                    fn:aaa("aaa", true);
                 }
             "#]],
         );

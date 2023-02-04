@@ -44,6 +44,17 @@ impl VariableDef {
     }
 }
 
+def_ast_node!(ExprStmt);
+impl ExprStmt {
+    pub fn expr(&self) -> Option<Expr> {
+        ast_node::child_node(self)
+    }
+
+    pub fn semicolon(&self) -> Option<tokens::Semicolon> {
+        ast_node::child_token(self)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Expr {
     BinaryExpr(BinaryExpr),

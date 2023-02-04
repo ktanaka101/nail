@@ -98,3 +98,5 @@ impl Ident {
         self.syntax.text()
     }
 }
+
+def_ast_token!(Semicolon);

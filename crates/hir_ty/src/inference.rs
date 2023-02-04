@@ -132,10 +132,7 @@ impl<'a> TypeInferencer<'a> {
     fn infer_stmts(&mut self, stmts: &[hir::Stmt]) {
         for stmt in stmts {
             match stmt {
-                hir::Stmt::ExprStmt {
-                    expr,
-                    has_semicolon,
-                } => {
+                hir::Stmt::ExprStmt { expr, .. } => {
                     let ty = self.infer_expr_idx(*expr);
                     self.ctx.type_by_expr.insert(*expr, ty);
                 }

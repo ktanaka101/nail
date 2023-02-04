@@ -604,6 +604,59 @@ mod tests {
     }
 
     #[test]
+    fn infer_last_expr_stmt_with_semicolon_only_as_expr() {
+        check(
+            r#"
+                fn aaa() {
+                    10
+                }
+            "#,
+            expect![[r#"
+                fn() -> ()
+                ---
+                `10`: int
+                ---
+            "#]],
+        );
+
+        check(
+            r#"
+                fn aaa() {
+                    10;
+                }
+            "#,
+            expect![[r#"
+                fn() -> ()
+                ---
+                `10`: int
+                ---
+            "#]],
+        );
+
+        check(
+            r#"
+                fn aaa() {
+                    {
+                        10
+                    };
+                    {
+                        20;
+                    };
+                }
+            "#,
+            expect![[r#"
+                fn() -> ()
+                ---
+                `10`: int
+                `{ .., 10 }`: int
+                `20`: int
+                `{{ .. }}`: ()
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
     fn infer_function() {
         check(
             r#"

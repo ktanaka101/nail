@@ -108,10 +108,7 @@ impl<'a> TypeChecker<'a> {
 
     fn check_stmt(&mut self, stmt: &hir::Stmt) {
         match stmt {
-            hir::Stmt::ExprStmt {
-                expr,
-                has_semicolon,
-            } => self.check_expr(*expr),
+            hir::Stmt::ExprStmt { expr, .. } => self.check_expr(*expr),
             hir::Stmt::VariableDef { value, .. } => self.check_expr(*value),
             hir::Stmt::FunctionDef { .. } => (),
         }

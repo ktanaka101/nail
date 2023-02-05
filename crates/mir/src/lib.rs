@@ -443,6 +443,9 @@ impl<'a> FunctionLower<'a> {
                     }
                     LoweredExpr::Return => (),
                 };
+            } else {
+                self.add_termination_to_current_bb(Termination::Goto(exit_bb_idx));
+                self.current_bb = Some(exit_bb_idx);
             }
         } else {
             self.add_termination_to_current_bb(Termination::Goto(exit_bb_idx));
@@ -871,6 +874,50 @@ mod tests {
 
                     entry: {
                         _0 = const 10
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_main_return_unit() {
+        check(
+            r#"
+                fn main() {
+                }
+            "#,
+            expect![[r#"
+                fn main() -> () {
+                    let _0: ()
+
+                    entry: {
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+
+        check(
+            r#"
+                fn main() {
+                    10;
+                }
+            "#,
+            expect![[r#"
+                fn main() -> () {
+                    let _0: ()
+
+                    entry: {
                         goto -> exit
                     }
 

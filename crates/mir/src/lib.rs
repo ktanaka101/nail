@@ -17,10 +17,10 @@ struct FunctionLower<'a> {
     hir_ty_result: &'a hir_ty::TyLowerResult,
     function_idx: Idx<hir::Function>,
 
-    return_variable: Idx<Local>,
+    return_local: Idx<Local>,
     params: Arena<Param>,
     param_by_hir: HashMap<hir::ParamIdx, Idx<Param>>,
-    variables: Arena<Local>,
+    locals: Arena<Local>,
     local_idx: u64,
     blocks: Arena<BasicBlock>,
     switch_idx: u64,
@@ -48,10 +48,10 @@ impl<'a> FunctionLower<'a> {
             hir_ty_result,
             function_idx,
             local_idx: 1,
-            return_variable: return_local,
+            return_local,
             params: Arena::new(),
             param_by_hir: HashMap::new(),
-            variables: locals,
+            locals,
             blocks: Arena::new(),
             switch_idx: 0,
             current_bb: None,
@@ -83,7 +83,7 @@ impl<'a> FunctionLower<'a> {
             idx: self.local_idx,
         };
         self.local_idx += 1;
-        let local_idx = self.variables.alloc(cond_local);
+        let local_idx = self.locals.alloc(cond_local);
         self.local_by_hir.insert(expr, local_idx);
 
         local_idx
@@ -102,7 +102,7 @@ impl<'a> FunctionLower<'a> {
         assert!(matches!(self.exit_bb_idx, None));
 
         let mut exit_bb = BasicBlock::new_exit_bb(0);
-        exit_bb.termination = Some(Termination::Return(self.return_variable));
+        exit_bb.termination = Some(Termination::Return(self.return_local));
 
         let exit_bb_idx = self.blocks.alloc(exit_bb);
         self.exit_bb_idx = Some(exit_bb_idx);
@@ -172,7 +172,7 @@ impl<'a> FunctionLower<'a> {
                         LoweredExpr::Value(value) => value,
                         LoweredExpr::Return => return LoweredExpr::Return,
                     };
-                    let return_value_place = Place::Local(self.return_variable);
+                    let return_value_place = Place::Local(self.return_local);
                     self.add_statement_to_current_bb(Statement::Assign {
                         place: return_value_place,
                         value,
@@ -428,7 +428,7 @@ impl<'a> FunctionLower<'a> {
                 match self.lower_expr(tail) {
                     LoweredExpr::Value(value) => {
                         self.add_statement_to_current_bb(Statement::Assign {
-                            place: Place::Local(self.return_variable),
+                            place: Place::Local(self.return_local),
                             value,
                         });
                         self.add_termination_to_current_bb(Termination::Goto(exit_bb_idx));
@@ -448,8 +448,8 @@ impl<'a> FunctionLower<'a> {
         Body {
             name: function.name.unwrap(),
             params: self.params,
-            return_variable: self.return_variable,
-            variables: self.variables,
+            return_local: self.return_local,
+            locals: self.locals,
             blocks: self.blocks,
         }
     }
@@ -502,8 +502,8 @@ impl LowerResult {
 pub struct Body {
     name: hir::Name,
     params: Arena<Param>,
-    return_variable: Idx<Local>,
-    variables: Arena<Local>,
+    return_local: Idx<Local>,
+    locals: Arena<Local>,
     blocks: Arena<BasicBlock>,
 }
 
@@ -678,10 +678,10 @@ mod tests {
                     .collect::<Vec<_>>(),
             ));
 
-            let return_local = &body.variables[body.return_variable];
+            let return_local = &body.locals[body.return_local];
             msg.push_str(&format!(") -> {} {{\n", debug_ty(&return_local.ty)));
 
-            for (_variable_idx, variable) in body.variables.iter() {
+            for (_variable_idx, variable) in body.locals.iter() {
                 msg.push_str(&format!(
                     "{}let _{}: {}\n",
                     indent(1),
@@ -754,7 +754,7 @@ mod tests {
                 format!("_{}", param.idx)
             }
             crate::Place::Local(local_idx) => {
-                let local = &body.variables[*local_idx];
+                let local = &body.locals[*local_idx];
                 format!("_{}", local.idx)
             }
         }
@@ -777,7 +777,7 @@ mod tests {
     fn debug_termination(termination: &crate::Termination, body: &crate::Body) -> String {
         match termination {
             crate::Termination::Return(return_local_idx) => {
-                let return_local = &body.variables[*return_local_idx];
+                let return_local = &body.locals[*return_local_idx];
                 format!("return _{}", return_local.idx)
             }
             crate::Termination::Goto(to_bb_idx) => {

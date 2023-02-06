@@ -365,7 +365,7 @@ impl<'a> FunctionLower<'a> {
                 let op = match op {
                     hir::BinaryOp::Add => BinaryOp::Add,
                     hir::BinaryOp::Sub => BinaryOp::Sub,
-                    hir::BinaryOp::Mul => todo!(),
+                    hir::BinaryOp::Mul => BinaryOp::Mul,
                     hir::BinaryOp::Div => todo!(),
                     hir::BinaryOp::Equal => todo!(),
                 };
@@ -648,6 +648,7 @@ enum Value {
 enum BinaryOp {
     Add,
     Sub,
+    Mul,
 }
 
 #[derive(Debug)]
@@ -833,6 +834,7 @@ mod tests {
                 let function_name = match op {
                     crate::BinaryOp::Add => "add",
                     crate::BinaryOp::Sub => "sub",
+                    crate::BinaryOp::Mul => "mul",
                 }
                 .to_string();
                 let left = debug_operand(left, body);
@@ -999,6 +1001,33 @@ mod tests {
 
                     entry: {
                         _1 = sub(const 10, const 20)
+                        _0 = _1
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_mul_number() {
+        check(
+            r#"
+                fn main() -> int {
+                    10 * 20
+                }
+            "#,
+            expect![[r#"
+                fn main() -> int {
+                    let _0: int
+                    let _1: int
+
+                    entry: {
+                        _1 = mul(const 10, const 20)
                         _0 = _1
                         goto -> exit
                     }

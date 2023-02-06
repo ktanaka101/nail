@@ -462,25 +462,25 @@ struct MirLower<'a> {
 
 impl<'a> MirLower<'a> {
     fn lower(self) -> LowerResult {
-        let mut entry_point_idx = None;
-        let mut bodies = vec![];
+        let mut entry_point: Option<Idx<Body>> = None;
+        let mut bodies = Arena::new();
         for (function_idx, function) in self.hir_result.db.functions.iter() {
+            let lower = FunctionLower::new(self.hir_result, self.hir_ty_result, function_idx);
+            let body = lower.lower();
+            let idx = bodies.alloc(body);
+
             let name = self
                 .hir_result
                 .interner
                 .lookup(function.name.unwrap().key());
             if name == "main" {
-                assert_eq!(entry_point_idx, None);
-                entry_point_idx = Some(bodies.len());
+                assert_eq!(entry_point, None);
+                entry_point = Some(idx);
             }
-
-            let lower = FunctionLower::new(self.hir_result, self.hir_ty_result, function_idx);
-            let body = lower.lower();
-            bodies.push(body);
         }
 
         LowerResult {
-            entry_point_idx,
+            entry_point,
             bodies,
         }
     }
@@ -488,13 +488,13 @@ impl<'a> MirLower<'a> {
 
 #[derive(Debug)]
 pub struct LowerResult {
-    entry_point_idx: Option<usize>,
-    bodies: Vec<Body>,
+    entry_point: Option<Idx<Body>>,
+    bodies: Arena<Body>,
 }
 
 impl LowerResult {
     fn entry_point(&self) -> Option<&Body> {
-        self.entry_point_idx.map(|idx| &self.bodies[idx])
+        self.entry_point.map(|idx| &self.bodies[idx])
     }
 }
 
@@ -682,7 +682,7 @@ mod tests {
     ) -> String {
         let mut msg = "".to_string();
 
-        for body in &mir_result.bodies {
+        for (_body_idx, body) in mir_result.bodies.iter() {
             let name = hir_result.interner.lookup(body.name.key());
             msg.push_str(&format!("fn {name}("));
 

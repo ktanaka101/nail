@@ -151,31 +151,31 @@ impl<'a> FunctionLower<'a> {
         match expr {
             hir::Expr::Literal(literal) => match literal {
                 hir::Literal::Integer(value) => {
-                    LoweredExpr::Value(Value::Constant(Constant::Integer(*value)))
+                    LoweredExpr::Operand(Operand::Constant(Constant::Integer(*value)))
                 }
                 hir::Literal::Bool(value) => {
-                    LoweredExpr::Value(Value::Constant(Constant::Boolean(*value)))
+                    LoweredExpr::Operand(Operand::Constant(Constant::Boolean(*value)))
                 }
                 _ => todo!(),
             },
             hir::Expr::VariableRef { var } => match var {
                 hir::Symbol::Param { name, param } => todo!(),
-                hir::Symbol::Local { name, expr } => {
-                    LoweredExpr::Value(Value::Place(Place::Local(self.get_local_by_expr(*expr))))
-                }
+                hir::Symbol::Local { name, expr } => LoweredExpr::Operand(Operand::Place(
+                    Place::Local(self.get_local_by_expr(*expr)),
+                )),
                 hir::Symbol::Function { name, function } => todo!(),
                 hir::Symbol::Missing { name } => todo!(),
             },
             hir::Expr::Return { value } => {
                 if let Some(value) = value {
-                    let value = match self.lower_expr(*value) {
-                        LoweredExpr::Value(value) => value,
+                    let operand = match self.lower_expr(*value) {
+                        LoweredExpr::Operand(operand) => operand,
                         LoweredExpr::Return => return LoweredExpr::Return,
                     };
                     let return_value_place = Place::Local(self.return_local);
                     self.add_statement_to_current_bb(Statement::Assign {
                         place: return_value_place,
-                        value,
+                        value: operand.into(),
                     });
                 }
 
@@ -188,14 +188,14 @@ impl<'a> FunctionLower<'a> {
             } => {
                 let cond_local_idx = {
                     let cond_local_idx = self.alloc_local(*condition);
-                    let cond_value = match self.lower_expr(*condition) {
-                        LoweredExpr::Value(value) => value,
+                    let cond_operand = match self.lower_expr(*condition) {
+                        LoweredExpr::Operand(operand) => operand,
                         LoweredExpr::Return => return LoweredExpr::Return,
                     };
                     let place = Place::Local(cond_local_idx);
                     self.add_statement_to_current_bb(Statement::Assign {
                         place,
-                        value: cond_value,
+                        value: cond_operand.into(),
                     });
 
                     cond_local_idx
@@ -231,7 +231,7 @@ impl<'a> FunctionLower<'a> {
                     if !has_return {
                         if let Some(tail) = then_block.tail {
                             match self.lower_expr(tail) {
-                                LoweredExpr::Value(value) => {
+                                LoweredExpr::Operand(operand) => {
                                     let (dest_bb_idx, result_local_idx) =
                                         match dest_bb_and_result_local_idx {
                                             Some(idxes) => idxes,
@@ -246,7 +246,7 @@ impl<'a> FunctionLower<'a> {
 
                                     self.add_statement_to_current_bb(Statement::Assign {
                                         place: Place::Local(result_local_idx),
-                                        value,
+                                        value: operand.into(),
                                     });
                                     self.add_termination_to_current_bb(Termination::Goto(
                                         dest_bb_idx,
@@ -286,7 +286,7 @@ impl<'a> FunctionLower<'a> {
                             if !has_return {
                                 if let Some(tail) = else_block.tail {
                                     match self.lower_expr(tail) {
-                                        LoweredExpr::Value(value) => {
+                                        LoweredExpr::Operand(operand) => {
                                             let (dest_bb_idx, result_local_idx) =
                                                 match dest_bb_and_result_local_idx {
                                                     Some(idxes) => idxes,
@@ -303,7 +303,7 @@ impl<'a> FunctionLower<'a> {
 
                                             self.add_statement_to_current_bb(Statement::Assign {
                                                 place: Place::Local(result_local_idx),
-                                                value,
+                                                value: operand.into(),
                                             });
                                             self.add_termination_to_current_bb(Termination::Goto(
                                                 dest_bb_idx,
@@ -322,66 +322,58 @@ impl<'a> FunctionLower<'a> {
                                 dest_bb_and_result_local_idx
                             {
                                 self.current_bb = Some(dest_bb_idx);
-                                LoweredExpr::Value(Value::Place(Place::Local(result_local_idx)))
+                                LoweredExpr::Operand(Operand::Place(Place::Local(result_local_idx)))
                             } else {
                                 LoweredExpr::Return
                             }
                         }
                         None => match dest_bb_and_result_local_idx {
                             Some((dest_bb_idx, result_local_idx)) => {
-                                let unit = Value::Constant(Constant::Unit);
+                                let unit = Operand::Constant(Constant::Unit);
                                 self.add_statement_to_current_bb(Statement::Assign {
                                     place: Place::Local(result_local_idx),
-                                    value: unit,
+                                    value: unit.into(),
                                 });
 
                                 self.add_termination_to_current_bb(Termination::Goto(dest_bb_idx));
                                 self.current_bb = Some(dest_bb_idx);
 
-                                LoweredExpr::Value(Value::Place(Place::Local(result_local_idx)))
+                                LoweredExpr::Operand(Operand::Place(Place::Local(result_local_idx)))
                             }
                             None => {
                                 let dest_bb_idx = self.alloc_standard_bb();
                                 self.add_termination_to_current_bb(Termination::Goto(dest_bb_idx));
                                 self.current_bb = Some(dest_bb_idx);
 
-                                LoweredExpr::Value(Value::Constant(Constant::Unit))
+                                LoweredExpr::Operand(Operand::Constant(Constant::Unit))
                             }
                         },
                     }
                 }
             }
             hir::Expr::Binary { op, lhs, rhs } => {
-                let lhs_local = self.alloc_local(*lhs);
                 let lhs = match self.lower_expr(*lhs) {
                     LoweredExpr::Return => return LoweredExpr::Return,
-                    LoweredExpr::Value(value) => value,
+                    LoweredExpr::Operand(operand) => operand,
                 };
-                let lhs_place = Place::Local(lhs_local);
-                self.add_statement_to_current_bb(Statement::Assign {
-                    place: lhs_place,
-                    value: lhs,
-                });
 
-                let rhs_local = self.alloc_local(*rhs);
                 let rhs = match self.lower_expr(*rhs) {
                     LoweredExpr::Return => return LoweredExpr::Return,
-                    LoweredExpr::Value(value) => value,
+                    LoweredExpr::Operand(operand) => operand,
                 };
-                let rhs_place = Place::Local(rhs_local);
-                self.add_statement_to_current_bb(Statement::Assign {
-                    place: rhs_place,
-                    value: rhs,
-                });
 
                 match op {
                     hir::BinaryOp::Add => {
+                        let local = self.alloc_local(expr_idx);
                         let value = Value::BinaryOp {
                             op: BinaryOp::Add,
-                            left: Operand::Place(lhs_place),
-                            right: Operand::Place(rhs_place),
+                            left: lhs,
+                            right: rhs,
                         };
-                        LoweredExpr::Value(value)
+                        let place = Place::Local(local);
+                        self.add_statement_to_current_bb(Statement::Assign { place, value });
+
+                        LoweredExpr::Operand(Operand::Place(place))
                     }
                     hir::BinaryOp::Sub => todo!(),
                     hir::BinaryOp::Mul => todo!(),
@@ -397,20 +389,20 @@ impl<'a> FunctionLower<'a> {
         match stmt {
             hir::Stmt::VariableDef { name: _, value } => {
                 let local_idx = self.alloc_local(*value);
-                let value = match self.lower_expr(*value) {
-                    LoweredExpr::Value(value) => value,
+                let operand = match self.lower_expr(*value) {
+                    LoweredExpr::Operand(operand) => operand,
                     LoweredExpr::Return => {
                         return LoweredStmt::Return;
                     }
                 };
                 self.add_statement_to_current_bb(Statement::Assign {
                     place: Place::Local(local_idx),
-                    value,
+                    value: operand.into(),
                 });
             }
             hir::Stmt::ExprStmt { expr, .. } => {
                 match self.lower_expr(*expr) {
-                    LoweredExpr::Value(value) => value,
+                    LoweredExpr::Operand(operand) => operand,
                     LoweredExpr::Return => {
                         return LoweredStmt::Return;
                     }
@@ -464,10 +456,10 @@ impl<'a> FunctionLower<'a> {
         if !has_return {
             if let Some(tail) = body_block.tail {
                 match self.lower_expr(tail) {
-                    LoweredExpr::Value(value) => {
+                    LoweredExpr::Operand(operand) => {
                         self.add_statement_to_current_bb(Statement::Assign {
                             place: Place::Local(self.return_local),
-                            value,
+                            value: operand.into(),
                         });
                         self.add_termination_to_current_bb(Termination::Goto(exit_bb_idx));
                         self.current_bb = Some(exit_bb_idx);
@@ -644,8 +636,7 @@ enum Place {
 
 #[derive(Debug)]
 enum Value {
-    Constant(Constant),
-    Place(Place),
+    Operand(Operand),
     BinaryOp {
         op: BinaryOp,
         left: Operand,
@@ -663,11 +654,16 @@ enum Operand {
     Place(Place),
     Constant(Constant),
 }
+impl From<Operand> for Value {
+    fn from(value: Operand) -> Self {
+        Self::Operand(value)
+    }
+}
 
 #[derive(Debug)]
 enum LoweredExpr {
     Return,
-    Value(Value),
+    Operand(Operand),
 }
 
 #[derive(Debug)]
@@ -831,11 +827,7 @@ mod tests {
 
     fn debug_value(value: &crate::Value, body: &crate::Body) -> String {
         match value {
-            crate::Value::Constant(constant) => {
-                let const_value = debug_constant(constant);
-                format!("const {const_value}")
-            }
-            crate::Value::Place(place) => debug_place(place, body),
+            crate::Value::Operand(operand) => debug_operand(operand, body),
             crate::Value::BinaryOp { op, left, right } => {
                 let function_name = match op {
                     crate::BinaryOp::Add => "add",
@@ -850,11 +842,12 @@ mod tests {
     }
 
     fn debug_constant(constant: &crate::Constant) -> String {
-        match constant {
+        let const_value = match constant {
             crate::Constant::Integer(integer) => integer.to_string(),
             crate::Constant::Boolean(boolean) => boolean.to_string(),
             crate::Constant::Unit => "()".to_string(),
-        }
+        };
+        format!("const {const_value}")
     }
 
     fn debug_operand(operand: &crate::Operand, body: &crate::Body) -> String {
@@ -937,12 +930,10 @@ mod tests {
                 fn main() -> int {
                     let _0: int
                     let _1: int
-                    let _2: int
 
                     entry: {
-                        _1 = const 10
-                        _2 = const 20
-                        _0 = add(_1, _2)
+                        _1 = add(const 10, const 20)
+                        _0 = _1
                         goto -> exit
                     }
 

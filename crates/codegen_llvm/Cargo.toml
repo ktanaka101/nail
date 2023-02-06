@@ -12,6 +12,7 @@ serde_json = { workspace = true }
 
 hir = { path = "../hir" }
 hir_ty = { path = "../hir_ty" }
+mir = { path = "../mir" }
 
 [dev-dependencies]
 expect-test = { workspace = true }

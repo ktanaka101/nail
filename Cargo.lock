@@ -108,6 +108,7 @@ dependencies = [
  "hir",
  "hir_ty",
  "inkwell",
+ "mir",
  "parser",
  "serde",
  "serde_json",

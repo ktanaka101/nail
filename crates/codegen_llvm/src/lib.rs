@@ -20,6 +20,7 @@ const INTERNAL_ENTRY_POINT: &str = "__main__";
 pub fn codegen<'a, 'ctx>(
     hir_result: &'a hir::LowerResult,
     ty_result: &'a hir_ty::TyLowerResult,
+    mir_result: &'a mir::LowerResult,
     context: &'ctx Context,
     module: &'a Module<'ctx>,
     builder: &'a Builder<'ctx>,
@@ -29,6 +30,7 @@ pub fn codegen<'a, 'ctx>(
     let codegen = Codegen::new(
         hir_result,
         ty_result,
+        mir_result,
         context,
         module,
         builder,
@@ -47,6 +49,7 @@ struct Codegen<'a, 'ctx> {
     hir_result: &'a hir::LowerResult,
     #[allow(dead_code)]
     ty_result: &'a hir_ty::TyLowerResult,
+    mir_result: &'a mir::LowerResult,
 
     context: &'ctx Context,
     module: &'a Module<'ctx>,
@@ -67,6 +70,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
     fn new(
         hir_result: &'a hir::LowerResult,
         ty_result: &'a hir_ty::TyLowerResult,
+        mir_result: &'a mir::LowerResult,
         context: &'ctx Context,
         module: &'a Module<'ctx>,
         builder: &'a Builder<'ctx>,
@@ -75,6 +79,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         let mut codegen = Self {
             hir_result,
             ty_result,
+            mir_result,
             context,
             module,
             builder,
@@ -433,16 +438,17 @@ mod tests {
 
     use super::*;
 
-    fn lower(input: &str) -> (hir::LowerResult, hir_ty::TyLowerResult) {
+    fn lower(input: &str) -> (hir::LowerResult, hir_ty::TyLowerResult, mir::LowerResult) {
         let parsed = parser::parse(input);
         let ast = ast::SourceFile::cast(parsed.syntax()).unwrap();
         let hir_result = hir::lower(ast);
         let ty_result = hir_ty::lower(&hir_result);
-        (hir_result, ty_result)
+        let mir_result = mir::lower(&hir_result, &ty_result);
+        (hir_result, ty_result, mir_result)
     }
 
     fn check_ir(input: &str, expect: Expect) {
-        let (hir_result, ty_result) = lower(input);
+        let (hir_result, ty_result, mir_result) = lower(input);
 
         let context = Context::create();
         let module = context.create_module("top");
@@ -453,6 +459,7 @@ mod tests {
         codegen(
             &hir_result,
             &ty_result,
+            &mir_result,
             &context,
             &module,
             &builder,
@@ -474,7 +481,7 @@ mod tests {
     }
 
     fn check_result(input: &str, expect: Expect) {
-        let (hir_result, ty_result) = lower(input);
+        let (hir_result, ty_result, mir_result) = lower(input);
 
         let context = Context::create();
         let module = context.create_module("top");
@@ -485,6 +492,7 @@ mod tests {
         let result = codegen(
             &hir_result,
             &ty_result,
+            &mir_result,
             &context,
             &module,
             &builder,

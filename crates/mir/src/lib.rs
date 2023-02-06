@@ -376,7 +376,11 @@ impl<'a> FunctionLower<'a> {
 
                 match op {
                     hir::BinaryOp::Add => {
-                        let value = Value::build_call_add(lhs_place, rhs_place);
+                        let value = Value::BinaryOp {
+                            op: BinaryOp::Add,
+                            left: Operand::Place(lhs_place),
+                            right: Operand::Place(rhs_place),
+                        };
                         LoweredExpr::Value(value)
                     }
                     hir::BinaryOp::Sub => todo!(),
@@ -642,23 +646,22 @@ enum Place {
 enum Value {
     Constant(Constant),
     Place(Place),
-    CallBuiltin {
-        callee: BuiltinFunction,
-        args: Vec<Place>,
+    BinaryOp {
+        op: BinaryOp,
+        left: Operand,
+        right: Operand,
     },
-}
-impl Value {
-    fn build_call_add(arg1: Place, arg2: Place) -> Self {
-        Self::CallBuiltin {
-            callee: BuiltinFunction::Add,
-            args: vec![arg1, arg2],
-        }
-    }
 }
 
 #[derive(Debug)]
-enum BuiltinFunction {
+enum BinaryOp {
     Add,
+}
+
+#[derive(Debug)]
+enum Operand {
+    Place(Place),
+    Constant(Constant),
 }
 
 #[derive(Debug)]
@@ -829,31 +832,36 @@ mod tests {
     fn debug_value(value: &crate::Value, body: &crate::Body) -> String {
         match value {
             crate::Value::Constant(constant) => {
-                let const_value = match constant {
-                    crate::Constant::Integer(integer) => integer.to_string(),
-                    crate::Constant::Boolean(boolean) => boolean.to_string(),
-                    crate::Constant::Unit => "()".to_string(),
-                };
+                let const_value = debug_constant(constant);
                 format!("const {const_value}")
             }
             crate::Value::Place(place) => debug_place(place, body),
-            crate::Value::CallBuiltin { callee, args } => {
-                let function_name = match callee {
-                    crate::BuiltinFunction::Add => "add",
+            crate::Value::BinaryOp { op, left, right } => {
+                let function_name = match op {
+                    crate::BinaryOp::Add => "add",
                 }
                 .to_string();
-                let args = debug_args(args, body);
+                let left = debug_operand(left, body);
+                let right = debug_operand(right, body);
 
-                format!("{function_name}({args})")
+                format!("{function_name}({left}, {right})")
             }
         }
     }
 
-    fn debug_args(args: &[crate::Place], body: &crate::Body) -> String {
-        args.iter()
-            .map(|arg| debug_place(arg, body))
-            .collect::<Vec<String>>()
-            .join(", ")
+    fn debug_constant(constant: &crate::Constant) -> String {
+        match constant {
+            crate::Constant::Integer(integer) => integer.to_string(),
+            crate::Constant::Boolean(boolean) => boolean.to_string(),
+            crate::Constant::Unit => "()".to_string(),
+        }
+    }
+
+    fn debug_operand(operand: &crate::Operand, body: &crate::Body) -> String {
+        match operand {
+            crate::Operand::Place(place) => debug_place(place, body),
+            crate::Operand::Constant(constant) => debug_constant(constant),
+        }
     }
 
     fn debug_termination(termination: &crate::Termination, body: &crate::Body) -> String {

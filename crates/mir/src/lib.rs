@@ -506,6 +506,21 @@ pub struct Body {
     locals: Arena<Local>,
     blocks: Arena<BasicBlock>,
 }
+impl Body {
+    fn signature(&self) -> Signature {
+        let params = self.params.iter().map(|(idx, _param)| idx).collect();
+        Signature {
+            params,
+            return_value: self.return_local,
+        }
+    }
+}
+
+#[derive(Debug)]
+struct Signature {
+    params: Vec<Idx<Param>>,
+    return_value: Idx<Local>,
+}
 
 #[derive(Debug)]
 struct Param {

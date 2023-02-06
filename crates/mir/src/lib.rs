@@ -146,8 +146,8 @@ impl<'a> FunctionLower<'a> {
         self.blocks.alloc(dest_bb)
     }
 
-    fn lower_expr(&mut self, expr: hir::ExprIdx) -> LoweredExpr {
-        let expr = &self.hir_result.shared_ctx.exprs[expr];
+    fn lower_expr(&mut self, expr_idx: hir::ExprIdx) -> LoweredExpr {
+        let expr = &self.hir_result.shared_ctx.exprs[expr_idx];
         match expr {
             hir::Expr::Literal(literal) => match literal {
                 hir::Literal::Integer(value) => {
@@ -349,6 +349,40 @@ impl<'a> FunctionLower<'a> {
                             }
                         },
                     }
+                }
+            }
+            hir::Expr::Binary { op, lhs, rhs } => {
+                let lhs_local = self.alloc_local(*lhs);
+                let lhs = match self.lower_expr(*lhs) {
+                    LoweredExpr::Return => return LoweredExpr::Return,
+                    LoweredExpr::Value(value) => value,
+                };
+                let lhs_place = Place::Local(lhs_local);
+                self.add_statement_to_current_bb(Statement::Assign {
+                    place: lhs_place,
+                    value: lhs,
+                });
+
+                let rhs_local = self.alloc_local(*rhs);
+                let rhs = match self.lower_expr(*rhs) {
+                    LoweredExpr::Return => return LoweredExpr::Return,
+                    LoweredExpr::Value(value) => value,
+                };
+                let rhs_place = Place::Local(rhs_local);
+                self.add_statement_to_current_bb(Statement::Assign {
+                    place: rhs_place,
+                    value: rhs,
+                });
+
+                match op {
+                    hir::BinaryOp::Add => {
+                        let value = Value::build_call_add(lhs_place, rhs_place);
+                        LoweredExpr::Value(value)
+                    }
+                    hir::BinaryOp::Sub => todo!(),
+                    hir::BinaryOp::Mul => todo!(),
+                    hir::BinaryOp::Div => todo!(),
+                    hir::BinaryOp::Equal => todo!(),
                 }
             }
             _ => todo!(),
@@ -608,6 +642,23 @@ enum Place {
 enum Value {
     Constant(Constant),
     Place(Place),
+    CallBuiltin {
+        callee: BuiltinFunction,
+        args: Vec<Place>,
+    },
+}
+impl Value {
+    fn build_call_add(arg1: Place, arg2: Place) -> Self {
+        Self::CallBuiltin {
+            callee: BuiltinFunction::Add,
+            args: vec![arg1, arg2],
+        }
+    }
+}
+
+#[derive(Debug)]
+enum BuiltinFunction {
+    Add,
 }
 
 #[derive(Debug)]
@@ -786,7 +837,23 @@ mod tests {
                 format!("const {const_value}")
             }
             crate::Value::Place(place) => debug_place(place, body),
+            crate::Value::CallBuiltin { callee, args } => {
+                let function_name = match callee {
+                    crate::BuiltinFunction::Add => "add",
+                }
+                .to_string();
+                let args = debug_args(args, body);
+
+                format!("{function_name}({args})")
+            }
         }
+    }
+
+    fn debug_args(args: &[crate::Place], body: &crate::Body) -> String {
+        args.iter()
+            .map(|arg| debug_place(arg, body))
+            .collect::<Vec<String>>()
+            .join(", ")
     }
 
     fn debug_termination(termination: &crate::Termination, body: &crate::Body) -> String {
@@ -848,6 +915,35 @@ mod tests {
                 format!("else{}", basic_block.idx)
             }
         }
+    }
+
+    #[test]
+    fn test_add_number() {
+        check(
+            r#"
+                fn main() -> int {
+                    10 + 20
+                }
+            "#,
+            expect![[r#"
+                fn main() -> int {
+                    let _0: int
+                    let _1: int
+                    let _2: int
+
+                    entry: {
+                        _1 = const 10
+                        _2 = const 20
+                        _0 = add(_1, _2)
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
     }
 
     #[test]

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Binary};
 
 use hir_ty::ResolvedType;
 use la_arena::{Arena, Idx};
@@ -362,24 +362,24 @@ impl<'a> FunctionLower<'a> {
                     LoweredExpr::Operand(operand) => operand,
                 };
 
-                match op {
-                    hir::BinaryOp::Add => {
-                        let local = self.alloc_local(expr_idx);
-                        let value = Value::BinaryOp {
-                            op: BinaryOp::Add,
-                            left: lhs,
-                            right: rhs,
-                        };
-                        let place = Place::Local(local);
-                        self.add_statement_to_current_bb(Statement::Assign { place, value });
-
-                        LoweredExpr::Operand(Operand::Place(place))
-                    }
-                    hir::BinaryOp::Sub => todo!(),
+                let op = match op {
+                    hir::BinaryOp::Add => BinaryOp::Add,
+                    hir::BinaryOp::Sub => BinaryOp::Sub,
                     hir::BinaryOp::Mul => todo!(),
                     hir::BinaryOp::Div => todo!(),
                     hir::BinaryOp::Equal => todo!(),
-                }
+                };
+
+                let local = self.alloc_local(expr_idx);
+                let value = Value::BinaryOp {
+                    op,
+                    left: lhs,
+                    right: rhs,
+                };
+                let place = Place::Local(local);
+                self.add_statement_to_current_bb(Statement::Assign { place, value });
+
+                LoweredExpr::Operand(Operand::Place(place))
             }
             _ => todo!(),
         }
@@ -647,6 +647,7 @@ enum Value {
 #[derive(Debug)]
 enum BinaryOp {
     Add,
+    Sub,
 }
 
 #[derive(Debug)]
@@ -831,6 +832,7 @@ mod tests {
             crate::Value::BinaryOp { op, left, right } => {
                 let function_name = match op {
                     crate::BinaryOp::Add => "add",
+                    crate::BinaryOp::Sub => "sub",
                 }
                 .to_string();
                 let left = debug_operand(left, body);
@@ -971,6 +973,33 @@ mod tests {
                         _5 = add(_4, _1)
                         _6 = add(_5, _3)
                         _0 = _6
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_sub_number() {
+        check(
+            r#"
+                fn main() -> int {
+                    10 - 20
+                }
+            "#,
+            expect![[r#"
+                fn main() -> int {
+                    let _0: int
+                    let _1: int
+
+                    entry: {
+                        _1 = sub(const 10, const 20)
+                        _0 = _1
                         goto -> exit
                     }
 

@@ -943,6 +943,43 @@ mod tests {
                 }
             "#]],
         );
+
+        check(
+            r#"
+                fn main() -> int {
+                    let a = 100;
+                    let b = 10 + 20;
+
+                    10 + 20 + a + b
+                }
+            "#,
+            expect![[r#"
+                fn main() -> int {
+                    let _0: int
+                    let _1: int
+                    let _2: int
+                    let _3: int
+                    let _4: int
+                    let _5: int
+                    let _6: int
+
+                    entry: {
+                        _1 = const 100
+                        _3 = add(const 10, const 20)
+                        _2 = _3
+                        _4 = add(const 10, const 20)
+                        _5 = add(_4, _1)
+                        _6 = add(_5, _3)
+                        _0 = _6
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
     }
 
     #[test]

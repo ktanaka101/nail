@@ -547,7 +547,7 @@ impl<'a> FunctionLower<'a> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct FunctionId(u32);
+pub struct FunctionId(u32);
 
 struct FunctionIdGenerator {
     id: u32,
@@ -627,7 +627,7 @@ pub struct LowerResult {
 }
 
 impl LowerResult {
-    fn entry_point(&self) -> Option<&Body> {
+    pub fn entry_point(&self) -> Option<&Body> {
         self.entry_point.map(|idx| &self.bodies[idx])
     }
 
@@ -646,7 +646,7 @@ pub struct Body {
     blocks: Arena<BasicBlock>,
 }
 impl Body {
-    fn signature(&self) -> Signature {
+    pub fn signature(&self) -> Signature {
         let params = self.params.iter().map(|(idx, _param)| idx).collect();
         Signature {
             params,
@@ -656,25 +656,25 @@ impl Body {
 }
 
 #[derive(Debug)]
-struct Signature {
-    params: Vec<Idx<Param>>,
-    return_value: Idx<Local>,
+pub struct Signature {
+    pub params: Vec<Idx<Param>>,
+    pub return_value: Idx<Local>,
 }
 
 #[derive(Debug)]
-struct Param {
-    ty: ResolvedType,
-    idx: u64,
+pub struct Param {
+    pub ty: ResolvedType,
+    pub idx: u64,
 }
 
 #[derive(Debug)]
-struct Local {
-    ty: ResolvedType,
-    idx: u64,
+pub struct Local {
+    pub ty: ResolvedType,
+    pub idx: u64,
 }
 
 #[derive(Debug)]
-struct BasicBlock {
+pub struct BasicBlock {
     kind: BasicBlockKind,
     statements: Vec<Statement>,
     termination: Option<Termination>,
@@ -738,13 +738,13 @@ struct AllocatedSwitchBB {
 }
 
 #[derive(Debug, Clone, Copy)]
-enum Place {
+pub enum Place {
     Param(Idx<Param>),
     Local(Idx<Local>),
 }
 
 #[derive(Debug)]
-enum Value {
+pub enum Value {
     Operand(Operand),
     BinaryOp {
         op: BinaryOp,
@@ -754,7 +754,7 @@ enum Value {
 }
 
 #[derive(Debug)]
-enum BinaryOp {
+pub enum BinaryOp {
     Add,
     Sub,
     Mul,
@@ -762,7 +762,7 @@ enum BinaryOp {
 }
 
 #[derive(Debug)]
-enum Operand {
+pub enum Operand {
     Place(Place),
     Constant(Constant),
 }
@@ -785,19 +785,19 @@ enum LoweredStmt {
 }
 
 #[derive(Debug)]
-enum Constant {
+pub enum Constant {
     Integer(u64),
     Boolean(bool),
     Unit,
 }
 
 #[derive(Debug)]
-enum Statement {
+pub enum Statement {
     Assign { place: Place, value: Value },
 }
 
 #[derive(Debug)]
-enum Termination {
+pub enum Termination {
     Return(Idx<Local>),
     Goto(Idx<BasicBlock>),
     Switch {
@@ -814,7 +814,7 @@ enum Termination {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-enum BasicBlockKind {
+pub enum BasicBlockKind {
     Entry,
     Exit,
     Standard,

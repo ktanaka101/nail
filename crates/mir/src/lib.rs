@@ -81,13 +81,19 @@ impl<'a> FunctionLower<'a> {
 
     fn alloc_local(&mut self, expr: Idx<hir::Expr>) -> Idx<Local> {
         let ty = self.hir_ty_result.type_by_expr(expr);
-        let cond_local = Local {
+        let local_idx = self.alloc_local_by_ty(ty);
+        self.local_by_hir.insert(expr, local_idx);
+
+        local_idx
+    }
+
+    fn alloc_local_by_ty(&mut self, ty: ResolvedType) -> Idx<Local> {
+        let local = Local {
             ty,
             idx: self.local_idx,
         };
         self.local_idx += 1;
-        let local_idx = self.locals.alloc(cond_local);
-        self.local_by_hir.insert(expr, local_idx);
+        let local_idx = self.locals.alloc(local);
 
         local_idx
     }
@@ -396,12 +402,12 @@ impl<'a> FunctionLower<'a> {
                 }
             }
             hir::Expr::Call { callee, args } => {
-                let mut mir_args = vec![];
+                let mut arg_operands = vec![];
                 for arg in args {
                     match self.lower_expr(*arg) {
                         LoweredExpr::Return => return LoweredExpr::Return,
                         LoweredExpr::Operand(operand) => {
-                            mir_args.push(operand);
+                            arg_operands.push(operand);
                         }
                     }
                 }
@@ -409,8 +415,24 @@ impl<'a> FunctionLower<'a> {
                 match callee {
                     hir::Symbol::Param { name, param } => unimplemented!(),
                     hir::Symbol::Local { name, expr } => unimplemented!(),
-                    hir::Symbol::Function { name, function } => {
-                        todo!()
+                    hir::Symbol::Function { name: _, function } => {
+                        let function_id = self.function_id_by_hir_function[function];
+
+                        let signature = self.hir_ty_result.signature_by_function(function);
+                        let called_local = self.alloc_local_by_ty(signature.return_type);
+                        let dest_place = Place::Local(called_local);
+
+                        let target_bb = self.alloc_standard_bb();
+
+                        self.add_termination_to_current_bb(Termination::Call {
+                            function: function_id,
+                            args: arg_operands,
+                            destination: dest_place,
+                            target: target_bb,
+                        });
+                        self.current_bb = Some(target_bb);
+
+                        LoweredExpr::Operand(Operand::Place(dest_place))
                     }
                     hir::Symbol::Missing { name } => unreachable!(),
                 }
@@ -778,6 +800,12 @@ enum Termination {
         then_bb: Idx<BasicBlock>,
         else_bb: Idx<BasicBlock>,
     },
+    Call {
+        function: FunctionId,
+        args: Vec<Operand>,
+        destination: Place,
+        target: Idx<BasicBlock>,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -861,7 +889,7 @@ mod tests {
                     msg.push_str(&format!(
                         "{}{}\n",
                         indent(2),
-                        debug_termination(termination, body)
+                        debug_termination(termination, body, hir_result, mir_result)
                     ));
                 }
 
@@ -945,7 +973,12 @@ mod tests {
         }
     }
 
-    fn debug_termination(termination: &crate::Termination, body: &crate::Body) -> String {
+    fn debug_termination(
+        termination: &crate::Termination,
+        body: &crate::Body,
+        hir_result: &hir::LowerResult,
+        mir_result: &crate::LowerResult,
+    ) -> String {
         match termination {
             crate::Termination::Return(return_local_idx) => {
                 let return_local = &body.locals[*return_local_idx];
@@ -965,7 +998,29 @@ mod tests {
                 let else_bb_name = debug_bb_name_by_idx(*else_bb, body);
                 format!("switch({condition}) -> [true: {then_bb_name}, false: {else_bb_name}]")
             }
+            crate::Termination::Call {
+                function,
+                args,
+                destination,
+                target,
+            } => {
+                let function = mir_result.body_by_function[function];
+                let function_name = mir_result.bodies[function].name;
+                let function_name = hir_result.interner.lookup(function_name.key());
+                let args = debug_args(args, body);
+                let dest = debug_place(destination, body);
+                let target_bb_name = debug_bb_name_by_idx(*target, body);
+
+                format!("{dest} = {function_name}({args}) -> [return: {target_bb_name}]")
+            }
         }
+    }
+
+    fn debug_args(args: &[crate::Operand], body: &crate::Body) -> String {
+        args.iter()
+            .map(|arg| debug_operand(arg, body))
+            .collect::<Vec<String>>()
+            .join(", ")
     }
 
     fn debug_ty(ty: &ResolvedType) -> String {
@@ -1676,6 +1731,157 @@ mod tests {
                     }
 
                     bb0: {
+                        _0 = _3
+                        goto -> exit
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_call() {
+        check(
+            r#"
+                fn aaa() -> int {
+                    10
+                }
+
+                fn main() -> int {
+                    aaa()
+                }
+            "#,
+            expect![[r#"
+                fn aaa() -> int {
+                    let _0: int
+
+                    entry: {
+                        _0 = const 10
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+                fn main() -> int {
+                    let _0: int
+                    let _1: int
+
+                    entry: {
+                        _1 = aaa() -> [return: bb0]
+                    }
+
+                    exit: {
+                        return _0
+                    }
+
+                    bb0: {
+                        _0 = _1
+                        goto -> exit
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_call_with_args() {
+        check(
+            r#"
+                fn aaa(x: int, y: int) -> int {
+                    10 + 20
+                }
+
+                fn main() -> int {
+                    aaa(10, 20)
+                }
+            "#,
+            expect![[r#"
+                fn aaa(_1: int, _2: int) -> int {
+                    let _0: int
+                    let _3: int
+
+                    entry: {
+                        _3 = add(const 10, const 20)
+                        _0 = _3
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+                fn main() -> int {
+                    let _0: int
+                    let _1: int
+
+                    entry: {
+                        _1 = aaa(const 10, const 20) -> [return: bb0]
+                    }
+
+                    exit: {
+                        return _0
+                    }
+
+                    bb0: {
+                        _0 = _1
+                        goto -> exit
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_call_binding() {
+        check(
+            r#"
+                fn aaa(x: int, y: int) -> int {
+                    10 + 20
+                }
+
+                fn main() -> int {
+                    let a = 10;
+                    let b = 20;
+                    let c = aaa(a, b);
+                    c
+                }
+            "#,
+            expect![[r#"
+                fn aaa(_1: int, _2: int) -> int {
+                    let _0: int
+                    let _3: int
+
+                    entry: {
+                        _3 = add(const 10, const 20)
+                        _0 = _3
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+                fn main() -> int {
+                    let _0: int
+                    let _1: int
+                    let _2: int
+                    let _3: int
+                    let _4: int
+
+                    entry: {
+                        _1 = const 10
+                        _2 = const 20
+                        _4 = aaa(_1, _2) -> [return: bb0]
+                    }
+
+                    exit: {
+                        return _0
+                    }
+
+                    bb0: {
+                        _3 = _4
                         _0 = _3
                         goto -> exit
                     }

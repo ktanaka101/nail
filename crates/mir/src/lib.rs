@@ -15,6 +15,7 @@ pub fn lower(hir_result: &hir::LowerResult, hir_ty_result: &hir_ty::TyLowerResul
 struct FunctionLower<'a> {
     hir_result: &'a hir::LowerResult,
     hir_ty_result: &'a hir_ty::TyLowerResult,
+    function_id_by_hir_function: &'a HashMap<Idx<hir::Function>, FunctionId>,
     function_idx: Idx<hir::Function>,
 
     return_local: Idx<Local>,
@@ -34,6 +35,7 @@ impl<'a> FunctionLower<'a> {
     fn new(
         hir_result: &'a hir::LowerResult,
         hir_ty_result: &'a hir_ty::TyLowerResult,
+        function_id_by_hir_function: &'a HashMap<Idx<hir::Function>, FunctionId>,
         function_idx: Idx<hir::Function>,
     ) -> Self {
         let mut locals = Arena::new();
@@ -46,6 +48,7 @@ impl<'a> FunctionLower<'a> {
         FunctionLower {
             hir_result,
             hir_ty_result,
+            function_id_by_hir_function,
             function_idx,
             local_idx: 1,
             return_local,
@@ -392,6 +395,26 @@ impl<'a> FunctionLower<'a> {
                     LoweredExpr::Operand(Operand::Constant(Constant::Unit))
                 }
             }
+            hir::Expr::Call { callee, args } => {
+                let mut mir_args = vec![];
+                for arg in args {
+                    match self.lower_expr(*arg) {
+                        LoweredExpr::Return => return LoweredExpr::Return,
+                        LoweredExpr::Operand(operand) => {
+                            mir_args.push(operand);
+                        }
+                    }
+                }
+
+                match callee {
+                    hir::Symbol::Param { name, param } => unimplemented!(),
+                    hir::Symbol::Local { name, expr } => unimplemented!(),
+                    hir::Symbol::Function { name, function } => {
+                        todo!()
+                    }
+                    hir::Symbol::Missing { name } => unreachable!(),
+                }
+            }
             _ => todo!(),
         }
     }
@@ -496,6 +519,25 @@ impl<'a> FunctionLower<'a> {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct FunctionId(u32);
+
+struct FunctionIdGenerator {
+    id: u32,
+}
+impl FunctionIdGenerator {
+    fn new() -> Self {
+        Self { id: 0 }
+    }
+
+    fn gen(&mut self) -> FunctionId {
+        let id = self.id;
+        self.id += 1;
+
+        FunctionId(id)
+    }
+}
+
 struct MirLower<'a> {
     hir_result: &'a hir::LowerResult,
     hir_ty_result: &'a hir_ty::TyLowerResult,
@@ -505,10 +547,32 @@ impl<'a> MirLower<'a> {
     fn lower(self) -> LowerResult {
         let mut entry_point: Option<Idx<Body>> = None;
         let mut bodies = Arena::new();
+
+        let function_id_by_hir_function = {
+            let mut function_id_resolver = FunctionIdGenerator::new();
+            let mut function_id_by_hir_function = HashMap::<Idx<hir::Function>, FunctionId>::new();
+            for (function_idx, _function) in self.hir_result.db.functions.iter() {
+                function_id_by_hir_function.insert(function_idx, function_id_resolver.gen());
+            }
+
+            function_id_by_hir_function
+        };
+
+        let mut body_by_function = HashMap::<FunctionId, Idx<Body>>::new();
         for (function_idx, function) in self.hir_result.db.functions.iter() {
-            let lower = FunctionLower::new(self.hir_result, self.hir_ty_result, function_idx);
+            let lower = FunctionLower::new(
+                self.hir_result,
+                self.hir_ty_result,
+                &function_id_by_hir_function,
+                function_idx,
+            );
             let body = lower.lower();
-            let idx = bodies.alloc(body);
+            let body_idx = bodies.alloc(body);
+
+            body_by_function.insert(
+                *function_id_by_hir_function.get(&function_idx).unwrap(),
+                body_idx,
+            );
 
             let name = self
                 .hir_result
@@ -516,13 +580,14 @@ impl<'a> MirLower<'a> {
                 .lookup(function.name.unwrap().key());
             if name == "main" {
                 assert_eq!(entry_point, None);
-                entry_point = Some(idx);
+                entry_point = Some(body_idx);
             }
         }
 
         LowerResult {
             entry_point,
             bodies,
+            body_by_function,
         }
     }
 }
@@ -531,11 +596,17 @@ impl<'a> MirLower<'a> {
 pub struct LowerResult {
     entry_point: Option<Idx<Body>>,
     bodies: Arena<Body>,
+    body_by_function: HashMap<FunctionId, Idx<Body>>,
 }
 
 impl LowerResult {
     fn entry_point(&self) -> Option<&Body> {
         self.entry_point.map(|idx| &self.bodies[idx])
+    }
+
+    fn body_by_function(&self, function_id: FunctionId) -> &Body {
+        let body_idx = self.body_by_function.get(&function_id).unwrap();
+        &self.bodies[*body_idx]
     }
 }
 

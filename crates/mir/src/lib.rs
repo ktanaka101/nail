@@ -93,9 +93,8 @@ impl<'a> FunctionLower<'a> {
             idx: self.local_idx,
         };
         self.local_idx += 1;
-        let local_idx = self.locals.alloc(local);
 
-        local_idx
+        self.locals.alloc(local)
     }
 
     fn get_local_by_expr(&self, expr: Idx<hir::Expr>) -> Idx<Local> {
@@ -175,11 +174,11 @@ impl<'a> FunctionLower<'a> {
                 hir::Symbol::Param { name: _, param } => LoweredExpr::Operand(Operand::Place(
                     Place::Param(self.get_param_by_expr(*param)),
                 )),
-                hir::Symbol::Local { name, expr } => LoweredExpr::Operand(Operand::Place(
+                hir::Symbol::Local { name: _, expr } => LoweredExpr::Operand(Operand::Place(
                     Place::Local(self.get_local_by_expr(*expr)),
                 )),
-                hir::Symbol::Function { name, function } => todo!(),
-                hir::Symbol::Missing { name } => unreachable!(),
+                hir::Symbol::Function { .. } => todo!(),
+                hir::Symbol::Missing { .. } => unreachable!(),
             },
             hir::Expr::Return { value } => {
                 if let Some(value) = value {
@@ -419,8 +418,8 @@ impl<'a> FunctionLower<'a> {
                 }
 
                 match callee {
-                    hir::Symbol::Param { name, param } => unimplemented!(),
-                    hir::Symbol::Local { name, expr } => unimplemented!(),
+                    hir::Symbol::Param { .. } => unimplemented!(),
+                    hir::Symbol::Local { .. } => unimplemented!(),
                     hir::Symbol::Function { name: _, function } => {
                         let function_id = self.function_id_by_hir_function[function];
 
@@ -440,7 +439,7 @@ impl<'a> FunctionLower<'a> {
 
                         LoweredExpr::Operand(Operand::Place(dest_place))
                     }
-                    hir::Symbol::Missing { name } => unreachable!(),
+                    hir::Symbol::Missing { .. } => unreachable!(),
                 }
             }
             _ => todo!(),
@@ -846,7 +845,7 @@ mod tests {
 
     fn debug(
         hir_result: &hir::LowerResult,
-        hir_ty_result: &hir_ty::TyLowerResult,
+        _hir_ty_result: &hir_ty::TyLowerResult,
         mir_result: &crate::LowerResult,
     ) -> String {
         let mut msg = "".to_string();

@@ -173,7 +173,7 @@ impl<'a> FunctionLower<'a> {
                     Place::Local(self.get_local_by_expr(*expr)),
                 )),
                 hir::Symbol::Function { name, function } => todo!(),
-                hir::Symbol::Missing { name } => todo!(),
+                hir::Symbol::Missing { name } => unreachable!(),
             },
             hir::Expr::Return { value } => {
                 if let Some(value) = value {

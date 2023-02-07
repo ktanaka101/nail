@@ -381,6 +381,17 @@ impl<'a> FunctionLower<'a> {
 
                 LoweredExpr::Operand(Operand::Place(place))
             }
+            hir::Expr::Block(block) => {
+                for stmt in &block.stmts {
+                    self.lower_stmt(stmt);
+                }
+
+                if let Some(tail) = block.tail {
+                    self.lower_expr(tail)
+                } else {
+                    LoweredExpr::Operand(Operand::Constant(Constant::Unit))
+                }
+            }
             _ => todo!(),
         }
     }
@@ -1180,6 +1191,65 @@ mod tests {
                     entry: {
                         _1 = const 10
                         _0 = _1
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_block_resolves_to_tail() {
+        check(
+            r#"
+                fn main() -> int {
+                    {
+                        let x = 10
+                        x
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn main() -> int {
+                    let _0: int
+                    let _1: int
+
+                    entry: {
+                        _1 = const 10
+                        _0 = _1
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_block_without_tail_resolves_to_unit() {
+        check(
+            r#"
+                fn main() {
+                    {
+                        let x = 10
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn main() -> () {
+                    let _0: ()
+                    let _1: int
+
+                    entry: {
+                        _1 = const 10
+                        _0 = const ()
                         goto -> exit
                     }
 

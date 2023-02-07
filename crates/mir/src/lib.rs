@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Binary};
+use std::collections::HashMap;
 
 use hir_ty::ResolvedType;
 use la_arena::{Arena, Idx};

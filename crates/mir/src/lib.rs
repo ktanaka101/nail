@@ -102,6 +102,10 @@ impl<'a> FunctionLower<'a> {
         *self.local_by_hir.get(&expr).unwrap()
     }
 
+    fn get_param_by_expr(&self, param: Idx<hir::Param>) -> Idx<Param> {
+        self.param_by_hir[&param]
+    }
+
     fn alloc_entry_bb(&mut self) -> Idx<BasicBlock> {
         let entry_bb = BasicBlock::new_entry_bb(0);
         self.blocks.alloc(entry_bb)
@@ -168,7 +172,9 @@ impl<'a> FunctionLower<'a> {
                 _ => todo!(),
             },
             hir::Expr::VariableRef { var } => match var {
-                hir::Symbol::Param { name, param } => todo!(),
+                hir::Symbol::Param { name: _, param } => LoweredExpr::Operand(Operand::Place(
+                    Place::Param(self.get_param_by_expr(*param)),
+                )),
                 hir::Symbol::Local { name, expr } => LoweredExpr::Operand(Operand::Place(
                     Place::Local(self.get_local_by_expr(*expr)),
                 )),
@@ -1790,7 +1796,7 @@ mod tests {
         check(
             r#"
                 fn aaa(x: int, y: int) -> int {
-                    10 + 20
+                    x + y
                 }
 
                 fn main() -> int {
@@ -1803,7 +1809,7 @@ mod tests {
                     let _3: int
 
                     entry: {
-                        _3 = add(const 10, const 20)
+                        _3 = add(_1, _2)
                         _0 = _3
                         goto -> exit
                     }
@@ -1838,7 +1844,7 @@ mod tests {
         check(
             r#"
                 fn aaa(x: int, y: int) -> int {
-                    10 + 20
+                    x + y
                 }
 
                 fn main() -> int {
@@ -1854,7 +1860,7 @@ mod tests {
                     let _3: int
 
                     entry: {
-                        _3 = add(const 10, const 20)
+                        _3 = add(_1, _2)
                         _0 = _3
                         goto -> exit
                     }

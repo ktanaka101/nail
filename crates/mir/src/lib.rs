@@ -638,9 +638,17 @@ impl LowerResult {
         self.entry_point.map(|idx| &self.bodies[idx])
     }
 
-    fn body_by_function(&self, function_id: FunctionId) -> &Body {
+    pub fn function_id_of_entry_point(&self) -> Option<FunctionId> {
+        self.entry_point.map(|idx| self.function_by_body[&idx])
+    }
+
+    pub fn body_by_function_id(&self, function_id: FunctionId) -> &Body {
         let body_idx = self.body_by_function.get(&function_id).unwrap();
         &self.bodies[*body_idx]
+    }
+
+    pub fn function_id_by_body_idx(&self, idx: Idx<Body>) -> FunctionId {
+        self.function_by_body[&idx]
     }
 
     pub fn ref_bodies(&self) -> impl Iterator<Item = (Idx<Body>, &Body)> {
@@ -652,7 +660,7 @@ impl LowerResult {
 pub struct Body {
     pub name: hir::Name,
     pub params: Arena<Param>,
-    pub return_local: Idx<Local>,
+    pub return_local: LocalIdx,
     pub locals: Arena<Local>,
     pub blocks: Arena<BasicBlock>,
 }
@@ -668,8 +676,8 @@ impl Body {
 
 #[derive(Debug)]
 pub struct Signature {
-    pub params: Vec<Idx<Param>>,
-    pub return_value: Idx<Local>,
+    pub params: Vec<ParamIdx>,
+    pub return_value: LocalIdx,
 }
 
 #[derive(Debug)]
@@ -677,12 +685,14 @@ pub struct Param {
     pub ty: ResolvedType,
     pub idx: u64,
 }
+pub type ParamIdx = Idx<Param>;
 
 #[derive(Debug)]
 pub struct Local {
     pub ty: ResolvedType,
     pub idx: u64,
 }
+pub type LocalIdx = Idx<Local>;
 
 #[derive(Debug)]
 pub struct BasicBlock {
@@ -742,6 +752,8 @@ impl BasicBlock {
         self.statements.push(stmt);
     }
 }
+
+pub type BasicBlockIdx = Idx<BasicBlock>;
 
 struct AllocatedSwitchBB {
     then_bb_idx: Idx<BasicBlock>,

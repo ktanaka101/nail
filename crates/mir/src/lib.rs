@@ -696,13 +696,29 @@ pub type LocalIdx = Idx<Local>;
 
 #[derive(Debug)]
 pub struct BasicBlock {
-    kind: BasicBlockKind,
-    statements: Vec<Statement>,
-    termination: Option<Termination>,
+    pub kind: BasicBlockKind,
+    pub statements: Vec<Statement>,
+    pub termination: Option<Termination>,
     idx: u64,
 }
 
 impl BasicBlock {
+    pub fn name(&self) -> String {
+        match self.kind {
+            crate::BasicBlockKind::Entry => "entry".to_string(),
+            crate::BasicBlockKind::Exit => "exit".to_string(),
+            crate::BasicBlockKind::Standard => {
+                format!("bb{}", self.idx)
+            }
+            crate::BasicBlockKind::Then => {
+                format!("then{}", self.idx)
+            }
+            crate::BasicBlockKind::Else => {
+                format!("else{}", self.idx)
+            }
+        }
+    }
+
     fn new_entry_bb(idx: u64) -> Self {
         Self {
             kind: BasicBlockKind::Entry,
@@ -1074,19 +1090,7 @@ mod tests {
     }
 
     fn debug_bb_name(basic_block: &crate::BasicBlock) -> String {
-        match basic_block.kind {
-            crate::BasicBlockKind::Entry => "entry".to_string(),
-            crate::BasicBlockKind::Exit => "exit".to_string(),
-            crate::BasicBlockKind::Standard => {
-                format!("bb{}", basic_block.idx)
-            }
-            crate::BasicBlockKind::Then => {
-                format!("then{}", basic_block.idx)
-            }
-            crate::BasicBlockKind::Else => {
-                format!("else{}", basic_block.idx)
-            }
-        }
+        basic_block.name()
     }
 
     #[test]

@@ -586,6 +586,7 @@ impl<'a> MirLower<'a> {
         };
 
         let mut body_by_function = HashMap::<FunctionId, Idx<Body>>::new();
+        let mut function_by_body = HashMap::<Idx<Body>, FunctionId>::new();
         for (function_idx, function) in self.hir_result.db.functions.iter() {
             let lower = FunctionLower::new(
                 self.hir_result,
@@ -599,6 +600,10 @@ impl<'a> MirLower<'a> {
             body_by_function.insert(
                 *function_id_by_hir_function.get(&function_idx).unwrap(),
                 body_idx,
+            );
+            function_by_body.insert(
+                body_idx,
+                *function_id_by_hir_function.get(&function_idx).unwrap(),
             );
 
             let name = self
@@ -615,6 +620,7 @@ impl<'a> MirLower<'a> {
             entry_point,
             bodies,
             body_by_function,
+            function_by_body,
         }
     }
 }
@@ -624,6 +630,7 @@ pub struct LowerResult {
     entry_point: Option<Idx<Body>>,
     bodies: Arena<Body>,
     body_by_function: HashMap<FunctionId, Idx<Body>>,
+    function_by_body: HashMap<Idx<Body>, FunctionId>,
 }
 
 impl LowerResult {
@@ -635,15 +642,19 @@ impl LowerResult {
         let body_idx = self.body_by_function.get(&function_id).unwrap();
         &self.bodies[*body_idx]
     }
+
+    pub fn ref_bodies(&self) -> impl Iterator<Item = (Idx<Body>, &Body)> {
+        self.bodies.iter()
+    }
 }
 
 #[derive(Debug)]
 pub struct Body {
-    name: hir::Name,
-    params: Arena<Param>,
-    return_local: Idx<Local>,
-    locals: Arena<Local>,
-    blocks: Arena<BasicBlock>,
+    pub name: hir::Name,
+    pub params: Arena<Param>,
+    pub return_local: Idx<Local>,
+    pub locals: Arena<Local>,
+    pub blocks: Arena<BasicBlock>,
 }
 impl Body {
     pub fn signature(&self) -> Signature {

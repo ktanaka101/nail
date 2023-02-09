@@ -288,22 +288,22 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         self.gen_functions();
 
         let result = {
-        let fn_type = self
-            .context
-            .i8_type()
-            .ptr_type(AddressSpace::default())
-            .fn_type(&[], false);
-        let entry_point = self
-            .module
-            .add_function(INTERNAL_ENTRY_POINT, fn_type, None);
-        let inner_entry_point_block = self
-            .context
-            .append_basic_block(entry_point, FN_ENTRY_BLOCK_NAME);
-        self.builder.position_at_end(inner_entry_point_block);
+            let fn_type = self
+                .context
+                .i8_type()
+                .ptr_type(AddressSpace::default())
+                .fn_type(&[], false);
+            let entry_point = self
+                .module
+                .add_function(INTERNAL_ENTRY_POINT, fn_type, None);
+            let inner_entry_point_block = self
+                .context
+                .append_basic_block(entry_point, FN_ENTRY_BLOCK_NAME);
+            self.builder.position_at_end(inner_entry_point_block);
             self.builder.build_call(
-            self.defined_functions[&self.mir_result.function_id_of_entry_point().unwrap()],
-            &[],
-            "call_entry_point",
+                self.defined_functions[&self.mir_result.function_id_of_entry_point().unwrap()],
+                &[],
+                "call_entry_point",
             )
         };
 
@@ -315,12 +315,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
 
                     self.builder.build_return(Some(&return_v));
                 }
-                Either::Right(_) => {
-                    let call_v = self.build_call_unit_string();
-                    let return_v = call_v.try_as_basic_value().left().unwrap();
-
-                    self.builder.build_return(Some(&return_v));
-                }
+                Either::Right(_) => unreachable!(),
             }
         } else {
             self.builder.build_return(None);
@@ -934,22 +929,22 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn test_return_unit_of_main() {
-    //     check_result(
-    //         r#"
-    //         fn main() {
-    //             let a = 10
-    //         }
-    //     "#,
-    //         expect![[r#"
-    //             {
-    //               "nail_type": "Unit",
-    //               "value": null
-    //             }
-    //         "#]],
-    //     );
-    // }
+    #[test]
+    fn test_return_unit_of_main() {
+        check_result(
+            r#"
+            fn main() {
+                let a = 10
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Unit",
+                  "value": null
+                }
+            "#]],
+        );
+    }
 
     #[test]
     fn test_let_binding() {

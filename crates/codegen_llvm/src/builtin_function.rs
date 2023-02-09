@@ -182,6 +182,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 ptr,
                 self.context.i64_type().const_zero(),
             ),
+            BasicValueEnum::StructValue(_) => self.build_call_unit_string(),
             _ => unimplemented!(),
         }
     }

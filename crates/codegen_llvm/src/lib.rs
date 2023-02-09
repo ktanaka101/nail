@@ -287,6 +287,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         self.gen_function_signatures();
         self.gen_functions();
 
+        let result = {
         let fn_type = self
             .context
             .i8_type()
@@ -299,11 +300,12 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             .context
             .append_basic_block(entry_point, FN_ENTRY_BLOCK_NAME);
         self.builder.position_at_end(inner_entry_point_block);
-        let result = self.builder.build_call(
+            self.builder.build_call(
             self.defined_functions[&self.mir_result.function_id_of_entry_point().unwrap()],
             &[],
             "call_entry_point",
-        );
+            )
+        };
 
         if should_return_string {
             match result.try_as_basic_value() {

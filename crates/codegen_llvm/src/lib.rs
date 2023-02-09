@@ -324,13 +324,13 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             self.builder.build_return(None);
         }
 
-        let function = unsafe {
-            self.execution_engine
-                .get_function(INTERNAL_ENTRY_POINT)
-                .unwrap()
-        };
-
-        CodegenResult { function }
+        CodegenResult {
+            function: unsafe {
+                self.execution_engine
+                    .get_function(INTERNAL_ENTRY_POINT)
+                    .unwrap()
+            },
+        }
     }
 
     fn body_to_params(&self, body: &mir::Body) -> Vec<BasicMetadataTypeEnum<'ctx>> {

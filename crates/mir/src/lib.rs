@@ -168,6 +168,9 @@ impl<'a> FunctionLower<'a> {
                 hir::Literal::Bool(value) => {
                     LoweredExpr::Operand(Operand::Constant(Constant::Boolean(*value)))
                 }
+                hir::Literal::String(string) => {
+                    LoweredExpr::Operand(Operand::Constant(Constant::String(string.to_owned())))
+                }
                 _ => todo!(),
             },
             hir::Expr::VariableRef { var } => match var {
@@ -827,6 +830,7 @@ enum LoweredStmt {
 pub enum Constant {
     Integer(u64),
     Boolean(bool),
+    String(String),
     Unit,
 }
 
@@ -1005,6 +1009,7 @@ mod tests {
         let const_value = match constant {
             crate::Constant::Integer(integer) => integer.to_string(),
             crate::Constant::Boolean(boolean) => boolean.to_string(),
+            crate::Constant::String(string) => format!("\"{string}\""),
             crate::Constant::Unit => "()".to_string(),
         };
         format!("const {const_value}")
@@ -1321,6 +1326,31 @@ mod tests {
 
                     entry: {
                         _0 = const true
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_main_return_string() {
+        check(
+            r#"
+                fn main() -> string {
+                    "aaa"
+                }
+            "#,
+            expect![[r#"
+                fn main() -> string {
+                    let _0: string
+
+                    entry: {
+                        _0 = const "aaa"
                         goto -> exit
                     }
 

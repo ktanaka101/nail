@@ -225,7 +225,7 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                     .bool_type()
                     .const_int(if *boolean { 1 } else { 0 }, false)
                     .into(),
-                mir::Constant::String(string) => todo!(),
+                mir::Constant::String(string) => self.codegen.build_string_value(string).into(),
                 mir::Constant::Unit => self.codegen.unit_type().const_zero().into(),
             },
         }
@@ -695,11 +695,20 @@ mod tests {
 
                 define i64 @main() {
                 start:
-                  %alloca_a = alloca ptr, align 8
-                  store ptr @const_string, ptr %alloca_a, align 8
-                  %alloca_b = alloca i64, align 8
-                  store i64 10, ptr %alloca_b, align 8
-                  ret i64 30
+                  %"0" = alloca i64, align 8
+                  %"1" = alloca ptr, align 8
+                  %"2" = alloca i64, align 8
+                  br label %entry
+
+                entry:                                            ; preds = %start
+                  store ptr @const_string, ptr %"1", align 8
+                  store i64 10, ptr %"2", align 8
+                  store i64 30, ptr %"0", align 8
+                  br label %exit
+
+                exit:                                             ; preds = %entry
+                  %load = load i64, ptr %"0", align 8
+                  ret i64 %load
                 }
 
                 define ptr @__main__() {
@@ -730,10 +739,19 @@ mod tests {
 
                 define ptr @main() {
                 start:
-                  %alloca_a = alloca ptr, align 8
-                  store ptr @const_string, ptr %alloca_a, align 8
-                  %load_a = load ptr, ptr %alloca_a, align 8
-                  ret ptr %load_a
+                  %"0" = alloca ptr, align 8
+                  %"1" = alloca ptr, align 8
+                  br label %entry
+
+                entry:                                            ; preds = %start
+                  store ptr @const_string, ptr %"1", align 8
+                  %load = load ptr, ptr %"1", align 8
+                  store ptr %load, ptr %"0", align 8
+                  br label %exit
+
+                exit:                                             ; preds = %entry
+                  %load1 = load ptr, ptr %"0", align 8
+                  ret ptr %load1
                 }
 
                 define ptr @__main__() {
@@ -896,22 +914,22 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn test_return_string_of_main() {
-    //     check_result(
-    //         r#"
-    //         fn main() -> string {
-    //             "aaa"
-    //         }
-    //     "#,
-    //         expect![[r#"
-    //             {
-    //               "nail_type": "String",
-    //               "value": "aaa"
-    //             }
-    //         "#]],
-    //     );
-    // }
+    #[test]
+    fn test_return_string_of_main() {
+        check_result(
+            r#"
+            fn main() -> string {
+                "aaa"
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "String",
+                  "value": "aaa"
+                }
+            "#]],
+        );
+    }
 
     #[test]
     fn test_return_bool_of_main() {
@@ -964,41 +982,41 @@ mod tests {
             "#]],
         );
 
-        // check_result(
-        //     r#"
-        //     fn main() -> string {
-        //         let x = "aaa"
-        //         x
-        //     }
-        // "#,
-        //     expect![[r#"
-        //         {
-        //           "nail_type": "String",
-        //           "value": "aaa"
-        //         }
-        //     "#]],
-        // );
+        check_result(
+            r#"
+            fn main() -> string {
+                let x = "aaa"
+                x
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "String",
+                  "value": "aaa"
+                }
+            "#]],
+        );
     }
 
-    // #[test]
-    // fn test_multiple_ref() {
-    //     check_result(
-    //         r#"
-    //         fn main() -> string {
-    //             let x = "aaa"
-    //             let y = x
-    //             let z = y
-    //             z
-    //         }
-    //     "#,
-    //         expect![[r#"
-    //             {
-    //               "nail_type": "String",
-    //               "value": "aaa"
-    //             }
-    //         "#]],
-    //     );
-    // }
+    #[test]
+    fn test_multiple_ref() {
+        check_result(
+            r#"
+            fn main() -> string {
+                let x = "aaa"
+                let y = x
+                let z = y
+                z
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "String",
+                  "value": "aaa"
+                }
+            "#]],
+        );
+    }
 
     // #[test]
     // fn test_block() {

@@ -1501,6 +1501,72 @@ mod tests {
     }
 
     #[test]
+    fn test_return_in_block() {
+        // return by statement in block
+        check(
+            r#"
+                fn main() -> bool {
+                    let c = {
+                        let a = true;
+                        return a;
+                        let b = false;
+                        b
+                    }
+                    c
+                }
+            "#,
+            expect![[r#"
+                fn main() -> bool {
+                    let _0: bool
+                    let _1: bool
+                    let _2: bool
+                    let _3: bool
+
+                    entry: {
+                        _2 = const true
+                        _0 = _2
+                        _3 = const false
+                        _1 = _3
+                        _0 = _1
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+
+        // return by tail in block
+        check(
+            r#"
+                fn main() -> int {
+                    let c = {
+                        return 10
+                    };
+                    c
+                }
+            "#,
+            expect![[r#"
+                fn main() -> int {
+                    let _0: int
+                    let _1: !
+
+                    entry: {
+                        _0 = const 10
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
     fn test_return_in_switch() {
         check(
             r#"

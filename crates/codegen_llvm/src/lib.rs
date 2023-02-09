@@ -225,6 +225,7 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                     .bool_type()
                     .const_int(if *boolean { 1 } else { 0 }, false)
                     .into(),
+                mir::Constant::String(string) => todo!(),
                 mir::Constant::Unit => self.codegen.unit_type().const_zero().into(),
             },
         }

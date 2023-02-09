@@ -1896,6 +1896,52 @@ mod tests {
     }
 
     #[test]
+    fn test_string_arg() {
+        check(
+            r#"
+                fn aaa(x: string, y: string) -> string {
+                    y
+                }
+
+                fn main() -> string {
+                    aaa("aaa", "bbb")
+                }
+            "#,
+            expect![[r#"
+                fn aaa(_1: string, _2: string) -> string {
+                    let _0: string
+
+                    entry: {
+                        _0 = _2
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+                fn main() -> string {
+                    let _0: string
+                    let _1: string
+
+                    entry: {
+                        _1 = aaa(const "aaa", const "bbb") -> [return: bb0]
+                    }
+
+                    exit: {
+                        return _0
+                    }
+
+                    bb0: {
+                        _0 = _1
+                        goto -> exit
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
     fn test_call_binding() {
         check(
             r#"

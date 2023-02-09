@@ -675,75 +675,75 @@ mod tests {
         expect.assert_eq(&result_string);
     }
 
-    // #[test]
-    // fn test_ir_literals() {
-    //     check_ir(
-    //         r#"
-    //         fn main() -> int {
-    //             let a = "aaa"
-    //             let b = 10
-    //             30
-    //         }
-    //     "#,
-    //         expect![[r#"
-    //             ; ModuleID = 'top'
-    //             source_filename = "top"
+    #[test]
+    fn test_ir_literals() {
+        check_ir(
+            r#"
+            fn main() -> int {
+                let a = "aaa"
+                let b = 10
+                30
+            }
+        "#,
+            expect![[r#"
+                ; ModuleID = 'top'
+                source_filename = "top"
 
-    //             @const_string = private unnamed_addr constant [4 x i8] c"aaa\00", align 1
+                @const_string = private unnamed_addr constant [4 x i8] c"aaa\00", align 1
 
-    //             declare ptr @ptr_to_string(i64, ptr, i64)
+                declare ptr @ptr_to_string(i64, ptr, i64)
 
-    //             define i64 @main() {
-    //             start:
-    //               %alloca_a = alloca ptr, align 8
-    //               store ptr @const_string, ptr %alloca_a, align 8
-    //               %alloca_b = alloca i64, align 8
-    //               store i64 10, ptr %alloca_b, align 8
-    //               ret i64 30
-    //             }
+                define i64 @main() {
+                start:
+                  %alloca_a = alloca ptr, align 8
+                  store ptr @const_string, ptr %alloca_a, align 8
+                  %alloca_b = alloca i64, align 8
+                  store i64 10, ptr %alloca_b, align 8
+                  ret i64 30
+                }
 
-    //             define ptr @__main__() {
-    //             start:
-    //               %call_entry_point = call i64 @main()
-    //               ret void
-    //             }
-    //         "#]],
-    //     );
-    // }
+                define ptr @__main__() {
+                start:
+                  %call_entry_point = call i64 @main()
+                  ret void
+                }
+            "#]],
+        );
+    }
 
-    // #[test]
-    // fn test_ir_return_string() {
-    //     check_ir(
-    //         r#"
-    //         fn main() -> string {
-    //             let a = "aaa"
-    //             a
-    //         }
-    //     "#,
-    //         expect![[r#"
-    //             ; ModuleID = 'top'
-    //             source_filename = "top"
+    #[test]
+    fn test_ir_return_string() {
+        check_ir(
+            r#"
+            fn main() -> string {
+                let a = "aaa"
+                a
+            }
+        "#,
+            expect![[r#"
+                ; ModuleID = 'top'
+                source_filename = "top"
 
-    //             @const_string = private unnamed_addr constant [4 x i8] c"aaa\00", align 1
+                @const_string = private unnamed_addr constant [4 x i8] c"aaa\00", align 1
 
-    //             declare ptr @ptr_to_string(i64, ptr, i64)
+                declare ptr @ptr_to_string(i64, ptr, i64)
 
-    //             define ptr @main() {
-    //             start:
-    //               %alloca_a = alloca ptr, align 8
-    //               store ptr @const_string, ptr %alloca_a, align 8
-    //               %load_a = load ptr, ptr %alloca_a, align 8
-    //               ret ptr %load_a
-    //             }
+                define ptr @main() {
+                start:
+                  %alloca_a = alloca ptr, align 8
+                  store ptr @const_string, ptr %alloca_a, align 8
+                  %load_a = load ptr, ptr %alloca_a, align 8
+                  ret ptr %load_a
+                }
 
-    //             define ptr @__main__() {
-    //             start:
-    //               %call_entry_point = call ptr @main()
-    //               ret void
-    //             }
-    //         "#]],
-    //     );
-    // }
+                define ptr @__main__() {
+                start:
+                  %call_entry_point = call ptr @main()
+                  ret void
+                }
+            "#]],
+        );
+    }
 
     #[test]
     fn test_ir_block() {

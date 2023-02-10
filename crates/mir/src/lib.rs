@@ -379,7 +379,7 @@ impl<'a> FunctionLower<'a> {
                     hir::BinaryOp::Sub => BinaryOp::Sub,
                     hir::BinaryOp::Mul => BinaryOp::Mul,
                     hir::BinaryOp::Div => BinaryOp::Div,
-                    hir::BinaryOp::Equal => todo!(),
+                    hir::BinaryOp::Equal => BinaryOp::Equal,
                 };
 
                 let local = self.alloc_local(expr_idx);
@@ -798,6 +798,7 @@ pub enum BinaryOp {
     Sub,
     Mul,
     Div,
+    Equal,
 }
 
 #[derive(Debug)]
@@ -992,6 +993,7 @@ mod tests {
                     crate::BinaryOp::Sub => "sub",
                     crate::BinaryOp::Mul => "mul",
                     crate::BinaryOp::Div => "div",
+                    crate::BinaryOp::Equal => "equal",
                 }
                 .to_string();
                 let left = debug_operand(left, body);
@@ -1228,6 +1230,33 @@ mod tests {
 
                     entry: {
                         _1 = div(const 10, const 20)
+                        _0 = _1
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_equal_number() {
+        check(
+            r#"
+                fn main() -> bool {
+                    10 == 20
+                }
+            "#,
+            expect![[r#"
+                fn main() -> bool {
+                    let _0: bool
+                    let _1: int
+
+                    entry: {
+                        _1 = equal(const 10, const 20)
                         _0 = _1
                         goto -> exit
                     }

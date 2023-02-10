@@ -60,6 +60,15 @@ impl<'l, 'input> Parser<'l, 'input> {
         }
     }
 
+    pub(crate) fn at_set(&mut self, set: &[TokenKind]) -> bool {
+        for kind in set {
+            if self.at(*kind) {
+                return true;
+            }
+        }
+        false
+    }
+
     pub(crate) fn expect_on_block(&mut self, kind: TokenKind) {
         if self.at(kind) {
             self.bump();
@@ -135,7 +144,7 @@ impl<'l, 'input> Parser<'l, 'input> {
                 range,
             })));
 
-        if !self.at_set(recovery_set) && !self.at_end() {
+        if !self.at_set_no_expected(recovery_set) && !self.at_end() {
             let marker = self.start();
             self.bump();
             marker.complete(self, SyntaxKind::Error);
@@ -146,7 +155,7 @@ impl<'l, 'input> Parser<'l, 'input> {
         self.peek().is_none()
     }
 
-    pub(crate) fn at_set(&mut self, set: &[TokenKind]) -> bool {
+    pub(crate) fn at_set_no_expected(&mut self, set: &[TokenKind]) -> bool {
         self.peek().map_or(false, |k| set.contains(&k))
     }
 

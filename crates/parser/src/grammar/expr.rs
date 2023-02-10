@@ -186,7 +186,7 @@ fn parse_args(parser: &mut Parser) -> CompletedMarker {
     let marker = parser.start();
 
     parser.bump();
-    while parser.at_set(&EXPR_FIRST) {
+    while parser.at_set_no_expected(&EXPR_FIRST) {
         let marker = parser.start();
         parse_expr(parser);
         marker.complete(parser, SyntaxKind::Arg);
@@ -202,7 +202,7 @@ fn parse_args(parser: &mut Parser) -> CompletedMarker {
 }
 
 fn parse_prefix_expr(parser: &mut Parser) -> CompletedMarker {
-    assert!(parser.at_set(&[TokenKind::Minus, TokenKind::Bang]));
+    assert!(parser.at_set_no_expected(&[TokenKind::Minus, TokenKind::Bang]));
 
     let marker = parser.start();
 
@@ -273,7 +273,7 @@ fn parse_return(parser: &mut Parser) -> CompletedMarker {
 
     let marker = parser.start();
     parser.bump();
-    if parser.at_set(&EXPR_FIRST) {
+    if parser.at_set_no_expected(&EXPR_FIRST) {
         parse_expr(parser);
     }
 
@@ -702,7 +702,7 @@ mod tests {
                         Literal@1..2
                           Integer@1..2 "1"
                         Plus@2..3 "+"
-                error at 2..3: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '(', '{', 'if' or 'return'
+                error at 2..3: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if' or 'return'
                 error at 2..3: expected ')'
             "#]],
         );
@@ -966,7 +966,7 @@ mod tests {
                     Error@5..6
                       RParen@5..6 ")"
                 error at 4..5: expected '+', '-', '*', '/', '==', ',' or ')', but found identifier
-                error at 5..6: expected '+', '-', '*', '/', '==', ';', 'let', 'fn', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '(', '{', 'if' or 'return', but found ')'
+                error at 5..6: expected '+', '-', '*', '/', '==', ';', 'let', 'fn', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', '{', 'if' or 'return', but found ')'
             "#]],
         );
     }

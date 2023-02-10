@@ -143,7 +143,7 @@ mod tests {
                           Ident@11..16 "hello"
                           Whitespace@16..17 " "
                       RCurly@17..18 "}"
-                error at 9..10: expected '}', 'let', 'fn', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '(', '{', 'if' or 'return', but found '/'
+                error at 9..10: expected '}', 'let', 'fn', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if' or 'return', but found '/'
             "#]],
         );
     }

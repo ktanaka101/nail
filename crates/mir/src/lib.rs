@@ -400,6 +400,7 @@ impl<'a> FunctionLower<'a> {
                 };
                 let op = match op {
                     hir::UnaryOp::Neg => UnaryOp::Neg,
+                    hir::UnaryOp::Not => UnaryOp::Not,
                 };
                 let local = self.alloc_local(expr_idx);
                 let value = Value::UnaryOp { op, expr };
@@ -458,7 +459,7 @@ impl<'a> FunctionLower<'a> {
                     hir::Symbol::Missing { .. } => unreachable!(),
                 }
             }
-            _ => todo!(),
+            hir::Expr::Missing => unreachable!(),
         }
     }
 
@@ -823,6 +824,7 @@ pub enum BinaryOp {
 #[derive(Debug)]
 pub enum UnaryOp {
     Neg,
+    Not,
 }
 
 #[derive(Debug)]
@@ -1028,6 +1030,7 @@ mod tests {
             crate::Value::UnaryOp { op, expr } => {
                 let function_name = match op {
                     crate::UnaryOp::Neg => "negative",
+                    crate::UnaryOp::Not => "not",
                 }
                 .to_string();
                 let expr = debug_operand(expr, body);
@@ -1359,6 +1362,43 @@ mod tests {
                         _1 = _2
                         _3 = const 20
                         _4 = negative(_3)
+                        _5 = equal(_2, _4)
+                        _0 = _5
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_not_bool() {
+        check(
+            r#"
+                fn main() -> bool {
+                    let a = !true;
+                    let b = false;
+                    a == !b
+                }
+            "#,
+            expect![[r#"
+                fn main() -> bool {
+                    let _0: bool
+                    let _1: bool
+                    let _2: bool
+                    let _3: bool
+                    let _4: bool
+                    let _5: bool
+
+                    entry: {
+                        _2 = not(const true)
+                        _1 = _2
+                        _3 = const false
+                        _4 = not(_3)
                         _5 = equal(_2, _4)
                         _0 = _5
                         goto -> exit

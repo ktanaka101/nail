@@ -184,9 +184,13 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                                     .builder
                                     .build_int_neg(expr, "neg_number")
                                     .into(),
+                                mir::UnaryOp::Not => {
+                                    self.codegen.builder.build_not(expr, "not_bool").into()
+                                }
                             }
                         }
                     };
+
                     match place {
                         mir::Place::Param(_param) => unreachable!(),
                         mir::Place::Local(local) => self.store_local(*local, val),
@@ -1516,6 +1520,27 @@ mod tests {
                 {
                   "nail_type": "Int",
                   "value": 40
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_not_bool() {
+        check_result(
+            r#"
+            fn main() -> bool {
+                let a = !{
+                    let b = true;
+                    b
+                };
+                a
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Boolean",
+                  "value": false
                 }
             "#]],
         );

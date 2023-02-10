@@ -177,6 +177,7 @@ mod tests {
             hir::Expr::Unary { op, expr } => {
                 let op = match op {
                     hir::UnaryOp::Neg => "-".to_string(),
+                    hir::UnaryOp::Not => "!".to_string(),
                 };
                 let expr = debug_hir_expr(expr, lower_result);
                 format!("{op}{expr}")
@@ -563,10 +564,15 @@ mod tests {
         check(
             r#"
                 fn main() {
-                    let a = -10
-                    let b = -"aaa"
-                    let c = -'a'
-                    let d = -true
+                    let a = -10;
+                    let b = -"aaa";
+                    let c = -'a';
+                    let d = -true;
+
+                    let e = !10;
+                    let f = !"aaa";
+                    let g = !'a';
+                    let h = !true;
                 }
             "#,
             expect![[r#"
@@ -580,9 +586,44 @@ mod tests {
                 `-'a'`: unknown
                 `true`: bool
                 `-true`: unknown
+                `10`: int
+                `!10`: unknown
+                `"aaa"`: string
+                `!"aaa"`: unknown
+                `'a'`: char
+                `!'a'`: unknown
+                `true`: bool
+                `!true`: bool
                 ---
             "#]],
         )
+    }
+
+    #[test]
+    fn aaa() {
+        check(
+            r#"
+                fn main() -> bool {
+                    let a = !true;
+                    let b = !false;
+                    !a == !b
+                }
+            "#,
+            expect![[r#"
+                fn() -> bool
+                ---
+                `true`: bool
+                `!true`: bool
+                `false`: bool
+                `!false`: bool
+                `a`: bool
+                `b`: bool
+                `!a`: bool
+                `!b`: bool
+                `!a == !b`: bool
+                ---
+            "#]],
+        );
     }
 
     #[test]

@@ -219,6 +219,7 @@ impl BodyLower {
     ) -> Expr {
         let op = match ast.op().unwrap() {
             ast::UnaryOp::Neg(_) => UnaryOp::Neg,
+            ast::UnaryOp::Not(_) => UnaryOp::Not,
         };
 
         let expr = self.lower_expr(ast.expr(), ctx, db, item_tree, interner);
@@ -546,6 +547,7 @@ mod tests {
             Expr::Unary { op, expr } => {
                 let op = match op {
                     UnaryOp::Neg => "-",
+                    UnaryOp::Not => "!",
                 };
                 let expr_str =
                     debug_expr(lower_result, &lower_result.shared_ctx.exprs[*expr], nesting);
@@ -927,12 +929,14 @@ mod tests {
         check(
             r#"
                 fn main() {
-                    -10
+                    -10;
+                    !20;
                 }
             "#,
             expect![[r#"
                 fn entry:main() -> () {
-                    expr:-10
+                    -10;
+                    !20;
                 }
             "#]],
         );

@@ -55,16 +55,20 @@ impl AstToken for BinaryOp {
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum UnaryOp {
     Neg(Minus),
+    Not(Bang),
 }
+def_ast_token!(Bang);
+
 impl Ast for UnaryOp {}
 impl AstToken for UnaryOp {
     fn can_cast(token: SyntaxKind) -> bool {
-        matches!(token, SyntaxKind::Minus)
+        matches!(token, SyntaxKind::Minus | SyntaxKind::Bang)
     }
 
     fn cast(syntax: SyntaxToken) -> Option<Self> {
         match syntax.kind() {
             SyntaxKind::Minus => Some(Self::Neg(Minus { syntax })),
+            SyntaxKind::Bang => Some(Self::Not(Bang { syntax })),
             _ => None,
         }
     }
@@ -72,6 +76,7 @@ impl AstToken for UnaryOp {
     fn syntax(&self) -> &SyntaxToken {
         match self {
             Self::Neg(it) => it.syntax(),
+            Self::Not(it) => it.syntax(),
         }
     }
 }

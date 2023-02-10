@@ -240,7 +240,7 @@ mod tests {
                     Error@8..10
                       Integer@8..10 "10"
                 error at 8..10: expected '=', but found integerLiteral
-                error at 8..10: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '(', '{', 'if' or 'return'
+                error at 8..10: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '(', '{', 'if' or 'return'
             "#]],
         )
     }
@@ -285,7 +285,7 @@ mod tests {
                     Whitespace@15..16 " "
                     VariableRef@16..17
                       Ident@16..17 "a"
-                error at 8..11: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '(', '{', 'if' or 'return', but found 'let'
+                error at 8..11: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '(', '{', 'if' or 'return', but found 'let'
             "#]],
         );
     }

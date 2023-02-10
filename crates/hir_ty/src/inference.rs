@@ -196,6 +196,11 @@ impl<'a> TypeInferencer<'a> {
                             return ResolvedType::Integer;
                         }
                     }
+                    hir::UnaryOp::Not => {
+                        if expr_ty == ResolvedType::Bool {
+                            return ResolvedType::Bool;
+                        }
+                    }
                 }
 
                 ResolvedType::Unknown

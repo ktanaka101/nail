@@ -87,12 +87,14 @@ impl BinaryOp {
 
 enum PrefixOp {
     Neg,
+    Not,
 }
 
 impl PrefixOp {
     fn binding_power(&self) -> ((), u8) {
         match self {
             Self::Neg => ((), 5),
+            Self::Not => ((), 6),
         }
     }
 }
@@ -107,7 +109,7 @@ fn parse_lhs(parser: &mut Parser) -> Option<CompletedMarker> {
         parse_literal(parser)
     } else if parser.at(TokenKind::Ident) {
         parse_variable_ref(parser)
-    } else if parser.at(TokenKind::Minus) {
+    } else if parser.at_set(&[TokenKind::Minus, TokenKind::Bang]) {
         parse_prefix_expr(parser)
     } else if parser.at(TokenKind::LParen) {
         parse_paren_expr(parser)
@@ -200,11 +202,18 @@ fn parse_args(parser: &mut Parser) -> CompletedMarker {
 }
 
 fn parse_prefix_expr(parser: &mut Parser) -> CompletedMarker {
-    assert!(parser.at(TokenKind::Minus));
+    assert!(parser.at_set(&[TokenKind::Minus, TokenKind::Bang]));
 
     let marker = parser.start();
 
-    let op = PrefixOp::Neg;
+    let op = if parser.at(TokenKind::Minus) {
+        PrefixOp::Neg
+    } else if parser.at(TokenKind::Bang) {
+        PrefixOp::Not
+    } else {
+        unreachable!();
+    };
+
     let ((), right_binding_power) = op.binding_power();
 
     parser.bump();
@@ -410,6 +419,21 @@ mod tests {
                   ExprStmt@0..3
                     UnaryExpr@0..3
                       Minus@0..1 "-"
+                      Literal@1..3
+                        Integer@1..3 "10"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_not() {
+        check(
+            "!10",
+            expect![[r#"
+                SourceFile@0..3
+                  ExprStmt@0..3
+                    UnaryExpr@0..3
+                      Bang@0..1 "!"
                       Literal@1..3
                         Integer@1..3 "10"
             "#]],
@@ -678,7 +702,7 @@ mod tests {
                         Literal@1..2
                           Integer@1..2 "1"
                         Plus@2..3 "+"
-                error at 2..3: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '(', '{', 'if' or 'return'
+                error at 2..3: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '(', '{', 'if' or 'return'
                 error at 2..3: expected ')'
             "#]],
         );

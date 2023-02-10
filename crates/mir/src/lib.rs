@@ -1270,6 +1270,39 @@ mod tests {
     }
 
     #[test]
+    fn test_equal_bool() {
+        check(
+            r#"
+                fn main() -> bool {
+                    let a = true;
+                    let b = true;
+                    a == b
+                }
+            "#,
+            expect![[r#"
+                fn main() -> bool {
+                    let _0: bool
+                    let _1: bool
+                    let _2: bool
+                    let _3: bool
+
+                    entry: {
+                        _1 = const true
+                        _2 = const true
+                        _3 = equal(_1, _2)
+                        _0 = _3
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
     fn test_main_return_int() {
         check(
             r#"

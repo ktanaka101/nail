@@ -165,6 +165,17 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                                     .builder
                                     .build_int_signed_div(lhs, rhs, "div_number")
                                     .into(),
+                                mir::BinaryOp::Equal => self
+                                    .codegen
+                                    .builder
+                                    .build_int_compare(
+                                        inkwell::IntPredicate::EQ,
+                                        lhs,
+                                        rhs,
+                                        "compare_number",
+                                    )
+                                    .const_cast(self.codegen.bool_type(), false)
+                                    .into(),
                             }
                         }
                     };
@@ -1409,6 +1420,76 @@ mod tests {
                 {
                   "nail_type": "Int",
                   "value": 6
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_equal_number() {
+        check_result(
+            r#"
+            fn main() -> bool {
+                let a = 1;
+                let b = 1;
+                a == b
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Boolean",
+                  "value": true
+                }
+            "#]],
+        );
+
+        check_result(
+            r#"
+            fn main() -> bool {
+                let a = 1;
+                let b = 3;
+                a == b
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Boolean",
+                  "value": false
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_equal_bool() {
+        check_result(
+            r#"
+            fn main() -> bool {
+                let a = true;
+                let b = true;
+                a == b
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Boolean",
+                  "value": true
+                }
+            "#]],
+        );
+
+        check_result(
+            r#"
+            fn main() -> bool {
+                let a = true;
+                let b = false;
+                a == b
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Boolean",
+                  "value": false
                 }
             "#]],
         );

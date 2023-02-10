@@ -153,13 +153,27 @@ impl<'a> TypeInferencer<'a> {
                 hir::Literal::Char(_) => ResolvedType::Char,
                 hir::Literal::Bool(_) => ResolvedType::Bool,
             },
-            hir::Expr::Binary { lhs, rhs, .. } => {
+            hir::Expr::Binary { op, lhs, rhs } => {
                 // TODO: supports string equal
                 let lhs_ty = self.infer_expr_idx(*lhs);
                 let rhs_ty = self.infer_expr_idx(*rhs);
 
-                if rhs_ty == lhs_ty && rhs_ty == ResolvedType::Integer {
-                    return rhs_ty;
+                match op {
+                    hir::BinaryOp::Add
+                    | hir::BinaryOp::Sub
+                    | hir::BinaryOp::Mul
+                    | hir::BinaryOp::Div => {
+                        if rhs_ty == lhs_ty && (matches!(rhs_ty, ResolvedType::Integer)) {
+                            return rhs_ty;
+                        }
+                    }
+                    hir::BinaryOp::Equal => {
+                        if rhs_ty == lhs_ty
+                            && (matches!(rhs_ty, ResolvedType::Integer | ResolvedType::Bool))
+                        {
+                            return rhs_ty;
+                        }
+                    }
                 }
 
                 match (lhs_ty, rhs_ty) {

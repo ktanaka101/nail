@@ -184,9 +184,9 @@ mod tests {
             hir::Expr::Binary { op, lhs, rhs } => {
                 let op = match op {
                     hir::BinaryOp::Add => "+",
-                    hir::BinaryOp::Sub => "+",
-                    hir::BinaryOp::Mul => "+",
-                    hir::BinaryOp::Div => "+",
+                    hir::BinaryOp::Sub => "-",
+                    hir::BinaryOp::Mul => "*",
+                    hir::BinaryOp::Div => "/",
                     hir::BinaryOp::Equal => "==",
                 }
                 .to_string();
@@ -410,6 +410,10 @@ mod tests {
                     'a' + 'a'
                     10 + 'a'
                     true + true
+                    true - true
+                    true * true
+                    true / true
+                    true == true
                     10 + true
                     10 + (10 + "aaa")
                     10 - 20
@@ -439,6 +443,18 @@ mod tests {
                 `true`: bool
                 `true`: bool
                 `true + true`: unknown
+                `true`: bool
+                `true`: bool
+                `true - true`: unknown
+                `true`: bool
+                `true`: bool
+                `true * true`: unknown
+                `true`: bool
+                `true`: bool
+                `true / true`: unknown
+                `true`: bool
+                `true`: bool
+                `true == true`: bool
                 `10`: int
                 `true`: bool
                 `10 + true`: unknown
@@ -449,13 +465,13 @@ mod tests {
                 `10 + 10 + "aaa"`: int
                 `10`: int
                 `20`: int
-                `10 + 20`: int
+                `10 - 20`: int
                 `10`: int
                 `20`: int
-                `10 + 20`: int
+                `10 * 20`: int
                 `10`: int
                 `20`: int
-                `10 + 20`: int
+                `10 / 20`: int
                 `10`: int
                 `20`: int
                 `10 == 20`: int

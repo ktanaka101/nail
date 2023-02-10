@@ -964,6 +964,96 @@ mod tests {
     }
 
     #[test]
+    fn infer_return_in_if_expr() {
+        check(
+            r#"
+                fn main() -> int {
+                    let value =
+                        if true {
+                            return 10;
+                        } else {
+                            true
+                        };
+
+                    20
+                }
+            "#,
+            expect![[r#"
+                fn() -> int
+                ---
+                `true`: bool
+                `10`: int
+                `return 10`: !
+                `{{ .. }}`: ()
+                `true`: bool
+                `{ .., true }`: bool
+                `if true {{ .. }} else { .., true }`: unknown
+                `20`: int
+                ---
+                error: expected (), found bool by `{{ .. }}` and `{ .., true }`
+            "#]],
+        );
+
+        check(
+            r#"
+                fn main() -> int {
+                    let value =
+                        if true {
+                            true
+                        } else {
+                            return 10;
+                        };
+
+                    20
+                }
+            "#,
+            expect![[r#"
+                fn() -> int
+                ---
+                `true`: bool
+                `true`: bool
+                `{ .., true }`: bool
+                `10`: int
+                `return 10`: !
+                `{{ .. }}`: ()
+                `if true { .., true } else {{ .. }}`: unknown
+                `20`: int
+                ---
+                error: expected bool, found () by `{ .., true }` and `{{ .. }}`
+            "#]],
+        );
+
+        check(
+            r#"
+                fn main() -> int {
+                    let value =
+                        if true {
+                            return 10;
+                        } else {
+                            return 20;
+                        };
+
+                    30
+                }
+            "#,
+            expect![[r#"
+                fn() -> int
+                ---
+                `true`: bool
+                `10`: int
+                `return 10`: !
+                `{{ .. }}`: ()
+                `20`: int
+                `return 20`: !
+                `{{ .. }}`: ()
+                `if true {{ .. }} else {{ .. }}`: ()
+                `30`: int
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
     fn infer_return_in_function() {
         check(
             r#"

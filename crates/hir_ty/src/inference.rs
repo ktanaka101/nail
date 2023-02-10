@@ -188,10 +188,14 @@ impl<'a> TypeInferencer<'a> {
                     (_, _) => ResolvedType::Unknown,
                 }
             }
-            hir::Expr::Unary { expr, .. } => {
+            hir::Expr::Unary { op, expr } => {
                 let expr_ty = self.infer_expr_idx(*expr);
-                if expr_ty == ResolvedType::Integer {
-                    return ResolvedType::Integer;
+                match op {
+                    hir::UnaryOp::Neg => {
+                        if expr_ty == ResolvedType::Integer {
+                            return ResolvedType::Integer;
+                        }
+                    }
                 }
 
                 ResolvedType::Unknown

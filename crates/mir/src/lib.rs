@@ -484,6 +484,7 @@ impl<'a> FunctionLower<'a> {
             let param_idx = self.params.alloc(Param {
                 ty: param_ty,
                 idx: self.local_idx,
+                pos: self.hir_result.db.params[*param].pos.try_into().unwrap(),
             });
             self.param_by_hir.insert(*param, param_idx);
 
@@ -682,6 +683,7 @@ pub struct Signature {
 pub struct Param {
     pub ty: ResolvedType,
     pub idx: u64,
+    pub pos: u32,
 }
 pub type ParamIdx = Idx<Param>;
 

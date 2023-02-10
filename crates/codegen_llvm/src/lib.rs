@@ -52,7 +52,6 @@ struct BodyCodegen<'a, 'ctx> {
     function: FunctionValue<'ctx>,
     body: &'a mir::Body,
 
-    params: HashMap<mir::ParamIdx, PointerValue<'ctx>>,
     locals: HashMap<mir::LocalIdx, (BasicTypeEnum<'ctx>, PointerValue<'ctx>)>,
     basic_blocks: HashMap<mir::BasicBlockIdx, BasicBlock<'ctx>>,
 }
@@ -68,7 +67,6 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
             function_id,
             function,
             body,
-            params: HashMap::new(),
             locals: HashMap::new(),
             basic_blocks: HashMap::new(),
         }
@@ -122,20 +120,33 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
         self.codegen.builder.position_at_end(*target_bb);
     }
 
+    fn store_local(&self, local_idx: mir::LocalIdx, value: BasicValueEnum<'ctx>) {
+        let ptr = self.locals[&local_idx];
+        self.codegen.builder.build_store(ptr.1, value);
+    }
+
+    fn load_local(&self, local_idx: mir::LocalIdx) -> BasicValueEnum<'ctx> {
+        let local = self.locals[&local_idx];
+        self.codegen.builder.build_load(local.0, local.1, "load")
+    }
+
+    fn load_param(&self, param_idx: mir::ParamIdx) -> BasicValueEnum<'ctx> {
+        let param = &self.body.params[param_idx];
+        self.function.get_nth_param(param.pos).unwrap()
+    }
+
     fn gen_bb(&self, idx: mir::BasicBlockIdx, bb: &mir::BasicBlock) {
         for stmt in &bb.statements {
             match stmt {
                 mir::Statement::Assign { place, value } => {
-                    let ptr = match place {
-                        mir::Place::Param(_) => todo!(),
-                        mir::Place::Local(local) => self.locals[local],
-                    };
                     let val = match value {
                         mir::Value::Operand(operand) => self.gen_operand(operand),
                         mir::Value::BinaryOp { op, left, right } => todo!(),
                     };
-
-                    self.codegen.builder.build_store(ptr.1, val);
+                    match place {
+                        mir::Place::Param(_param) => unreachable!(),
+                        mir::Place::Local(local) => self.store_local(*local, val),
+                    }
                 }
             }
         }
@@ -160,10 +171,9 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                     else_bb,
                 } => {
                     let cond = match condition {
-                        mir::Place::Param(_) => todo!(),
-                        mir::Place::Local(local) => self.locals[local],
+                        mir::Place::Param(param) => self.load_param(*param),
+                        mir::Place::Local(local) => self.load_local(*local),
                     };
-                    let cond = self.codegen.builder.build_load(cond.0, cond.1, "load");
                     let cond = cond.into_int_value();
                     let then_bb = self.basic_blocks[then_bb];
                     let else_bb = self.basic_blocks[else_bb];
@@ -185,18 +195,18 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                         .map(|arg| self.gen_operand(arg).into())
                         .collect::<Vec<BasicMetadataValueEnum<'ctx>>>();
 
-                    let destination = match destination {
-                        mir::Place::Param(_) => todo!(),
-                        mir::Place::Local(local) => self.locals[local],
-                    };
                     let call_site_value =
                         self.codegen
                             .builder
                             .build_call(callee_function, &args, "call");
-                    self.codegen.builder.build_store(
-                        destination.1,
-                        call_site_value.try_as_basic_value().left().unwrap(),
-                    );
+
+                    match destination {
+                        mir::Place::Param(_) => unreachable!(),
+                        mir::Place::Local(local) => self.store_local(
+                            *local,
+                            call_site_value.try_as_basic_value().left().unwrap(),
+                        ),
+                    };
 
                     let target_bb = self.basic_blocks[target];
                     self.codegen.builder.build_unconditional_branch(target_bb);
@@ -207,13 +217,10 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
 
     fn gen_operand(&self, operand: &mir::Operand) -> BasicValueEnum<'ctx> {
         match operand {
-            mir::Operand::Place(place) => {
-                let ptr = match place {
-                    mir::Place::Param(_) => todo!(),
-                    mir::Place::Local(local) => self.locals[local],
-                };
-                self.codegen.builder.build_load(ptr.0, ptr.1, "load")
-            }
+            mir::Operand::Place(place) => match place {
+                mir::Place::Param(param) => self.load_param(*param),
+                mir::Place::Local(local) => self.load_local(*local),
+            },
             mir::Operand::Constant(constant) => match constant {
                 mir::Constant::Integer(integer) => self
                     .codegen
@@ -1093,136 +1100,136 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn test_call_with_params() {
-    //     check_result(
-    //         r#"
-    //         fn test(x: int) -> int {
-    //             x
-    //         }
+    #[test]
+    fn test_call_with_params() {
+        check_result(
+            r#"
+            fn test(x: int) -> int {
+                x
+            }
 
-    //         fn main() -> int {
-    //             let a = test(10);
-    //             a
-    //         }
-    //     "#,
-    //         expect![[r#"
-    //             {
-    //               "nail_type": "Int",
-    //               "value": 10
-    //             }
-    //         "#]],
-    //     );
+            fn main() -> int {
+                let a = test(10);
+                a
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 10
+                }
+            "#]],
+        );
 
-    //     check_result(
-    //         r#"
-    //         fn test(x: int, y: int) -> int {
-    //             y
-    //         }
+        check_result(
+            r#"
+            fn test(x: int, y: int) -> int {
+                y
+            }
 
-    //         fn main() -> int {
-    //             let a = test(10, 20);
-    //             a
-    //         }
-    //     "#,
-    //         expect![[r#"
-    //             {
-    //               "nail_type": "Int",
-    //               "value": 20
-    //             }
-    //         "#]],
-    //     );
-    // }
+            fn main() -> int {
+                let a = test(10, 20);
+                a
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 20
+                }
+            "#]],
+        );
+    }
 
-    // #[test]
-    // fn test_call_with_param_types() {
-    //     check_result(
-    //         r#"
-    //         fn test(x: int) -> int {
-    //             x
-    //         }
+    #[test]
+    fn test_call_with_param_types() {
+        check_result(
+            r#"
+            fn test(x: int) -> int {
+                x
+            }
 
-    //         fn main() -> int {
-    //             let a = test(10);
-    //             a
-    //         }
-    //     "#,
-    //         expect![[r#"
-    //             {
-    //               "nail_type": "Int",
-    //               "value": 10
-    //             }
-    //         "#]],
-    //     );
+            fn main() -> int {
+                let a = test(10);
+                a
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 10
+                }
+            "#]],
+        );
 
-    //     check_result(
-    //         r#"
-    //         fn test(x: string) -> string {
-    //             x
-    //         }
+        check_result(
+            r#"
+            fn test(x: string) -> string {
+                x
+            }
 
-    //         fn main() -> string {
-    //             let a = test("aaa");
-    //             a
-    //         }
-    //     "#,
-    //         expect![[r#"
-    //             {
-    //               "nail_type": "String",
-    //               "value": "aaa"
-    //             }
-    //         "#]],
-    //     );
+            fn main() -> string {
+                let a = test("aaa");
+                a
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "String",
+                  "value": "aaa"
+                }
+            "#]],
+        );
 
-    //     check_result(
-    //         r#"
-    //         fn test(x: bool) -> bool {
-    //             x
-    //         }
+        check_result(
+            r#"
+            fn test(x: bool) -> bool {
+                x
+            }
 
-    //         fn main() -> bool {
-    //             let a = test(true);
-    //             a
-    //         }
-    //     "#,
-    //         expect![[r#"
-    //             {
-    //               "nail_type": "Boolean",
-    //               "value": true
-    //             }
-    //         "#]],
-    //     );
-    // }
+            fn main() -> bool {
+                let a = test(true);
+                a
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Boolean",
+                  "value": true
+                }
+            "#]],
+        );
+    }
 
-    // #[test]
-    // fn test_gen_signature_preorder() {
-    //     check_result(
-    //         r#"
-    //         fn main() -> bool {
-    //             let a = test1(true);
-    //             a
-    //         }
+    #[test]
+    fn test_gen_signature_preorder() {
+        check_result(
+            r#"
+            fn main() -> bool {
+                let a = test1(true);
+                a
+            }
 
-    //         fn test3(x: bool) -> bool {
-    //             x
-    //         }
+            fn test3(x: bool) -> bool {
+                x
+            }
 
-    //         fn test1(x: bool) -> bool {
-    //             test2(x)
-    //         }
+            fn test1(x: bool) -> bool {
+                test2(x)
+            }
 
-    //         fn test2(x: bool) -> bool {
-    //             test3(x)
-    //         }
-    //     "#,
-    //         expect![[r#"
-    //             {
-    //               "nail_type": "Boolean",
-    //               "value": true
-    //             }
-    //         "#]],
-    //     );
-    // }
+            fn test2(x: bool) -> bool {
+                test3(x)
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Boolean",
+                  "value": true
+                }
+            "#]],
+        );
+    }
 
     #[test]
     fn test_gen_if_expr() {

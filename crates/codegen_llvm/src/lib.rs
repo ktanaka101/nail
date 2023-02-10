@@ -150,9 +150,21 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                                     .builder
                                     .build_int_add(lhs, rhs, "add_number")
                                     .into(),
-                                mir::BinaryOp::Sub => todo!(),
-                                mir::BinaryOp::Mul => todo!(),
-                                mir::BinaryOp::Div => todo!(),
+                                mir::BinaryOp::Sub => self
+                                    .codegen
+                                    .builder
+                                    .build_int_sub(lhs, rhs, "sub_number")
+                                    .into(),
+                                mir::BinaryOp::Mul => self
+                                    .codegen
+                                    .builder
+                                    .build_int_mul(lhs, rhs, "mul_number")
+                                    .into(),
+                                mir::BinaryOp::Div => self
+                                    .codegen
+                                    .builder
+                                    .build_int_signed_div(lhs, rhs, "div_number")
+                                    .into(),
                             }
                         }
                     };
@@ -1326,81 +1338,81 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn test_sub_number() {
-    //     check_result(
-    //         r#"
-    //         fn main() -> int {
-    //             let a = 10;
-    //             let b = 20;
-    //             a - b - 30
-    //         }
-    //     "#,
-    //         expect![[r#"
-    //             {
-    //               "nail_type": "Int",
-    //               "value": -40
-    //             }
-    //         "#]],
-    //     );
-    // }
+    #[test]
+    fn test_sub_number() {
+        check_result(
+            r#"
+            fn main() -> int {
+                let a = 10;
+                let b = 20;
+                a - b - 30
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": -40
+                }
+            "#]],
+        );
+    }
 
-    // #[test]
-    // fn test_mul_number() {
-    //     check_result(
-    //         r#"
-    //         fn main() -> int {
-    //             let a = 10;
-    //             let b = 20;
-    //             a * b * 30
-    //         }
-    //     "#,
-    //         expect![[r#"
-    //             {
-    //               "nail_type": "Int",
-    //               "value": 6000
-    //             }
-    //         "#]],
-    //     );
-    // }
+    #[test]
+    fn test_mul_number() {
+        check_result(
+            r#"
+            fn main() -> int {
+                let a = 10;
+                let b = 20;
+                a * b * 30
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 6000
+                }
+            "#]],
+        );
+    }
 
-    // #[test]
-    // fn test_div_number() {
-    //     check_result(
-    //         r#"
-    //         fn main() -> int {
-    //             let a = 10;
-    //             let b = 20;
-    //             2000 / a / b
-    //         }
-    //     "#,
-    //         expect![[r#"
-    //             {
-    //               "nail_type": "Int",
-    //               "value": 10
-    //             }
-    //         "#]],
-    //     );
-    // }
+    #[test]
+    fn test_div_number() {
+        check_result(
+            r#"
+            fn main() -> int {
+                let a = 10;
+                let b = 20;
+                2000 / a / b
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 10
+                }
+            "#]],
+        );
+    }
 
-    // #[test]
-    // fn test_div_number_truncation() {
-    //     check_result(
-    //         r#"
-    //         fn main() -> int {
-    //             let a = 20;
-    //             let b = 3;
-    //             a / b
-    //         }
-    //     "#,
-    //         expect![[r#"
-    //             {
-    //               "nail_type": "Int",
-    //               "value": 6
-    //             }
-    //         "#]],
-    //     );
-    // }
+    #[test]
+    fn test_div_number_truncation() {
+        check_result(
+            r#"
+            fn main() -> int {
+                let a = 20;
+                let b = 3;
+                a / b
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 6
+                }
+            "#]],
+        );
+    }
 
     // #[test]
     // fn test_negative_number() {

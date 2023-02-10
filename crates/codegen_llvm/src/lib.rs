@@ -178,7 +178,16 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                                     .into(),
                             }
                         }
-                        mir::Value::UnaryOp { op, expr } => todo!(),
+                        mir::Value::UnaryOp { op, expr } => {
+                            let expr = self.gen_operand(expr).into_int_value();
+                            match op {
+                                mir::UnaryOp::Neg => self
+                                    .codegen
+                                    .builder
+                                    .build_int_neg(expr, "neg_number")
+                                    .into(),
+                            }
+                        }
                     };
                     match place {
                         mir::Place::Param(_param) => unreachable!(),
@@ -1496,63 +1505,28 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn test_negative_number() {
-    //     check_result(
-    //         r#"
-    //         fn main() -> int {
-    //             let a = -10;
-    //             let b = 20;
-    //             let c = -30;
-    //             let d = -{
-    //                 40
-    //             };
-    //             a + (-b) + (-c) - d
-    //         }
-    //     "#,
-    //         expect![[r#"
-    //             {
-    //               "nail_type": "Int",
-    //               "value": 40
-    //             }
-    //         "#]],
-    //     );
-    // }
-
-    // #[test]
-    // fn test_equal_number() {
-    //     check_result(
-    //         r#"
-    //         fn main() -> bool {
-    //             let a = 10;
-    //             let b = 10;
-    //             a == b
-    //         }
-    //     "#,
-    //         expect![[r#"
-    //             {
-    //               "nail_type": "Boolean",
-    //               "value": true
-    //             }
-    //         "#]],
-    //     );
-
-    //     check_result(
-    //         r#"
-    //         fn main() -> bool {
-    //             let a = 10;
-    //             let b = 20;
-    //             a == b
-    //         }
-    //     "#,
-    //         expect![[r#"
-    //             {
-    //               "nail_type": "Boolean",
-    //               "value": false
-    //             }
-    //         "#]],
-    //     );
-    // }
+    #[test]
+    fn test_negative_number() {
+        check_result(
+            r#"
+            fn main() -> int {
+                let a = -10;
+                let b = 20;
+                let c = -30;
+                let d = -{
+                    40
+                };
+                a + (-b) + (-c) - d
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 40
+                }
+            "#]],
+        );
+    }
 
     // #[test]
     // fn test_return() {

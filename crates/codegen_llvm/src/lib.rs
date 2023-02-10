@@ -1594,6 +1594,9 @@ mod tests {
             "#]],
         );
 
+        // The type of the branch in the 'if' statement is inferred.
+        // To pass this test case,
+        //   it is necessary to ensure that the type is inferred as 'int' instead of being inferred from the ().
         // check_result(
         //     r#"
         //         fn main() -> int {

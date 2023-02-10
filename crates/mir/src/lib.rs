@@ -196,6 +196,9 @@ impl<'a> FunctionLower<'a> {
                     });
                 }
 
+                self.add_termination_to_current_bb(Termination::Goto(self.exit_bb_idx()));
+                self.current_bb = Some(self.exit_bb_idx());
+
                 LoweredExpr::Return
             }
             hir::Expr::If {
@@ -269,11 +272,7 @@ impl<'a> FunctionLower<'a> {
                                         dest_bb_idx,
                                     ));
                                 }
-                                LoweredExpr::Return => {
-                                    self.add_termination_to_current_bb(Termination::Goto(
-                                        self.exit_bb_idx(),
-                                    ));
-                                }
+                                LoweredExpr::Return => (),
                             };
                         }
                     }
@@ -326,11 +325,7 @@ impl<'a> FunctionLower<'a> {
                                                 dest_bb_idx,
                                             ));
                                         }
-                                        LoweredExpr::Return => {
-                                            self.add_termination_to_current_bb(Termination::Goto(
-                                                self.exit_bb_idx(),
-                                            ));
-                                        }
+                                        LoweredExpr::Return => (),
                                     };
                                 }
                             }
@@ -400,7 +395,10 @@ impl<'a> FunctionLower<'a> {
             }
             hir::Expr::Block(block) => {
                 for stmt in &block.stmts {
-                    self.lower_stmt(stmt);
+                    match self.lower_stmt(stmt) {
+                        LoweredStmt::Return => return LoweredExpr::Return,
+                        LoweredStmt::Unit => (),
+                    }
                 }
 
                 if let Some(tail) = block.tail {
@@ -528,18 +526,12 @@ impl<'a> FunctionLower<'a> {
                         self.add_termination_to_current_bb(Termination::Goto(exit_bb_idx));
                         self.current_bb = Some(exit_bb_idx);
                     }
-                    LoweredExpr::Return => {
-                        self.add_termination_to_current_bb(Termination::Goto(exit_bb_idx));
-                        self.current_bb = Some(exit_bb_idx);
-                    }
+                    LoweredExpr::Return => (),
                 };
             } else {
                 self.add_termination_to_current_bb(Termination::Goto(exit_bb_idx));
                 self.current_bb = Some(exit_bb_idx);
             }
-        } else {
-            self.add_termination_to_current_bb(Termination::Goto(exit_bb_idx));
-            self.current_bb = Some(exit_bb_idx);
         }
 
         Body {
@@ -1520,14 +1512,10 @@ mod tests {
                     let _0: bool
                     let _1: bool
                     let _2: bool
-                    let _3: bool
 
                     entry: {
                         _2 = const true
                         _0 = _2
-                        _3 = const false
-                        _1 = _3
-                        _0 = _1
                         goto -> exit
                     }
 
@@ -1572,9 +1560,9 @@ mod tests {
             r#"
                 fn main() -> int {
                     if true {
-                        return 10
+                        return 10;
                     } else {
-                        return 20
+                        return 20;
                     }
                 }
             "#,

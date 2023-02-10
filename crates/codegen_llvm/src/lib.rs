@@ -555,6 +555,145 @@ mod tests {
     }
 
     #[test]
+    fn test_ir_fibonacci() {
+        check_ir(
+            r#"
+                fn fibonacci(x: int) -> int {
+                    if x == 0 {
+                        0
+                    } else {
+                        if x == 1 {
+                            1
+                        } else {
+                            fibonacci(x - 1) + fibonacci(x - 2)
+                        }
+                    }
+                }
+                fn main() -> int {
+                    fibonacci(15)
+                }
+            "#,
+            expect![[r#"
+                ; ModuleID = 'top'
+                source_filename = "top"
+
+                declare ptr @ptr_to_string(i64, ptr, i64)
+
+                define i64 @fibonacci(i64 %0) {
+                start:
+                  %"0" = alloca i64, align 8
+                  %"2" = alloca i1, align 1
+                  %"3" = alloca i1, align 1
+                  %"4" = alloca i64, align 8
+                  %"5" = alloca i1, align 1
+                  %"6" = alloca i1, align 1
+                  %"7" = alloca i64, align 8
+                  %"8" = alloca i64, align 8
+                  %"9" = alloca i64, align 8
+                  %"10" = alloca i64, align 8
+                  %"11" = alloca i64, align 8
+                  %"12" = alloca i64, align 8
+                  br label %entry
+
+                entry:                                            ; preds = %start
+                  %compare_number = icmp eq i64 %0, 0
+                  store i1 %compare_number, ptr %"3", align 1
+                  %load = load i1, ptr %"3", align 1
+                  store i1 %load, ptr %"2", align 1
+                  %load1 = load i1, ptr %"2", align 1
+                  switch i1 %load1, label %else0 [
+                    i1 true, label %then0
+                  ]
+
+                exit:                                             ; preds = %bb0
+                  %load2 = load i64, ptr %"0", align 8
+                  ret i64 %load2
+
+                then0:                                            ; preds = %entry
+                  store i64 0, ptr %"4", align 8
+                  br label %bb0
+
+                else0:                                            ; preds = %entry
+                  %compare_number3 = icmp eq i64 %0, 1
+                  store i1 %compare_number3, ptr %"6", align 1
+                  %load4 = load i1, ptr %"6", align 1
+                  store i1 %load4, ptr %"5", align 1
+                  %load5 = load i1, ptr %"5", align 1
+                  switch i1 %load5, label %else1 [
+                    i1 true, label %then1
+                  ]
+
+                bb0:                                              ; preds = %bb1, %then0
+                  %load6 = load i64, ptr %"4", align 8
+                  store i64 %load6, ptr %"0", align 8
+                  br label %exit
+
+                then1:                                            ; preds = %else0
+                  store i64 1, ptr %"7", align 8
+                  br label %bb1
+
+                else1:                                            ; preds = %else0
+                  %sub_number = sub i64 %0, 1
+                  store i64 %sub_number, ptr %"8", align 8
+                  %load7 = load i64, ptr %"8", align 8
+                  %call = call i64 @fibonacci(i64 %load7)
+                  store i64 %call, ptr %"9", align 8
+                  br label %bb2
+
+                bb1:                                              ; preds = %bb3, %then1
+                  %load8 = load i64, ptr %"7", align 8
+                  store i64 %load8, ptr %"4", align 8
+                  br label %bb0
+
+                bb2:                                              ; preds = %else1
+                  %sub_number9 = sub i64 %0, 2
+                  store i64 %sub_number9, ptr %"10", align 8
+                  %load10 = load i64, ptr %"10", align 8
+                  %call11 = call i64 @fibonacci(i64 %load10)
+                  store i64 %call11, ptr %"11", align 8
+                  br label %bb3
+
+                bb3:                                              ; preds = %bb2
+                  %load12 = load i64, ptr %"9", align 8
+                  %load13 = load i64, ptr %"11", align 8
+                  %add_number = add i64 %load12, %load13
+                  store i64 %add_number, ptr %"12", align 8
+                  %load14 = load i64, ptr %"12", align 8
+                  store i64 %load14, ptr %"7", align 8
+                  br label %bb1
+                }
+
+                define i64 @main() {
+                start:
+                  %"0" = alloca i64, align 8
+                  %"1" = alloca i64, align 8
+                  br label %entry
+
+                entry:                                            ; preds = %start
+                  %call = call i64 @fibonacci(i64 15)
+                  store i64 %call, ptr %"1", align 8
+                  br label %bb0
+
+                exit:                                             ; preds = %bb0
+                  %load = load i64, ptr %"0", align 8
+                  ret i64 %load
+
+                bb0:                                              ; preds = %entry
+                  %load1 = load i64, ptr %"1", align 8
+                  store i64 %load1, ptr %"0", align 8
+                  br label %exit
+                }
+
+                define ptr @__main__() {
+                start:
+                  %call_entry_point = call i64 @main()
+                  ret void
+                }
+            "#]],
+        );
+    }
+
+    #[test]
     fn test_ir_literals() {
         check_ir(
             r#"
@@ -771,6 +910,34 @@ mod tests {
                 start:
                   %call_entry_point = call i64 @main()
                   ret void
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_fibonacci() {
+        check_result(
+            r#"
+                fn fibonacci(x: int) -> int {
+                    if x == 0 {
+                        0
+                    } else {
+                        if x == 1 {
+                            1
+                        } else {
+                            fibonacci(x - 1) + fibonacci(x - 2)
+                        }
+                    }
+                }
+                fn main() -> int {
+                    fibonacci(15)
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 610
                 }
             "#]],
         );

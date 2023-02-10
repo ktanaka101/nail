@@ -1018,58 +1018,58 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn test_block() {
-    //     check_result(
-    //         r#"
-    //         fn main() {
-    //             {
-    //             }
-    //         }
-    //     "#,
-    //         expect![[r#"
-    //             {
-    //               "nail_type": "Unit",
-    //               "value": null
-    //             }
-    //         "#]],
-    //     );
-    // }
+    #[test]
+    fn test_block() {
+        check_result(
+            r#"
+            fn main() {
+                {
+                }
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Unit",
+                  "value": null
+                }
+            "#]],
+        );
+    }
 
-    // #[test]
-    // fn test_block_binding() {
-    //     check_result(
-    //         r#"
-    //         fn main() {
-    //             let a = {
-    //             }
-    //         }
-    //     "#,
-    //         expect![[r#"
-    //             {
-    //               "nail_type": "Unit",
-    //               "value": null
-    //             }
-    //         "#]],
-    //     );
+    #[test]
+    fn test_block_binding() {
+        check_result(
+            r#"
+            fn main() {
+                let a = {
+                }
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Unit",
+                  "value": null
+                }
+            "#]],
+        );
 
-    //     check_result(
-    //         r#"
-    //         fn main() -> int {
-    //             let a = {
-    //                 10
-    //             }
-    //             a
-    //         }
-    //     "#,
-    //         expect![[r#"
-    //             {
-    //               "nail_type": "Int",
-    //               "value": 10
-    //             }
-    //         "#]],
-    //     );
-    // }
+        check_result(
+            r#"
+            fn main() -> int {
+                let a = {
+                    10
+                }
+                a
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 10
+                }
+            "#]],
+        );
+    }
 
     #[test]
     fn test_call() {

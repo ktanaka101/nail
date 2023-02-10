@@ -141,7 +141,20 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                 mir::Statement::Assign { place, value } => {
                     let val = match value {
                         mir::Value::Operand(operand) => self.gen_operand(operand),
-                        mir::Value::BinaryOp { op, left, right } => todo!(),
+                        mir::Value::BinaryOp { op, left, right } => {
+                            let lhs = self.gen_operand(left).into_int_value();
+                            let rhs = self.gen_operand(right).into_int_value();
+                            match op {
+                                mir::BinaryOp::Add => self
+                                    .codegen
+                                    .builder
+                                    .build_int_add(lhs, rhs, "add_number")
+                                    .into(),
+                                mir::BinaryOp::Sub => todo!(),
+                                mir::BinaryOp::Mul => todo!(),
+                                mir::BinaryOp::Div => todo!(),
+                            }
+                        }
                     };
                     match place {
                         mir::Place::Param(_param) => unreachable!(),
@@ -1291,27 +1304,27 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn test_add_number() {
-    //     check_result(
-    //         r#"
-    //         fn main() -> int {
-    //             let a = 10;
-    //             let b = 20;
-    //             let c = {
-    //                 a + 30
-    //             };
-    //             b + c + 40
-    //         }
-    //     "#,
-    //         expect![[r#"
-    //             {
-    //               "nail_type": "Int",
-    //               "value": 100
-    //             }
-    //         "#]],
-    //     );
-    // }
+    #[test]
+    fn test_add_number() {
+        check_result(
+            r#"
+            fn main() -> int {
+                let a = 10;
+                let b = 20;
+                let c = {
+                    a + 30
+                };
+                b + c + 40
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 100
+                }
+            "#]],
+        );
+    }
 
     // #[test]
     // fn test_sub_number() {

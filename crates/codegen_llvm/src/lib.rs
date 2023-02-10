@@ -19,7 +19,6 @@ const INTERNAL_ENTRY_POINT: &str = "__main__";
 
 pub fn codegen<'a, 'ctx>(
     hir_result: &'a hir::LowerResult,
-    ty_result: &'a hir_ty::TyLowerResult,
     mir_result: &'a mir::LowerResult,
     context: &'ctx Context,
     module: &'a Module<'ctx>,
@@ -29,7 +28,6 @@ pub fn codegen<'a, 'ctx>(
 ) -> CodegenResult<'ctx> {
     let codegen = Codegen::new(
         hir_result,
-        ty_result,
         mir_result,
         context,
         module,
@@ -111,7 +109,7 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
         for (bb_idx, bb) in self.body.blocks.iter() {
             self.move_to_bb_by_bb_idx(bb_idx);
 
-            self.gen_bb(bb_idx, bb);
+            self.gen_bb(bb);
         }
     }
 
@@ -135,7 +133,7 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
         self.function.get_nth_param(param.pos).unwrap()
     }
 
-    fn gen_bb(&self, idx: mir::BasicBlockIdx, bb: &mir::BasicBlock) {
+    fn gen_bb(&self, bb: &mir::BasicBlock) {
         for stmt in &bb.statements {
             match stmt {
                 mir::Statement::Assign { place, value } => {
@@ -287,7 +285,6 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
 
 struct Codegen<'a, 'ctx> {
     hir_result: &'a hir::LowerResult,
-    ty_result: &'a hir_ty::TyLowerResult,
     mir_result: &'a mir::LowerResult,
 
     context: &'ctx Context,
@@ -304,7 +301,6 @@ struct Codegen<'a, 'ctx> {
 impl<'a, 'ctx> Codegen<'a, 'ctx> {
     fn new(
         hir_result: &'a hir::LowerResult,
-        ty_result: &'a hir_ty::TyLowerResult,
         mir_result: &'a mir::LowerResult,
         context: &'ctx Context,
         module: &'a Module<'ctx>,
@@ -313,7 +309,6 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
     ) -> Self {
         let mut codegen = Self {
             hir_result,
-            ty_result,
             mir_result,
             context,
             module,
@@ -665,7 +660,7 @@ mod tests {
     }
 
     fn check_ir(input: &str, expect: Expect) {
-        let (hir_result, ty_result, mir_result) = lower(input);
+        let (hir_result, _ty_result, mir_result) = lower(input);
 
         let context = Context::create();
         let module = context.create_module("top");
@@ -675,7 +670,6 @@ mod tests {
             .unwrap();
         codegen(
             &hir_result,
-            &ty_result,
             &mir_result,
             &context,
             &module,
@@ -699,7 +693,7 @@ mod tests {
     }
 
     fn check_result(input: &str, expect: Expect) {
-        let (hir_result, ty_result, mir_result) = lower(input);
+        let (hir_result, _ty_result, mir_result) = lower(input);
 
         let context = Context::create();
         let module = context.create_module("top");
@@ -709,7 +703,6 @@ mod tests {
             .unwrap();
         let result = codegen(
             &hir_result,
-            &ty_result,
             &mir_result,
             &context,
             &module,

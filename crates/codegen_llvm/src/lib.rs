@@ -178,6 +178,7 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                                     .into(),
                             }
                         }
+                        mir::Value::UnaryOp { op, expr } => todo!(),
                     };
                     match place {
                         mir::Place::Param(_param) => unreachable!(),

@@ -393,6 +393,21 @@ impl<'a> FunctionLower<'a> {
 
                 LoweredExpr::Operand(Operand::Place(place))
             }
+            hir::Expr::Unary { op, expr } => {
+                let expr = match self.lower_expr(*expr) {
+                    LoweredExpr::Return => return LoweredExpr::Return,
+                    LoweredExpr::Operand(operand) => operand,
+                };
+                let op = match op {
+                    hir::UnaryOp::Neg => UnaryOp::Neg,
+                };
+                let local = self.alloc_local(expr_idx);
+                let value = Value::UnaryOp { op, expr };
+                let place = Place::Local(local);
+                self.add_statement_to_current_bb(Statement::Assign { place, value });
+
+                LoweredExpr::Operand(Operand::Place(place))
+            }
             hir::Expr::Block(block) => {
                 for stmt in &block.stmts {
                     match self.lower_stmt(stmt) {
@@ -790,6 +805,10 @@ pub enum Value {
         left: Operand,
         right: Operand,
     },
+    UnaryOp {
+        op: UnaryOp,
+        expr: Operand,
+    },
 }
 
 #[derive(Debug)]
@@ -799,6 +818,11 @@ pub enum BinaryOp {
     Mul,
     Div,
     Equal,
+}
+
+#[derive(Debug)]
+pub enum UnaryOp {
+    Neg,
 }
 
 #[derive(Debug)]
@@ -1000,6 +1024,15 @@ mod tests {
                 let right = debug_operand(right, body);
 
                 format!("{function_name}({left}, {right})")
+            }
+            crate::Value::UnaryOp { op, expr } => {
+                let function_name = match op {
+                    crate::UnaryOp::Neg => "negative",
+                }
+                .to_string();
+                let expr = debug_operand(expr, body);
+
+                format!("{function_name}({expr})")
             }
         }
     }
@@ -1291,6 +1324,43 @@ mod tests {
                         _2 = const true
                         _3 = equal(_1, _2)
                         _0 = _3
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_negative_number() {
+        check(
+            r#"
+                fn main() -> bool {
+                    let a = -10;
+                    let b = 20;
+                    a == -b
+                }
+            "#,
+            expect![[r#"
+                fn main() -> bool {
+                    let _0: bool
+                    let _1: int
+                    let _2: int
+                    let _3: int
+                    let _4: int
+                    let _5: int
+
+                    entry: {
+                        _2 = negative(const 10)
+                        _1 = _2
+                        _3 = const 20
+                        _4 = negative(_3)
+                        _5 = equal(_2, _4)
+                        _0 = _5
                         goto -> exit
                     }
 

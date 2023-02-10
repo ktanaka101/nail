@@ -680,8 +680,8 @@ mod tests {
         check_ir(
             r#"
             fn main() -> int {
-                let a = "aaa"
-                let b = 10
+                let a = "aaa";
+                let b = 10;
                 30
             }
         "#,
@@ -725,7 +725,7 @@ mod tests {
         check_ir(
             r#"
             fn main() -> string {
-                let a = "aaa"
+                let a = "aaa";
                 a
             }
         "#,
@@ -768,8 +768,8 @@ mod tests {
         check_ir(
             r#"
             fn main() -> int {
-                10
-                20
+                10;
+                20;
                 30
             }
         "#,
@@ -861,7 +861,7 @@ mod tests {
         check_ir(
             r#"
             fn main() -> int {
-                let x = 10
+                let x = 10;
                 x
             }
         "#,
@@ -953,7 +953,7 @@ mod tests {
         check_result(
             r#"
             fn main() {
-                let a = 10
+                let a = 10;
             }
         "#,
             expect![[r#"
@@ -970,7 +970,7 @@ mod tests {
         check_result(
             r#"
             fn main() -> int {
-                let x = 10
+                let x = 10;
                 x
             }
         "#,
@@ -985,7 +985,7 @@ mod tests {
         check_result(
             r#"
             fn main() -> string {
-                let x = "aaa"
+                let x = "aaa";
                 x
             }
         "#,
@@ -1003,9 +1003,9 @@ mod tests {
         check_result(
             r#"
             fn main() -> string {
-                let x = "aaa"
-                let y = x
-                let z = y
+                let x = "aaa";
+                let y = x;
+                let z = y;
                 z
             }
         "#,
@@ -1042,7 +1042,7 @@ mod tests {
             r#"
             fn main() {
                 let a = {
-                }
+                };
             }
         "#,
             expect![[r#"
@@ -1058,7 +1058,7 @@ mod tests {
             fn main() -> int {
                 let a = {
                     10
-                }
+                };
                 a
             }
         "#,
@@ -1080,7 +1080,7 @@ mod tests {
             }
 
             fn main() -> int {
-                let a = test()
+                let a = test();
                 a
             }
         "#,
@@ -1102,7 +1102,7 @@ mod tests {
     //         }
 
     //         fn main() -> int {
-    //             let a = test(10)
+    //             let a = test(10);
     //             a
     //         }
     //     "#,
@@ -1121,7 +1121,7 @@ mod tests {
     //         }
 
     //         fn main() -> int {
-    //             let a = test(10, 20)
+    //             let a = test(10, 20);
     //             a
     //         }
     //     "#,
@@ -1143,7 +1143,7 @@ mod tests {
     //         }
 
     //         fn main() -> int {
-    //             let a = test(10)
+    //             let a = test(10);
     //             a
     //         }
     //     "#,
@@ -1162,7 +1162,7 @@ mod tests {
     //         }
 
     //         fn main() -> string {
-    //             let a = test("aaa")
+    //             let a = test("aaa");
     //             a
     //         }
     //     "#,
@@ -1181,7 +1181,7 @@ mod tests {
     //         }
 
     //         fn main() -> bool {
-    //             let a = test(true)
+    //             let a = test(true);
     //             a
     //         }
     //     "#,
@@ -1199,7 +1199,7 @@ mod tests {
     //     check_result(
     //         r#"
     //         fn main() -> bool {
-    //             let a = test1(true)
+    //             let a = test1(true);
     //             a
     //         }
 
@@ -1265,9 +1265,9 @@ mod tests {
         check_result(
             r#"
             fn main() -> int {
-                let a = true
-                let b = 10
-                let c = 20
+                let a = true;
+                let b = 10;
+                let c = 20;
                 if a {
                     b
                 } else {
@@ -1289,11 +1289,11 @@ mod tests {
     //     check_result(
     //         r#"
     //         fn main() -> int {
-    //             let a = 10
-    //             let b = 20
+    //             let a = 10;
+    //             let b = 20;
     //             let c = {
     //                 a + 30
-    //             }
+    //             };
     //             b + c + 40
     //         }
     //     "#,
@@ -1311,8 +1311,8 @@ mod tests {
     //     check_result(
     //         r#"
     //         fn main() -> int {
-    //             let a = 10
-    //             let b = 20
+    //             let a = 10;
+    //             let b = 20;
     //             a - b - 30
     //         }
     //     "#,
@@ -1330,8 +1330,8 @@ mod tests {
     //     check_result(
     //         r#"
     //         fn main() -> int {
-    //             let a = 10
-    //             let b = 20
+    //             let a = 10;
+    //             let b = 20;
     //             a * b * 30
     //         }
     //     "#,
@@ -1349,8 +1349,8 @@ mod tests {
     //     check_result(
     //         r#"
     //         fn main() -> int {
-    //             let a = 10
-    //             let b = 20
+    //             let a = 10;
+    //             let b = 20;
     //             2000 / a / b
     //         }
     //     "#,
@@ -1368,8 +1368,8 @@ mod tests {
     //     check_result(
     //         r#"
     //         fn main() -> int {
-    //             let a = 20
-    //             let b = 3
+    //             let a = 20;
+    //             let b = 3;
     //             a / b
     //         }
     //     "#,
@@ -1387,12 +1387,12 @@ mod tests {
     //     check_result(
     //         r#"
     //         fn main() -> int {
-    //             let a = -10
-    //             let b = 20
-    //             let c = -30
+    //             let a = -10;
+    //             let b = 20;
+    //             let c = -30;
     //             let d = -{
     //                 40
-    //             }
+    //             };
     //             a + (-b) + (-c) - d
     //         }
     //     "#,
@@ -1410,8 +1410,8 @@ mod tests {
     //     check_result(
     //         r#"
     //         fn main() -> bool {
-    //             let a = 10
-    //             let b = 10
+    //             let a = 10;
+    //             let b = 10;
     //             a == b
     //         }
     //     "#,
@@ -1426,8 +1426,8 @@ mod tests {
     //     check_result(
     //         r#"
     //         fn main() -> bool {
-    //             let a = 10
-    //             let b = 20
+    //             let a = 10;
+    //             let b = 20;
     //             a == b
     //         }
     //     "#,
@@ -1445,7 +1445,7 @@ mod tests {
     //     check_result(
     //         r#"
     //             fn main() -> bool {
-    //                 return true
+    //                 return true;
     //             }
     //         "#,
     //         expect![[r#"
@@ -1459,7 +1459,7 @@ mod tests {
     //     check_result(
     //         r#"
     //             fn main() -> int {
-    //                 return 10
+    //                 return 10;
     //             }
     //         "#,
     //         expect![[r#"
@@ -1474,9 +1474,9 @@ mod tests {
     //         r#"
     //             fn main() -> int {
     //                 if false {
-    //                     return 10
+    //                     return 10;
     //                 } else {
-    //                     return 20
+    //                     return 20;
     //                 }
     //             }
     //         "#,
@@ -1494,7 +1494,7 @@ mod tests {
     //                 if true {
     //                     10
     //                 } else {
-    //                     return 20
+    //                     return 20;
     //                 }
     //             }
     //         "#,
@@ -1510,7 +1510,7 @@ mod tests {
     //         r#"
     //             fn main() -> int {
     //                 if false {
-    //                     return 10
+    //                     return 10;
     //                 } else {
     //                     20
     //                 }
@@ -1528,7 +1528,7 @@ mod tests {
     //         r#"
     //             fn main() -> int {
     //                 if true {
-    //                     return 10
+    //                     return 10;
     //                 } else {
     //                     20
     //                 }
@@ -1548,7 +1548,7 @@ mod tests {
     //                 if false {
     //                     10
     //                 } else {
-    //                     return 20
+    //                     return 20;
     //                 }
     //             }
     //         "#,

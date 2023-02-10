@@ -1362,7 +1362,7 @@ mod tests {
         check(
             r#"
                 fn main() -> int {
-                    let x = 10
+                    let x = 10;
                     x
                 }
             "#,
@@ -1391,7 +1391,7 @@ mod tests {
             r#"
                 fn main() -> int {
                     {
-                        let x = 10
+                        let x = 10;
                         x
                     }
                 }
@@ -1421,7 +1421,7 @@ mod tests {
             r#"
                 fn main() {
                     {
-                        let x = 10
+                        let x = 10;
                     }
                 }
             "#,
@@ -1449,6 +1449,28 @@ mod tests {
         check(
             r#"
                 fn main() -> bool {
+                    return true;
+                }
+            "#,
+            expect![[r#"
+                fn main() -> bool {
+                    let _0: bool
+
+                    entry: {
+                        _0 = const true
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+
+        check(
+            r#"
+                fn main() -> bool {
                     return true
                 }
             "#,
@@ -1471,7 +1493,7 @@ mod tests {
         check(
             r#"
                 fn main() -> int {
-                    return 10
+                    return 10;
                     20
                 }
             "#,
@@ -1503,7 +1525,7 @@ mod tests {
                         return a;
                         let b = false;
                         b
-                    }
+                    };
                     c
                 }
             "#,
@@ -1531,7 +1553,7 @@ mod tests {
             r#"
                 fn main() -> int {
                     let c = {
-                        return 10
+                        return 10;
                     };
                     c
                 }
@@ -1539,7 +1561,7 @@ mod tests {
             expect![[r#"
                 fn main() -> int {
                     let _0: int
-                    let _1: !
+                    let _1: ()
 
                     entry: {
                         _0 = const 10
@@ -1602,7 +1624,7 @@ mod tests {
                     if true {
                         10
                     } else {
-                        return 20
+                        return 20;
                     }
                 }
             "#,
@@ -1646,7 +1668,7 @@ mod tests {
             r#"
                 fn main() -> int {
                     if true {
-                        return 10
+                        return 10;
                     } else {
                         20
                     }
@@ -1656,7 +1678,7 @@ mod tests {
                 fn main() -> int {
                     let _0: int
                     let _1: bool
-                    let _2: !
+                    let _2: ()
 
                     entry: {
                         _1 = const true
@@ -1737,9 +1759,9 @@ mod tests {
         check(
             r#"
                 fn main() -> int {
-                    let a = 10
+                    let a = 10;
                     if true {
-                        return 20
+                        return 20;
                     }
 
                     a
@@ -1784,7 +1806,7 @@ mod tests {
         check(
             r#"
                 fn main() -> int {
-                    let a = 10
+                    let a = 10;
                     if true {
                         20
                     }
@@ -1834,10 +1856,10 @@ mod tests {
             r#"
                 fn main() -> int {
                     if true {
-                        let b = 20
+                        let b = 20;
                         b
                     } else {
-                        let c = 20
+                        let c = 20;
                         c
                     }
                 }

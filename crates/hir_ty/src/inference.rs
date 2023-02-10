@@ -171,7 +171,7 @@ impl<'a> TypeInferencer<'a> {
                         if rhs_ty == lhs_ty
                             && (matches!(rhs_ty, ResolvedType::Integer | ResolvedType::Bool))
                         {
-                            return rhs_ty;
+                            return ResolvedType::Bool;
                         }
                     }
                 }

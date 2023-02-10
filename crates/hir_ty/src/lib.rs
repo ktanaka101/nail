@@ -278,6 +278,59 @@ mod tests {
     }
 
     #[test]
+    fn test_fibonacci() {
+        check(
+            r#"
+            fn fibonacci(x: int) -> int {
+                if x == 0 {
+                    0
+                } else {
+                    if x == 1 {
+                        1
+                    } else {
+                        fibonacci(x - 1) + fibonacci(x - 2)
+                    }
+                }
+            }
+            fn main() -> int {
+                fibonacci(15)
+            }
+        "#,
+            expect![[r#"
+                fn(int) -> int
+                fn() -> int
+                ---
+                `x`: int
+                `0`: int
+                `x == 0`: bool
+                `0`: int
+                `{ .., 0 }`: int
+                `x`: int
+                `1`: int
+                `x == 1`: bool
+                `1`: int
+                `{ .., 1 }`: int
+                `x`: int
+                `1`: int
+                `x - 1`: int
+                `x`: int
+                `2`: int
+                `x - 2`: int
+                `fibonacci(x - 1)`: int
+                `fibonacci(x - 2)`: int
+                `fibonacci(x - 1) + fibonacci(x - 2)`: int
+                `{ .., fibonacci(x - 1) + fibonacci(x - 2) }`: int
+                `if x == 1 { .., 1 } else { .., fibonacci(x - 1) + fibonacci(x - 2) }`: int
+                `{ .., if x == 1 { .., 1 } else { .., fibonacci(x - 1) + fibonacci(x - 2) } }`: int
+                `if x == 0 { .., 0 } else { .., if x == 1 { .., 1 } else { .., fibonacci(x - 1) + fibonacci(x - 2) } }`: int
+                `15`: int
+                `fibonacci(15)`: int
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
     fn infer_integer_literal() {
         check(
             r#"
@@ -474,7 +527,7 @@ mod tests {
                 `10 / 20`: int
                 `10`: int
                 `20`: int
-                `10 == 20`: int
+                `10 == 20`: bool
                 ---
                 error: expected int, found string by `10` and `"aaa"`
                 error: expected int, found char by `10` and `'a'`

@@ -1286,7 +1286,7 @@ mod tests {
             expect![[r#"
                 fn main() -> bool {
                     let _0: bool
-                    let _1: int
+                    let _1: bool
 
                     entry: {
                         _1 = equal(const 10, const 20)
@@ -1352,7 +1352,7 @@ mod tests {
                     let _2: int
                     let _3: int
                     let _4: int
-                    let _5: int
+                    let _5: bool
 
                     entry: {
                         _2 = negative(const 10)

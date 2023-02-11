@@ -39,8 +39,7 @@ pub fn codegen<'a, 'ctx>(
 
 type MainFunc = unsafe extern "C" fn() -> *mut i8;
 pub struct CodegenResult<'ctx> {
-    #[allow(dead_code)]
-    function: JitFunction<'ctx, MainFunc>,
+    pub function: JitFunction<'ctx, MainFunc>,
 }
 
 struct BodyCodegen<'a, 'ctx> {

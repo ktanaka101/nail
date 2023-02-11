@@ -7,13 +7,6 @@ use ast::AstNode;
 use inkwell::{context::Context, OptimizationLevel};
 use termion::{event::Key, input::TermRead, raw::IntoRawMode};
 
-use crate::{
-    ast_parser::Parser,
-    lexer::Lexer,
-    llvm::{codegen, codegen::Codegen},
-    type_checker,
-};
-
 const PROMPT: &str = ">> ";
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
@@ -95,28 +88,77 @@ fn dev_run(code: &str) -> Result<String> {
 }
 
 fn llvm_run(code: &str) -> Result<String> {
+    let code_with_entry_point = format!(
+        r#"
+            fn main() -> int {{
+                {code}
+            }}
+        "#
+    );
+
     let context = Context::create();
     let module = context.create_module("top");
     let builder = context.create_builder();
     let execution_engine = module
         .create_jit_execution_engine(OptimizationLevel::None)
         .unwrap();
-    let mut codegen = Codegen::new(&context, &module, &builder, &execution_engine);
 
-    let lexer = Lexer::new(code.to_string());
-    let mut parser = Parser::new(lexer);
-    let program = parser.parse_program()?;
-
-    let node = program.into();
-    {
-        let checker = type_checker::Checker::new();
-        checker.check(&node)?;
+    let parse = parser::parse(&code_with_entry_point);
+    let syntax = parse.syntax();
+    let validation_errors = ast::validation::validate(&syntax);
+    if !validation_errors.is_empty() {
+        anyhow::bail!(
+            "\n{}",
+            validation_errors
+                .iter()
+                .map(|err| err.to_string())
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
     }
 
-    let main_fn = codegen.gen(&node, false, codegen::Output::CStringPtr)?;
+    let source_file = ast::SourceFile::cast(syntax).unwrap();
+    let hir_lower_result = hir::lower(source_file);
+    if !hir_lower_result.errors.is_empty() {
+        anyhow::bail!(
+            "\n{}",
+            hir_lower_result
+                .errors
+                .iter()
+                .map(|err| match err {
+                    hir::LowerError::UndefinedEntryPoint =>
+                        "error: undefined entry point.".to_string(),
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
+    }
+    let hir_ty_lower_result = hir_ty::lower(&hir_lower_result);
+    let type_check_errors = &hir_ty_lower_result.type_check_result.errors;
+    if !type_check_errors.is_empty() {
+        anyhow::bail!(
+            "\n{}",
+            type_check_errors
+                .iter()
+                .map(|err| format!("{err:?}"))
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
+    }
+
+    let mir_lower_result = mir::lower(&hir_lower_result, &hir_ty_lower_result);
+    let codegen_result = codegen_llvm::codegen(
+        &hir_lower_result,
+        &mir_lower_result,
+        &context,
+        &module,
+        &builder,
+        &execution_engine,
+        true,
+    );
 
     let result_string = {
-        let c_string_ptr = unsafe { main_fn.call() };
+        let c_string_ptr = unsafe { codegen_result.function.call() };
         unsafe { CString::from_raw(c_string_ptr as *mut c_char) }
             .into_string()
             .unwrap()

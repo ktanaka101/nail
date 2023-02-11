@@ -16,7 +16,7 @@ pub fn lower(lower_result: &LowerResult) -> TyLowerResult {
 }
 
 pub struct TyLowerResult {
-    inference_result: InferenceResult,
+    pub inference_result: InferenceResult,
     pub type_check_result: TypeCheckResult,
 }
 impl TyLowerResult {

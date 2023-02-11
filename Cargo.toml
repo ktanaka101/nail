@@ -21,6 +21,7 @@ hir = { path = "crates/hir" }
 hir_ty = { path = "crates/hir_ty" }
 mir = { path = "crates/mir" }
 lsp = { path = "crates/lsp" }
+repl = { path = "crates/repl" }
 
 [workspace]
 members = ["crates/*"]

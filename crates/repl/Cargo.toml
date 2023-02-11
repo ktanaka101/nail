@@ -1,0 +1,16 @@
+[package]
+name = "repl"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ast = { path = "../ast" }
+parser = { path = "../parser" }
+hir = { path = "../hir" }
+hir_ty = { path = "../hir_ty" }
+mir = { path = "../mir" }
+codegen_llvm = { path = "../codegen_llvm" }
+
+anyhow = { workspace = true }
+inkwell = { workspace = true }
+termion = { workspace = true }

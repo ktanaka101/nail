@@ -159,15 +159,15 @@ impl<'a> TypeInferencer<'a> {
                 let rhs_ty = self.infer_expr_idx(*rhs);
 
                 match op {
-                    hir::BinaryOp::Add
-                    | hir::BinaryOp::Sub
-                    | hir::BinaryOp::Mul
-                    | hir::BinaryOp::Div => {
+                    ast::BinaryOp::Add(_)
+                    | ast::BinaryOp::Sub(_)
+                    | ast::BinaryOp::Mul(_)
+                    | ast::BinaryOp::Div(_) => {
                         if rhs_ty == lhs_ty && (matches!(rhs_ty, ResolvedType::Integer)) {
                             return rhs_ty;
                         }
                     }
-                    hir::BinaryOp::Equal => {
+                    ast::BinaryOp::Equal(_) => {
                         if rhs_ty == lhs_ty
                             && (matches!(rhs_ty, ResolvedType::Integer | ResolvedType::Bool))
                         {
@@ -191,12 +191,12 @@ impl<'a> TypeInferencer<'a> {
             hir::Expr::Unary { op, expr } => {
                 let expr_ty = self.infer_expr_idx(*expr);
                 match op {
-                    hir::UnaryOp::Neg => {
+                    ast::UnaryOp::Neg(_) => {
                         if expr_ty == ResolvedType::Integer {
                             return ResolvedType::Integer;
                         }
                     }
-                    hir::UnaryOp::Not => {
+                    ast::UnaryOp::Not(_) => {
                         if expr_ty == ResolvedType::Bool {
                             return ResolvedType::Bool;
                         }

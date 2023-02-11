@@ -7,7 +7,7 @@ use la_arena::{Arena, Idx};
 use self::scopes::ScopeType;
 use crate::{
     body::scopes::Scopes, db::Database, item_tree::ItemTree, string_interner::Interner, AstId,
-    BinaryOp, Block, Expr, ExprIdx, Literal, Name, ParamIdx, Stmt, Symbol, UnaryOp,
+    Block, Expr, ExprIdx, Literal, Name, ParamIdx, Stmt, Symbol,
 };
 
 #[derive(Debug, Default)]
@@ -191,13 +191,7 @@ impl BodyLower {
         item_tree: &ItemTree,
         interner: &mut Interner,
     ) -> Expr {
-        let op = match ast.op().unwrap() {
-            ast::BinaryOp::Add(_) => BinaryOp::Add,
-            ast::BinaryOp::Sub(_) => BinaryOp::Sub,
-            ast::BinaryOp::Mul(_) => BinaryOp::Mul,
-            ast::BinaryOp::Div(_) => BinaryOp::Div,
-            ast::BinaryOp::Equal(_) => BinaryOp::Equal,
-        };
+        let op = ast.op().unwrap();
 
         let lhs = self.lower_expr(ast.lhs(), ctx, db, item_tree, interner);
         let rhs = self.lower_expr(ast.rhs(), ctx, db, item_tree, interner);
@@ -217,10 +211,7 @@ impl BodyLower {
         item_tree: &ItemTree,
         interner: &mut Interner,
     ) -> Expr {
-        let op = match ast.op().unwrap() {
-            ast::UnaryOp::Neg(_) => UnaryOp::Neg,
-            ast::UnaryOp::Not(_) => UnaryOp::Not,
-        };
+        let op = ast.op().unwrap();
 
         let expr = self.lower_expr(ast.expr(), ctx, db, item_tree, interner);
 
@@ -532,11 +523,11 @@ mod tests {
             },
             Expr::Binary { op, lhs, rhs } => {
                 let op = match op {
-                    BinaryOp::Add => "+",
-                    BinaryOp::Sub => "-",
-                    BinaryOp::Mul => "*",
-                    BinaryOp::Div => "/",
-                    BinaryOp::Equal => "==",
+                    ast::BinaryOp::Add(_) => "+",
+                    ast::BinaryOp::Sub(_) => "-",
+                    ast::BinaryOp::Mul(_) => "*",
+                    ast::BinaryOp::Div(_) => "/",
+                    ast::BinaryOp::Equal(_) => "==",
                 };
                 let lhs_str =
                     debug_expr(lower_result, &lower_result.shared_ctx.exprs[*lhs], nesting);
@@ -546,8 +537,8 @@ mod tests {
             }
             Expr::Unary { op, expr } => {
                 let op = match op {
-                    UnaryOp::Neg => "-",
-                    UnaryOp::Not => "!",
+                    ast::UnaryOp::Neg(_) => "-",
+                    ast::UnaryOp::Not(_) => "!",
                 };
                 let expr_str =
                     debug_expr(lower_result, &lower_result.shared_ctx.exprs[*expr], nesting);

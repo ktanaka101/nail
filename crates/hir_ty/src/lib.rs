@@ -176,19 +176,19 @@ mod tests {
             hir::Expr::Missing => "<missing>".to_string(),
             hir::Expr::Unary { op, expr } => {
                 let op = match op {
-                    hir::UnaryOp::Neg => "-".to_string(),
-                    hir::UnaryOp::Not => "!".to_string(),
+                    ast::UnaryOp::Neg(_) => "-".to_string(),
+                    ast::UnaryOp::Not(_) => "!".to_string(),
                 };
                 let expr = debug_hir_expr(expr, lower_result);
                 format!("{op}{expr}")
             }
             hir::Expr::Binary { op, lhs, rhs } => {
                 let op = match op {
-                    hir::BinaryOp::Add => "+",
-                    hir::BinaryOp::Sub => "-",
-                    hir::BinaryOp::Mul => "*",
-                    hir::BinaryOp::Div => "/",
-                    hir::BinaryOp::Equal => "==",
+                    ast::BinaryOp::Add(_) => "+",
+                    ast::BinaryOp::Sub(_) => "-",
+                    ast::BinaryOp::Mul(_) => "*",
+                    ast::BinaryOp::Div(_) => "/",
+                    ast::BinaryOp::Equal(_) => "==",
                 }
                 .to_string();
                 let lhs = debug_hir_expr(lhs, lower_result);

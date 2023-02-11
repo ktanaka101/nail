@@ -3,7 +3,7 @@ use syntax::{SyntaxKind, SyntaxToken};
 use super::def_ast_token;
 use crate::{Ast, AstToken};
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum BinaryOp {
     Add(Plus),
     Sub(Minus),
@@ -52,7 +52,7 @@ impl AstToken for BinaryOp {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum UnaryOp {
     Neg(Minus),
     Not(Bang),

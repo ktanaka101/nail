@@ -153,13 +153,13 @@ pub enum Literal {
 #[derive(Debug, PartialEq, Eq)]
 pub enum Expr {
     Binary {
-        op: BinaryOp,
+        op: ast::BinaryOp,
         lhs: ExprIdx,
         rhs: ExprIdx,
     },
     Literal(Literal),
     Unary {
-        op: UnaryOp,
+        op: ast::UnaryOp,
         expr: ExprIdx,
     },
     VariableRef {
@@ -203,19 +203,4 @@ impl Block {
             None
         }
     }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum BinaryOp {
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Equal,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum UnaryOp {
-    Neg,
-    Not,
 }

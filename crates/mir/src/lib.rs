@@ -375,11 +375,11 @@ impl<'a> FunctionLower<'a> {
                 };
 
                 let op = match op {
-                    hir::BinaryOp::Add => BinaryOp::Add,
-                    hir::BinaryOp::Sub => BinaryOp::Sub,
-                    hir::BinaryOp::Mul => BinaryOp::Mul,
-                    hir::BinaryOp::Div => BinaryOp::Div,
-                    hir::BinaryOp::Equal => BinaryOp::Equal,
+                    ast::BinaryOp::Add(_) => BinaryOp::Add,
+                    ast::BinaryOp::Sub(_) => BinaryOp::Sub,
+                    ast::BinaryOp::Mul(_) => BinaryOp::Mul,
+                    ast::BinaryOp::Div(_) => BinaryOp::Div,
+                    ast::BinaryOp::Equal(_) => BinaryOp::Equal,
                 };
 
                 let local = self.alloc_local(expr_idx);
@@ -399,8 +399,8 @@ impl<'a> FunctionLower<'a> {
                     LoweredExpr::Operand(operand) => operand,
                 };
                 let op = match op {
-                    hir::UnaryOp::Neg => UnaryOp::Neg,
-                    hir::UnaryOp::Not => UnaryOp::Not,
+                    ast::UnaryOp::Neg(_) => UnaryOp::Neg,
+                    ast::UnaryOp::Not(_) => UnaryOp::Not,
                 };
                 let local = self.alloc_local(expr_idx);
                 let value = Value::UnaryOp { op, expr };

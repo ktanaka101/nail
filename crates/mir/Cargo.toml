@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 la-arena = { workspace = true }
 
+ast = { path = "../ast" }
 hir = { path = "../hir" }
 hir_ty = { path = "../hir_ty" }
 
@@ -13,4 +14,3 @@ hir_ty = { path = "../hir_ty" }
 expect-test = { workspace = true }
 
 parser = { path = "../parser" }
-ast = { path = "../ast" }

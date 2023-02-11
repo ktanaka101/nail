@@ -23,13 +23,18 @@ pub(super) fn parse_module(parser: &mut Parser, recovery_set: &[TokenKind]) -> C
 
     parser.expect_with_recovery_set_no_default(TokenKind::Ident, recovery_set);
 
-    if parser.at(TokenKind::LCurly) {
-        parser.bump();
-        parse_stmt_on_toplevel(parser);
-    }
+    {
+        let marker = parser.start();
+        if parser.at(TokenKind::LCurly) {
+            parser.bump();
+            parse_stmt_on_toplevel(parser);
+        }
 
-    if parser.at(TokenKind::RCurly) {
-        parser.bump();
+        if parser.at(TokenKind::RCurly) {
+            parser.bump();
+        }
+
+        marker.complete(parser, SyntaxKind::ItemList);
     }
 
     marker.complete(parser, SyntaxKind::Module)
@@ -484,33 +489,34 @@ fn main() {}
                     Whitespace@4..5 " "
                     Ident@5..15 "one_module"
                     Whitespace@15..16 " "
-                    LCurly@16..17 "{"
-                    Whitespace@17..22 "\n    "
-                    FunctionDef@22..57
-                      FnKw@22..24 "fn"
-                      Whitespace@24..25 " "
-                      Ident@25..28 "bbb"
-                      ParamList@28..31
-                        LParen@28..29 "("
-                        RParen@29..30 ")"
-                        Whitespace@30..31 " "
-                      ReturnType@31..38
-                        ThinArrow@31..33 "->"
-                        Whitespace@33..34 " "
-                        Type@34..38
-                          Ident@34..37 "int"
-                          Whitespace@37..38 " "
-                      Block@38..57
-                        LCurly@38..39 "{"
-                        Whitespace@39..48 "\n        "
-                        ExprStmt@48..55
-                          Literal@48..55
-                            Integer@48..50 "10"
-                            Whitespace@50..55 "\n    "
-                        RCurly@55..56 "}"
-                        Whitespace@56..57 "\n"
-                    RCurly@57..58 "}"
-                    Whitespace@58..59 "\n"
+                    ItemList@16..59
+                      LCurly@16..17 "{"
+                      Whitespace@17..22 "\n    "
+                      FunctionDef@22..57
+                        FnKw@22..24 "fn"
+                        Whitespace@24..25 " "
+                        Ident@25..28 "bbb"
+                        ParamList@28..31
+                          LParen@28..29 "("
+                          RParen@29..30 ")"
+                          Whitespace@30..31 " "
+                        ReturnType@31..38
+                          ThinArrow@31..33 "->"
+                          Whitespace@33..34 " "
+                          Type@34..38
+                            Ident@34..37 "int"
+                            Whitespace@37..38 " "
+                        Block@38..57
+                          LCurly@38..39 "{"
+                          Whitespace@39..48 "\n        "
+                          ExprStmt@48..55
+                            Literal@48..55
+                              Integer@48..50 "10"
+                              Whitespace@50..55 "\n    "
+                          RCurly@55..56 "}"
+                          Whitespace@56..57 "\n"
+                      RCurly@57..58 "}"
+                      Whitespace@58..59 "\n"
                   FunctionDef@59..84
                     FnKw@59..61 "fn"
                     Whitespace@61..62 " "

@@ -48,6 +48,7 @@ pub enum SyntaxKind {
     Arg,
     Type,
     ReturnType,
+    ItemList,
 
     // item keywords
     FnKw,

@@ -1,7 +1,7 @@
 use lexer::TokenKind;
 use syntax::SyntaxKind;
 
-use super::expr;
+use super::{expr, toplevel};
 use crate::parser::{marker::CompletedMarker, Parser, BLOCK_RECOVERY_SET};
 
 pub(super) fn parse_stmt_on_block(parser: &mut Parser) -> Option<CompletedMarker> {
@@ -9,6 +9,8 @@ pub(super) fn parse_stmt_on_block(parser: &mut Parser) -> Option<CompletedMarker
         Some(parse_variable_def(parser))
     } else if parser.at(TokenKind::FnKw) {
         Some(parse_function_def(parser, &BLOCK_RECOVERY_SET))
+    } else if parser.at(TokenKind::ModKw) {
+        Some(toplevel::parse_module(parser, &BLOCK_RECOVERY_SET))
     } else {
         parse_expr_stmt(parser)
     }

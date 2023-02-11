@@ -67,10 +67,6 @@ impl<'a> TypeChecker<'a> {
             self.check_function(idx);
         }
 
-        for stmt in &self.lower_result.top_level_stmts {
-            self.check_stmt(stmt);
-        }
-
         TypeCheckResult {
             errors: self.errors,
         }
@@ -123,7 +119,7 @@ impl<'a> TypeChecker<'a> {
         match stmt {
             hir::Stmt::ExprStmt { expr, .. } => self.check_expr(*expr),
             hir::Stmt::VariableDef { value, .. } => self.check_expr(*value),
-            hir::Stmt::FunctionDef { .. } => (),
+            hir::Stmt::Item { .. } => (),
         }
     }
 

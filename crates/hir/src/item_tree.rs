@@ -3,7 +3,7 @@ mod item_scope;
 
 use std::collections::HashMap;
 
-pub use item::{Function, FunctionIdx, Param, ParamIdx, Type};
+pub use item::{Function, FunctionIdx, Item, Param, ParamIdx, Type};
 pub use item_scope::{ItemScope, ItemScopeIdx, Parent};
 
 use crate::{db::Database, string_interner::Interner, AstId, Name};
@@ -70,8 +70,8 @@ impl<'a> ItemTreeBuilderContext<'a> {
     pub fn build(mut self, ast: &ast::SourceFile, db: &mut Database) -> ItemTree {
         let mut top_level_scope = ItemScope::new(None);
 
-        for stmt in ast.stmts() {
-            self.build_stmt(stmt, &mut top_level_scope, Parent::TopLevel, db);
+        for item in ast.items() {
+            self.build_item(item, &mut top_level_scope, Parent::TopLevel, db);
         }
 
         let top_level_scope = db.item_scopes.alloc(top_level_scope);
@@ -84,15 +84,15 @@ impl<'a> ItemTreeBuilderContext<'a> {
         }
     }
 
-    pub fn build_stmt(
+    pub fn build_item(
         &mut self,
-        stmt: ast::Stmt,
+        item: ast::Item,
         current_scope: &mut ItemScope,
         parent: Parent,
         db: &mut Database,
     ) -> Option<()> {
-        match stmt {
-            ast::Stmt::FunctionDef(def) => {
+        match item {
+            ast::Item::FunctionDef(def) => {
                 let block = def.body()?;
                 let params = def
                     .params()?
@@ -146,12 +146,26 @@ impl<'a> ItemTreeBuilderContext<'a> {
                 self.function_by_block.insert(block.clone(), function);
                 self.block_by_function.insert(function, block);
             }
+        }
+
+        Some(())
+    }
+
+    pub fn build_stmt(
+        &mut self,
+        stmt: ast::Stmt,
+        current_scope: &mut ItemScope,
+        parent: Parent,
+        db: &mut Database,
+    ) -> Option<()> {
+        match stmt {
             ast::Stmt::ExprStmt(expr_stmt) => {
                 self.build_expr(expr_stmt.expr()?, current_scope, parent, db)?
             }
             ast::Stmt::VariableDef(def) => {
                 self.build_expr(def.value()?, current_scope, parent, db)?
             }
+            ast::Stmt::Item(item) => self.build_item(item, current_scope, parent, db)?,
         }
 
         Some(())

@@ -9,7 +9,7 @@ use ast::Ast;
 pub use body::{BodyLower, SharedBodyLowerContext};
 pub use db::Database;
 use item_tree::ItemTreeBuilderContext;
-pub use item_tree::{Function, FunctionIdx, ItemTree, Param, ParamIdx, Type};
+pub use item_tree::{Function, FunctionIdx, Item, ItemTree, Param, ParamIdx, Type};
 use la_arena::Idx;
 use string_interner::{Interner, Key};
 use syntax::SyntaxNodePtr;
@@ -23,7 +23,7 @@ pub enum LowerError {
 pub struct LowerResult {
     pub shared_ctx: SharedBodyLowerContext,
     pub top_level_ctx: BodyLower,
-    pub top_level_stmts: Vec<Stmt>,
+    pub top_level_items: Vec<Item>,
     pub entry_point: Option<FunctionIdx>,
     pub db: Database,
     pub item_tree: ItemTree,
@@ -46,16 +46,15 @@ pub fn lower(ast: ast::SourceFile) -> LowerResult {
     let mut shared_ctx = SharedBodyLowerContext::new();
 
     let mut top_level_ctx = BodyLower::new(HashMap::new());
-    // TODO: Update stmts to items
-    let top_level_stmts = ast
-        .stmts()
-        .filter_map(|stmt| {
-            top_level_ctx.lower_toplevel(stmt, &mut shared_ctx, &db, &item_tree, &mut interner)
+    let top_level_items = ast
+        .items()
+        .filter_map(|item| {
+            top_level_ctx.lower_toplevel(item, &mut shared_ctx, &db, &item_tree, &mut interner)
         })
         .collect::<Vec<_>>();
 
     let mut errors = vec![];
-    let entry_point = get_entry_point(&top_level_stmts, &db, &interner);
+    let entry_point = get_entry_point(&top_level_items, &db, &interner);
     if entry_point.is_none() {
         errors.push(LowerError::UndefinedEntryPoint);
     }
@@ -63,7 +62,7 @@ pub fn lower(ast: ast::SourceFile) -> LowerResult {
     LowerResult {
         shared_ctx,
         top_level_ctx,
-        top_level_stmts,
+        top_level_items,
         entry_point,
         db,
         item_tree,
@@ -73,16 +72,18 @@ pub fn lower(ast: ast::SourceFile) -> LowerResult {
 }
 
 fn get_entry_point(
-    top_level_stmts: &[Stmt],
+    top_level_items: &[Item],
     db: &Database,
     interner: &Interner,
 ) -> Option<FunctionIdx> {
-    for stmt in top_level_stmts {
-        if let Stmt::FunctionDef { signature, .. } = stmt {
-            let function = &db.functions[*signature];
-            if let Some(name) = function.name {
-                if interner.lookup(name.key()) == "main" {
-                    return Some(*signature);
+    for item in top_level_items {
+        match item {
+            Item::Function(function_idx) => {
+                let function = &db.functions[*function_idx];
+                if let Some(name) = function.name {
+                    if interner.lookup(name.key()) == "main" {
+                        return Some(*function_idx);
+                    }
                 }
             }
         }
@@ -128,18 +129,9 @@ impl Name {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Stmt {
-    VariableDef {
-        name: Name,
-        value: ExprIdx,
-    },
-    FunctionDef {
-        signature: FunctionIdx,
-        body: ExprIdx,
-    },
-    ExprStmt {
-        expr: ExprIdx,
-        has_semicolon: bool,
-    },
+    VariableDef { name: Name, value: ExprIdx },
+    ExprStmt { expr: ExprIdx, has_semicolon: bool },
+    Item { item: Item },
 }
 
 #[derive(Debug, PartialEq, Eq)]

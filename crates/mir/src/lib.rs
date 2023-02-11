@@ -488,7 +488,7 @@ impl<'a> FunctionLower<'a> {
                     }
                 };
             }
-            hir::Stmt::FunctionDef { .. } => unreachable!(),
+            hir::Stmt::Item { .. } => unreachable!(),
         }
 
         LoweredStmt::Unit

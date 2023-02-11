@@ -7,7 +7,7 @@ use la_arena::{Arena, Idx};
 use self::scopes::ScopeType;
 use crate::{
     body::scopes::Scopes, db::Database, item_tree::ItemTree, string_interner::Interner, AstId,
-    Block, Expr, ExprIdx, Literal, Name, ParamIdx, Stmt, Symbol,
+    Block, Expr, ExprIdx, Item, Literal, Name, ParamIdx, Stmt, Symbol,
 };
 
 #[derive(Debug, Default)]
@@ -54,15 +54,14 @@ impl BodyLower {
 
     pub(super) fn lower_toplevel(
         &mut self,
-        ast: ast::Stmt,
+        ast: ast::Item,
         ctx: &mut SharedBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
         interner: &mut Interner,
-    ) -> Option<Stmt> {
+    ) -> Option<Item> {
         match ast {
-            ast::Stmt::FunctionDef(def) => self.lower_function(def, ctx, db, item_tree, interner),
-            _ => None,
+            ast::Item::FunctionDef(def) => self.lower_function(def, ctx, db, item_tree, interner),
         }
     }
 
@@ -73,7 +72,7 @@ impl BodyLower {
         db: &Database,
         item_tree: &ItemTree,
         interner: &mut Interner,
-    ) -> Option<Stmt> {
+    ) -> Option<Item> {
         let body = def.body()?;
         let body_ast_id = db.lookup_ast_id(&body).unwrap();
         let function = item_tree.function_by_block(db, &body_ast_id).unwrap();
@@ -84,10 +83,7 @@ impl BodyLower {
         let body_idx = ctx.function_bodies.alloc(expr);
         ctx.function_body_by_block.insert(body_ast_id, body_idx);
 
-        Some(Stmt::FunctionDef {
-            signature: function_idx,
-            body: body_idx,
-        })
+        Some(Item::Function(function_idx))
     }
 
     fn lower_stmt(
@@ -113,12 +109,26 @@ impl BodyLower {
                     has_semicolon: ast.semicolon().is_some(),
                 }
             }
-            ast::Stmt::FunctionDef(def) => {
-                self.lower_function(def, ctx, db, item_tree, interner)?
+            ast::Stmt::Item(item) => {
+                let item = self.lower_item(item, ctx, db, item_tree, interner)?;
+                Stmt::Item { item }
             }
         };
 
         Some(result)
+    }
+
+    fn lower_item(
+        &mut self,
+        item: ast::Item,
+        ctx: &mut SharedBodyLowerContext,
+        db: &Database,
+        item_tree: &ItemTree,
+        interner: &mut Interner,
+    ) -> Option<Item> {
+        match item {
+            ast::Item::FunctionDef(def) => self.lower_function(def, ctx, db, item_tree, interner),
+        }
     }
 
     fn lower_expr(
@@ -392,7 +402,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        item_tree::{Function, Type},
+        item_tree::{Function, Item, Type},
         lower, LowerError, LowerResult,
     };
 
@@ -403,8 +413,8 @@ mod tests {
     fn debug(lower_result: &LowerResult) -> String {
         let mut msg = "".to_string();
 
-        for stmt in &lower_result.top_level_stmts {
-            msg.push_str(&debug_stmt(lower_result, stmt, 0));
+        for item in &lower_result.top_level_items {
+            msg.push_str(&debug_item(lower_result, item, 0));
         }
 
         for error in &lower_result.errors {
@@ -478,6 +488,12 @@ mod tests {
         )
     }
 
+    fn debug_item(lower_result: &LowerResult, item: &Item, nesting: usize) -> String {
+        match item {
+            Item::Function(function) => debug_function(lower_result, *function, nesting),
+        }
+    }
+
     fn debug_stmt(lower_result: &LowerResult, stmt: &Stmt, nesting: usize) -> String {
         match stmt {
             Stmt::VariableDef { name, value } => {
@@ -498,18 +514,7 @@ mod tests {
                 debug_expr(lower_result, &lower_result.shared_ctx.exprs[*expr], nesting),
                 if *has_semicolon { ";" } else { "" }
             ),
-            Stmt::FunctionDef { body, .. } => {
-                let body = &lower_result.shared_ctx.function_bodies[*body];
-                if let Expr::Block(block) = body {
-                    let function_idx = lower_result
-                        .item_tree
-                        .function_idx_by_block(&block.ast)
-                        .unwrap();
-                    debug_function(lower_result, function_idx, nesting)
-                } else {
-                    panic!("supported only block");
-                }
-            }
+            Stmt::Item { item } => debug_item(lower_result, item, nesting),
         }
     }
 

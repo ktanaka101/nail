@@ -29,7 +29,7 @@ impl AstNode for SourceFile {
     }
 }
 impl SourceFile {
-    pub fn stmts(&self) -> impl Iterator<Item = nodes::Stmt> {
+    pub fn items(&self) -> impl Iterator<Item = nodes::Item> {
         ast_node::children_nodes(self)
     }
 }

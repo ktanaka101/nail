@@ -107,8 +107,6 @@ impl<'a> TypeInferencer<'a> {
             };
         }
 
-        self.infer_stmts(&self.hir_result.top_level_stmts);
-
         InferenceResult {
             type_by_expr: self.ctx.type_by_expr,
             type_by_param: self.ctx.type_by_param,
@@ -140,7 +138,7 @@ impl<'a> TypeInferencer<'a> {
                     let ty = self.infer_expr_idx(*value);
                     self.ctx.type_by_expr.insert(*value, ty);
                 }
-                hir::Stmt::FunctionDef { .. } => (),
+                hir::Stmt::Item { .. } => (),
             }
         }
     }

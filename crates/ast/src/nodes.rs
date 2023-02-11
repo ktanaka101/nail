@@ -119,24 +119,25 @@ impl AstNode for Expr {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Stmt {
     VariableDef(VariableDef),
-    FunctionDef(FunctionDef),
     ExprStmt(ExprStmt),
+    Item(Item),
 }
 impl Ast for Stmt {}
 impl AstNode for Stmt {
     fn can_cast(kind: SyntaxKind) -> bool {
-        matches!(
-            kind,
-            SyntaxKind::VariableDef | SyntaxKind::FunctionDef | SyntaxKind::ExprStmt
-        )
+        matches!(kind, SyntaxKind::VariableDef | SyntaxKind::ExprStmt) || Item::can_cast(kind)
     }
 
     fn cast(syntax: SyntaxNode) -> Option<Self> {
         let result = match syntax.kind() {
             SyntaxKind::VariableDef => Self::VariableDef(VariableDef { syntax }),
-            SyntaxKind::FunctionDef => Self::FunctionDef(FunctionDef { syntax }),
             SyntaxKind::ExprStmt => Self::ExprStmt(ExprStmt::cast(syntax)?),
-            _ => return None,
+            _ => {
+                if let Some(item) = Item::cast(syntax) {
+                    return Some(Stmt::Item(item));
+                }
+                return None;
+            }
         };
 
         Some(result)
@@ -145,8 +146,34 @@ impl AstNode for Stmt {
     fn syntax(&self) -> &SyntaxNode {
         match self {
             Stmt::VariableDef(it) => it.syntax(),
-            Stmt::FunctionDef(it) => it.syntax(),
             Stmt::ExprStmt(it) => it.syntax(),
+            Stmt::Item(it) => it.syntax(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Item {
+    FunctionDef(FunctionDef),
+}
+impl Ast for Item {}
+impl AstNode for Item {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::FunctionDef)
+    }
+
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let result = match syntax.kind() {
+            SyntaxKind::FunctionDef => Self::FunctionDef(FunctionDef { syntax }),
+            _ => return None,
+        };
+
+        Some(result)
+    }
+
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            Item::FunctionDef(it) => it.syntax(),
         }
     }
 }

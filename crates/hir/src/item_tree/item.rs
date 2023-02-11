@@ -31,3 +31,8 @@ pub struct Function {
     pub ast: AstId<ast::FunctionDef>,
 }
 pub type FunctionIdx = Idx<Function>;
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Item {
+    Function(FunctionIdx),
+}

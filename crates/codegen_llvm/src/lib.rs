@@ -1404,6 +1404,16 @@ mod tests {
     }
 
     #[test]
+    fn test_if_cond_by_comparing() {
+        check_integer("if 5 > 2 { 10 } else { 20 }", 10);
+        check_integer("if 2 > 5 { 10 } else { 20 }", 20);
+        check_integer("if 5 < 8 { 10 } else { 20 }", 10);
+        check_integer("if 8 < 5 { 10 } else { 20 }", 20);
+        check_integer("if 5 == 5 { 10 } else { 20 }", 10);
+        check_integer("if 5 == 6 { 10 } else { 20 }", 20);
+    }
+
+    #[test]
     fn test_add_number() {
         check_result(
             r#"

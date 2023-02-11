@@ -1,7 +1,7 @@
 mod builtin_function;
-
 use std::collections::HashMap;
 
+pub use builtin_function::{Output, OutputType};
 use either::Either;
 use inkwell::{
     basic_block::BasicBlock,
@@ -79,7 +79,10 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                 hir_ty::ResolvedType::Integer => self.codegen.integer_type().into(),
                 hir_ty::ResolvedType::String => self.codegen.string_type().into(),
                 hir_ty::ResolvedType::Bool => self.codegen.bool_type().into(),
-                _ => unimplemented!(),
+                hir_ty::ResolvedType::Char => todo!(),
+                hir_ty::ResolvedType::Never => todo!(),
+                hir_ty::ResolvedType::Function(_) => todo!(),
+                hir_ty::ResolvedType::Unknown => unreachable!(),
             };
 
             let local_ptr = self
@@ -514,6 +517,34 @@ mod tests {
         (hir_result, ty_result, mir_result)
     }
 
+    fn execute(input: &str) -> String {
+        let (hir_result, _ty_result, mir_result) = lower(input);
+
+        let context = Context::create();
+        let module = context.create_module("top");
+        let builder = context.create_builder();
+        let execution_engine = module
+            .create_jit_execution_engine(OptimizationLevel::None)
+            .unwrap();
+        let result = codegen(
+            &hir_result,
+            &mir_result,
+            &context,
+            &module,
+            &builder,
+            &execution_engine,
+            true,
+        );
+        module.print_to_stderr();
+
+        {
+            let c_string_ptr = unsafe { result.function.call() };
+            unsafe { CString::from_raw(c_string_ptr as *mut c_char) }
+                .into_string()
+                .unwrap()
+        }
+    }
+
     fn check_ir(input: &str, expect: Expect) {
         let (hir_result, _ty_result, mir_result) = lower(input);
 
@@ -548,32 +579,52 @@ mod tests {
     }
 
     fn check_result(input: &str, expect: Expect) {
-        let (hir_result, _ty_result, mir_result) = lower(input);
-
-        let context = Context::create();
-        let module = context.create_module("top");
-        let builder = context.create_builder();
-        let execution_engine = module
-            .create_jit_execution_engine(OptimizationLevel::None)
-            .unwrap();
-        let result = codegen(
-            &hir_result,
-            &mir_result,
-            &context,
-            &module,
-            &builder,
-            &execution_engine,
-            true,
-        );
-        module.print_to_stderr();
-
-        let result_string = {
-            let c_string_ptr = unsafe { result.function.call() };
-            unsafe { CString::from_raw(c_string_ptr as *mut c_char) }
-                .into_string()
-                .unwrap()
-        };
+        let result_string = execute(input);
         expect.assert_eq(&result_string);
+    }
+
+    fn check_integer(input: &str, expect: i64) {
+        let input_with_entry_point = format!(
+            r#"
+                fn main() -> int {{
+                    {input}
+                }}
+            "#
+        );
+
+        let result_string = execute(&input_with_entry_point);
+
+        let output = serde_json::from_str::<crate::Output>(&result_string).unwrap();
+        assert_eq!(
+            output,
+            crate::Output {
+                nail_type: crate::OutputType::Int,
+                value: serde_json::json!(expect)
+            },
+            "input: {input}"
+        );
+    }
+
+    fn check_bool(input: &str, expect: bool) {
+        let input_with_entry_point = format!(
+            r#"
+                fn main() -> bool {{
+                    {input}
+                }}
+            "#
+        );
+
+        let result_string = execute(&input_with_entry_point);
+
+        let output = serde_json::from_str::<crate::Output>(&result_string).unwrap();
+        assert_eq!(
+            output,
+            crate::Output {
+                nail_type: crate::OutputType::Boolean,
+                value: serde_json::json!(expect)
+            },
+            "input: {input}",
+        );
     }
 
     #[test]
@@ -1588,6 +1639,38 @@ mod tests {
     }
 
     #[test]
+    fn test_number_formula() {
+        check_integer("5 + 5 + 5 + 5 - 10", 10);
+        check_integer("2 * 2 * 2 * 2 * 2", 32);
+        check_integer("-50 + 100 + -50", 0);
+        check_integer("5 * 2 + 10", 20);
+        check_integer("5 + 2 * 10", 25);
+        check_integer("20 + 2 * -10", 0);
+        check_integer("50 / 2 * 2 + 10", 60);
+        check_integer("2 * (5 + 10)", 30);
+        check_integer("3 * 3 * 3 + 10", 37);
+        check_integer("3 * (3 * 3) + 10", 37);
+        check_integer("(5 + 10 * 2 + 15 / 3) * 2 + -10", 50);
+    }
+
+    #[test]
+    fn test_compare() {
+        check_bool("0 > 0", false);
+        check_bool("0 < 0", false);
+        check_bool("0 > 1", false);
+        check_bool("0 < 1", true);
+        check_bool("0 == 0", true);
+        check_bool("0 == 1", false);
+        check_bool("let a = 10; a > 0", true);
+        check_bool("let a = 10; a < 0", false);
+        check_bool("let a = 10; (a + 10) < 10", false);
+        check_bool("let a = 10; (a + 10) > 10", true);
+        check_bool("let a = 10; (a == 10) == true", true);
+        check_bool("let a = 10; (a == 10) == false", false);
+        check_bool("let a = 10; (a == a) == true", true);
+    }
+
+    #[test]
     fn test_negative_number() {
         check_result(
             r#"
@@ -1629,6 +1712,18 @@ mod tests {
                 }
             "#]],
         );
+    }
+
+    #[test]
+    fn test_bang() {
+        check_bool("!false", true);
+        check_bool("!true", false);
+        check_bool("!!false", false);
+        check_bool("!!true", true);
+        check_bool("let a = true; !a", false);
+        check_bool("let a = true; !!a", true);
+        check_bool("let a = false; !a", true);
+        check_bool("let a = false; !!a", false);
     }
 
     #[test]

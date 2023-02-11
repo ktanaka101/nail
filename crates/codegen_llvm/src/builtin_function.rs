@@ -4,23 +4,23 @@ use inkwell::{
     values::{BasicValueEnum, CallSiteValue, FunctionValue, IntValue, PointerValue},
     AddressSpace,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::Codegen;
 
-#[derive(Serialize)]
-enum OutputType {
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum OutputType {
     Int,
     String,
     Boolean,
     Unit,
 }
 
-#[derive(Serialize)]
-struct Output {
-    nail_type: OutputType,
-    value: Value,
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Output {
+    pub nail_type: OutputType,
+    pub value: Value,
 }
 
 pub(super) enum PrimitiveType {

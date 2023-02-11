@@ -46,8 +46,11 @@ pub enum SyntaxKind {
     Type,
     ReturnType,
 
-    // keywords
+    // item keywords
     FnKw,
+    ModKw,
+
+    // body keywords
     LetKw,
     TrueKw,
     FalseKw,
@@ -83,6 +86,7 @@ pub enum SyntaxKind {
     // delimiters
     Comma,
     Colon,
+    Colon2,
     Semicolon,
     /// (
     LParen,
@@ -110,6 +114,8 @@ impl From<TokenKind> for SyntaxKind {
     fn from(token_kind: TokenKind) -> Self {
         match token_kind {
             TokenKind::FnKw => Self::FnKw,
+            TokenKind::ModKw => Self::ModKw,
+
             TokenKind::LetKw => Self::LetKw,
             TokenKind::TrueKw => Self::TrueKw,
             TokenKind::FalseKw => Self::FalseKw,
@@ -137,6 +143,7 @@ impl From<TokenKind> for SyntaxKind {
 
             TokenKind::Comma => Self::Comma,
             TokenKind::Colon => Self::Colon,
+            TokenKind::Colon2 => Self::Colon2,
             TokenKind::Semicolon => Self::Semicolon,
             TokenKind::LParen => Self::LParen,
             TokenKind::RParen => Self::RParen,

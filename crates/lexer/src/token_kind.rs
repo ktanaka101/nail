@@ -10,9 +10,13 @@ fn lex_char(lex: &mut Lexer<TokenKind>) -> Option<bool> {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Logos)]
 pub enum TokenKind {
-    // keywords
+    // item keywords
     #[token("fn")]
     FnKw,
+    #[token("mod")]
+    ModKw,
+
+    // body keywords
     #[token("let")]
     LetKw,
     #[token("true")]
@@ -67,6 +71,8 @@ pub enum TokenKind {
     Comma,
     #[token(":")]
     Colon,
+    #[token("::")]
+    Colon2,
     #[token(";")]
     Semicolon,
     #[token("(")]
@@ -108,6 +114,7 @@ impl fmt::Display for TokenKind {
         f.write_str(match self {
             Self::Whitespace => "whitespace",
             Self::FnKw => "'fn'",
+            Self::ModKw => "'mod'",
             Self::LetKw => "'let'",
             Self::TrueKw => "'true'",
             Self::FalseKw => "'false'",
@@ -130,6 +137,7 @@ impl fmt::Display for TokenKind {
             Self::ThinArrow => "->",
             Self::Comma => "','",
             Self::Colon => "':'",
+            Self::Colon2 => "'::'",
             Self::Semicolon => "';'",
             Self::LParen => "'('",
             Self::RParen => "')'",
@@ -168,6 +176,11 @@ mod tests {
     #[test]
     fn lex_fn_keyword() {
         check("fn", TokenKind::FnKw);
+    }
+
+    #[test]
+    fn lex_mod_keyword() {
+        check("mod", TokenKind::ModKw);
     }
 
     #[test]
@@ -323,6 +336,11 @@ mod tests {
     #[test]
     fn lex_colon() {
         check(":", TokenKind::Colon);
+    }
+
+    #[test]
+    fn lex_colon2() {
+        check("::", TokenKind::Colon2);
     }
 
     #[test]

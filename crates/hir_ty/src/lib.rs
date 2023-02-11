@@ -189,6 +189,8 @@ mod tests {
                     ast::BinaryOp::Mul(_) => "*",
                     ast::BinaryOp::Div(_) => "/",
                     ast::BinaryOp::Equal(_) => "==",
+                    ast::BinaryOp::GreaterThan(_) => ">",
+                    ast::BinaryOp::LessThan(_) => "<",
                 }
                 .to_string();
                 let lhs = debug_hir_expr(lhs, lower_result);
@@ -463,17 +465,23 @@ mod tests {
                     10 + "aaa"
                     'a' + 'a'
                     10 + 'a'
+                    10 < 'a'
+                    10 > 'a'
                     true + true
                     true - true
                     true * true
                     true / true
                     true == true
+                    true < false
+                    true > false
                     10 + true
                     10 + (10 + "aaa")
                     10 - 20
                     10 * 20
                     10 / 20
-                    10 == 20;
+                    10 == 20
+                    10 < 20
+                    10 > 20;
                 }
             "#,
             expect![[r#"
@@ -494,6 +502,12 @@ mod tests {
                 `10`: int
                 `'a'`: char
                 `10 + 'a'`: unknown
+                `10`: int
+                `'a'`: char
+                `10 < 'a'`: unknown
+                `10`: int
+                `'a'`: char
+                `10 > 'a'`: unknown
                 `true`: bool
                 `true`: bool
                 `true + true`: unknown
@@ -509,6 +523,12 @@ mod tests {
                 `true`: bool
                 `true`: bool
                 `true == true`: bool
+                `true`: bool
+                `false`: bool
+                `true < false`: unknown
+                `true`: bool
+                `false`: bool
+                `true > false`: unknown
                 `10`: int
                 `true`: bool
                 `10 + true`: unknown
@@ -529,8 +549,16 @@ mod tests {
                 `10`: int
                 `20`: int
                 `10 == 20`: bool
+                `10`: int
+                `20`: int
+                `10 < 20`: bool
+                `10`: int
+                `20`: int
+                `10 > 20`: bool
                 ---
                 error: expected int, found string by `10` and `"aaa"`
+                error: expected int, found char by `10` and `'a'`
+                error: expected int, found char by `10` and `'a'`
                 error: expected int, found char by `10` and `'a'`
                 error: expected int, found bool by `10` and `true`
             "#]],

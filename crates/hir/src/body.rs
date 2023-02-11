@@ -528,6 +528,8 @@ mod tests {
                     ast::BinaryOp::Mul(_) => "*",
                     ast::BinaryOp::Div(_) => "/",
                     ast::BinaryOp::Equal(_) => "==",
+                    ast::BinaryOp::GreaterThan(_) => ">",
+                    ast::BinaryOp::LessThan(_) => "<",
                 };
                 let lhs_str =
                     debug_expr(lower_result, &lower_result.shared_ctx.exprs[*lhs], nesting);
@@ -792,12 +794,24 @@ mod tests {
         check(
             r#"
                 fn main() {
-                    1 + 2
+                    1 + 2;
+                    1 - 2;
+                    1 * 2;
+                    1 / 2;
+                    1 == 2;
+                    1 < 2;
+                    1 > 2;
                 }
             "#,
             expect![[r#"
                 fn entry:main() -> () {
-                    expr:1 + 2
+                    1 + 2;
+                    1 - 2;
+                    1 * 2;
+                    1 / 2;
+                    1 == 2;
+                    1 < 2;
+                    1 > 2;
                 }
             "#]],
         );

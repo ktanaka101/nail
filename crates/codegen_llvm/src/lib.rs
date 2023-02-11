@@ -172,6 +172,26 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                                         "compare_number",
                                     )
                                     .into(),
+                                mir::BinaryOp::GreaterThan => self
+                                    .codegen
+                                    .builder
+                                    .build_int_compare(
+                                        inkwell::IntPredicate::SGT,
+                                        lhs,
+                                        rhs,
+                                        "gt_number",
+                                    )
+                                    .into(),
+                                mir::BinaryOp::LessThan => self
+                                    .codegen
+                                    .builder
+                                    .build_int_compare(
+                                        inkwell::IntPredicate::SLT,
+                                        lhs,
+                                        rhs,
+                                        "lt_number",
+                                    )
+                                    .into(),
                             }
                         }
                         mir::Value::UnaryOp { op, expr } => {
@@ -1495,6 +1515,73 @@ mod tests {
                 {
                   "nail_type": "Boolean",
                   "value": false
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_ord_number() {
+        check_result(
+            r#"
+            fn main() -> bool {
+                let a = 1;
+                let b = 2;
+                a < b
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Boolean",
+                  "value": true
+                }
+            "#]],
+        );
+
+        check_result(
+            r#"
+            fn main() -> bool {
+                let a = 1;
+                let b = 2;
+                a > b
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Boolean",
+                  "value": false
+                }
+            "#]],
+        );
+
+        check_result(
+            r#"
+            fn main() -> bool {
+                let a = 2;
+                let b = 1;
+                a < b
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Boolean",
+                  "value": false
+                }
+            "#]],
+        );
+
+        check_result(
+            r#"
+            fn main() -> bool {
+                let a = 2;
+                let b = 1;
+                a > b
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Boolean",
+                  "value": true
                 }
             "#]],
         );

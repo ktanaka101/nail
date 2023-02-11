@@ -380,6 +380,8 @@ impl<'a> FunctionLower<'a> {
                     ast::BinaryOp::Mul(_) => BinaryOp::Mul,
                     ast::BinaryOp::Div(_) => BinaryOp::Div,
                     ast::BinaryOp::Equal(_) => BinaryOp::Equal,
+                    ast::BinaryOp::GreaterThan(_) => BinaryOp::GreaterThan,
+                    ast::BinaryOp::LessThan(_) => BinaryOp::LessThan,
                 };
 
                 let local = self.alloc_local(expr_idx);
@@ -819,6 +821,8 @@ pub enum BinaryOp {
     Mul,
     Div,
     Equal,
+    GreaterThan,
+    LessThan,
 }
 
 #[derive(Debug)]
@@ -1020,6 +1024,8 @@ mod tests {
                     crate::BinaryOp::Mul => "mul",
                     crate::BinaryOp::Div => "div",
                     crate::BinaryOp::Equal => "equal",
+                    crate::BinaryOp::GreaterThan => "greater_than",
+                    crate::BinaryOp::LessThan => "less_than",
                 }
                 .to_string();
                 let left = debug_operand(left, body);
@@ -1327,6 +1333,47 @@ mod tests {
                         _2 = const true
                         _3 = equal(_1, _2)
                         _0 = _3
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_ord_number() {
+        check(
+            r#"
+                fn main() -> bool {
+                    let a = 1;
+                    let b = 2;
+                    a < b;
+                    a > b;
+                    b < a;
+                    b > a;
+                }
+            "#,
+            expect![[r#"
+                fn main() -> bool {
+                    let _0: bool
+                    let _1: int
+                    let _2: int
+                    let _3: bool
+                    let _4: bool
+                    let _5: bool
+                    let _6: bool
+
+                    entry: {
+                        _1 = const 1
+                        _2 = const 2
+                        _3 = less_than(_1, _2)
+                        _4 = greater_than(_1, _2)
+                        _5 = less_than(_2, _1)
+                        _6 = greater_than(_2, _1)
                         goto -> exit
                     }
 

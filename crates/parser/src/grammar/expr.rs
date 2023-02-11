@@ -43,6 +43,10 @@ fn parse_expr_binding_power(
             BinaryOp::Div
         } else if parser.at(TokenKind::Eq2) {
             BinaryOp::Equal
+        } else if parser.at(TokenKind::LAngle) {
+            BinaryOp::LessThan
+        } else if parser.at(TokenKind::RAngle) {
+            BinaryOp::GreaterThan
         } else {
             break;
         };
@@ -73,14 +77,17 @@ enum BinaryOp {
     Mul,
     Div,
     Equal,
+    GreaterThan,
+    LessThan,
 }
 
 impl BinaryOp {
     fn binding_power(&self) -> (u8, u8) {
         match self {
             Self::Equal => (1, 2),
-            Self::Add | Self::Sub => (3, 4),
-            Self::Mul | Self::Div => (5, 6),
+            Self::GreaterThan | Self::LessThan => (3, 4),
+            Self::Add | Self::Sub => (5, 6),
+            Self::Mul | Self::Div => (7, 8),
         }
     }
 }
@@ -93,8 +100,8 @@ enum PrefixOp {
 impl PrefixOp {
     fn binding_power(&self) -> ((), u8) {
         match self {
-            Self::Neg => ((), 5),
-            Self::Not => ((), 6),
+            Self::Not => ((), 9),
+            Self::Neg => ((), 10),
         }
     }
 }
@@ -325,6 +332,61 @@ mod tests {
                       Plus@1..2 "+"
                       Literal@2..3
                         Integer@2..3 "2"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_binary_expression() {
+        check(
+            "1 + 2 - 3 * 4 / 5 == 6 < 7 > 8",
+            expect![[r#"
+                SourceFile@0..30
+                  ExprStmt@0..30
+                    BinaryExpr@0..30
+                      BinaryExpr@0..18
+                        BinaryExpr@0..6
+                          Literal@0..2
+                            Integer@0..1 "1"
+                            Whitespace@1..2 " "
+                          Plus@2..3 "+"
+                          Whitespace@3..4 " "
+                          Literal@4..6
+                            Integer@4..5 "2"
+                            Whitespace@5..6 " "
+                        Minus@6..7 "-"
+                        Whitespace@7..8 " "
+                        BinaryExpr@8..18
+                          BinaryExpr@8..14
+                            Literal@8..10
+                              Integer@8..9 "3"
+                              Whitespace@9..10 " "
+                            Star@10..11 "*"
+                            Whitespace@11..12 " "
+                            Literal@12..14
+                              Integer@12..13 "4"
+                              Whitespace@13..14 " "
+                          Slash@14..15 "/"
+                          Whitespace@15..16 " "
+                          Literal@16..18
+                            Integer@16..17 "5"
+                            Whitespace@17..18 " "
+                      Eq2@18..20 "=="
+                      Whitespace@20..21 " "
+                      BinaryExpr@21..30
+                        BinaryExpr@21..27
+                          Literal@21..23
+                            Integer@21..22 "6"
+                            Whitespace@22..23 " "
+                          LAngle@23..24 "<"
+                          Whitespace@24..25 " "
+                          Literal@25..27
+                            Integer@25..26 "7"
+                            Whitespace@26..27 " "
+                        RAngle@27..28 ">"
+                        Whitespace@28..29 " "
+                        Literal@29..30
+                          Integer@29..30 "8"
             "#]],
         );
     }
@@ -684,7 +746,7 @@ mod tests {
                       LParen@0..1 "("
                       VariableRef@1..4
                         Ident@1..4 "foo"
-                error at 1..4: expected '+', '-', '*', '/', '==' or ')'
+                error at 1..4: expected '+', '-', '*', '/', '==', '<', '>' or ')'
             "#]],
         );
     }
@@ -741,7 +803,7 @@ mod tests {
                         Literal@2..4
                           Integer@2..3 "1"
                           Whitespace@3..4 " "
-                error at 3..4: expected '+', '-', '*', '/', '==', ';' or '}'
+                error at 3..4: expected '+', '-', '*', '/', '==', '<', '>', ';' or '}'
             "#]],
         );
     }
@@ -874,7 +936,7 @@ mod tests {
                         Arg@5..6
                           VariableRef@5..6
                             Ident@5..6 "y"
-                error at 5..6: expected '+', '-', '*', '/', '==', ',' or ')'
+                error at 5..6: expected '+', '-', '*', '/', '==', '<', '>', ',' or ')'
             "#]],
         );
 
@@ -907,7 +969,7 @@ mod tests {
                         Arg@2..3
                           VariableRef@2..3
                             Ident@2..3 "x"
-                error at 2..3: expected '+', '-', '*', '/', '==', ',' or ')'
+                error at 2..3: expected '+', '-', '*', '/', '==', '<', '>', ',' or ')'
             "#]],
         );
 
@@ -965,8 +1027,8 @@ mod tests {
                   ExprStmt@5..6
                     Error@5..6
                       RParen@5..6 ")"
-                error at 4..5: expected '+', '-', '*', '/', '==', ',' or ')', but found identifier
-                error at 5..6: expected '+', '-', '*', '/', '==', ';', 'let', 'fn', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', '{', 'if' or 'return', but found ')'
+                error at 4..5: expected '+', '-', '*', '/', '==', '<', '>', ',' or ')', but found identifier
+                error at 5..6: expected '+', '-', '*', '/', '==', '<', '>', ';', 'let', 'fn', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', '{', 'if' or 'return', but found ')'
             "#]],
         );
     }

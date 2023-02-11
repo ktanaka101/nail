@@ -174,6 +174,11 @@ impl<'a> TypeInferencer<'a> {
                             return ResolvedType::Bool;
                         }
                     }
+                    ast::BinaryOp::GreaterThan(_) | ast::BinaryOp::LessThan(_) => {
+                        if rhs_ty == lhs_ty && (matches!(rhs_ty, ResolvedType::Integer)) {
+                            return ResolvedType::Bool;
+                        }
+                    }
                 }
 
                 match (lhs_ty, rhs_ty) {

@@ -171,7 +171,6 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                                         rhs,
                                         "compare_number",
                                     )
-                                    .const_cast(self.codegen.bool_type(), false)
                                     .into(),
                             }
                         }

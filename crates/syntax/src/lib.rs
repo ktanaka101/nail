@@ -36,7 +36,10 @@ pub enum SyntaxKind {
 
     // statement nodes
     VariableDef,
+
+    // item nodes
     FunctionDef,
+    Module,
 
     // part nodes
     ParamList,

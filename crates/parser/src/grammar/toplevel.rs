@@ -1,4 +1,5 @@
 use lexer::TokenKind;
+use syntax::SyntaxKind;
 
 use super::stmt;
 use crate::parser::{marker::CompletedMarker, Parser, TOPLEVEL_RECOVERY_SET};
@@ -6,10 +7,32 @@ use crate::parser::{marker::CompletedMarker, Parser, TOPLEVEL_RECOVERY_SET};
 pub(super) fn parse_stmt_on_toplevel(parser: &mut Parser) -> Option<CompletedMarker> {
     if parser.at(TokenKind::FnKw) {
         Some(stmt::parse_function_def(parser, &TOPLEVEL_RECOVERY_SET))
+    } else if parser.at(TokenKind::ModKw) {
+        Some(parse_module(parser, &TOPLEVEL_RECOVERY_SET))
     } else {
         parser.error_with_recovery_set_only_default_on_toplevel();
         None
     }
+}
+
+pub(super) fn parse_module(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedMarker {
+    assert!(parser.at(TokenKind::ModKw));
+
+    let marker = parser.start();
+    parser.bump();
+
+    parser.expect_with_recovery_set_no_default(TokenKind::Ident, recovery_set);
+
+    if parser.at(TokenKind::LCurly) {
+        parser.bump();
+        parse_stmt_on_toplevel(parser);
+    }
+
+    if parser.at(TokenKind::RCurly) {
+        parser.bump();
+    }
+
+    marker.complete(parser, SyntaxKind::Module)
 }
 
 #[cfg(test)]
@@ -35,10 +58,10 @@ mod tests {
                     Whitespace@9..10 " "
                   Error@10..13
                     Ident@10..13 "bar"
-                error at 0..3: expected 'fn', but found 'let'
-                error at 4..7: expected 'fn', but found identifier
-                error at 8..9: expected 'fn', but found '='
-                error at 10..13: expected 'fn', but found identifier
+                error at 0..3: expected 'fn' or 'mod', but found 'let'
+                error at 4..7: expected 'fn' or 'mod', but found identifier
+                error at 8..9: expected 'fn' or 'mod', but found '='
+                error at 10..13: expected 'fn' or 'mod', but found identifier
             "#]],
         );
     }
@@ -434,10 +457,72 @@ mod tests {
                     Whitespace@15..16 " "
                   Error@16..17
                     RCurly@16..17 "}"
-                error at 7..10: expected ->, '{' or 'fn', but found identifier
-                error at 11..12: expected 'fn', but found '{'
-                error at 13..15: expected 'fn', but found integerLiteral
-                error at 16..17: expected 'fn', but found '}'
+                error at 7..10: expected ->, '{', 'fn' or 'mod', but found identifier
+                error at 11..12: expected 'fn' or 'mod', but found '{'
+                error at 13..15: expected 'fn' or 'mod', but found integerLiteral
+                error at 16..17: expected 'fn' or 'mod', but found '}'
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_module() {
+        check(
+            r#"
+mod one_module {
+    fn bbb() -> int {
+        10
+    }
+}
+fn main() {}
+            "#,
+            expect![[r#"
+                SourceFile@0..84
+                  Whitespace@0..1 "\n"
+                  Module@1..59
+                    ModKw@1..4 "mod"
+                    Whitespace@4..5 " "
+                    Ident@5..15 "one_module"
+                    Whitespace@15..16 " "
+                    LCurly@16..17 "{"
+                    Whitespace@17..22 "\n    "
+                    FunctionDef@22..57
+                      FnKw@22..24 "fn"
+                      Whitespace@24..25 " "
+                      Ident@25..28 "bbb"
+                      ParamList@28..31
+                        LParen@28..29 "("
+                        RParen@29..30 ")"
+                        Whitespace@30..31 " "
+                      ReturnType@31..38
+                        ThinArrow@31..33 "->"
+                        Whitespace@33..34 " "
+                        Type@34..38
+                          Ident@34..37 "int"
+                          Whitespace@37..38 " "
+                      Block@38..57
+                        LCurly@38..39 "{"
+                        Whitespace@39..48 "\n        "
+                        ExprStmt@48..55
+                          Literal@48..55
+                            Integer@48..50 "10"
+                            Whitespace@50..55 "\n    "
+                        RCurly@55..56 "}"
+                        Whitespace@56..57 "\n"
+                    RCurly@57..58 "}"
+                    Whitespace@58..59 "\n"
+                  FunctionDef@59..84
+                    FnKw@59..61 "fn"
+                    Whitespace@61..62 " "
+                    Ident@62..66 "main"
+                    ParamList@66..69
+                      LParen@66..67 "("
+                      RParen@67..68 ")"
+                      Whitespace@68..69 " "
+                    Block@69..84
+                      LCurly@69..70 "{"
+                      RCurly@70..71 "}"
+                      Whitespace@71..84 "\n            "
             "#]],
         );
     }

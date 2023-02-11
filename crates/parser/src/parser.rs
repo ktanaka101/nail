@@ -16,8 +16,9 @@ pub(crate) struct Parser<'l, 'input> {
     expected_kinds: IndexSet<TokenKind>,
 }
 
-pub(crate) const TOPLEVEL_RECOVERY_SET: [TokenKind; 1] = [TokenKind::FnKw];
-pub(crate) const BLOCK_RECOVERY_SET: [TokenKind; 2] = [TokenKind::LetKw, TokenKind::FnKw];
+pub(crate) const TOPLEVEL_RECOVERY_SET: [TokenKind; 2] = [TokenKind::FnKw, TokenKind::ModKw];
+pub(crate) const BLOCK_RECOVERY_SET: [TokenKind; 3] =
+    [TokenKind::LetKw, TokenKind::FnKw, TokenKind::ModKw];
 
 impl<'l, 'input> Parser<'l, 'input> {
     pub(crate) fn new(source: Source<'l, 'input>) -> Self {

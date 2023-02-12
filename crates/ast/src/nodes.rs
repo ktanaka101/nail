@@ -356,3 +356,10 @@ impl Arg {
         ast_node::child_node(self)
     }
 }
+
+def_ast_node!(Module);
+impl Module {
+    pub fn items(&self) -> impl Iterator<Item = Item> {
+        ast_node::children_nodes(self)
+    }
+}

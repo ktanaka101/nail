@@ -6,6 +6,7 @@ edition = "2021"
 license = "MIT"
 
 [dependencies]
+clap = { workspace = true }
 tokio = { workspace = true }
 
 repl = { workspace = true }
@@ -16,6 +17,7 @@ members = ["crates/*"]
 
 [workspace.dependencies]
 anyhow = "1.0"
+clap = { version = "4.1", features = ["derive"] }
 drop_bomb = "0.1"
 either = "1.8.1"
 expect-test = "1.4"

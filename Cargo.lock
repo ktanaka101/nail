@@ -528,14 +528,9 @@ dependencies = [
 name = "nail"
 version = "0.1.0"
 dependencies = [
- "anyhow",
- "inkwell",
  "lsp",
  "repl",
- "termion",
- "thiserror",
  "tokio",
- "typed-arena",
 ]
 
 [[package]]
@@ -1066,12 +1061,6 @@ checksum = "24eb03ba0eab1fd845050058ce5e616558e8f8d8fca633e6b163fe25c797213a"
 dependencies = [
  "once_cell",
 ]
-
-[[package]]
-name = "typed-arena"
-version = "2.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6af6ae20167a9ece4bcb41af5b80f8a1f1df981f6391189ce00fd257af04126a"
 
 [[package]]
 name = "unicode-bidi"

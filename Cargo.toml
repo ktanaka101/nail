@@ -6,12 +6,7 @@ edition = "2021"
 license = "MIT"
 
 [dependencies]
-anyhow = { workspace = true }
-thiserror = { workspace = true }
-inkwell = { workspace = true }
-termion = { workspace = true }
 tokio = { workspace = true }
-typed-arena = { workspace = true }
 
 repl = { workspace = true }
 lsp = { workspace = true }

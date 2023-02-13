@@ -10,10 +10,10 @@ lasso = { workspace = true }
 la-arena = { workspace = true }
 smol_str = { workspace = true }
 
-ast = { path = "../ast" }
-syntax = { path = "../syntax" }
+syntax = { workspace = true }
+ast = { workspace = true }
 
 [dev-dependencies]
 expect-test = { workspace = true }
 
-parser = { path = "../parser" }
+parser = { workspace = true }

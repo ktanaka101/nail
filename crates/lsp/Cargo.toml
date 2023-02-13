@@ -13,6 +13,6 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 tower-lsp = { workspace = true }
 
-parser = { path = "../parser" }
-ast = { path = "../ast" }
-syntax = { path = "../syntax" }
+syntax = { workspace = true }
+parser = { workspace = true }
+ast = { workspace = true }

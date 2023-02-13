@@ -9,7 +9,7 @@ edition = "2021"
 rowan = { workspace = true }
 text-size = { workspace = true }
 
-syntax = { path = "../syntax" }
+syntax = { workspace = true }
 
 [dev-dependencies]
-parser = { path = "../parser" }
+parser = { workspace = true }

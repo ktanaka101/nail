@@ -529,16 +529,9 @@ name = "nail"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "ast",
- "hir",
- "hir_ty",
  "inkwell",
- "lexer",
  "lsp",
- "mir",
- "parser",
  "repl",
- "syntax",
  "termion",
  "thiserror",
  "tokio",

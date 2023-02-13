@@ -11,8 +11,8 @@ indexmap = { workspace = true }
 rowan = { workspace = true }
 text-size = { workspace = true }
 
-lexer = { path = "../lexer" }
-syntax = { path = "../syntax" }
+lexer = { workspace = true }
+syntax = { workspace = true }
 
 [dev-dependencies]
 expect-test = { workspace = true }

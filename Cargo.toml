@@ -13,15 +13,8 @@ termion = { workspace = true }
 tokio = { workspace = true }
 typed-arena = { workspace = true }
 
-lexer = { path = "crates/lexer" }
-syntax = { path = "crates/syntax" }
-parser = { path = "crates/parser" }
-ast = { path = "crates/ast" }
-hir = { path = "crates/hir" }
-hir_ty = { path = "crates/hir_ty" }
-mir = { path = "crates/mir" }
-lsp = { path = "crates/lsp" }
-repl = { path = "crates/repl" }
+repl = { workspace = true }
+lsp = { workspace = true }
 
 [workspace]
 members = ["crates/*"]
@@ -50,6 +43,17 @@ thiserror = "1.0"
 tokio = { version = "1.25", features = ["full"] }
 tower-lsp = "0.17"
 typed-arena = "2.0"
+
+lexer = { path = "crates/lexer" }
+syntax = { path = "crates/syntax" }
+parser = { path = "crates/parser" }
+ast = { path = "crates/ast" }
+hir = { path = "crates/hir" }
+hir_ty = { path = "crates/hir_ty" }
+mir = { path = "crates/mir" }
+codegen_llvm = { path = "crates/codegen_llvm" }
+lsp = { path = "crates/lsp" }
+repl = { path = "crates/repl" }
 
 [profile.dev]
 debug = 0

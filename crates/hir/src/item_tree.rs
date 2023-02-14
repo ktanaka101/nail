@@ -68,15 +68,15 @@ impl<'a> ItemTreeBuilderContext<'a> {
     }
 
     pub fn build(mut self, ast: &ast::SourceFile, db: &mut Database) -> ItemTree {
-        let mut top_level_scope = ItemScope::new(None);
+        let top_level_scope = ItemScope::new(None);
+        let top_level_scope_idx = db.item_scopes.alloc(top_level_scope);
 
         for item in ast.items() {
-            self.build_item(item, &mut top_level_scope, Parent::TopLevel, db);
+            self.build_item(item, top_level_scope_idx, Parent::TopLevel, db);
         }
 
-        let top_level_scope = db.item_scopes.alloc(top_level_scope);
         ItemTree {
-            top_level_scope,
+            top_level_scope: top_level_scope_idx,
             scope_by_block: self.scope_by_block,
             block_by_scope: self.block_by_scope,
             function_by_block: self.function_by_block,
@@ -87,7 +87,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
     pub fn build_item(
         &mut self,
         item: ast::Item,
-        current_scope: &mut ItemScope,
+        current_scope: ItemScopeIdx,
         parent: Parent,
         db: &mut Database,
     ) -> Option<()> {
@@ -139,7 +139,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
                 };
                 let function = db.functions.alloc(function);
                 if let Some(name) = name {
-                    current_scope.insert(name, function);
+                    db.item_scopes[current_scope].insert(name, function);
                 }
 
                 let block = self.build_block(block, parent, db);
@@ -154,7 +154,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
     pub fn build_stmt(
         &mut self,
         stmt: ast::Stmt,
-        current_scope: &mut ItemScope,
+        current_scope: ItemScopeIdx,
         parent: Parent,
         db: &mut Database,
     ) -> Option<()> {
@@ -190,7 +190,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
     pub fn build_expr(
         &mut self,
         expr: ast::Expr,
-        _current_scope: &mut ItemScope,
+        _current_scope: ItemScopeIdx,
         parent: Parent,
         db: &mut Database,
     ) -> Option<()> {
@@ -225,16 +225,16 @@ impl<'a> ItemTreeBuilderContext<'a> {
         parent: Parent,
         db: &mut Database,
     ) -> AstId<ast::Block> {
-        let mut scope = ItemScope::new(Some(parent));
+        let scope = ItemScope::new(Some(parent));
+        let scope_idx = db.item_scopes.alloc(scope);
         let block_ast_id = db.alloc_node(&block);
-        let current = Parent::SubLevel(block_ast_id.clone());
+        let current = Parent::SubLevel(scope_idx);
         for stmt in block.stmts() {
-            self.build_stmt(stmt, &mut scope, current.clone(), db);
+            self.build_stmt(stmt, scope_idx, current.clone(), db);
         }
 
-        let scope = db.item_scopes.alloc(scope);
-        self.scope_by_block.insert(block_ast_id.clone(), scope);
-        self.block_by_scope.insert(scope, block_ast_id.clone());
+        self.scope_by_block.insert(block_ast_id.clone(), scope_idx);
+        self.block_by_scope.insert(scope_idx, block_ast_id.clone());
 
         block_ast_id
     }

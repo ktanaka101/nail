@@ -49,7 +49,7 @@ struct TypeChecker<'a> {
     lower_result: &'a LowerResult,
     infer_result: &'a InferenceResult,
     errors: Vec<TypeCheckError>,
-    current_function: Option<hir::FunctionIdx>,
+    current_function: Option<hir::FunctionId>,
 }
 
 impl<'a> TypeChecker<'a> {
@@ -63,8 +63,8 @@ impl<'a> TypeChecker<'a> {
     }
 
     fn check(mut self) -> TypeCheckResult {
-        for (idx, _) in self.lower_result.db.functions.iter() {
-            self.check_function(idx);
+        for (id, _) in self.lower_result.db.functions() {
+            self.check_function(id);
         }
 
         TypeCheckResult {
@@ -72,17 +72,17 @@ impl<'a> TypeChecker<'a> {
         }
     }
 
-    fn set_function(&mut self, function_idx: hir::FunctionIdx) {
-        self.current_function = Some(function_idx);
+    fn set_function(&mut self, function_id: hir::FunctionId) {
+        self.current_function = Some(function_id);
     }
 
-    fn check_function(&mut self, function_idx: hir::FunctionIdx) {
-        self.set_function(function_idx);
+    fn check_function(&mut self, function_id: hir::FunctionId) {
+        self.set_function(function_id);
 
         let block_ast_id = self
             .lower_result
             .item_tree
-            .block_idx_by_function(&function_idx)
+            .block_idx_by_function(&function_id)
             .unwrap();
         let body = self
             .lower_result
@@ -91,7 +91,7 @@ impl<'a> TypeChecker<'a> {
             .unwrap();
 
         let signature =
-            &self.infer_result.signatures[self.infer_result.signature_by_function[&function_idx]];
+            &self.infer_result.signatures[self.infer_result.signature_by_function[&function_id]];
         match body {
             hir::Expr::Block(block) => {
                 for stmt in &block.stmts {

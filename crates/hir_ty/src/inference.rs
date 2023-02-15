@@ -10,18 +10,18 @@ pub fn infer(hir_result: &hir::LowerResult) -> InferenceResult {
 #[derive(Debug)]
 pub struct InferenceResult {
     pub type_by_expr: collections::HashMap<hir::ExprIdx, ResolvedType>,
-    pub type_by_param: collections::HashMap<hir::ParamIdx, ResolvedType>,
+    pub type_by_param: collections::HashMap<hir::ParamId, ResolvedType>,
     pub signatures: Arena<Signature>,
-    pub signature_by_function: collections::HashMap<hir::FunctionIdx, Idx<Signature>>,
+    pub signature_by_function: collections::HashMap<hir::FunctionId, Idx<Signature>>,
     pub errors: Vec<InferenceError>,
 }
 
 #[derive(Debug)]
 struct InferenceContext {
     type_by_expr: collections::HashMap<hir::ExprIdx, ResolvedType>,
-    type_by_param: collections::HashMap<hir::ParamIdx, ResolvedType>,
+    type_by_param: collections::HashMap<hir::ParamId, ResolvedType>,
     signatures: Arena<Signature>,
-    signature_by_function: collections::HashMap<hir::FunctionIdx, Idx<Signature>>,
+    signature_by_function: collections::HashMap<hir::FunctionId, Idx<Signature>>,
     errors: Vec<InferenceError>,
 }
 
@@ -72,10 +72,10 @@ impl<'a> TypeInferencer<'a> {
     }
 
     fn infer(mut self) -> InferenceResult {
-        for (function_idx, function) in self.hir_result.db.functions.iter() {
+        for (function_id, function) in self.hir_result.db.functions() {
             let mut params = vec![];
             for param in &function.params {
-                let ty = self.infer_ty(&self.hir_result.db.params[*param].ty);
+                let ty = self.infer_ty(&param.lookup(&self.hir_result.db).ty);
                 params.push(ty);
                 self.ctx.type_by_param.insert(*param, ty);
             }
@@ -87,14 +87,14 @@ impl<'a> TypeInferencer<'a> {
             let signature_idx = self.ctx.signatures.alloc(signature);
             self.ctx
                 .signature_by_function
-                .insert(function_idx, signature_idx);
+                .insert(function_id, signature_idx);
         }
 
-        for (function_idx, _) in self.hir_result.db.functions.iter() {
+        for (function_id, _) in self.hir_result.db.functions() {
             let body_ast_id = &self
                 .hir_result
                 .item_tree
-                .block_idx_by_function(&function_idx)
+                .block_idx_by_function(&function_id)
                 .unwrap();
             let body = self
                 .hir_result
@@ -211,7 +211,7 @@ impl<'a> TypeInferencer<'a> {
             hir::Expr::VariableRef { var } => match var {
                 hir::Symbol::Local { expr, .. } => self.infer_expr_idx(*expr),
                 hir::Symbol::Param { param, .. } => {
-                    let param = &self.hir_result.db.params[*param];
+                    let param = &param.lookup(&self.hir_result.db);
                     self.infer_ty(&param.ty)
                 }
                 hir::Symbol::Missing { .. } => ResolvedType::Unknown,
@@ -220,13 +220,13 @@ impl<'a> TypeInferencer<'a> {
             hir::Expr::Call { callee, args } => match callee {
                 hir::Symbol::Missing { .. } => ResolvedType::Unknown,
                 hir::Symbol::Function { function, .. } => {
-                    let signature = &self.hir_result.db.functions[*function];
+                    let signature = function.lookup(&self.hir_result.db);
 
                     for (i, arg) in args.iter().enumerate() {
                         let param = signature.params[i];
 
                         let arg_ty = self.infer_expr_idx(*arg);
-                        let param_ty = self.infer_ty(&self.hir_result.db.params[param].ty);
+                        let param_ty = self.infer_ty(&param.lookup(&self.hir_result.db).ty);
 
                         if arg_ty == param_ty {
                             continue;

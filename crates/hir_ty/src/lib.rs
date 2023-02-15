@@ -20,13 +20,13 @@ pub struct TyLowerResult {
     pub type_check_result: TypeCheckResult,
 }
 impl TyLowerResult {
-    pub fn signature_by_function(&self, function: &hir::FunctionIdx) -> &Signature {
-        let signature_idx = self.inference_result.signature_by_function[function];
+    pub fn signature_by_function(&self, function_id: &hir::FunctionId) -> &Signature {
+        let signature_idx = self.inference_result.signature_by_function[function_id];
         &self.inference_result.signatures[signature_idx]
     }
 
-    pub fn type_by_param(&self, param: hir::ParamIdx) -> ResolvedType {
-        self.inference_result.type_by_param[&param]
+    pub fn type_by_param(&self, param_id: hir::ParamId) -> ResolvedType {
+        self.inference_result.type_by_param[&param_id]
     }
 
     pub fn type_by_expr(&self, expr: hir::ExprIdx) -> ResolvedType {

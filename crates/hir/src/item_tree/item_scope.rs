@@ -1,16 +1,16 @@
 use std::collections::HashMap;
 
-use la_arena::Idx;
-
-use super::{FunctionIdx, ItemTree, ModuleIdx};
-use crate::{db::Database, string_interner::Interner, Name};
-
-pub type ItemScopeIdx = Idx<ItemScope>;
+use super::ItemTree;
+use crate::{
+    db::{Database, FunctionId, ItemScopeId, ModuleId},
+    string_interner::Interner,
+    Name,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemScope {
-    function_by_name: HashMap<Name, FunctionIdx>,
-    module_by_name: HashMap<Name, ModuleIdx>,
+    function_by_name: HashMap<Name, FunctionId>,
+    module_by_name: HashMap<Name, ModuleId>,
     parent: Option<Parent>,
 }
 impl ItemScope {
@@ -22,11 +22,11 @@ impl ItemScope {
         }
     }
 
-    pub fn insert(&mut self, name: Name, function: FunctionIdx) {
+    pub fn insert(&mut self, name: Name, function: FunctionId) {
         self.function_by_name.insert(name, function);
     }
 
-    pub fn insert_module(&mut self, name: Name, module: ModuleIdx) {
+    pub fn insert_module(&mut self, name: Name, module: ModuleId) {
         self.module_by_name.insert(name, module);
     }
 
@@ -36,7 +36,7 @@ impl ItemScope {
         db: &Database,
         item_tree: &ItemTree,
         interner: &Interner,
-    ) -> Option<FunctionIdx> {
+    ) -> Option<FunctionId> {
         let function_name_key = interner.get_key(name_str);
         if let Some(function_name_key) = function_name_key {
             let name = &Name::from_key(function_name_key);
@@ -49,11 +49,11 @@ impl ItemScope {
         if let Some(parent) = &self.parent {
             match parent {
                 Parent::TopLevel => {
-                    let top_level_item_scope = &db.item_scopes[item_tree.top_level_scope];
+                    let top_level_item_scope = item_tree.top_level_scope.lookup(db);
                     top_level_item_scope.lookup(name_str, db, item_tree, interner)
                 }
-                Parent::SubLevel(item_scope) => {
-                    let item_scope = &db.item_scopes[*item_scope];
+                Parent::SubLevel(item_scope_id) => {
+                    let item_scope = item_scope_id.lookup(db);
                     item_scope.lookup(name_str, db, item_tree, interner)
                 }
             }
@@ -61,16 +61,10 @@ impl ItemScope {
             None
         }
     }
-
-    pub fn functions(&self) -> Vec<FunctionIdx> {
-        let mut functions = self.function_by_name.values().copied().collect::<Vec<_>>();
-        functions.sort_by_cached_key(|idx| idx.into_raw());
-        functions
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Parent {
     TopLevel,
-    SubLevel(ItemScopeIdx),
+    SubLevel(ItemScopeId),
 }

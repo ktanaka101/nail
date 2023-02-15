@@ -8,6 +8,42 @@ use crate::{
     AstId, AstPtr, FileId, InFile,
 };
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct FunctionId(Idx<Function>);
+impl FunctionId {
+    pub fn lookup(self, db: &Database) -> &Function {
+        &db.functions[self.0]
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ParamId(Idx<Param>);
+impl ParamId {
+    pub fn lookup(self, db: &Database) -> &Param {
+        &db.params[self.0]
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ItemScopeId(Idx<ItemScope>);
+impl ItemScopeId {
+    pub fn lookup(self, db: &Database) -> &ItemScope {
+        &db.item_scopes[self.0]
+    }
+
+    pub fn lookup_mut(self, db: &mut Database) -> &mut ItemScope {
+        &mut db.item_scopes[self.0]
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ModuleId(Idx<Module>);
+impl ModuleId {
+    pub fn lookup(self, db: &Database) -> &Module {
+        &db.modules[self.0]
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct Database {
     pub functions: Arena<Function>,
@@ -27,6 +63,22 @@ impl Database {
             syntax_node_ptrs: Arena::default(),
             idx_by_syntax_node_ptr: HashMap::default(),
         }
+    }
+
+    pub(crate) fn alloc_param(&mut self, param: Param) -> ParamId {
+        ParamId(self.params.alloc(param))
+    }
+
+    pub(crate) fn alloc_function(&mut self, function: Function) -> FunctionId {
+        FunctionId(self.functions.alloc(function))
+    }
+
+    pub(crate) fn alloc_module(&mut self, module: Module) -> ModuleId {
+        ModuleId(self.modules.alloc(module))
+    }
+
+    pub(crate) fn alloc_item_scope(&mut self, item_scope: ItemScope) -> ItemScopeId {
+        ItemScopeId(self.item_scopes.alloc(item_scope))
     }
 
     pub fn alloc_node<T: ast::AstNode>(&mut self, ast: &T) -> AstId<T> {

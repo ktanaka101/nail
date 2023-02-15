@@ -7,9 +7,9 @@ use std::{collections::HashMap, marker::PhantomData};
 
 use ast::Ast;
 pub use body::{BodyLower, SharedBodyLowerContext};
-pub use db::Database;
+pub use db::{Database, FunctionId, ItemScopeId, ModuleId, ParamId};
 use item_tree::ItemTreeBuilderContext;
-pub use item_tree::{Function, FunctionIdx, ItemDefId, ItemTree, Param, ParamIdx, Type};
+pub use item_tree::{Function, ItemDefId, ItemTree, Param, Type};
 use la_arena::Idx;
 use string_interner::{Interner, Key};
 use syntax::SyntaxNodePtr;
@@ -24,14 +24,14 @@ pub struct LowerResult {
     pub shared_ctx: SharedBodyLowerContext,
     pub top_level_ctx: BodyLower,
     pub top_level_items: Vec<ItemDefId>,
-    pub entry_point: Option<FunctionIdx>,
+    pub entry_point: Option<FunctionId>,
     pub db: Database,
     pub item_tree: ItemTree,
     pub interner: Interner,
     pub errors: Vec<LowerError>,
 }
 impl LowerResult {
-    pub fn function_body_by_function(&self, function: &FunctionIdx) -> Option<&Expr> {
+    pub fn function_body_by_function(&self, function: &FunctionId) -> Option<&Expr> {
         let body_block = &self.item_tree.block_idx_by_function(function)?;
         self.shared_ctx.function_body_by_block(body_block)
     }
@@ -75,14 +75,14 @@ fn get_entry_point(
     top_level_items: &[ItemDefId],
     db: &Database,
     interner: &Interner,
-) -> Option<FunctionIdx> {
+) -> Option<FunctionId> {
     for item in top_level_items {
         match item {
-            ItemDefId::Function(function_idx) => {
-                let function = &db.functions[*function_idx];
+            ItemDefId::Function(function_id) => {
+                let function = function_id.lookup(db);
                 if let Some(name) = function.name {
                     if interner.lookup(name.key()) == "main" {
-                        return Some(*function_idx);
+                        return Some(*function_id);
                     }
                 }
             }
@@ -176,9 +176,9 @@ pub enum Expr {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Symbol {
-    Param { name: Name, param: ParamIdx },
+    Param { name: Name, param: ParamId },
     Local { name: Name, expr: ExprIdx },
-    Function { name: Name, function: FunctionIdx },
+    Function { name: Name, function: FunctionId },
     Missing { name: Name },
 }
 

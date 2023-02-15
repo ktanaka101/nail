@@ -3,36 +3,41 @@ mod item_scope;
 
 use std::collections::HashMap;
 
-pub use item::{Function, FunctionIdx, ItemDefId, Module, ModuleIdx, Param, ParamIdx, Type};
-pub use item_scope::{ItemScope, ItemScopeIdx, Parent};
+pub use item::{Function, ItemDefId, Module, Param, Type};
+pub use item_scope::{ItemScope, Parent};
 
-use crate::{db::Database, string_interner::Interner, AstId, Name};
+use crate::{
+    db::{Database, FunctionId, ItemScopeId, ModuleId},
+    string_interner::Interner,
+    AstId, Name,
+};
 
 type BlockAstId = AstId<ast::Block>;
 type ModuleAstId = AstId<ast::Module>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemTree {
-    pub top_level_scope: ItemScopeIdx,
-    scope_by_block: HashMap<BlockAstId, ItemScopeIdx>,
-    block_by_scope: HashMap<ItemScopeIdx, BlockAstId>,
-    function_by_block: HashMap<BlockAstId, FunctionIdx>,
-    block_by_function: HashMap<FunctionIdx, BlockAstId>,
+    pub top_level_scope: ItemScopeId,
+    scope_by_block: HashMap<BlockAstId, ItemScopeId>,
+    block_by_scope: HashMap<ItemScopeId, BlockAstId>,
+    function_by_block: HashMap<BlockAstId, FunctionId>,
+    block_by_function: HashMap<FunctionId, BlockAstId>,
 
-    scope_by_module: HashMap<ModuleAstId, ItemScopeIdx>,
-    module_by_ast_module: HashMap<ModuleAstId, ModuleIdx>,
+    scope_by_module: HashMap<ModuleAstId, ItemScopeId>,
+    module_by_ast_module: HashMap<ModuleAstId, ModuleId>,
 }
 impl ItemTree {
     pub fn top_level_scope<'a>(&self, db: &'a Database) -> &'a ItemScope {
-        &db.item_scopes[self.top_level_scope]
+        self.top_level_scope.lookup(db)
     }
 
-    pub fn scope_idx_by_block(&self, ast: &BlockAstId) -> Option<ItemScopeIdx> {
+    pub fn scope_idx_by_block(&self, ast: &BlockAstId) -> Option<ItemScopeId> {
         self.scope_by_block.get(ast).copied()
     }
 
     pub fn scope_by_block<'a>(&self, db: &'a Database, ast: &BlockAstId) -> Option<&'a ItemScope> {
-        self.scope_idx_by_block(ast).map(|idx| &db.item_scopes[idx])
+        self.scope_idx_by_block(ast)
+            .map(|scope_id| scope_id.lookup(db))
     }
 
     pub fn scope_by_module<'a>(
@@ -41,10 +46,10 @@ impl ItemTree {
         ast_id: &ModuleAstId,
     ) -> Option<&'a ItemScope> {
         let scope_idx = self.scope_by_module.get(ast_id);
-        scope_idx.map(|idx| &db.item_scopes[*idx])
+        scope_idx.map(|scope_id| scope_id.lookup(db))
     }
 
-    pub fn function_idx_by_block(&self, block_ast_id: &BlockAstId) -> Option<FunctionIdx> {
+    pub fn function_idx_by_block(&self, block_ast_id: &BlockAstId) -> Option<FunctionId> {
         self.function_by_block.get(block_ast_id).copied()
     }
 
@@ -54,14 +59,14 @@ impl ItemTree {
         block_ast_id: &BlockAstId,
     ) -> Option<&'a Function> {
         self.function_idx_by_block(block_ast_id)
-            .map(|idx| &db.functions[idx])
+            .map(|fn_id| fn_id.lookup(db))
     }
 
-    pub fn block_idx_by_function(&self, function_idx: &FunctionIdx) -> Option<BlockAstId> {
-        Some(self.block_by_function.get(function_idx)?.clone())
+    pub fn block_idx_by_function(&self, function_id: &FunctionId) -> Option<BlockAstId> {
+        Some(self.block_by_function.get(function_id)?.clone())
     }
 
-    pub fn module_idx_by_ast_module(&self, module_ast_id: ModuleAstId) -> Option<ModuleIdx> {
+    pub fn module_idx_by_ast_module(&self, module_ast_id: ModuleAstId) -> Option<ModuleId> {
         self.module_by_ast_module.get(&module_ast_id).copied()
     }
 
@@ -71,18 +76,18 @@ impl ItemTree {
         module_ast_id: ModuleAstId,
     ) -> Option<&'a Module> {
         self.module_idx_by_ast_module(module_ast_id)
-            .map(|module_idx| &db.modules[module_idx])
+            .map(|module_id| module_id.lookup(db))
     }
 }
 
 pub struct ItemTreeBuilderContext<'a> {
-    scope_by_block: HashMap<BlockAstId, ItemScopeIdx>,
-    block_by_scope: HashMap<ItemScopeIdx, BlockAstId>,
-    function_by_block: HashMap<BlockAstId, FunctionIdx>,
-    block_by_function: HashMap<FunctionIdx, BlockAstId>,
+    scope_by_block: HashMap<BlockAstId, ItemScopeId>,
+    block_by_scope: HashMap<ItemScopeId, BlockAstId>,
+    function_by_block: HashMap<BlockAstId, FunctionId>,
+    block_by_function: HashMap<FunctionId, BlockAstId>,
 
-    scope_by_module: HashMap<ModuleAstId, ItemScopeIdx>,
-    module_by_ast_module: HashMap<ModuleAstId, ModuleIdx>,
+    scope_by_module: HashMap<ModuleAstId, ItemScopeId>,
+    module_by_ast_module: HashMap<ModuleAstId, ModuleId>,
 
     interner: &'a mut Interner,
 }
@@ -101,14 +106,14 @@ impl<'a> ItemTreeBuilderContext<'a> {
 
     pub fn build(mut self, ast: &ast::SourceFile, db: &mut Database) -> ItemTree {
         let top_level_scope = ItemScope::new(None);
-        let top_level_scope_idx = db.item_scopes.alloc(top_level_scope);
+        let top_level_scope_id = db.alloc_item_scope(top_level_scope);
 
         for item in ast.items() {
-            self.build_item(item, top_level_scope_idx, Parent::TopLevel, db);
+            self.build_item(item, top_level_scope_id, Parent::TopLevel, db);
         }
 
         ItemTree {
-            top_level_scope: top_level_scope_idx,
+            top_level_scope: top_level_scope_id,
             scope_by_block: self.scope_by_block,
             block_by_scope: self.block_by_scope,
             function_by_block: self.function_by_block,
@@ -121,7 +126,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
     pub fn build_item(
         &mut self,
         item: ast::Item,
-        current_scope: ItemScopeIdx,
+        current_scope: ItemScopeId,
         parent: Parent,
         db: &mut Database,
     ) -> Option<ItemDefId> {
@@ -140,14 +145,14 @@ impl<'a> ItemTreeBuilderContext<'a> {
                         };
                         let ty = self.lower_ty(param.ty());
                         let param = Param { name, ty, pos };
-                        db.params.alloc(param)
+                        db.alloc_param(param)
                     })
                     .collect::<Vec<_>>();
                 let param_by_name = params
                     .iter()
                     .enumerate()
                     .filter_map(|param| {
-                        let p = &db.params[*param.1];
+                        let p = param.1.lookup(db);
                         p.name.map(|name| (name, *param.1))
                     })
                     .collect::<HashMap<_, _>>();
@@ -171,9 +176,9 @@ impl<'a> ItemTreeBuilderContext<'a> {
                     return_type,
                     ast: ast_id,
                 };
-                let function = db.functions.alloc(function);
+                let function = db.alloc_function(function);
                 if let Some(name) = name {
-                    db.item_scopes[current_scope].insert(name, function);
+                    current_scope.lookup_mut(db).insert(name, function);
                 }
 
                 let block = self.build_block(block, parent, db);
@@ -183,8 +188,8 @@ impl<'a> ItemTreeBuilderContext<'a> {
                 Some(ItemDefId::Function(function))
             }
             ast::Item::Module(module) => {
-                let module_idx = self.build_module(&module, current_scope, parent, db)?;
-                Some(ItemDefId::Module(module_idx))
+                let module_id = self.build_module(&module, current_scope, parent, db)?;
+                Some(ItemDefId::Module(module_id))
             }
         }
     }
@@ -192,7 +197,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
     pub fn build_stmt(
         &mut self,
         stmt: ast::Stmt,
-        current_scope: ItemScopeIdx,
+        current_scope: ItemScopeId,
         parent: Parent,
         db: &mut Database,
     ) -> Option<()> {
@@ -230,7 +235,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
     pub fn build_expr(
         &mut self,
         expr: ast::Expr,
-        _current_scope: ItemScopeIdx,
+        _current_scope: ItemScopeId,
         parent: Parent,
         db: &mut Database,
     ) -> Option<()> {
@@ -266,15 +271,15 @@ impl<'a> ItemTreeBuilderContext<'a> {
         db: &mut Database,
     ) -> AstId<ast::Block> {
         let scope = ItemScope::new(Some(parent));
-        let scope_idx = db.item_scopes.alloc(scope);
+        let scope_id = db.alloc_item_scope(scope);
         let block_ast_id = db.alloc_node(&block);
-        let current = Parent::SubLevel(scope_idx);
+        let current = Parent::SubLevel(scope_id);
         for stmt in block.stmts() {
-            self.build_stmt(stmt, scope_idx, current.clone(), db);
+            self.build_stmt(stmt, scope_id, current.clone(), db);
         }
 
-        self.scope_by_block.insert(block_ast_id.clone(), scope_idx);
-        self.block_by_scope.insert(scope_idx, block_ast_id.clone());
+        self.scope_by_block.insert(block_ast_id.clone(), scope_id);
+        self.block_by_scope.insert(scope_id, block_ast_id.clone());
 
         block_ast_id
     }
@@ -282,35 +287,37 @@ impl<'a> ItemTreeBuilderContext<'a> {
     fn build_module(
         &mut self,
         module: &ast::Module,
-        current_scope: ItemScopeIdx,
+        current_scope: ItemScopeId,
         parent: Parent,
         db: &mut Database,
-    ) -> Option<ModuleIdx> {
+    ) -> Option<ModuleId> {
         if let Some(item_list) = module.items() {
             let scope = ItemScope::new(Some(parent));
-            let scope_idx = db.item_scopes.alloc(scope);
+            let scope_id = db.alloc_item_scope(scope);
 
-            let current = Parent::SubLevel(scope_idx);
+            let current = Parent::SubLevel(scope_id);
             let mut items = vec![];
             for item in item_list.items() {
-                if let Some(item) = self.build_item(item, scope_idx, current.clone(), db) {
+                if let Some(item) = self.build_item(item, scope_id, current.clone(), db) {
                     items.push(item);
                 }
             }
 
-            let module_id = db.alloc_node(module);
-            self.scope_by_module.insert(module_id.clone(), scope_idx);
+            let module_ast_id = db.alloc_node(module);
+            self.scope_by_module.insert(module_ast_id.clone(), scope_id);
 
             let module_name = Name::from_key(self.interner.intern(module.name().unwrap().name()));
             let hir_module = Module {
                 name: module_name,
                 items,
             };
-            let module_idx = db.modules.alloc(hir_module);
-            db.item_scopes[current_scope].insert_module(module_name, module_idx);
-            self.module_by_ast_module.insert(module_id, module_idx);
+            let module_id = db.alloc_module(hir_module);
+            current_scope
+                .lookup_mut(db)
+                .insert_module(module_name, module_id);
+            self.module_by_ast_module.insert(module_ast_id, module_id);
 
-            Some(module_idx)
+            Some(module_id)
         } else {
             None
         }

@@ -7,7 +7,7 @@ use la_arena::{Arena, Idx};
 use self::scopes::ScopeType;
 use crate::{
     body::scopes::Scopes, db::Database, item_tree::ItemTree, string_interner::Interner, AstId,
-    Block, Expr, ExprIdx, ItemDefId, Literal, Name, ParamIdx, Stmt, Symbol,
+    Block, Expr, ExprIdx, ItemDefId, Literal, Name, ParamId, Stmt, Symbol,
 };
 
 #[derive(Debug, Default)]
@@ -41,11 +41,11 @@ impl SharedBodyLowerContext {
 #[derive(Debug)]
 pub struct BodyLower {
     scopes: Scopes,
-    params: HashMap<Name, ParamIdx>,
+    params: HashMap<Name, ParamId>,
 }
 
 impl BodyLower {
-    pub(super) fn new(params: HashMap<Name, ParamIdx>) -> Self {
+    pub(super) fn new(params: HashMap<Name, ParamId>) -> Self {
         Self {
             scopes: Scopes::new(),
             params,
@@ -298,7 +298,7 @@ impl BodyLower {
         }
     }
 
-    fn lookup_param(&self, name: Name) -> Option<ParamIdx> {
+    fn lookup_param(&self, name: Name) -> Option<ParamId> {
         self.params.get(&name).copied()
     }
 
@@ -422,8 +422,8 @@ mod tests {
 
     use super::*;
     use crate::{
-        item_tree::{Function, ItemDefId, Module, Type},
-        lower, LowerError, LowerResult,
+        item_tree::{ItemDefId, Type},
+        lower, FunctionId, LowerError, LowerResult, ModuleId,
     };
 
     fn indent(nesting: usize) -> String {
@@ -450,13 +450,13 @@ mod tests {
 
     fn debug_function(
         lower_result: &LowerResult,
-        function_idx: Idx<Function>,
+        function_id: FunctionId,
         nesting: usize,
     ) -> String {
-        let function = &lower_result.db.functions[function_idx];
+        let function = function_id.lookup(&lower_result.db);
         let block_ast_id = lower_result
             .item_tree
-            .block_idx_by_function(&function_idx)
+            .block_idx_by_function(&function_id)
             .unwrap();
         let body_expr = lower_result
             .shared_ctx
@@ -472,7 +472,7 @@ mod tests {
             .params
             .iter()
             .map(|param| {
-                let param = &lower_result.db.params[*param];
+                let param = param.lookup(&lower_result.db);
                 let name = if let Some(name) = param.name {
                     lower_result.interner.lookup(name.key())
                 } else {
@@ -500,7 +500,7 @@ mod tests {
         };
 
         let body = debug_expr(lower_result, body_expr, nesting);
-        let is_entry_point = lower_result.entry_point == Some(function_idx);
+        let is_entry_point = lower_result.entry_point == Some(function_id);
         format!(
             "{}fn {}{name}({params}) -> {return_type} {body}\n",
             indent(nesting),
@@ -508,10 +508,10 @@ mod tests {
         )
     }
 
-    fn debug_module(lower_result: &LowerResult, module_idx: Idx<Module>, nesting: usize) -> String {
+    fn debug_module(lower_result: &LowerResult, module_id: ModuleId, nesting: usize) -> String {
         let curr_indent = indent(nesting);
 
-        let module = &lower_result.db.modules[module_idx];
+        let module = module_id.lookup(&lower_result.db);
         let module_name = lower_result.interner.lookup(module.name.key());
 
         let mut module_str = "".to_string();

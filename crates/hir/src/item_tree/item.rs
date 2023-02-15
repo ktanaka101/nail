@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
-use la_arena::Idx;
-
-use crate::{AstId, Name};
+use crate::{
+    db::{FunctionId, ModuleId},
+    AstId, Name, ParamId,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Param {
@@ -10,7 +11,6 @@ pub struct Param {
     pub ty: Type,
     pub pos: usize,
 }
-pub type ParamIdx = Idx<Param>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
@@ -25,22 +25,20 @@ pub enum Type {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Function {
     pub name: Option<Name>,
-    pub params: Vec<ParamIdx>,
-    pub param_by_name: HashMap<Name, ParamIdx>,
+    pub params: Vec<ParamId>,
+    pub param_by_name: HashMap<Name, ParamId>,
     pub return_type: Type,
     pub ast: AstId<ast::FunctionDef>,
 }
-pub type FunctionIdx = Idx<Function>;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Module {
     pub name: Name,
     pub items: Vec<ItemDefId>,
 }
-pub type ModuleIdx = Idx<Module>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ItemDefId {
-    Function(FunctionIdx),
-    Module(ModuleIdx),
+    Function(FunctionId),
+    Module(ModuleId),
 }

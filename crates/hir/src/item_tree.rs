@@ -76,15 +76,15 @@ impl ItemTree {
 }
 
 pub struct ItemTreeBuilderContext<'a> {
-    pub scope_by_block: HashMap<BlockAstId, ItemScopeIdx>,
-    pub block_by_scope: HashMap<ItemScopeIdx, BlockAstId>,
-    pub function_by_block: HashMap<BlockAstId, FunctionIdx>,
-    pub block_by_function: HashMap<FunctionIdx, BlockAstId>,
+    scope_by_block: HashMap<BlockAstId, ItemScopeIdx>,
+    block_by_scope: HashMap<ItemScopeIdx, BlockAstId>,
+    function_by_block: HashMap<BlockAstId, FunctionIdx>,
+    block_by_function: HashMap<FunctionIdx, BlockAstId>,
 
-    pub scope_by_module: HashMap<ModuleAstId, ItemScopeIdx>,
+    scope_by_module: HashMap<ModuleAstId, ItemScopeIdx>,
     module_by_ast_module: HashMap<ModuleAstId, ModuleIdx>,
 
-    pub interner: &'a mut Interner,
+    interner: &'a mut Interner,
 }
 impl<'a> ItemTreeBuilderContext<'a> {
     pub fn new(interner: &'a mut Interner) -> Self {

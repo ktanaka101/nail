@@ -65,6 +65,28 @@ impl Database {
         }
     }
 
+    pub fn functions(&self) -> impl Iterator<Item = (FunctionId, &Function)> {
+        self.functions
+            .iter()
+            .map(|(idx, function)| (FunctionId(idx), function))
+    }
+
+    pub fn params(&self) -> impl Iterator<Item = (ParamId, &Param)> {
+        self.params.iter().map(|(idx, param)| (ParamId(idx), param))
+    }
+
+    pub fn item_scopes(&self) -> impl Iterator<Item = (ItemScopeId, &ItemScope)> {
+        self.item_scopes
+            .iter()
+            .map(|(idx, item_scope)| (ItemScopeId(idx), item_scope))
+    }
+
+    pub fn modules(&self) -> impl Iterator<Item = (ModuleId, &Module)> {
+        self.modules
+            .iter()
+            .map(|(idx, module)| (ModuleId(idx), module))
+    }
+
     pub(crate) fn alloc_param(&mut self, param: Param) -> ParamId {
         ParamId(self.params.alloc(param))
     }

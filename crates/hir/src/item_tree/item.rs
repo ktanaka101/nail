@@ -33,6 +33,14 @@ pub struct Function {
 pub type FunctionIdx = Idx<Function>;
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum Item {
+pub struct Module {
+    pub name: Name,
+    pub items: Vec<ItemDefId>,
+}
+pub type ModuleIdx = Idx<Module>;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ItemDefId {
     Function(FunctionIdx),
+    Module(ModuleIdx),
 }

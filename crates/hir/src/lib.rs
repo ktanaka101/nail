@@ -9,7 +9,7 @@ use ast::Ast;
 pub use body::{BodyLower, SharedBodyLowerContext};
 pub use db::Database;
 use item_tree::ItemTreeBuilderContext;
-pub use item_tree::{Function, FunctionIdx, Item, ItemTree, Param, ParamIdx, Type};
+pub use item_tree::{Function, FunctionIdx, ItemDefId, ItemTree, Param, ParamIdx, Type};
 use la_arena::Idx;
 use string_interner::{Interner, Key};
 use syntax::SyntaxNodePtr;
@@ -23,7 +23,7 @@ pub enum LowerError {
 pub struct LowerResult {
     pub shared_ctx: SharedBodyLowerContext,
     pub top_level_ctx: BodyLower,
-    pub top_level_items: Vec<Item>,
+    pub top_level_items: Vec<ItemDefId>,
     pub entry_point: Option<FunctionIdx>,
     pub db: Database,
     pub item_tree: ItemTree,
@@ -72,13 +72,13 @@ pub fn lower(ast: ast::SourceFile) -> LowerResult {
 }
 
 fn get_entry_point(
-    top_level_items: &[Item],
+    top_level_items: &[ItemDefId],
     db: &Database,
     interner: &Interner,
 ) -> Option<FunctionIdx> {
     for item in top_level_items {
         match item {
-            Item::Function(function_idx) => {
+            ItemDefId::Function(function_idx) => {
                 let function = &db.functions[*function_idx];
                 if let Some(name) = function.name {
                     if interner.lookup(name.key()) == "main" {
@@ -86,6 +86,7 @@ fn get_entry_point(
                     }
                 }
             }
+            ItemDefId::Module(_) => (),
         }
     }
 
@@ -131,7 +132,7 @@ impl Name {
 pub enum Stmt {
     VariableDef { name: Name, value: ExprIdx },
     ExprStmt { expr: ExprIdx, has_semicolon: bool },
-    Item { item: Item },
+    Item { item: ItemDefId },
 }
 
 #[derive(Debug, PartialEq, Eq)]

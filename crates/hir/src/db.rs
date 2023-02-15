@@ -4,7 +4,7 @@ use la_arena::{Arena, Idx};
 use syntax::SyntaxNodePtr;
 
 use crate::{
-    item_tree::{Function, ItemScope, Param},
+    item_tree::{Function, ItemScope, Module, Param},
     AstId, AstPtr, FileId, InFile,
 };
 
@@ -13,6 +13,7 @@ pub struct Database {
     pub functions: Arena<Function>,
     pub params: Arena<Param>,
     pub item_scopes: Arena<ItemScope>,
+    pub modules: Arena<Module>,
     syntax_node_ptrs: Arena<SyntaxNodePtr>,
     idx_by_syntax_node_ptr: HashMap<SyntaxNodePtr, Idx<SyntaxNodePtr>>,
 }
@@ -22,6 +23,7 @@ impl Database {
             functions: Arena::default(),
             params: Arena::default(),
             item_scopes: Arena::default(),
+            modules: Arena::default(),
             syntax_node_ptrs: Arena::default(),
             idx_by_syntax_node_ptr: HashMap::default(),
         }

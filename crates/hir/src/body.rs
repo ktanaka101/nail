@@ -7,7 +7,7 @@ use la_arena::{Arena, Idx};
 use self::scopes::ScopeType;
 use crate::{
     body::scopes::Scopes, db::Database, item_tree::ItemTree, string_interner::Interner, AstId,
-    Block, Expr, ExprIdx, Item, Literal, Name, ParamIdx, Stmt, Symbol,
+    Block, Expr, ExprIdx, ItemDefId, Literal, Name, ParamIdx, Stmt, Symbol,
 };
 
 #[derive(Debug, Default)]
@@ -59,9 +59,10 @@ impl BodyLower {
         db: &Database,
         item_tree: &ItemTree,
         interner: &mut Interner,
-    ) -> Option<Item> {
+    ) -> Option<ItemDefId> {
         match ast {
             ast::Item::FunctionDef(def) => self.lower_function(def, ctx, db, item_tree, interner),
+            ast::Item::Module(module) => self.lower_module(module, ctx, db, item_tree, interner),
         }
     }
 
@@ -72,7 +73,7 @@ impl BodyLower {
         db: &Database,
         item_tree: &ItemTree,
         interner: &mut Interner,
-    ) -> Option<Item> {
+    ) -> Option<ItemDefId> {
         let body = def.body()?;
         let body_ast_id = db.lookup_ast_id(&body).unwrap();
         let function = item_tree.function_by_block(db, &body_ast_id).unwrap();
@@ -83,7 +84,25 @@ impl BodyLower {
         let body_idx = ctx.function_bodies.alloc(expr);
         ctx.function_body_by_block.insert(body_ast_id, body_idx);
 
-        Some(Item::Function(function_idx))
+        Some(ItemDefId::Function(function_idx))
+    }
+
+    fn lower_module(
+        &mut self,
+        module: ast::Module,
+        ctx: &mut SharedBodyLowerContext,
+        db: &Database,
+        item_tree: &ItemTree,
+        interner: &mut Interner,
+    ) -> Option<ItemDefId> {
+        let module_id = db.lookup_ast_id(&module).unwrap();
+        let module_idx = item_tree.module_idx_by_ast_module(module_id).unwrap();
+
+        for item in module.items().unwrap().items() {
+            self.lower_item(item, ctx, db, item_tree, interner);
+        }
+
+        Some(ItemDefId::Module(module_idx))
     }
 
     fn lower_stmt(
@@ -125,9 +144,10 @@ impl BodyLower {
         db: &Database,
         item_tree: &ItemTree,
         interner: &mut Interner,
-    ) -> Option<Item> {
+    ) -> Option<ItemDefId> {
         match item {
             ast::Item::FunctionDef(def) => self.lower_function(def, ctx, db, item_tree, interner),
+            ast::Item::Module(module) => self.lower_module(module, ctx, db, item_tree, interner),
         }
     }
 
@@ -402,7 +422,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        item_tree::{Function, Item, Type},
+        item_tree::{Function, ItemDefId, Module, Type},
         lower, LowerError, LowerResult,
     };
 
@@ -488,9 +508,31 @@ mod tests {
         )
     }
 
-    fn debug_item(lower_result: &LowerResult, item: &Item, nesting: usize) -> String {
+    fn debug_module(lower_result: &LowerResult, module_idx: Idx<Module>, nesting: usize) -> String {
+        let curr_indent = indent(nesting);
+
+        let module = &lower_result.db.modules[module_idx];
+        let module_name = lower_result.interner.lookup(module.name.key());
+
+        let mut module_str = "".to_string();
+        module_str.push_str(&format!("{curr_indent}mod {module_name} {{\n"));
+        for (i, item) in module.items.iter().enumerate() {
+            module_str.push_str(&debug_item(lower_result, item, nesting + 1));
+            if i == module.items.len() - 1 {
+                continue;
+            }
+
+            module_str.push('\n');
+        }
+        module_str.push_str(&format!("{curr_indent}}}\n"));
+
+        module_str
+    }
+
+    fn debug_item(lower_result: &LowerResult, item: &ItemDefId, nesting: usize) -> String {
         match item {
-            Item::Function(function) => debug_function(lower_result, *function, nesting),
+            ItemDefId::Function(function) => debug_function(lower_result, *function, nesting),
+            ItemDefId::Module(module) => debug_module(lower_result, *module, nesting),
         }
     }
 
@@ -1825,6 +1867,55 @@ mod tests {
                 }
                 fn test1() -> () {
                     expr:return 10
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn modules() {
+        check(
+            r#"
+                fn main() {
+                    return
+                }
+                mod module_aaa {
+                    mod module_bbb {
+                        fn function_aaa() -> int {
+                            mod module_ccc {
+                                fn function_bbb() -> int {
+                                    10
+                                }
+                            }
+
+                            20
+                        }
+                    }
+
+                    fn function_ccc() -> int {
+                        30
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn entry:main() -> () {
+                    expr:return
+                }
+                mod module_aaa {
+                    mod module_bbb {
+                        fn function_aaa() -> int {
+                            mod module_ccc {
+                                fn function_bbb() -> int {
+                                    expr:10
+                                }
+                            }
+                            expr:20
+                        }
+                    }
+
+                    fn function_ccc() -> int {
+                        expr:30
+                    }
                 }
             "#]],
         );

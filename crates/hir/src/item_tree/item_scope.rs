@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use la_arena::Idx;
 
-use super::{BlockAstId, FunctionIdx, ItemTree};
+use super::{FunctionIdx, ItemTree, ModuleIdx};
 use crate::{db::Database, string_interner::Interner, Name};
 
 pub type ItemScopeIdx = Idx<ItemScope>;
@@ -10,18 +10,24 @@ pub type ItemScopeIdx = Idx<ItemScope>;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemScope {
     function_by_name: HashMap<Name, FunctionIdx>,
+    module_by_name: HashMap<Name, ModuleIdx>,
     parent: Option<Parent>,
 }
 impl ItemScope {
     pub fn new(parent: Option<Parent>) -> Self {
         Self {
             function_by_name: HashMap::new(),
+            module_by_name: HashMap::new(),
             parent,
         }
     }
 
     pub fn insert(&mut self, name: Name, function: FunctionIdx) {
         self.function_by_name.insert(name, function);
+    }
+
+    pub fn insert_module(&mut self, name: Name, module: ModuleIdx) {
+        self.module_by_name.insert(name, module);
     }
 
     pub fn lookup(

@@ -2,7 +2,10 @@ use lexer::TokenKind;
 use syntax::SyntaxKind;
 
 use super::stmt;
-use crate::parser::{marker::CompletedMarker, Parser, TOPLEVEL_RECOVERY_SET};
+use crate::{
+    grammar::expr::ITEM_FIRST,
+    parser::{marker::CompletedMarker, Parser, TOPLEVEL_RECOVERY_SET},
+};
 
 pub(super) fn parse_stmt_on_toplevel(parser: &mut Parser) -> Option<CompletedMarker> {
     if parser.at(TokenKind::FnKw) {
@@ -27,7 +30,10 @@ pub(super) fn parse_module(parser: &mut Parser, recovery_set: &[TokenKind]) -> C
         let marker = parser.start();
         if parser.at(TokenKind::LCurly) {
             parser.bump();
-            parse_stmt_on_toplevel(parser);
+
+            while parser.at_set_no_expected(ITEM_FIRST) {
+                parse_stmt_on_toplevel(parser);
+            }
         }
 
         if parser.at(TokenKind::RCurly) {
@@ -556,12 +562,12 @@ fn main() {}
             expect![[r#"
                 SourceFile@0..254
                   Whitespace@0..1 "\n"
-                  Module@1..103
+                  Module@1..229
                     ModKw@1..4 "mod"
                     Whitespace@4..5 " "
                     Ident@5..15 "one_module"
                     Whitespace@15..16 " "
-                    ItemList@16..103
+                    ItemList@16..229
                       LCurly@16..17 "{"
                       Whitespace@17..22 "\n    "
                       Module@22..103
@@ -597,61 +603,60 @@ fn main() {}
                               Whitespace@92..97 "\n    "
                           RCurly@97..98 "}"
                           Whitespace@98..103 "\n    "
-                  FunctionDef@103..227
-                    FnKw@103..105 "fn"
-                    Whitespace@105..106 " "
-                    Ident@106..109 "bbb"
-                    ParamList@109..112
-                      LParen@109..110 "("
-                      RParen@110..111 ")"
-                      Whitespace@111..112 " "
-                    ReturnType@112..119
-                      ThinArrow@112..114 "->"
-                      Whitespace@114..115 " "
-                      Type@115..119
-                        Ident@115..118 "int"
-                        Whitespace@118..119 " "
-                    Block@119..227
-                      LCurly@119..120 "{"
-                      Whitespace@120..129 "\n        "
-                      Module@129..225
-                        ModKw@129..132 "mod"
-                        Whitespace@132..133 " "
-                        Ident@133..145 "third_module"
-                        Whitespace@145..146 " "
-                        ItemList@146..225
-                          LCurly@146..147 "{"
-                          Whitespace@147..160 "\n            "
-                          FunctionDef@160..219
-                            FnKw@160..162 "fn"
-                            Whitespace@162..163 " "
-                            Ident@163..166 "ccc"
-                            ParamList@166..169
-                              LParen@166..167 "("
-                              RParen@167..168 ")"
-                              Whitespace@168..169 " "
-                            ReturnType@169..176
-                              ThinArrow@169..171 "->"
-                              Whitespace@171..172 " "
-                              Type@172..176
-                                Ident@172..175 "int"
-                                Whitespace@175..176 " "
-                            Block@176..219
-                              LCurly@176..177 "{"
-                              Whitespace@177..194 "\n                "
-                              ExprStmt@194..209
-                                Literal@194..209
-                                  Integer@194..196 "20"
-                                  Whitespace@196..209 "\n            "
-                              RCurly@209..210 "}"
-                              Whitespace@210..219 "\n        "
-                          RCurly@219..220 "}"
-                          Whitespace@220..225 "\n    "
-                      RCurly@225..226 "}"
-                      Whitespace@226..227 "\n"
-                  Error@227..229
-                    RCurly@227..228 "}"
-                    Whitespace@228..229 "\n"
+                      FunctionDef@103..227
+                        FnKw@103..105 "fn"
+                        Whitespace@105..106 " "
+                        Ident@106..109 "bbb"
+                        ParamList@109..112
+                          LParen@109..110 "("
+                          RParen@110..111 ")"
+                          Whitespace@111..112 " "
+                        ReturnType@112..119
+                          ThinArrow@112..114 "->"
+                          Whitespace@114..115 " "
+                          Type@115..119
+                            Ident@115..118 "int"
+                            Whitespace@118..119 " "
+                        Block@119..227
+                          LCurly@119..120 "{"
+                          Whitespace@120..129 "\n        "
+                          Module@129..225
+                            ModKw@129..132 "mod"
+                            Whitespace@132..133 " "
+                            Ident@133..145 "third_module"
+                            Whitespace@145..146 " "
+                            ItemList@146..225
+                              LCurly@146..147 "{"
+                              Whitespace@147..160 "\n            "
+                              FunctionDef@160..219
+                                FnKw@160..162 "fn"
+                                Whitespace@162..163 " "
+                                Ident@163..166 "ccc"
+                                ParamList@166..169
+                                  LParen@166..167 "("
+                                  RParen@167..168 ")"
+                                  Whitespace@168..169 " "
+                                ReturnType@169..176
+                                  ThinArrow@169..171 "->"
+                                  Whitespace@171..172 " "
+                                  Type@172..176
+                                    Ident@172..175 "int"
+                                    Whitespace@175..176 " "
+                                Block@176..219
+                                  LCurly@176..177 "{"
+                                  Whitespace@177..194 "\n                "
+                                  ExprStmt@194..209
+                                    Literal@194..209
+                                      Integer@194..196 "20"
+                                      Whitespace@196..209 "\n            "
+                                  RCurly@209..210 "}"
+                                  Whitespace@210..219 "\n        "
+                              RCurly@219..220 "}"
+                              Whitespace@220..225 "\n    "
+                          RCurly@225..226 "}"
+                          Whitespace@226..227 "\n"
+                      RCurly@227..228 "}"
+                      Whitespace@228..229 "\n"
                   FunctionDef@229..254
                     FnKw@229..231 "fn"
                     Whitespace@231..232 " "
@@ -664,7 +669,154 @@ fn main() {}
                       LCurly@239..240 "{"
                       RCurly@240..241 "}"
                       Whitespace@241..254 "\n            "
-                error at 227..228: expected 'fn' or 'mod', but found '}'
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_module_in_function_and_module() {
+        check(
+            r#"
+fn main() {
+    return
+}
+mod module_aaa {
+    mod module_bbb {
+        fn function_aaa() -> int {
+            mod module_ccc {
+                fn function_bbb() -> int {
+                    10
+                }
+            }
+
+            20
+        }
+    }
+
+    fn function_ccc() -> int {
+        30
+    }
+}
+            "#,
+            expect![[r#"
+                SourceFile@0..321
+                  Whitespace@0..1 "\n"
+                  FunctionDef@1..26
+                    FnKw@1..3 "fn"
+                    Whitespace@3..4 " "
+                    Ident@4..8 "main"
+                    ParamList@8..11
+                      LParen@8..9 "("
+                      RParen@9..10 ")"
+                      Whitespace@10..11 " "
+                    Block@11..26
+                      LCurly@11..12 "{"
+                      Whitespace@12..17 "\n    "
+                      ExprStmt@17..24
+                        ReturnExpr@17..24
+                          ReturnKw@17..23 "return"
+                          Whitespace@23..24 "\n"
+                      RCurly@24..25 "}"
+                      Whitespace@25..26 "\n"
+                  Module@26..321
+                    ModKw@26..29 "mod"
+                    Whitespace@29..30 " "
+                    Ident@30..40 "module_aaa"
+                    Whitespace@40..41 " "
+                    ItemList@41..321
+                      LCurly@41..42 "{"
+                      Whitespace@42..47 "\n    "
+                      Module@47..263
+                        ModKw@47..50 "mod"
+                        Whitespace@50..51 " "
+                        Ident@51..61 "module_bbb"
+                        Whitespace@61..62 " "
+                        ItemList@62..263
+                          LCurly@62..63 "{"
+                          Whitespace@63..72 "\n        "
+                          FunctionDef@72..256
+                            FnKw@72..74 "fn"
+                            Whitespace@74..75 " "
+                            Ident@75..87 "function_aaa"
+                            ParamList@87..90
+                              LParen@87..88 "("
+                              RParen@88..89 ")"
+                              Whitespace@89..90 " "
+                            ReturnType@90..97
+                              ThinArrow@90..92 "->"
+                              Whitespace@92..93 " "
+                              Type@93..97
+                                Ident@93..96 "int"
+                                Whitespace@96..97 " "
+                            Block@97..256
+                              LCurly@97..98 "{"
+                              Whitespace@98..111 "\n            "
+                              Module@111..239
+                                ModKw@111..114 "mod"
+                                Whitespace@114..115 " "
+                                Ident@115..125 "module_ccc"
+                                Whitespace@125..126 " "
+                                ItemList@126..239
+                                  LCurly@126..127 "{"
+                                  Whitespace@127..144 "\n                "
+                                  FunctionDef@144..224
+                                    FnKw@144..146 "fn"
+                                    Whitespace@146..147 " "
+                                    Ident@147..159 "function_bbb"
+                                    ParamList@159..162
+                                      LParen@159..160 "("
+                                      RParen@160..161 ")"
+                                      Whitespace@161..162 " "
+                                    ReturnType@162..169
+                                      ThinArrow@162..164 "->"
+                                      Whitespace@164..165 " "
+                                      Type@165..169
+                                        Ident@165..168 "int"
+                                        Whitespace@168..169 " "
+                                    Block@169..224
+                                      LCurly@169..170 "{"
+                                      Whitespace@170..191 "\n                    "
+                                      ExprStmt@191..210
+                                        Literal@191..210
+                                          Integer@191..193 "10"
+                                          Whitespace@193..210 "\n                "
+                                      RCurly@210..211 "}"
+                                      Whitespace@211..224 "\n            "
+                                  RCurly@224..225 "}"
+                                  Whitespace@225..239 "\n\n            "
+                              ExprStmt@239..250
+                                Literal@239..250
+                                  Integer@239..241 "20"
+                                  Whitespace@241..250 "\n        "
+                              RCurly@250..251 "}"
+                              Whitespace@251..256 "\n    "
+                          RCurly@256..257 "}"
+                          Whitespace@257..263 "\n\n    "
+                      FunctionDef@263..307
+                        FnKw@263..265 "fn"
+                        Whitespace@265..266 " "
+                        Ident@266..278 "function_ccc"
+                        ParamList@278..281
+                          LParen@278..279 "("
+                          RParen@279..280 ")"
+                          Whitespace@280..281 " "
+                        ReturnType@281..288
+                          ThinArrow@281..283 "->"
+                          Whitespace@283..284 " "
+                          Type@284..288
+                            Ident@284..287 "int"
+                            Whitespace@287..288 " "
+                        Block@288..307
+                          LCurly@288..289 "{"
+                          Whitespace@289..298 "\n        "
+                          ExprStmt@298..305
+                            Literal@298..305
+                              Integer@298..300 "30"
+                              Whitespace@300..305 "\n    "
+                          RCurly@305..306 "}"
+                          Whitespace@306..307 "\n"
+                      RCurly@307..308 "}"
+                      Whitespace@308..321 "\n            "
             "#]],
         );
     }

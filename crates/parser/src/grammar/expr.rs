@@ -22,6 +22,8 @@ pub(super) const EXPR_FIRST: [TokenKind; 13] = [
     TokenKind::ReturnKw,
 ];
 
+pub(super) const ITEM_FIRST: &[TokenKind] = &[TokenKind::FnKw, TokenKind::ModKw];
+
 pub(super) fn parse_expr(parser: &mut Parser) -> Option<CompletedMarker> {
     parse_expr_binding_power(parser, 0)
 }

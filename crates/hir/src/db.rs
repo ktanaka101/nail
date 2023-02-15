@@ -46,10 +46,10 @@ impl ModuleId {
 
 #[derive(Debug, Default)]
 pub struct Database {
-    pub functions: Arena<Function>,
-    pub params: Arena<Param>,
-    pub item_scopes: Arena<ItemScope>,
-    pub modules: Arena<Module>,
+    functions: Arena<Function>,
+    params: Arena<Param>,
+    item_scopes: Arena<ItemScope>,
+    modules: Arena<Module>,
     syntax_node_ptrs: Arena<SyntaxNodePtr>,
     idx_by_syntax_node_ptr: HashMap<SyntaxNodePtr, Idx<SyntaxNodePtr>>,
 }

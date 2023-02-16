@@ -1260,4 +1260,44 @@ mod tests {
             "#]],
         );
     }
+
+    #[test]
+    fn infer_modules() {
+        check(
+            r#"
+                fn main() {
+                    return;
+                }
+                mod module_aaa {
+                    mod module_bbb {
+                        fn function_aaa() -> bool {
+                            mod module_ccc {
+                                fn function_bbb() -> string {
+                                    "aaa"
+                                }
+                            }
+
+                            true
+                        }
+                    }
+
+                    fn function_ccc() -> int {
+                        30
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn() -> ()
+                fn() -> bool
+                fn() -> string
+                fn() -> int
+                ---
+                `return`: !
+                `"aaa"`: string
+                `true`: bool
+                `30`: int
+                ---
+            "#]],
+        );
+    }
 }

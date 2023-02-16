@@ -22,7 +22,7 @@ impl ItemScope {
         }
     }
 
-    pub fn insert(&mut self, name: Name, function_id: FunctionId) {
+    pub fn insert_function(&mut self, name: Name, function_id: FunctionId) {
         self.function_by_name.insert(name, function_id);
     }
 

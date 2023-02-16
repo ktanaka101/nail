@@ -178,7 +178,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
                 };
                 let function = db.alloc_function(function);
                 if let Some(name) = name {
-                    current_scope.lookup_mut(db).insert(name, function);
+                    current_scope.lookup_mut(db).insert_function(name, function);
                 }
 
                 let block = self.build_block(block, parent, db);

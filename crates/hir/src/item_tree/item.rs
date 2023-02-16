@@ -37,7 +37,7 @@ pub struct Module {
     pub items: Vec<ItemDefId>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ItemDefId {
     Function(FunctionId),
     Module(ModuleId),

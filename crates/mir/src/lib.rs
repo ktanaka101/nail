@@ -15,12 +15,12 @@ pub fn lower(hir_result: &hir::LowerResult, hir_ty_result: &hir_ty::TyLowerResul
 struct FunctionLower<'a> {
     hir_result: &'a hir::LowerResult,
     hir_ty_result: &'a hir_ty::TyLowerResult,
-    function_id_by_hir_function: &'a HashMap<Idx<hir::Function>, FunctionId>,
-    function_idx: Idx<hir::Function>,
+    function_id_by_hir_function: &'a HashMap<hir::FunctionId, FunctionId>,
+    function_id: hir::FunctionId,
 
     return_local: Idx<Local>,
     params: Arena<Param>,
-    param_by_hir: HashMap<hir::ParamIdx, Idx<Param>>,
+    param_by_hir: HashMap<hir::ParamId, Idx<Param>>,
     locals: Arena<Local>,
     local_idx: u64,
     blocks: Arena<BasicBlock>,
@@ -35,11 +35,11 @@ impl<'a> FunctionLower<'a> {
     fn new(
         hir_result: &'a hir::LowerResult,
         hir_ty_result: &'a hir_ty::TyLowerResult,
-        function_id_by_hir_function: &'a HashMap<Idx<hir::Function>, FunctionId>,
-        function_idx: Idx<hir::Function>,
+        function_id_by_hir_function: &'a HashMap<hir::FunctionId, FunctionId>,
+        function_id: hir::FunctionId,
     ) -> Self {
         let mut locals = Arena::new();
-        let signature = &hir_ty_result.signature_by_function(&function_idx);
+        let signature = &hir_ty_result.signature_by_function(&function_id);
         let return_local = locals.alloc(Local {
             ty: signature.return_type,
             idx: 0,
@@ -49,7 +49,7 @@ impl<'a> FunctionLower<'a> {
             hir_result,
             hir_ty_result,
             function_id_by_hir_function,
-            function_idx,
+            function_id,
             local_idx: 1,
             return_local,
             params: Arena::new(),
@@ -79,7 +79,7 @@ impl<'a> FunctionLower<'a> {
         current_bb.termination = Some(termination);
     }
 
-    fn alloc_local(&mut self, expr: Idx<hir::Expr>) -> Idx<Local> {
+    fn alloc_local(&mut self, expr: hir::ExprIdx) -> Idx<Local> {
         let ty = self.hir_ty_result.type_by_expr(expr);
         let local_idx = self.alloc_local_by_ty(ty);
         self.local_by_hir.insert(expr, local_idx);
@@ -97,11 +97,11 @@ impl<'a> FunctionLower<'a> {
         self.locals.alloc(local)
     }
 
-    fn get_local_by_expr(&self, expr: Idx<hir::Expr>) -> Idx<Local> {
+    fn get_local_by_expr(&self, expr: hir::ExprIdx) -> Idx<Local> {
         *self.local_by_hir.get(&expr).unwrap()
     }
 
-    fn get_param_by_expr(&self, param: Idx<hir::Param>) -> Idx<Param> {
+    fn get_param_by_expr(&self, param: hir::ParamId) -> Idx<Param> {
         self.param_by_hir[&param]
     }
 
@@ -139,7 +139,7 @@ impl<'a> FunctionLower<'a> {
 
     fn alloc_dest_bb_and_result_local(
         &mut self,
-        expr: Idx<hir::Expr>,
+        expr: hir::ExprIdx,
     ) -> (Idx<BasicBlock>, Idx<Local>) {
         let dest_bb_idx = {
             let dest_bb = BasicBlock::new_standard_bb(self.block_idx);
@@ -495,14 +495,14 @@ impl<'a> FunctionLower<'a> {
     }
 
     fn lower(mut self) -> Body {
-        let function = &self.hir_result.db.functions[self.function_idx];
+        let function = self.function_id.lookup(&self.hir_result.db);
 
         for param in &function.params {
             let param_ty = self.hir_ty_result.type_by_param(*param);
             let param_idx = self.params.alloc(Param {
                 ty: param_ty,
                 idx: self.local_idx,
-                pos: self.hir_result.db.params[*param].pos.try_into().unwrap(),
+                pos: param.lookup(&self.hir_result.db).pos.try_into().unwrap(),
             });
             self.param_by_hir.insert(*param, param_idx);
 
@@ -511,7 +511,7 @@ impl<'a> FunctionLower<'a> {
 
         let body_block = self
             .hir_result
-            .function_body_by_function(&self.function_idx)
+            .function_body_by_function(&self.function_id)
             .unwrap();
         let body_block = match body_block {
             hir::Expr::Block(block) => block,
@@ -594,9 +594,9 @@ impl<'a> MirLower<'a> {
 
         let function_id_by_hir_function = {
             let mut function_id_resolver = FunctionIdGenerator::new();
-            let mut function_id_by_hir_function = HashMap::<Idx<hir::Function>, FunctionId>::new();
-            for (function_idx, _function) in self.hir_result.db.functions.iter() {
-                function_id_by_hir_function.insert(function_idx, function_id_resolver.gen());
+            let mut function_id_by_hir_function = HashMap::<hir::FunctionId, FunctionId>::new();
+            for (function_id, _function) in self.hir_result.db.functions() {
+                function_id_by_hir_function.insert(function_id, function_id_resolver.gen());
             }
 
             function_id_by_hir_function
@@ -604,23 +604,23 @@ impl<'a> MirLower<'a> {
 
         let mut body_by_function = HashMap::<FunctionId, Idx<Body>>::new();
         let mut function_by_body = HashMap::<Idx<Body>, FunctionId>::new();
-        for (function_idx, function) in self.hir_result.db.functions.iter() {
+        for (function_id, function) in self.hir_result.db.functions() {
             let lower = FunctionLower::new(
                 self.hir_result,
                 self.hir_ty_result,
                 &function_id_by_hir_function,
-                function_idx,
+                function_id,
             );
             let body = lower.lower();
             let body_idx = bodies.alloc(body);
 
             body_by_function.insert(
-                *function_id_by_hir_function.get(&function_idx).unwrap(),
+                *function_id_by_hir_function.get(&function_id).unwrap(),
                 body_idx,
             );
             function_by_body.insert(
                 body_idx,
-                *function_id_by_hir_function.get(&function_idx).unwrap(),
+                *function_id_by_hir_function.get(&function_id).unwrap(),
             );
 
             let name = self

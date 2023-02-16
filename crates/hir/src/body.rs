@@ -46,14 +46,6 @@ impl SharedBodyLowerContext {
         }
     }
 
-    pub fn alloc_expr(&mut self, expr: Expr) -> ExprId {
-        ExprId(self.exprs.alloc(expr))
-    }
-
-    pub fn alloc_function_body(&mut self, expr: Expr) -> FunctionBodyId {
-        FunctionBodyId(self.function_bodies.alloc(expr))
-    }
-
     pub fn function_body_idx_by_block(
         &self,
         block_ast_id: &AstId<ast::Block>,
@@ -64,6 +56,14 @@ impl SharedBodyLowerContext {
     pub fn function_body_by_block(&self, block_ast_id: &AstId<ast::Block>) -> Option<&Expr> {
         self.function_body_idx_by_block(block_ast_id)
             .map(|body_id| &self.function_bodies[body_id.0])
+    }
+
+    pub(crate) fn alloc_expr(&mut self, expr: Expr) -> ExprId {
+        ExprId(self.exprs.alloc(expr))
+    }
+
+    pub(crate) fn alloc_function_body(&mut self, expr: Expr) -> FunctionBodyId {
+        FunctionBodyId(self.function_bodies.alloc(expr))
     }
 }
 

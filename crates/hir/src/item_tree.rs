@@ -80,7 +80,7 @@ impl ItemTree {
     }
 }
 
-pub struct ItemTreeBuilderContext<'a> {
+pub(crate) struct ItemTreeBuilderContext<'a> {
     scope_by_block: HashMap<BlockAstId, ItemScopeId>,
     block_by_scope: HashMap<ItemScopeId, BlockAstId>,
     function_by_block: HashMap<BlockAstId, FunctionId>,
@@ -92,7 +92,7 @@ pub struct ItemTreeBuilderContext<'a> {
     interner: &'a mut Interner,
 }
 impl<'a> ItemTreeBuilderContext<'a> {
-    pub fn new(interner: &'a mut Interner) -> Self {
+    pub(crate) fn new(interner: &'a mut Interner) -> Self {
         Self {
             scope_by_block: HashMap::new(),
             block_by_scope: HashMap::new(),
@@ -104,7 +104,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
         }
     }
 
-    pub fn build(mut self, ast: &ast::SourceFile, db: &mut Database) -> ItemTree {
+    pub(crate) fn build(mut self, ast: &ast::SourceFile, db: &mut Database) -> ItemTree {
         let top_level_scope = ItemScope::new(None);
         let top_level_scope_id = db.alloc_item_scope(top_level_scope);
 
@@ -123,7 +123,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
         }
     }
 
-    pub fn build_item(
+    fn build_item(
         &mut self,
         item: ast::Item,
         current_scope: ItemScopeId,
@@ -194,7 +194,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
         }
     }
 
-    pub fn build_stmt(
+    fn build_stmt(
         &mut self,
         stmt: ast::Stmt,
         current_scope: ItemScopeId,
@@ -232,7 +232,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
         }
     }
 
-    pub fn build_expr(
+    fn build_expr(
         &mut self,
         expr: ast::Expr,
         _current_scope: ItemScopeId,
@@ -264,7 +264,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
         Some(())
     }
 
-    pub fn build_block(
+    fn build_block(
         &mut self,
         block: ast::Block,
         parent: Parent,

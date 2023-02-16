@@ -22,14 +22,6 @@ impl ItemScope {
         }
     }
 
-    pub fn insert_function(&mut self, name: Name, function_id: FunctionId) {
-        self.function_by_name.insert(name, function_id);
-    }
-
-    pub fn insert_module(&mut self, name: Name, module_id: ModuleId) {
-        self.module_by_name.insert(name, module_id);
-    }
-
     pub fn lookup(
         &self,
         name_str: &str,
@@ -60,6 +52,14 @@ impl ItemScope {
         } else {
             None
         }
+    }
+
+    pub(crate) fn insert_function(&mut self, name: Name, function_id: FunctionId) {
+        self.function_by_name.insert(name, function_id);
+    }
+
+    pub(crate) fn insert_module(&mut self, name: Name, module_id: ModuleId) {
+        self.module_by_name.insert(name, module_id);
     }
 }
 

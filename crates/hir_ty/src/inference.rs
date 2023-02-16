@@ -91,7 +91,7 @@ impl<'a> TypeInferencer<'a> {
         }
 
         for (function_id, _) in self.hir_result.db.functions() {
-            let body_ast_id = &self
+            let body_ast_id = self
                 .hir_result
                 .item_tree
                 .block_idx_by_function(&function_id)

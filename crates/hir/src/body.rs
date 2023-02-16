@@ -48,12 +48,12 @@ impl SharedBodyLowerContext {
 
     pub fn function_body_idx_by_block(
         &self,
-        block_ast_id: &AstId<ast::Block>,
+        block_ast_id: AstId<ast::Block>,
     ) -> Option<FunctionBodyId> {
-        self.function_body_by_block.get(block_ast_id).copied()
+        self.function_body_by_block.get(&block_ast_id).copied()
     }
 
-    pub fn function_body_by_block(&self, block_ast_id: &AstId<ast::Block>) -> Option<&Expr> {
+    pub fn function_body_by_block(&self, block_ast_id: AstId<ast::Block>) -> Option<&Expr> {
         self.function_body_idx_by_block(block_ast_id)
             .map(|body_id| &self.function_bodies[body_id.0])
     }
@@ -489,7 +489,7 @@ mod tests {
             .unwrap();
         let body_expr = lower_result
             .shared_ctx
-            .function_body_by_block(&block_ast_id)
+            .function_body_by_block(block_ast_id)
             .unwrap();
 
         let name = if let Some(name) = function.name {

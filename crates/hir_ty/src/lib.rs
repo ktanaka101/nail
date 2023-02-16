@@ -20,8 +20,8 @@ pub struct TyLowerResult {
     pub type_check_result: TypeCheckResult,
 }
 impl TyLowerResult {
-    pub fn signature_by_function(&self, function_id: &hir::FunctionId) -> &Signature {
-        let signature_idx = self.inference_result.signature_by_function[function_id];
+    pub fn signature_by_function(&self, function_id: hir::FunctionId) -> &Signature {
+        let signature_idx = self.inference_result.signature_by_function[&function_id];
         &self.inference_result.signatures[signature_idx]
     }
 

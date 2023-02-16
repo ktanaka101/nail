@@ -39,7 +39,7 @@ impl<'a> FunctionLower<'a> {
         function_id: hir::FunctionId,
     ) -> Self {
         let mut locals = Arena::new();
-        let signature = &hir_ty_result.signature_by_function(&function_id);
+        let signature = &hir_ty_result.signature_by_function(function_id);
         let return_local = locals.alloc(Local {
             ty: signature.return_type,
             idx: 0,
@@ -442,7 +442,7 @@ impl<'a> FunctionLower<'a> {
                     hir::Symbol::Function { name: _, function } => {
                         let function_id = self.function_id_by_hir_function[function];
 
-                        let signature = self.hir_ty_result.signature_by_function(function);
+                        let signature = self.hir_ty_result.signature_by_function(*function);
                         let called_local = self.alloc_local_by_ty(signature.return_type);
                         let dest_place = Place::Local(called_local);
 
@@ -511,7 +511,7 @@ impl<'a> FunctionLower<'a> {
 
         let body_block = self
             .hir_result
-            .function_body_by_function(&self.function_id)
+            .function_body_by_function(self.function_id)
             .unwrap();
         let body_block = match body_block {
             hir::Expr::Block(block) => block,

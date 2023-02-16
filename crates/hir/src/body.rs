@@ -46,7 +46,7 @@ impl SharedBodyLowerContext {
         }
     }
 
-    pub fn function_body_idx_by_block(
+    pub fn function_body_id_by_block(
         &self,
         block_ast_id: AstId<ast::Block>,
     ) -> Option<FunctionBodyId> {
@@ -54,7 +54,7 @@ impl SharedBodyLowerContext {
     }
 
     pub fn function_body_by_block(&self, block_ast_id: AstId<ast::Block>) -> Option<&Expr> {
-        self.function_body_idx_by_block(block_ast_id)
+        self.function_body_id_by_block(block_ast_id)
             .map(|body_id| &self.function_bodies[body_id.0])
     }
 

@@ -488,7 +488,12 @@ impl<'a> FunctionLower<'a> {
                     }
                 };
             }
-            hir::Stmt::Item { .. } => unreachable!(),
+            hir::Stmt::Item { item } => match item {
+                hir::ItemDefId::Function(_) => unreachable!(),
+                hir::ItemDefId::Module(_) => {
+                    return LoweredStmt::Unit;
+                }
+            },
         }
 
         LoweredStmt::Unit
@@ -2314,6 +2319,83 @@ mod tests {
                         _3 = _4
                         _0 = _3
                         goto -> exit
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_modules() {
+        check(
+            r#"
+                fn main() {
+                    return;
+                }
+                mod module_aaa {
+                    mod module_bbb {
+                        fn function_aaa() -> int {
+                            mod module_ccc {
+                                fn function_bbb() -> int {
+                                    10
+                                }
+                            }
+
+                            20
+                        }
+                    }
+
+                    fn function_ccc() -> int {
+                        30
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn main() -> () {
+                    let _0: ()
+
+                    entry: {
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+                fn function_aaa() -> int {
+                    let _0: int
+
+                    entry: {
+                        _0 = const 20
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+                fn function_bbb() -> int {
+                    let _0: int
+
+                    entry: {
+                        _0 = const 10
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+                fn function_ccc() -> int {
+                    let _0: int
+
+                    entry: {
+                        _0 = const 30
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
                     }
                 }
             "#]],

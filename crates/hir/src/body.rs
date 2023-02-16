@@ -106,14 +106,14 @@ impl BodyLower {
         let body = def.body()?;
         let body_ast_id = db.lookup_ast_id(&body).unwrap();
         let function = item_tree.function_by_block(db, &body_ast_id).unwrap();
-        let function_idx = item_tree.function_idx_by_block(&body_ast_id).unwrap();
+        let function_id = item_tree.function_id_by_block(&body_ast_id).unwrap();
 
         let mut body_lower = BodyLower::new(function.param_by_name.clone());
         let expr = body_lower.lower_block(body, ctx, db, item_tree, interner);
         let body_id = ctx.alloc_function_body(expr);
         ctx.function_body_by_block.insert(body_ast_id, body_id);
 
-        Some(ItemDefId::Function(function_idx))
+        Some(ItemDefId::Function(function_id))
     }
 
     fn lower_module(
@@ -124,14 +124,14 @@ impl BodyLower {
         item_tree: &ItemTree,
         interner: &mut Interner,
     ) -> Option<ItemDefId> {
-        let module_id = db.lookup_ast_id(&module).unwrap();
-        let module_idx = item_tree.module_idx_by_ast_module(module_id).unwrap();
+        let module_ast_id = db.lookup_ast_id(&module).unwrap();
+        let module_id = item_tree.module_id_by_ast_module(module_ast_id).unwrap();
 
         for item in module.items().unwrap().items() {
             self.lower_item(item, ctx, db, item_tree, interner);
         }
 
-        Some(ItemDefId::Module(module_idx))
+        Some(ItemDefId::Module(module_id))
     }
 
     fn lower_stmt(
@@ -305,10 +305,10 @@ impl BodyLower {
         let name = Name::from_key(interner.intern(ast.name()));
         if let Some(expr) = self.scopes.lookup_in_only_current_scope(name) {
             Symbol::Local { name, expr }
-        } else if let Some(param_idx) = self.lookup_param(name) {
+        } else if let Some(param_id) = self.lookup_param(name) {
             Symbol::Param {
                 name,
-                param: param_idx,
+                param: param_id,
             }
         } else {
             let item_scope = match self.scopes.current_scope() {
@@ -485,7 +485,7 @@ mod tests {
         let function = function_id.lookup(&lower_result.db);
         let block_ast_id = lower_result
             .item_tree
-            .block_idx_by_function(&function_id)
+            .block_id_by_function(&function_id)
             .unwrap();
         let body_expr = lower_result
             .shared_ctx

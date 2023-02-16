@@ -32,7 +32,7 @@ pub struct LowerResult {
 }
 impl LowerResult {
     pub fn function_body_by_function(&self, function: FunctionId) -> Option<&Expr> {
-        let body_block = self.item_tree.block_idx_by_function(&function)?;
+        let body_block = self.item_tree.block_id_by_function(&function)?;
         self.shared_ctx.function_body_by_block(body_block)
     }
 }

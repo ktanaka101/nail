@@ -32,9 +32,9 @@ impl ItemScope {
         let function_name_key = interner.get_key(name_str);
         if let Some(function_name_key) = function_name_key {
             let name = &Name::from_key(function_name_key);
-            let function_idx = self.function_by_name.get(name).copied();
-            if function_idx.is_some() {
-                return function_idx;
+            let function_id = self.function_by_name.get(name).copied();
+            if function_id.is_some() {
+                return function_id;
             }
         }
 

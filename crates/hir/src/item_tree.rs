@@ -31,12 +31,12 @@ impl ItemTree {
         self.top_level_scope.lookup(db)
     }
 
-    pub fn scope_idx_by_block(&self, ast: &BlockAstId) -> Option<ItemScopeId> {
+    pub fn scope_id_by_block(&self, ast: &BlockAstId) -> Option<ItemScopeId> {
         self.scope_by_block.get(ast).copied()
     }
 
     pub fn scope_by_block<'a>(&self, db: &'a Database, ast: &BlockAstId) -> Option<&'a ItemScope> {
-        self.scope_idx_by_block(ast)
+        self.scope_id_by_block(ast)
             .map(|scope_id| scope_id.lookup(db))
     }
 
@@ -45,11 +45,11 @@ impl ItemTree {
         db: &'a Database,
         ast_id: &ModuleAstId,
     ) -> Option<&'a ItemScope> {
-        let scope_idx = self.scope_by_module.get(ast_id);
-        scope_idx.map(|scope_id| scope_id.lookup(db))
+        let scope_id = self.scope_by_module.get(ast_id);
+        scope_id.map(|scope_id| scope_id.lookup(db))
     }
 
-    pub fn function_idx_by_block(&self, block_ast_id: &BlockAstId) -> Option<FunctionId> {
+    pub fn function_id_by_block(&self, block_ast_id: &BlockAstId) -> Option<FunctionId> {
         self.function_by_block.get(block_ast_id).copied()
     }
 
@@ -58,15 +58,15 @@ impl ItemTree {
         db: &'a Database,
         block_ast_id: &BlockAstId,
     ) -> Option<&'a Function> {
-        self.function_idx_by_block(block_ast_id)
+        self.function_id_by_block(block_ast_id)
             .map(|fn_id| fn_id.lookup(db))
     }
 
-    pub fn block_idx_by_function(&self, function_id: &FunctionId) -> Option<BlockAstId> {
+    pub fn block_id_by_function(&self, function_id: &FunctionId) -> Option<BlockAstId> {
         Some(self.block_by_function.get(function_id)?.clone())
     }
 
-    pub fn module_idx_by_ast_module(&self, module_ast_id: ModuleAstId) -> Option<ModuleId> {
+    pub fn module_id_by_ast_module(&self, module_ast_id: ModuleAstId) -> Option<ModuleId> {
         self.module_by_ast_module.get(&module_ast_id).copied()
     }
 
@@ -75,7 +75,7 @@ impl ItemTree {
         db: &'a Database,
         module_ast_id: ModuleAstId,
     ) -> Option<&'a Module> {
-        self.module_idx_by_ast_module(module_ast_id)
+        self.module_id_by_ast_module(module_ast_id)
             .map(|module_id| module_id.lookup(db))
     }
 }

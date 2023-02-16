@@ -78,12 +78,12 @@ mod tests {
 
         let mut indexes = inference_result.type_by_expr.keys().collect::<Vec<_>>();
         indexes.sort();
-        for idx in indexes {
-            let expr = debug_hir_expr(idx, lower_result);
+        for expr_id in indexes {
+            let expr = debug_hir_expr(expr_id, lower_result);
             msg.push_str(&format!(
                 "`{}`: {}\n",
                 expr,
-                debug_type(&inference_result.type_by_expr[idx])
+                debug_type(&inference_result.type_by_expr[expr_id])
             ));
         }
 
@@ -224,7 +224,7 @@ mod tests {
                 let name = lower_result.interner.lookup(name.key()).to_string();
                 let args = args
                     .iter()
-                    .map(|idx| debug_hir_expr(idx, lower_result))
+                    .map(|id| debug_hir_expr(id, lower_result))
                     .collect::<Vec<String>>()
                     .join(", ");
 

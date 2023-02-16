@@ -94,7 +94,7 @@ impl<'a> TypeInferencer<'a> {
             let body_ast_id = self
                 .hir_result
                 .item_tree
-                .block_idx_by_function(&function_id)
+                .block_id_by_function(&function_id)
                 .unwrap();
             let body = self
                 .hir_result
@@ -131,11 +131,11 @@ impl<'a> TypeInferencer<'a> {
         for stmt in stmts {
             match stmt {
                 hir::Stmt::ExprStmt { expr, .. } => {
-                    let ty = self.infer_expr_idx(*expr);
+                    let ty = self.infer_expr_id(*expr);
                     self.ctx.type_by_expr.insert(*expr, ty);
                 }
                 hir::Stmt::VariableDef { value, .. } => {
-                    let ty = self.infer_expr_idx(*value);
+                    let ty = self.infer_expr_id(*value);
                     self.ctx.type_by_expr.insert(*value, ty);
                 }
                 hir::Stmt::Item { .. } => (),
@@ -153,8 +153,8 @@ impl<'a> TypeInferencer<'a> {
             },
             hir::Expr::Binary { op, lhs, rhs } => {
                 // TODO: supports string equal
-                let lhs_ty = self.infer_expr_idx(*lhs);
-                let rhs_ty = self.infer_expr_idx(*rhs);
+                let lhs_ty = self.infer_expr_id(*lhs);
+                let rhs_ty = self.infer_expr_id(*rhs);
 
                 match op {
                     ast::BinaryOp::Add(_)
@@ -192,7 +192,7 @@ impl<'a> TypeInferencer<'a> {
                 }
             }
             hir::Expr::Unary { op, expr } => {
-                let expr_ty = self.infer_expr_idx(*expr);
+                let expr_ty = self.infer_expr_id(*expr);
                 match op {
                     ast::UnaryOp::Neg(_) => {
                         if expr_ty == ResolvedType::Integer {
@@ -209,7 +209,7 @@ impl<'a> TypeInferencer<'a> {
                 ResolvedType::Unknown
             }
             hir::Expr::VariableRef { var } => match var {
-                hir::Symbol::Local { expr, .. } => self.infer_expr_idx(*expr),
+                hir::Symbol::Local { expr, .. } => self.infer_expr_id(*expr),
                 hir::Symbol::Param { param, .. } => {
                     let param = &param.lookup(&self.hir_result.db);
                     self.infer_ty(&param.ty)
@@ -225,7 +225,7 @@ impl<'a> TypeInferencer<'a> {
                     for (i, arg) in args.iter().enumerate() {
                         let param = signature.params[i];
 
-                        let arg_ty = self.infer_expr_idx(*arg);
+                        let arg_ty = self.infer_expr_id(*arg);
                         let param_ty = self.infer_ty(&param.lookup(&self.hir_result.db).ty);
 
                         if arg_ty == param_ty {
@@ -251,10 +251,10 @@ impl<'a> TypeInferencer<'a> {
                 then_branch,
                 else_branch,
             } => {
-                self.infer_expr_idx(*condition);
-                let then_branch_ty = self.infer_expr_idx(*then_branch);
+                self.infer_expr_id(*condition);
+                let then_branch_ty = self.infer_expr_id(*then_branch);
                 let else_branch_ty = if let Some(else_branch) = else_branch {
-                    self.infer_expr_idx(*else_branch)
+                    self.infer_expr_id(*else_branch)
                 } else {
                     ResolvedType::Unit
                 };
@@ -275,7 +275,7 @@ impl<'a> TypeInferencer<'a> {
             }
             hir::Expr::Return { value } => {
                 if let Some(value) = value {
-                    self.infer_expr_idx(*value);
+                    self.infer_expr_id(*value);
                 }
                 ResolvedType::Never
             }
@@ -286,13 +286,13 @@ impl<'a> TypeInferencer<'a> {
     fn infer_block(&mut self, block: &hir::Block) -> ResolvedType {
         self.infer_stmts(&block.stmts);
         if let Some(tail) = block.tail {
-            self.infer_expr_idx(tail)
+            self.infer_expr_id(tail)
         } else {
             ResolvedType::Unit
         }
     }
 
-    fn infer_expr_idx(&mut self, expr_id: hir::ExprId) -> ResolvedType {
+    fn infer_expr_id(&mut self, expr_id: hir::ExprId) -> ResolvedType {
         if let Some(ty) = self.lookup_type(expr_id) {
             return ty;
         }

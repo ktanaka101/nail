@@ -29,8 +29,8 @@ impl Scopes {
         assert!(!self.inner.is_empty());
 
         for scope in self.inner.iter().rev() {
-            if let Some(idx) = scope.table.get(&name) {
-                return Some(idx.to_owned());
+            if let Some(id) = scope.table.get(&name) {
+                return Some(id.to_owned());
             }
         }
 

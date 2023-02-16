@@ -17,6 +17,16 @@ impl ExprId {
         &ctx.exprs[self.0]
     }
 }
+impl PartialOrd for ExprId {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.0.into_raw().partial_cmp(&other.0.into_raw())
+    }
+}
+impl Ord for ExprId {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.into_raw().cmp(&other.0.into_raw())
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct FunctionBodyId(Idx<Expr>);

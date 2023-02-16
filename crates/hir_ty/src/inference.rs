@@ -9,7 +9,7 @@ pub fn infer(hir_result: &hir::LowerResult) -> InferenceResult {
 
 #[derive(Debug)]
 pub struct InferenceResult {
-    pub type_by_expr: collections::HashMap<hir::ExprIdx, ResolvedType>,
+    pub type_by_expr: collections::HashMap<hir::ExprId, ResolvedType>,
     pub type_by_param: collections::HashMap<hir::ParamId, ResolvedType>,
     pub signatures: Arena<Signature>,
     pub signature_by_function: collections::HashMap<hir::FunctionId, Idx<Signature>>,
@@ -18,7 +18,7 @@ pub struct InferenceResult {
 
 #[derive(Debug)]
 struct InferenceContext {
-    type_by_expr: collections::HashMap<hir::ExprIdx, ResolvedType>,
+    type_by_expr: collections::HashMap<hir::ExprId, ResolvedType>,
     type_by_param: collections::HashMap<hir::ParamId, ResolvedType>,
     signatures: Arena<Signature>,
     signature_by_function: collections::HashMap<hir::FunctionId, Idx<Signature>>,
@@ -292,18 +292,18 @@ impl<'a> TypeInferencer<'a> {
         }
     }
 
-    fn infer_expr_idx(&mut self, expr: hir::ExprIdx) -> ResolvedType {
-        if let Some(ty) = self.lookup_type(expr) {
+    fn infer_expr_idx(&mut self, expr_id: hir::ExprId) -> ResolvedType {
+        if let Some(ty) = self.lookup_type(expr_id) {
             return ty;
         }
 
-        let ty = self.infer_expr(&self.hir_result.shared_ctx.exprs[expr]);
-        self.ctx.type_by_expr.insert(expr, ty);
+        let ty = self.infer_expr(expr_id.lookup(&self.hir_result.shared_ctx));
+        self.ctx.type_by_expr.insert(expr_id, ty);
 
         ty
     }
 
-    fn lookup_type(&self, expr: hir::ExprIdx) -> Option<ResolvedType> {
-        self.ctx.type_by_expr.get(&expr).copied()
+    fn lookup_type(&self, expr_id: hir::ExprId) -> Option<ResolvedType> {
+        self.ctx.type_by_expr.get(&expr_id).copied()
     }
 }

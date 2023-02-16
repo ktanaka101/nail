@@ -29,7 +29,7 @@ impl TyLowerResult {
         self.inference_result.type_by_param[&param_id]
     }
 
-    pub fn type_by_expr(&self, expr: hir::ExprIdx) -> ResolvedType {
+    pub fn type_by_expr(&self, expr: hir::ExprId) -> ResolvedType {
         self.inference_result.type_by_expr[&expr]
     }
 }
@@ -77,7 +77,7 @@ mod tests {
         msg.push_str("---\n");
 
         let mut indexes = inference_result.type_by_expr.keys().collect::<Vec<_>>();
-        indexes.sort_by_cached_key(|idx| idx.into_raw());
+        indexes.sort();
         for idx in indexes {
             let expr = debug_hir_expr(idx, lower_result);
             msg.push_str(&format!(
@@ -170,8 +170,8 @@ mod tests {
         msg
     }
 
-    fn debug_hir_expr(expr_idx: &hir::ExprIdx, lower_result: &hir::LowerResult) -> String {
-        let expr = &lower_result.shared_ctx.exprs[*expr_idx];
+    fn debug_hir_expr(expr_id: &hir::ExprId, lower_result: &hir::LowerResult) -> String {
+        let expr = expr_id.lookup(&lower_result.shared_ctx);
         match expr {
             hir::Expr::Missing => "<missing>".to_string(),
             hir::Expr::Unary { op, expr } => {

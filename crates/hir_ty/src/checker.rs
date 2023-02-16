@@ -10,33 +10,33 @@ pub fn check_type(lower_result: &LowerResult, infer_result: &InferenceResult) ->
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeCheckError {
     UnresolvedType {
-        expr: hir::ExprIdx,
+        expr: hir::ExprId,
     },
     MismatchedTypes {
-        expected_expr: hir::ExprIdx,
+        expected_expr: hir::ExprId,
         expected_ty: ResolvedType,
-        found_expr: hir::ExprIdx,
+        found_expr: hir::ExprId,
         found_ty: ResolvedType,
     },
     MismatchedTypeIfCondition {
         expected_ty: ResolvedType,
-        found_expr: hir::ExprIdx,
+        found_expr: hir::ExprId,
         found_ty: ResolvedType,
     },
     MismatchedTypeElseBranch {
         expected_ty: ResolvedType,
-        found_expr: hir::ExprIdx,
+        found_expr: hir::ExprId,
         found_ty: ResolvedType,
     },
     MismaatchedSignature {
         expected_ty: ResolvedType,
         signature: Signature,
-        found_expr: hir::ExprIdx,
+        found_expr: hir::ExprId,
         found_ty: ResolvedType,
     },
     MismatchedReturnType {
         expected_ty: ResolvedType,
-        found_expr: Option<hir::ExprIdx>,
+        found_expr: Option<hir::ExprId>,
         found_ty: ResolvedType,
     },
 }
@@ -123,8 +123,8 @@ impl<'a> TypeChecker<'a> {
         }
     }
 
-    fn check_expr(&mut self, expr: hir::ExprIdx) {
-        let expr = &self.lower_result.shared_ctx.exprs[expr];
+    fn check_expr(&mut self, expr: hir::ExprId) {
+        let expr = expr.lookup(&self.lower_result.shared_ctx);
         match expr {
             hir::Expr::Binary { lhs, rhs, .. } => {
                 let lhs_ty = self.type_by_expr(*lhs);
@@ -242,7 +242,7 @@ impl<'a> TypeChecker<'a> {
         }
     }
 
-    fn type_by_expr(&mut self, expr: hir::ExprIdx) -> ResolvedType {
+    fn type_by_expr(&mut self, expr: hir::ExprId) -> ResolvedType {
         let ty = self.infer_result.type_by_expr[&expr];
         if ty == ResolvedType::Unknown {
             self.errors.push(TypeCheckError::UnresolvedType { expr });

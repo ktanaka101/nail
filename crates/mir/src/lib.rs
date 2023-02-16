@@ -27,7 +27,7 @@ struct FunctionLower<'a> {
     switch_idx: u64,
     current_bb: Option<Idx<BasicBlock>>,
     block_idx: u64,
-    local_by_hir: HashMap<hir::ExprIdx, Idx<Local>>,
+    local_by_hir: HashMap<hir::ExprId, Idx<Local>>,
     exit_bb_idx: Option<Idx<BasicBlock>>,
 }
 
@@ -79,7 +79,7 @@ impl<'a> FunctionLower<'a> {
         current_bb.termination = Some(termination);
     }
 
-    fn alloc_local(&mut self, expr: hir::ExprIdx) -> Idx<Local> {
+    fn alloc_local(&mut self, expr: hir::ExprId) -> Idx<Local> {
         let ty = self.hir_ty_result.type_by_expr(expr);
         let local_idx = self.alloc_local_by_ty(ty);
         self.local_by_hir.insert(expr, local_idx);
@@ -97,7 +97,7 @@ impl<'a> FunctionLower<'a> {
         self.locals.alloc(local)
     }
 
-    fn get_local_by_expr(&self, expr: hir::ExprIdx) -> Idx<Local> {
+    fn get_local_by_expr(&self, expr: hir::ExprId) -> Idx<Local> {
         *self.local_by_hir.get(&expr).unwrap()
     }
 
@@ -139,7 +139,7 @@ impl<'a> FunctionLower<'a> {
 
     fn alloc_dest_bb_and_result_local(
         &mut self,
-        expr: hir::ExprIdx,
+        expr: hir::ExprId,
     ) -> (Idx<BasicBlock>, Idx<Local>) {
         let dest_bb_idx = {
             let dest_bb = BasicBlock::new_standard_bb(self.block_idx);
@@ -158,8 +158,8 @@ impl<'a> FunctionLower<'a> {
         self.blocks.alloc(dest_bb)
     }
 
-    fn lower_expr(&mut self, expr_idx: hir::ExprIdx) -> LoweredExpr {
-        let expr = &self.hir_result.shared_ctx.exprs[expr_idx];
+    fn lower_expr(&mut self, expr_id: hir::ExprId) -> LoweredExpr {
+        let expr = expr_id.lookup(&self.hir_result.shared_ctx);
         match expr {
             hir::Expr::Literal(literal) => match literal {
                 hir::Literal::Integer(value) => {
@@ -233,7 +233,7 @@ impl<'a> FunctionLower<'a> {
                 {
                     self.current_bb = Some(switch_bb.then_bb_idx);
 
-                    let then_block = match &self.hir_result.shared_ctx.exprs[*then_branch] {
+                    let then_block = match then_branch.lookup(&self.hir_result.shared_ctx) {
                         hir::Expr::Block(block) => block,
                         _ => unreachable!(),
                     };
@@ -283,7 +283,7 @@ impl<'a> FunctionLower<'a> {
 
                     match else_branch {
                         Some(else_block) => {
-                            let else_block = match &self.hir_result.shared_ctx.exprs[*else_block] {
+                            let else_block = match else_block.lookup(&self.hir_result.shared_ctx) {
                                 hir::Expr::Block(block) => block,
                                 _ => unreachable!(),
                             };
@@ -384,7 +384,7 @@ impl<'a> FunctionLower<'a> {
                     ast::BinaryOp::LessThan(_) => BinaryOp::LessThan,
                 };
 
-                let local = self.alloc_local(expr_idx);
+                let local = self.alloc_local(expr_id);
                 let value = Value::BinaryOp {
                     op,
                     left: lhs,
@@ -404,7 +404,7 @@ impl<'a> FunctionLower<'a> {
                     ast::UnaryOp::Neg(_) => UnaryOp::Neg,
                     ast::UnaryOp::Not(_) => UnaryOp::Not,
                 };
-                let local = self.alloc_local(expr_idx);
+                let local = self.alloc_local(expr_id);
                 let value = Value::UnaryOp { op, expr };
                 let place = Place::Local(local);
                 self.add_statement_to_current_bb(Statement::Assign { place, value });

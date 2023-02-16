@@ -7,14 +7,25 @@ use la_arena::{Arena, Idx};
 use self::scopes::ScopeType;
 use crate::{
     body::scopes::Scopes, db::Database, item_tree::ItemTree, string_interner::Interner, AstId,
-    Block, Expr, ExprIdx, ItemDefId, Literal, Name, ParamId, Stmt, Symbol,
+    Block, Expr, ItemDefId, Literal, Name, ParamId, Stmt, Symbol,
 };
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ExprId(Idx<Expr>);
+impl ExprId {
+    pub fn lookup(self, ctx: &SharedBodyLowerContext) -> &Expr {
+        &ctx.exprs[self.0]
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct FunctionBodyId(Idx<Expr>);
 
 #[derive(Debug, Default)]
 pub struct SharedBodyLowerContext {
     function_bodies: Arena<Expr>,
-    pub exprs: Arena<Expr>,
-    function_body_by_block: HashMap<AstId<ast::Block>, ExprIdx>,
+    exprs: Arena<Expr>,
+    function_body_by_block: HashMap<AstId<ast::Block>, FunctionBodyId>,
 }
 impl SharedBodyLowerContext {
     pub fn new() -> Self {
@@ -25,16 +36,24 @@ impl SharedBodyLowerContext {
         }
     }
 
+    pub fn alloc_expr(&mut self, expr: Expr) -> ExprId {
+        ExprId(self.exprs.alloc(expr))
+    }
+
+    pub fn alloc_function_body(&mut self, expr: Expr) -> FunctionBodyId {
+        FunctionBodyId(self.function_bodies.alloc(expr))
+    }
+
     pub fn function_body_idx_by_block(
         &self,
         block_ast_id: &AstId<ast::Block>,
-    ) -> Option<Idx<Expr>> {
+    ) -> Option<FunctionBodyId> {
         self.function_body_by_block.get(block_ast_id).copied()
     }
 
     pub fn function_body_by_block(&self, block_ast_id: &AstId<ast::Block>) -> Option<&Expr> {
         self.function_body_idx_by_block(block_ast_id)
-            .map(|idx| &self.function_bodies[idx])
+            .map(|body_id| &self.function_bodies[body_id.0])
     }
 }
 
@@ -81,8 +100,8 @@ impl BodyLower {
 
         let mut body_lower = BodyLower::new(function.param_by_name.clone());
         let expr = body_lower.lower_block(body, ctx, db, item_tree, interner);
-        let body_idx = ctx.function_bodies.alloc(expr);
-        ctx.function_body_by_block.insert(body_ast_id, body_idx);
+        let body_id = ctx.alloc_function_body(expr);
+        ctx.function_body_by_block.insert(body_ast_id, body_id);
 
         Some(ItemDefId::Function(function_idx))
     }
@@ -116,15 +135,15 @@ impl BodyLower {
         let result = match ast {
             ast::Stmt::VariableDef(def) => {
                 let expr = self.lower_expr(def.value(), ctx, db, item_tree, interner);
-                let idx = ctx.exprs.alloc(expr);
+                let id = ctx.alloc_expr(expr);
                 let name = Name::from_key(interner.intern(def.name()?.name()));
-                self.scopes.define(name, idx);
-                Stmt::VariableDef { name, value: idx }
+                self.scopes.define(name, id);
+                Stmt::VariableDef { name, value: id }
             }
             ast::Stmt::ExprStmt(ast) => {
                 let expr = self.lower_expr(ast.expr(), ctx, db, item_tree, interner);
                 Stmt::ExprStmt {
-                    expr: ctx.exprs.alloc(expr),
+                    expr: ctx.alloc_expr(expr),
                     has_semicolon: ast.semicolon().is_some(),
                 }
             }
@@ -228,8 +247,8 @@ impl BodyLower {
 
         Expr::Binary {
             op,
-            lhs: ctx.exprs.alloc(lhs),
-            rhs: ctx.exprs.alloc(rhs),
+            lhs: ctx.alloc_expr(lhs),
+            rhs: ctx.alloc_expr(rhs),
         }
     }
 
@@ -247,7 +266,7 @@ impl BodyLower {
 
         Expr::Unary {
             op,
-            expr: ctx.exprs.alloc(expr),
+            expr: ctx.alloc_expr(expr),
         }
     }
 
@@ -315,7 +334,7 @@ impl BodyLower {
             .args()
             .map(|arg| {
                 let expr = self.lower_expr(arg.expr(), ctx, db, item_tree, interner);
-                ctx.exprs.alloc(expr)
+                ctx.alloc_expr(expr)
             })
             .collect();
         let name = ast.callee().unwrap();
@@ -376,15 +395,15 @@ impl BodyLower {
         interner: &mut Interner,
     ) -> Expr {
         let condition = self.lower_expr(ast.condition(), ctx, db, item_tree, interner);
-        let condition = ctx.exprs.alloc(condition);
+        let condition = ctx.alloc_expr(condition);
 
         let then_branch =
             self.lower_block(ast.then_branch().unwrap(), ctx, db, item_tree, interner);
-        let then_branch = ctx.exprs.alloc(then_branch);
+        let then_branch = ctx.alloc_expr(then_branch);
 
         let else_branch = if let Some(else_branch) = ast.else_branch() {
             let else_branch = self.lower_block(else_branch, ctx, db, item_tree, interner);
-            Some(ctx.exprs.alloc(else_branch))
+            Some(ctx.alloc_expr(else_branch))
         } else {
             None
         };
@@ -406,7 +425,7 @@ impl BodyLower {
     ) -> Expr {
         let value = if let Some(value) = ast.value() {
             let value = self.lower_expr(Some(value), ctx, db, item_tree, interner);
-            Some(ctx.exprs.alloc(value))
+            Some(ctx.alloc_expr(value))
         } else {
             None
         };
@@ -542,7 +561,7 @@ mod tests {
                 let name = lower_result.interner.lookup(name.key());
                 let expr_str = debug_expr(
                     lower_result,
-                    &lower_result.shared_ctx.exprs[*value],
+                    value.lookup(&lower_result.shared_ctx),
                     nesting,
                 );
                 format!("{}let {} = {}\n", indent(nesting), name, expr_str)
@@ -553,7 +572,7 @@ mod tests {
             } => format!(
                 "{}{}{}\n",
                 indent(nesting),
-                debug_expr(lower_result, &lower_result.shared_ctx.exprs[*expr], nesting),
+                debug_expr(lower_result, expr.lookup(&lower_result.shared_ctx), nesting),
                 if *has_semicolon { ";" } else { "" }
             ),
             Stmt::Item { item } => debug_item(lower_result, item, nesting),
@@ -579,9 +598,9 @@ mod tests {
                     ast::BinaryOp::LessThan(_) => "<",
                 };
                 let lhs_str =
-                    debug_expr(lower_result, &lower_result.shared_ctx.exprs[*lhs], nesting);
+                    debug_expr(lower_result, lhs.lookup(&lower_result.shared_ctx), nesting);
                 let rhs_str =
-                    debug_expr(lower_result, &lower_result.shared_ctx.exprs[*rhs], nesting);
+                    debug_expr(lower_result, rhs.lookup(&lower_result.shared_ctx), nesting);
                 format!("{lhs_str} {op} {rhs_str}")
             }
             Expr::Unary { op, expr } => {
@@ -590,7 +609,7 @@ mod tests {
                     ast::UnaryOp::Not(_) => "!",
                 };
                 let expr_str =
-                    debug_expr(lower_result, &lower_result.shared_ctx.exprs[*expr], nesting);
+                    debug_expr(lower_result, expr.lookup(&lower_result.shared_ctx), nesting);
                 format!("{op}{expr_str}")
             }
             Expr::VariableRef { var } => debug_symbol(lower_result, var, nesting),
@@ -599,7 +618,7 @@ mod tests {
                 let args = args
                     .iter()
                     .map(|arg| {
-                        debug_expr(lower_result, &lower_result.shared_ctx.exprs[*arg], nesting)
+                        debug_expr(lower_result, arg.lookup(&lower_result.shared_ctx), nesting)
                     })
                     .collect::<Vec<_>>()
                     .join(", ");
@@ -617,7 +636,7 @@ mod tests {
                         indent(nesting + 1),
                         debug_expr(
                             lower_result,
-                            &lower_result.shared_ctx.exprs[tail],
+                            tail.lookup(&lower_result.shared_ctx),
                             nesting + 1
                         )
                     ));
@@ -634,13 +653,13 @@ mod tests {
                 let mut msg = "if ".to_string();
                 msg.push_str(&debug_expr(
                     lower_result,
-                    &lower_result.shared_ctx.exprs[*condition],
+                    condition.lookup(&lower_result.shared_ctx),
                     nesting,
                 ));
                 msg.push(' ');
                 msg.push_str(&debug_expr(
                     lower_result,
-                    &lower_result.shared_ctx.exprs[*then_branch],
+                    then_branch.lookup(&lower_result.shared_ctx),
                     nesting,
                 ));
 
@@ -648,7 +667,7 @@ mod tests {
                     msg.push_str(" else ");
                     msg.push_str(&debug_expr(
                         lower_result,
-                        &lower_result.shared_ctx.exprs[*else_branch],
+                        else_branch.lookup(&lower_result.shared_ctx),
                         nesting,
                     ));
                 }
@@ -662,7 +681,7 @@ mod tests {
                         " {}",
                         &debug_expr(
                             lower_result,
-                            &lower_result.shared_ctx.exprs[*value],
+                            value.lookup(&lower_result.shared_ctx),
                             nesting,
                         )
                     ));
@@ -676,7 +695,7 @@ mod tests {
 
     fn debug_symbol(lower_result: &LowerResult, symbol: &Symbol, nesting: usize) -> String {
         match symbol {
-            Symbol::Local { name, expr } => match lower_result.shared_ctx.exprs[*expr] {
+            Symbol::Local { name, expr } => match expr.lookup(&lower_result.shared_ctx) {
                 Expr::Binary { .. }
                 | Expr::Missing
                 | Expr::Literal(_)
@@ -685,7 +704,7 @@ mod tests {
                 | Expr::Call { .. }
                 | Expr::If { .. }
                 | Expr::Return { .. } => {
-                    debug_expr(lower_result, &lower_result.shared_ctx.exprs[*expr], nesting)
+                    debug_expr(lower_result, expr.lookup(&lower_result.shared_ctx), nesting)
                 }
                 Expr::Block { .. } => lower_result.interner.lookup(name.key()).to_string(),
             },

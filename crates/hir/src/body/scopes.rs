@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{AstId, ExprIdx, Name};
+use crate::{AstId, ExprId, Name};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum ScopeType {
@@ -19,13 +19,13 @@ impl Scopes {
         }
     }
 
-    pub(crate) fn lookup_in_only_current_scope(&self, name: Name) -> Option<ExprIdx> {
+    pub(crate) fn lookup_in_only_current_scope(&self, name: Name) -> Option<ExprId> {
         assert!(!self.inner.is_empty());
 
         self.inner.last().unwrap().table.get(&name).copied()
     }
 
-    pub(crate) fn lookup(&self, name: Name) -> Option<ExprIdx> {
+    pub(crate) fn lookup(&self, name: Name) -> Option<ExprId> {
         assert!(!self.inner.is_empty());
 
         for scope in self.inner.iter().rev() {
@@ -37,7 +37,7 @@ impl Scopes {
         None
     }
 
-    pub(crate) fn define(&mut self, name: Name, value: ExprIdx) {
+    pub(crate) fn define(&mut self, name: Name, value: ExprId) {
         assert!(!self.inner.is_empty());
 
         self.inner.last_mut().unwrap().table.insert(name, value);
@@ -60,7 +60,7 @@ impl Scopes {
 
 #[derive(Debug)]
 struct Scope {
-    table: HashMap<Name, ExprIdx>,
+    table: HashMap<Name, ExprId>,
     scope_type: ScopeType,
 }
 impl Scope {

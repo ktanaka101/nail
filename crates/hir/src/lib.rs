@@ -6,7 +6,7 @@ pub mod string_interner;
 use std::{collections::HashMap, marker::PhantomData};
 
 use ast::Ast;
-pub use body::{BodyLower, SharedBodyLowerContext};
+pub use body::{BodyLower, ExprId, FunctionBodyId, SharedBodyLowerContext};
 pub use db::{Database, FunctionId, ItemScopeId, ModuleId, ParamId};
 use item_tree::ItemTreeBuilderContext;
 pub use item_tree::{Function, ItemDefId, ItemTree, Param, Type};
@@ -93,8 +93,6 @@ fn get_entry_point(
     None
 }
 
-pub type ExprIdx = Idx<Expr>;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct AstId<T: Ast>(InFile<AstPtr<T>>);
 
@@ -130,8 +128,8 @@ impl Name {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Stmt {
-    VariableDef { name: Name, value: ExprIdx },
-    ExprStmt { expr: ExprIdx, has_semicolon: bool },
+    VariableDef { name: Name, value: ExprId },
+    ExprStmt { expr: ExprId, has_semicolon: bool },
     Item { item: ItemDefId },
 }
 
@@ -147,29 +145,29 @@ pub enum Literal {
 pub enum Expr {
     Binary {
         op: ast::BinaryOp,
-        lhs: ExprIdx,
-        rhs: ExprIdx,
+        lhs: ExprId,
+        rhs: ExprId,
     },
     Literal(Literal),
     Unary {
         op: ast::UnaryOp,
-        expr: ExprIdx,
+        expr: ExprId,
     },
     VariableRef {
         var: Symbol,
     },
     Call {
         callee: Symbol,
-        args: Vec<ExprIdx>,
+        args: Vec<ExprId>,
     },
     Block(Block),
     If {
-        condition: ExprIdx,
-        then_branch: ExprIdx,
-        else_branch: Option<ExprIdx>,
+        condition: ExprId,
+        then_branch: ExprId,
+        else_branch: Option<ExprId>,
     },
     Return {
-        value: Option<ExprIdx>,
+        value: Option<ExprId>,
     },
     Missing,
 }
@@ -177,7 +175,7 @@ pub enum Expr {
 #[derive(Debug, PartialEq, Eq)]
 pub enum Symbol {
     Param { name: Name, param: ParamId },
-    Local { name: Name, expr: ExprIdx },
+    Local { name: Name, expr: ExprId },
     Function { name: Name, function: FunctionId },
     Missing { name: Name },
 }
@@ -185,13 +183,13 @@ pub enum Symbol {
 #[derive(Debug, PartialEq, Eq)]
 pub struct Block {
     pub stmts: Vec<Stmt>,
-    pub tail: Option<ExprIdx>,
+    pub tail: Option<ExprId>,
     pub ast: AstId<ast::Block>,
 }
 impl Block {
     pub fn tail<'a>(&self, ctx: &'a SharedBodyLowerContext) -> Option<&'a Expr> {
         if let Some(tail) = self.tail {
-            Some(&ctx.exprs[tail])
+            Some(tail.lookup(ctx))
         } else {
             None
         }

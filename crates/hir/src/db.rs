@@ -31,7 +31,7 @@ impl ItemScopeId {
         &db.item_scopes[self.0]
     }
 
-    pub fn lookup_mut(self, db: &mut Database) -> &mut ItemScope {
+    pub(crate) fn lookup_mut(self, db: &mut Database) -> &mut ItemScope {
         &mut db.item_scopes[self.0]
     }
 }
@@ -103,7 +103,7 @@ impl Database {
         ItemScopeId(self.item_scopes.alloc(item_scope))
     }
 
-    pub fn alloc_node<T: ast::AstNode>(&mut self, ast: &T) -> AstId<T> {
+    pub(crate) fn alloc_node<T: ast::AstNode>(&mut self, ast: &T) -> AstId<T> {
         let ptr = SyntaxNodePtr::new(ast.syntax());
         let idx = self.syntax_node_ptrs.alloc(ptr.clone());
         let ast_ptr = AstPtr {
@@ -119,7 +119,7 @@ impl Database {
         })
     }
 
-    pub fn lookup_ast_id<T: ast::AstNode>(&self, ast: &T) -> Option<AstId<T>> {
+    pub(crate) fn lookup_ast_id<T: ast::AstNode>(&self, ast: &T) -> Option<AstId<T>> {
         let ptr = SyntaxNodePtr::new(ast.syntax());
         let idx = self.idx_by_syntax_node_ptr.get(&ptr)?;
 

@@ -61,7 +61,7 @@ pub enum Expr {
     Literal(Literal),
     ParenExpr(ParenExpr),
     UnaryExpr(UnaryExpr),
-    VariableRef(VariableRef),
+    PathExpr(PathExpr),
     Call(Call),
     Block(Block),
     IfExpr(IfExpr),
@@ -76,7 +76,7 @@ impl AstNode for Expr {
                 | SyntaxKind::Literal
                 | SyntaxKind::ParenExpr
                 | SyntaxKind::UnaryExpr
-                | SyntaxKind::VariableRef
+                | SyntaxKind::PathExpr
                 | SyntaxKind::Call
                 | SyntaxKind::Block
                 | SyntaxKind::IfExpr
@@ -90,7 +90,7 @@ impl AstNode for Expr {
             SyntaxKind::Literal => Self::Literal(Literal { syntax }),
             SyntaxKind::ParenExpr => Self::ParenExpr(ParenExpr { syntax }),
             SyntaxKind::UnaryExpr => Self::UnaryExpr(UnaryExpr { syntax }),
-            SyntaxKind::VariableRef => Self::VariableRef(VariableRef { syntax }),
+            SyntaxKind::PathExpr => Self::PathExpr(PathExpr { syntax }),
             SyntaxKind::Call => Self::Call(Call { syntax }),
             SyntaxKind::Block => Self::Block(Block { syntax }),
             SyntaxKind::IfExpr => Self::IfExpr(IfExpr { syntax }),
@@ -107,7 +107,7 @@ impl AstNode for Expr {
             Expr::Literal(it) => it.syntax(),
             Expr::ParenExpr(it) => it.syntax(),
             Expr::UnaryExpr(it) => it.syntax(),
-            Expr::VariableRef(it) => it.syntax(),
+            Expr::PathExpr(it) => it.syntax(),
             Expr::Call(it) => it.syntax(),
             Expr::Block(it) => it.syntax(),
             Expr::IfExpr(it) => it.syntax(),
@@ -244,8 +244,22 @@ impl UnaryExpr {
     }
 }
 
-def_ast_node!(VariableRef);
-impl VariableRef {
+def_ast_node!(PathExpr);
+impl PathExpr {
+    pub fn path(&self) -> Option<Path> {
+        ast_node::child_node(self)
+    }
+}
+
+def_ast_node!(Path);
+impl Path {
+    pub fn segments(&self) -> impl Iterator<Item = PathSegment> {
+        ast_node::children_nodes(self)
+    }
+}
+
+def_ast_node!(PathSegment);
+impl PathSegment {
     pub fn name(&self) -> Option<tokens::Ident> {
         ast_node::child_token(self)
     }
@@ -337,8 +351,8 @@ impl Type {
 
 def_ast_node!(Call);
 impl Call {
-    pub fn callee(&self) -> Option<tokens::Ident> {
-        ast_node::child_token(self)
+    pub fn callee(&self) -> Option<Expr> {
+        ast_node::child_node(self)
     }
 
     pub fn args(&self) -> Option<ArgList> {

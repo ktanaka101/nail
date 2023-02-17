@@ -139,9 +139,11 @@ mod tests {
                           Slash@9..10 "/"
                           Whitespace@10..11 " "
                       ExprStmt@11..17
-                        VariableRef@11..17
-                          Ident@11..16 "hello"
-                          Whitespace@16..17 " "
+                        PathExpr@11..17
+                          Path@11..17
+                            PathSegment@11..17
+                              Ident@11..16 "hello"
+                              Whitespace@16..17 " "
                       RCurly@17..18 "}"
                 error at 9..10: expected '}', 'let', 'fn', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if' or 'return', but found '/'
             "#]],

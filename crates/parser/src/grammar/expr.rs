@@ -117,7 +117,7 @@ fn parse_lhs(parser: &mut Parser) -> Option<CompletedMarker> {
     {
         parse_literal(parser)
     } else if parser.at(TokenKind::Ident) {
-        parse_variable_ref(parser)
+        parse_path_expr_or_call(parser)
     } else if parser.at_set(&[TokenKind::Minus, TokenKind::Bang]) {
         parse_prefix_expr(parser)
     } else if parser.at(TokenKind::LParen) {
@@ -175,18 +175,41 @@ fn validate_literal(parser: &mut Parser) {
     }
 }
 
-fn parse_variable_ref(parser: &mut Parser) -> CompletedMarker {
+fn parse_path_expr_or_call(parser: &mut Parser) -> CompletedMarker {
     assert!(parser.at(TokenKind::Ident));
 
     let marker = parser.start();
-    parser.bump();
+
+    parse_path(parser);
 
     if parser.peek() == Some(TokenKind::LParen) {
         parse_args(parser);
         marker.complete(parser, SyntaxKind::Call)
     } else {
-        marker.complete(parser, SyntaxKind::VariableRef)
+        marker.complete(parser, SyntaxKind::PathExpr)
     }
+}
+
+fn parse_path(parser: &mut Parser) -> CompletedMarker {
+    assert!(parser.at(TokenKind::Ident));
+
+    let marker = parser.start();
+
+    parse_path_segment(parser);
+    while parser.at(TokenKind::Colon2) {
+        parser.bump();
+        parse_path_segment(parser);
+    }
+
+    marker.complete(parser, SyntaxKind::Path)
+}
+
+fn parse_path_segment(parser: &mut Parser) -> CompletedMarker {
+    let marker = parser.start();
+
+    parser.expect_on_block(TokenKind::Ident);
+
+    marker.complete(parser, SyntaxKind::PathSegment)
 }
 
 fn parse_args(parser: &mut Parser) -> CompletedMarker {
@@ -315,8 +338,10 @@ mod tests {
             expect![[r#"
                 SourceFile@0..7
                   ExprStmt@0..7
-                    VariableRef@0..7
-                      Ident@0..7 "counter"
+                    PathExpr@0..7
+                      Path@0..7
+                        PathSegment@0..7
+                          Ident@0..7 "counter"
             "#]],
         )
     }
@@ -746,9 +771,11 @@ mod tests {
                   ExprStmt@0..4
                     ParenExpr@0..4
                       LParen@0..1 "("
-                      VariableRef@1..4
-                        Ident@1..4 "foo"
-                error at 1..4: expected '+', '-', '*', '/', '==', '<', '>' or ')'
+                      PathExpr@1..4
+                        Path@1..4
+                          PathSegment@1..4
+                            Ident@1..4 "foo"
+                error at 1..4: expected '::', '+', '-', '*', '/', '==', '<', '>' or ')'
             "#]],
         );
     }
@@ -856,7 +883,9 @@ mod tests {
                 SourceFile@0..3
                   ExprStmt@0..3
                     Call@0..3
-                      Ident@0..1 "a"
+                      Path@0..1
+                        PathSegment@0..1
+                          Ident@0..1 "a"
                       ArgList@1..3
                         LParen@1..2 "("
                         RParen@2..3 ")"
@@ -872,17 +901,23 @@ mod tests {
                 SourceFile@0..7
                   ExprStmt@0..7
                     Call@0..7
-                      Ident@0..1 "a"
+                      Path@0..1
+                        PathSegment@0..1
+                          Ident@0..1 "a"
                       ArgList@1..7
                         LParen@1..2 "("
                         Arg@2..3
-                          VariableRef@2..3
-                            Ident@2..3 "x"
+                          PathExpr@2..3
+                            Path@2..3
+                              PathSegment@2..3
+                                Ident@2..3 "x"
                         Comma@3..4 ","
                         Whitespace@4..5 " "
                         Arg@5..6
-                          VariableRef@5..6
-                            Ident@5..6 "y"
+                          PathExpr@5..6
+                            Path@5..6
+                              PathSegment@5..6
+                                Ident@5..6 "y"
                         RParen@6..7 ")"
             "#]],
         );
@@ -893,7 +928,9 @@ mod tests {
                 SourceFile@0..25
                   ExprStmt@0..25
                     Call@0..25
-                      Ident@0..3 "aaa"
+                      Path@0..3
+                        PathSegment@0..3
+                          Ident@0..3 "aaa"
                       ArgList@3..25
                         LParen@3..4 "("
                         Arg@4..9
@@ -927,18 +964,24 @@ mod tests {
                 SourceFile@0..6
                   ExprStmt@0..6
                     Call@0..6
-                      Ident@0..1 "a"
+                      Path@0..1
+                        PathSegment@0..1
+                          Ident@0..1 "a"
                       ArgList@1..6
                         LParen@1..2 "("
                         Arg@2..3
-                          VariableRef@2..3
-                            Ident@2..3 "x"
+                          PathExpr@2..3
+                            Path@2..3
+                              PathSegment@2..3
+                                Ident@2..3 "x"
                         Comma@3..4 ","
                         Whitespace@4..5 " "
                         Arg@5..6
-                          VariableRef@5..6
-                            Ident@5..6 "y"
-                error at 5..6: expected '+', '-', '*', '/', '==', '<', '>', ',' or ')'
+                          PathExpr@5..6
+                            Path@5..6
+                              PathSegment@5..6
+                                Ident@5..6 "y"
+                error at 5..6: expected '::', '+', '-', '*', '/', '==', '<', '>', ',' or ')'
             "#]],
         );
 
@@ -948,12 +991,16 @@ mod tests {
                 SourceFile@0..4
                   ExprStmt@0..4
                     Call@0..4
-                      Ident@0..1 "a"
+                      Path@0..1
+                        PathSegment@0..1
+                          Ident@0..1 "a"
                       ArgList@1..4
                         LParen@1..2 "("
                         Arg@2..3
-                          VariableRef@2..3
-                            Ident@2..3 "x"
+                          PathExpr@2..3
+                            Path@2..3
+                              PathSegment@2..3
+                                Ident@2..3 "x"
                         Comma@3..4 ","
                 error at 3..4: expected ')'
             "#]],
@@ -965,13 +1012,17 @@ mod tests {
                 SourceFile@0..3
                   ExprStmt@0..3
                     Call@0..3
-                      Ident@0..1 "a"
+                      Path@0..1
+                        PathSegment@0..1
+                          Ident@0..1 "a"
                       ArgList@1..3
                         LParen@1..2 "("
                         Arg@2..3
-                          VariableRef@2..3
-                            Ident@2..3 "x"
-                error at 2..3: expected '+', '-', '*', '/', '==', '<', '>', ',' or ')'
+                          PathExpr@2..3
+                            Path@2..3
+                              PathSegment@2..3
+                                Ident@2..3 "x"
+                error at 2..3: expected '::', '+', '-', '*', '/', '==', '<', '>', ',' or ')'
             "#]],
         );
 
@@ -981,7 +1032,9 @@ mod tests {
                 SourceFile@0..2
                   ExprStmt@0..2
                     Call@0..2
-                      Ident@0..1 "a"
+                      Path@0..1
+                        PathSegment@0..1
+                          Ident@0..1 "a"
                       ArgList@1..2
                         LParen@1..2 "("
                 error at 1..2: expected ')'
@@ -997,12 +1050,16 @@ mod tests {
                 SourceFile@0..5
                   ExprStmt@0..5
                     Call@0..5
-                      Ident@0..1 "a"
+                      Path@0..1
+                        PathSegment@0..1
+                          Ident@0..1 "a"
                       ArgList@1..5
                         LParen@1..2 "("
                         Arg@2..3
-                          VariableRef@2..3
-                            Ident@2..3 "x"
+                          PathExpr@2..3
+                            Path@2..3
+                              PathSegment@2..3
+                                Ident@2..3 "x"
                         Comma@3..4 ","
                         RParen@4..5 ")"
             "#]],
@@ -1017,19 +1074,23 @@ mod tests {
                 SourceFile@0..6
                   ExprStmt@0..5
                     Call@0..5
-                      Ident@0..1 "a"
+                      Path@0..1
+                        PathSegment@0..1
+                          Ident@0..1 "a"
                       ArgList@1..5
                         LParen@1..2 "("
                         Arg@2..4
-                          VariableRef@2..4
-                            Ident@2..3 "x"
-                            Whitespace@3..4 " "
+                          PathExpr@2..4
+                            Path@2..4
+                              PathSegment@2..4
+                                Ident@2..3 "x"
+                                Whitespace@3..4 " "
                         Error@4..5
                           Ident@4..5 "y"
                   ExprStmt@5..6
                     Error@5..6
                       RParen@5..6 ")"
-                error at 4..5: expected '+', '-', '*', '/', '==', '<', '>', ',' or ')', but found identifier
+                error at 4..5: expected '::', '+', '-', '*', '/', '==', '<', '>', ',' or ')', but found identifier
                 error at 5..6: expected '+', '-', '*', '/', '==', '<', '>', ';', 'let', 'fn', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', '{', 'if' or 'return', but found ')'
             "#]],
         );
@@ -1043,18 +1104,24 @@ mod tests {
                 SourceFile@0..8
                   ExprStmt@0..8
                     Call@0..8
-                      Ident@0..1 "a"
+                      Path@0..1
+                        PathSegment@0..1
+                          Ident@0..1 "a"
                       ArgList@1..8
                         LParen@1..2 "("
                         Arg@2..7
                           BinaryExpr@2..7
-                            VariableRef@2..4
-                              Ident@2..3 "x"
-                              Whitespace@3..4 " "
+                            PathExpr@2..4
+                              Path@2..4
+                                PathSegment@2..4
+                                  Ident@2..3 "x"
+                                  Whitespace@3..4 " "
                             Plus@4..5 "+"
                             Whitespace@5..6 " "
-                            VariableRef@6..7
-                              Ident@6..7 "y"
+                            PathExpr@6..7
+                              Path@6..7
+                                PathSegment@6..7
+                                  Ident@6..7 "y"
                         RParen@7..8 ")"
             "#]],
         );
@@ -1065,7 +1132,9 @@ mod tests {
                 SourceFile@0..12
                   ExprStmt@0..12
                     Call@0..12
-                      Ident@0..1 "a"
+                      Path@0..1
+                        PathSegment@0..1
+                          Ident@0..1 "a"
                       ArgList@1..12
                         LParen@1..2 "("
                         Arg@2..11
@@ -1074,14 +1143,18 @@ mod tests {
                             Whitespace@3..4 " "
                             ExprStmt@4..10
                               BinaryExpr@4..10
-                                VariableRef@4..6
-                                  Ident@4..5 "x"
-                                  Whitespace@5..6 " "
+                                PathExpr@4..6
+                                  Path@4..6
+                                    PathSegment@4..6
+                                      Ident@4..5 "x"
+                                      Whitespace@5..6 " "
                                 Plus@6..7 "+"
                                 Whitespace@7..8 " "
-                                VariableRef@8..10
-                                  Ident@8..9 "y"
-                                  Whitespace@9..10 " "
+                                PathExpr@8..10
+                                  Path@8..10
+                                    PathSegment@8..10
+                                      Ident@8..9 "y"
+                                      Whitespace@9..10 " "
                             RCurly@10..11 "}"
                         RParen@11..12 ")"
             "#]],
@@ -1494,9 +1567,11 @@ mod tests {
                     ReturnExpr@244..269
                       ReturnKw@244..250 "return"
                       Whitespace@250..251 " "
-                      VariableRef@251..269
-                        Ident@251..252 "a"
-                        Whitespace@252..269 "\n                "
+                      PathExpr@251..269
+                        Path@251..269
+                          PathSegment@251..269
+                            Ident@251..252 "a"
+                            Whitespace@252..269 "\n                "
                   ExprStmt@269..319
                     ReturnExpr@269..319
                       ReturnKw@269..275 "return"
@@ -1550,6 +1625,94 @@ mod tests {
                         Literal@363..378
                           Integer@363..365 "10"
                           Whitespace@365..378 "\n            "
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_path() {
+        check(
+            "a::b::c",
+            expect![[r#"
+                SourceFile@0..7
+                  ExprStmt@0..7
+                    PathExpr@0..7
+                      Path@0..7
+                        PathSegment@0..1
+                          Ident@0..1 "a"
+                        Colon2@1..3 "::"
+                        PathSegment@3..4
+                          Ident@3..4 "b"
+                        Colon2@4..6 "::"
+                        PathSegment@6..7
+                          Ident@6..7 "c"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_path_call() {
+        check(
+            "a::b::c()",
+            expect![[r#"
+                SourceFile@0..9
+                  ExprStmt@0..9
+                    Call@0..9
+                      Path@0..7
+                        PathSegment@0..1
+                          Ident@0..1 "a"
+                        Colon2@1..3 "::"
+                        PathSegment@3..4
+                          Ident@3..4 "b"
+                        Colon2@4..6 "::"
+                        PathSegment@6..7
+                          Ident@6..7 "c"
+                      ArgList@7..9
+                        LParen@7..8 "("
+                        RParen@8..9 ")"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_path_call_with_params() {
+        check(
+            "a::b::c(e, f, g)",
+            expect![[r#"
+                SourceFile@0..16
+                  ExprStmt@0..16
+                    Call@0..16
+                      Path@0..7
+                        PathSegment@0..1
+                          Ident@0..1 "a"
+                        Colon2@1..3 "::"
+                        PathSegment@3..4
+                          Ident@3..4 "b"
+                        Colon2@4..6 "::"
+                        PathSegment@6..7
+                          Ident@6..7 "c"
+                      ArgList@7..16
+                        LParen@7..8 "("
+                        Arg@8..9
+                          PathExpr@8..9
+                            Path@8..9
+                              PathSegment@8..9
+                                Ident@8..9 "e"
+                        Comma@9..10 ","
+                        Whitespace@10..11 " "
+                        Arg@11..12
+                          PathExpr@11..12
+                            Path@11..12
+                              PathSegment@11..12
+                                Ident@11..12 "f"
+                        Comma@12..13 ","
+                        Whitespace@13..14 " "
+                        Arg@14..15
+                          PathExpr@14..15
+                            Path@14..15
+                              PathSegment@14..15
+                                Ident@14..15 "g"
+                        RParen@15..16 ")"
             "#]],
         );
     }

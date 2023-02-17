@@ -175,8 +175,10 @@ mod tests {
                     Whitespace@7..8 " "
                     Eq@8..9 "="
                     Whitespace@9..10 " "
-                    VariableRef@10..13
-                      Ident@10..13 "bar"
+                    PathExpr@10..13
+                      Path@10..13
+                        PathSegment@10..13
+                          Ident@10..13 "bar"
             "#]],
         );
     }
@@ -285,8 +287,10 @@ mod tests {
                     Whitespace@13..14 " "
                     Eq@14..15 "="
                     Whitespace@15..16 " "
-                    VariableRef@16..17
-                      Ident@16..17 "a"
+                    PathExpr@16..17
+                      Path@16..17
+                        PathSegment@16..17
+                          Ident@16..17 "a"
                 error at 8..11: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if' or 'return', but found 'let'
             "#]],
         );
@@ -338,8 +342,10 @@ mod tests {
                       Integer@8..9 "1"
                       Whitespace@9..10 "\n"
                   ExprStmt@10..11
-                    VariableRef@10..11
-                      Ident@10..11 "a"
+                    PathExpr@10..11
+                      Path@10..11
+                        PathSegment@10..11
+                          Ident@10..11 "a"
             "#]],
         );
     }
@@ -766,9 +772,11 @@ mod tests {
                       RParen@5..6 ")"
                       Whitespace@6..7 " "
                   ExprStmt@7..11
-                    VariableRef@7..11
-                      Ident@7..10 "int"
-                      Whitespace@10..11 " "
+                    PathExpr@7..11
+                      Path@7..11
+                        PathSegment@7..11
+                          Ident@7..10 "int"
+                          Whitespace@10..11 " "
                   ExprStmt@11..17
                     Block@11..17
                       LCurly@11..12 "{"

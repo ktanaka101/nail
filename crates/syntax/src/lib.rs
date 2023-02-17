@@ -33,6 +33,7 @@ pub enum SyntaxKind {
     IfExpr,
     ReturnExpr,
     ExprStmt,
+    PathExpr,
 
     // statement nodes
     VariableDef,
@@ -49,6 +50,8 @@ pub enum SyntaxKind {
     Type,
     ReturnType,
     ItemList,
+    Path,
+    PathSegment,
 
     // item keywords
     FnKw,

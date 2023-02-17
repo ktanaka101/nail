@@ -12,4 +12,5 @@ pub(crate) enum Event {
     FinishNode,
     Error(ParserError),
     Placeholder,
+    Ignore,
 }

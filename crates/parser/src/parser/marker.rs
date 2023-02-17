@@ -31,6 +31,17 @@ impl Marker {
 
         CompletedMarker { pos: self.pos }
     }
+
+    pub(crate) fn destroy(mut self, parser: &mut Parser) -> CompletedMarker {
+        self.bomb_when_uncompleted.defuse();
+
+        let event_at_pos = &mut parser.events[self.pos];
+        assert_eq!(*event_at_pos, Event::Placeholder);
+
+        *event_at_pos = Event::Ignore;
+
+        CompletedMarker { pos: self.pos }
+    }
 }
 
 pub(crate) struct CompletedMarker {

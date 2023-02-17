@@ -178,14 +178,20 @@ fn validate_literal(parser: &mut Parser) {
 fn parse_path_expr_or_call(parser: &mut Parser) -> CompletedMarker {
     assert!(parser.at(TokenKind::Ident));
 
+    let maybe_call_marker = parser.start();
+
     let marker = parser.start();
 
     parse_path(parser);
 
     if parser.peek() == Some(TokenKind::LParen) {
+        marker.complete(parser, SyntaxKind::PathExpr);
+
         parse_args(parser);
-        marker.complete(parser, SyntaxKind::Call)
+        maybe_call_marker.complete(parser, SyntaxKind::Call)
     } else {
+        maybe_call_marker.destroy(parser);
+
         marker.complete(parser, SyntaxKind::PathExpr)
     }
 }
@@ -883,9 +889,10 @@ mod tests {
                 SourceFile@0..3
                   ExprStmt@0..3
                     Call@0..3
-                      Path@0..1
-                        PathSegment@0..1
-                          Ident@0..1 "a"
+                      PathExpr@0..1
+                        Path@0..1
+                          PathSegment@0..1
+                            Ident@0..1 "a"
                       ArgList@1..3
                         LParen@1..2 "("
                         RParen@2..3 ")"
@@ -901,9 +908,10 @@ mod tests {
                 SourceFile@0..7
                   ExprStmt@0..7
                     Call@0..7
-                      Path@0..1
-                        PathSegment@0..1
-                          Ident@0..1 "a"
+                      PathExpr@0..1
+                        Path@0..1
+                          PathSegment@0..1
+                            Ident@0..1 "a"
                       ArgList@1..7
                         LParen@1..2 "("
                         Arg@2..3
@@ -928,9 +936,10 @@ mod tests {
                 SourceFile@0..25
                   ExprStmt@0..25
                     Call@0..25
-                      Path@0..3
-                        PathSegment@0..3
-                          Ident@0..3 "aaa"
+                      PathExpr@0..3
+                        Path@0..3
+                          PathSegment@0..3
+                            Ident@0..3 "aaa"
                       ArgList@3..25
                         LParen@3..4 "("
                         Arg@4..9
@@ -964,9 +973,10 @@ mod tests {
                 SourceFile@0..6
                   ExprStmt@0..6
                     Call@0..6
-                      Path@0..1
-                        PathSegment@0..1
-                          Ident@0..1 "a"
+                      PathExpr@0..1
+                        Path@0..1
+                          PathSegment@0..1
+                            Ident@0..1 "a"
                       ArgList@1..6
                         LParen@1..2 "("
                         Arg@2..3
@@ -991,9 +1001,10 @@ mod tests {
                 SourceFile@0..4
                   ExprStmt@0..4
                     Call@0..4
-                      Path@0..1
-                        PathSegment@0..1
-                          Ident@0..1 "a"
+                      PathExpr@0..1
+                        Path@0..1
+                          PathSegment@0..1
+                            Ident@0..1 "a"
                       ArgList@1..4
                         LParen@1..2 "("
                         Arg@2..3
@@ -1012,9 +1023,10 @@ mod tests {
                 SourceFile@0..3
                   ExprStmt@0..3
                     Call@0..3
-                      Path@0..1
-                        PathSegment@0..1
-                          Ident@0..1 "a"
+                      PathExpr@0..1
+                        Path@0..1
+                          PathSegment@0..1
+                            Ident@0..1 "a"
                       ArgList@1..3
                         LParen@1..2 "("
                         Arg@2..3
@@ -1032,9 +1044,10 @@ mod tests {
                 SourceFile@0..2
                   ExprStmt@0..2
                     Call@0..2
-                      Path@0..1
-                        PathSegment@0..1
-                          Ident@0..1 "a"
+                      PathExpr@0..1
+                        Path@0..1
+                          PathSegment@0..1
+                            Ident@0..1 "a"
                       ArgList@1..2
                         LParen@1..2 "("
                 error at 1..2: expected ')'
@@ -1050,9 +1063,10 @@ mod tests {
                 SourceFile@0..5
                   ExprStmt@0..5
                     Call@0..5
-                      Path@0..1
-                        PathSegment@0..1
-                          Ident@0..1 "a"
+                      PathExpr@0..1
+                        Path@0..1
+                          PathSegment@0..1
+                            Ident@0..1 "a"
                       ArgList@1..5
                         LParen@1..2 "("
                         Arg@2..3
@@ -1074,9 +1088,10 @@ mod tests {
                 SourceFile@0..6
                   ExprStmt@0..5
                     Call@0..5
-                      Path@0..1
-                        PathSegment@0..1
-                          Ident@0..1 "a"
+                      PathExpr@0..1
+                        Path@0..1
+                          PathSegment@0..1
+                            Ident@0..1 "a"
                       ArgList@1..5
                         LParen@1..2 "("
                         Arg@2..4
@@ -1104,9 +1119,10 @@ mod tests {
                 SourceFile@0..8
                   ExprStmt@0..8
                     Call@0..8
-                      Path@0..1
-                        PathSegment@0..1
-                          Ident@0..1 "a"
+                      PathExpr@0..1
+                        Path@0..1
+                          PathSegment@0..1
+                            Ident@0..1 "a"
                       ArgList@1..8
                         LParen@1..2 "("
                         Arg@2..7
@@ -1132,9 +1148,10 @@ mod tests {
                 SourceFile@0..12
                   ExprStmt@0..12
                     Call@0..12
-                      Path@0..1
-                        PathSegment@0..1
-                          Ident@0..1 "a"
+                      PathExpr@0..1
+                        Path@0..1
+                          PathSegment@0..1
+                            Ident@0..1 "a"
                       ArgList@1..12
                         LParen@1..2 "("
                         Arg@2..11
@@ -1658,15 +1675,16 @@ mod tests {
                 SourceFile@0..9
                   ExprStmt@0..9
                     Call@0..9
-                      Path@0..7
-                        PathSegment@0..1
-                          Ident@0..1 "a"
-                        Colon2@1..3 "::"
-                        PathSegment@3..4
-                          Ident@3..4 "b"
-                        Colon2@4..6 "::"
-                        PathSegment@6..7
-                          Ident@6..7 "c"
+                      PathExpr@0..7
+                        Path@0..7
+                          PathSegment@0..1
+                            Ident@0..1 "a"
+                          Colon2@1..3 "::"
+                          PathSegment@3..4
+                            Ident@3..4 "b"
+                          Colon2@4..6 "::"
+                          PathSegment@6..7
+                            Ident@6..7 "c"
                       ArgList@7..9
                         LParen@7..8 "("
                         RParen@8..9 ")"
@@ -1682,15 +1700,16 @@ mod tests {
                 SourceFile@0..16
                   ExprStmt@0..16
                     Call@0..16
-                      Path@0..7
-                        PathSegment@0..1
-                          Ident@0..1 "a"
-                        Colon2@1..3 "::"
-                        PathSegment@3..4
-                          Ident@3..4 "b"
-                        Colon2@4..6 "::"
-                        PathSegment@6..7
-                          Ident@6..7 "c"
+                      PathExpr@0..7
+                        Path@0..7
+                          PathSegment@0..1
+                            Ident@0..1 "a"
+                          Colon2@1..3 "::"
+                          PathSegment@3..4
+                            Ident@3..4 "b"
+                          Colon2@4..6 "::"
+                          PathSegment@6..7
+                            Ident@6..7 "c"
                       ArgList@7..16
                         LParen@7..8 "("
                         Arg@8..9

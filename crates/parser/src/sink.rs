@@ -60,7 +60,7 @@ impl<'l, 'input> Sink<'l, 'input> {
                 Event::AddToken => self.token(),
                 Event::FinishNode => self.builder.finish_node(),
                 Event::Error(error) => self.errors.push(error),
-                Event::Placeholder => (),
+                Event::Placeholder | Event::Ignore => (),
             }
 
             self.eat_trivia();

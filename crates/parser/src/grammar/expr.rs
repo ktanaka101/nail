@@ -771,6 +771,46 @@ mod tests {
     }
 
     #[test]
+    fn parse_call_in_binary() {
+        check(
+            "foo(1) + bar(2)",
+            expect![[r#"
+                SourceFile@0..15
+                  ExprStmt@0..7
+                    Call@0..7
+                      PathExpr@0..3
+                        Path@0..3
+                          PathSegment@0..3
+                            Ident@0..3 "foo"
+                      ArgList@3..7
+                        LParen@3..4 "("
+                        Arg@4..5
+                          Literal@4..5
+                            Integer@4..5 "1"
+                        RParen@5..6 ")"
+                        Whitespace@6..7 " "
+                  ExprStmt@7..9
+                    Error@7..9
+                      Plus@7..8 "+"
+                      Whitespace@8..9 " "
+                  ExprStmt@9..15
+                    Call@9..15
+                      PathExpr@9..12
+                        Path@9..12
+                          PathSegment@9..12
+                            Ident@9..12 "bar"
+                      ArgList@12..15
+                        LParen@12..13 "("
+                        Arg@13..14
+                          Literal@13..14
+                            Integer@13..14 "2"
+                        RParen@14..15 ")"
+                error at 7..8: expected ';', 'let', 'fn', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if' or 'return', but found '+'
+            "#]],
+        );
+    }
+
+    #[test]
     fn parse_unclosed_parentheses() {
         check(
             "(foo",

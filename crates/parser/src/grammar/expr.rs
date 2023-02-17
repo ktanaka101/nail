@@ -966,6 +966,34 @@ mod tests {
     }
 
     #[test]
+    fn parse_call_by_block() {
+        check(
+            "{ a }()",
+            expect![[r#"
+                SourceFile@0..7
+                  ExprStmt@0..5
+                    Block@0..5
+                      LCurly@0..1 "{"
+                      Whitespace@1..2 " "
+                      ExprStmt@2..4
+                        PathExpr@2..4
+                          Path@2..4
+                            PathSegment@2..4
+                              Ident@2..3 "a"
+                              Whitespace@3..4 " "
+                      RCurly@4..5 "}"
+                  ExprStmt@5..7
+                    ParenExpr@5..7
+                      LParen@5..6 "("
+                      Error@6..7
+                        RParen@6..7 ")"
+                error at 6..7: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if' or 'return', but found ')'
+                error at 6..7: expected ')'
+            "#]],
+        );
+    }
+
+    #[test]
     fn parse_call_missing_rparen() {
         check(
             "a(x, y",

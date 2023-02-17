@@ -25,20 +25,7 @@ pub(super) const EXPR_FIRST: [TokenKind; 13] = [
 pub(super) const ITEM_FIRST: &[TokenKind] = &[TokenKind::FnKw, TokenKind::ModKw];
 
 pub(super) fn parse_expr(parser: &mut Parser) -> Option<CompletedMarker> {
-    let maybe_call_marker = parser.start();
-
-    let result = parse_expr_binding_power(parser, 0);
-    if result.is_none() {
-        maybe_call_marker.destroy(parser);
-        return None;
-    }
-
-    if parser.peek() == Some(TokenKind::LParen) {
-        parse_args(parser);
-        Some(maybe_call_marker.complete(parser, SyntaxKind::Call))
-    } else {
-        Some(maybe_call_marker.destroy(parser))
-    }
+    parse_expr_binding_power(parser, 0)
 }
 
 fn parse_expr_binding_power(
@@ -122,6 +109,8 @@ impl PrefixOp {
 }
 
 fn parse_lhs(parser: &mut Parser) -> Option<CompletedMarker> {
+    let maybe_call_marker = parser.start();
+
     let cm = if parser.at(TokenKind::IntegerLiteral)
         || parser.at(TokenKind::CharLiteral(false))
         || parser.at(TokenKind::StringLiteral)
@@ -143,10 +132,17 @@ fn parse_lhs(parser: &mut Parser) -> Option<CompletedMarker> {
         parse_return(parser)
     } else {
         parser.error_with_recovery_set_only_default_on_block();
+        maybe_call_marker.destroy(parser);
         return None;
     };
 
-    Some(cm)
+    if parser.peek() == Some(TokenKind::LParen) {
+        parse_args(parser);
+        Some(maybe_call_marker.complete(parser, SyntaxKind::Call))
+    } else {
+        maybe_call_marker.destroy(parser);
+        Some(cm)
+    }
 }
 
 fn parse_literal(parser: &mut Parser) -> CompletedMarker {
@@ -776,36 +772,33 @@ mod tests {
             "foo(1) + bar(2)",
             expect![[r#"
                 SourceFile@0..15
-                  ExprStmt@0..7
-                    Call@0..7
-                      PathExpr@0..3
-                        Path@0..3
-                          PathSegment@0..3
-                            Ident@0..3 "foo"
-                      ArgList@3..7
-                        LParen@3..4 "("
-                        Arg@4..5
-                          Literal@4..5
-                            Integer@4..5 "1"
-                        RParen@5..6 ")"
-                        Whitespace@6..7 " "
-                  ExprStmt@7..9
-                    Error@7..9
+                  ExprStmt@0..15
+                    BinaryExpr@0..15
+                      Call@0..7
+                        PathExpr@0..3
+                          Path@0..3
+                            PathSegment@0..3
+                              Ident@0..3 "foo"
+                        ArgList@3..7
+                          LParen@3..4 "("
+                          Arg@4..5
+                            Literal@4..5
+                              Integer@4..5 "1"
+                          RParen@5..6 ")"
+                          Whitespace@6..7 " "
                       Plus@7..8 "+"
                       Whitespace@8..9 " "
-                  ExprStmt@9..15
-                    Call@9..15
-                      PathExpr@9..12
-                        Path@9..12
-                          PathSegment@9..12
-                            Ident@9..12 "bar"
-                      ArgList@12..15
-                        LParen@12..13 "("
-                        Arg@13..14
-                          Literal@13..14
-                            Integer@13..14 "2"
-                        RParen@14..15 ")"
-                error at 7..8: expected ';', 'let', 'fn', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if' or 'return', but found '+'
+                      Call@9..15
+                        PathExpr@9..12
+                          Path@9..12
+                            PathSegment@9..12
+                              Ident@9..12 "bar"
+                        ArgList@12..15
+                          LParen@12..13 "("
+                          Arg@13..14
+                            Literal@13..14
+                              Integer@13..14 "2"
+                          RParen@14..15 ")"
             "#]],
         );
     }
@@ -1173,7 +1166,7 @@ mod tests {
                     Error@5..6
                       RParen@5..6 ")"
                 error at 4..5: expected '::', '+', '-', '*', '/', '==', '<', '>', ',' or ')', but found identifier
-                error at 5..6: expected ';', 'let', 'fn', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if' or 'return', but found ')'
+                error at 5..6: expected '+', '-', '*', '/', '==', '<', '>', ';', 'let', 'fn', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', '{', 'if' or 'return', but found ')'
             "#]],
         );
     }

@@ -196,9 +196,7 @@ impl BodyLower {
                     self.lower_expr(ast.expr(), ctx, db, item_tree, interner)
                 }
                 ast::Expr::UnaryExpr(ast) => self.lower_unary(ast, ctx, db, item_tree, interner),
-                ast::Expr::VariableRef(ast) => {
-                    self.lower_variable_ref(ast, ctx, db, item_tree, interner)
-                }
+                ast::Expr::PathExpr(ast) => self.lower_path_expr(ast, ctx, db, item_tree, interner),
                 ast::Expr::Call(ast) => self.lower_call(ast, ctx, db, item_tree, interner),
                 ast::Expr::Block(ast) => self.lower_block(ast, ctx, db, item_tree, interner),
                 ast::Expr::IfExpr(ast) => self.lower_if(ast, ctx, db, item_tree, interner),
@@ -280,15 +278,23 @@ impl BodyLower {
         }
     }
 
-    fn lower_variable_ref(
+    fn lower_path_expr(
         &mut self,
-        ast: ast::VariableRef,
+        ast: ast::PathExpr,
         _ctx: &mut SharedBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
         interner: &mut Interner,
     ) -> Expr {
-        let ident = ast.name().unwrap();
+        // TODO: handle paths
+        let ident = ast
+            .path()
+            .unwrap()
+            .segments()
+            .next()
+            .unwrap()
+            .name()
+            .unwrap();
         let symbol = self.lookup_ident(&ident, _ctx, db, item_tree, interner);
 
         Expr::VariableRef { var: symbol }
@@ -347,8 +353,17 @@ impl BodyLower {
                 ctx.alloc_expr(expr)
             })
             .collect();
-        let name = ast.callee().unwrap();
-        let callee = self.lookup_ident(&name, ctx, db, item_tree, interner);
+        let callee = match self.lower_expr(ast.callee(), ctx, db, item_tree, interner) {
+            Expr::Binary { .. } => todo!(),
+            Expr::Literal(_) => todo!(),
+            Expr::Unary { .. } => todo!(),
+            Expr::VariableRef { var } => var,
+            Expr::Call { .. } => todo!(),
+            Expr::Block(_) => todo!(),
+            Expr::If { .. } => todo!(),
+            Expr::Return { .. } => todo!(),
+            Expr::Missing => todo!(),
+        };
 
         Expr::Call { callee, args }
     }
@@ -739,6 +754,44 @@ mod tests {
         let result = lower(source_file);
 
         expected.assert_eq(&debug(&result));
+    }
+
+    #[test]
+    fn fibonacci() {
+        check(
+            r#"
+                fn fibonacci(x: int) -> int {
+                    if x == 0 {
+                        0
+                    } else {
+                        if x == 1 {
+                            1
+                        } else {
+                            fibonacci(x - 1) + fibonacci(x - 2)
+                        }
+                    }
+                }
+                fn main() -> int {
+                    fibonacci(15)
+                }
+            "#,
+            expect![[r#"
+                fn fibonacci(x: int) -> int {
+                    expr:if param:x == 0 {
+                        expr:0
+                    } else {
+                        expr:if param:x == 1 {
+                            expr:1
+                        } else {
+                            expr:fn:fibonacci(param:x - 1) + fn:fibonacci(param:x - 2)
+                        }
+                    }
+                }
+                fn entry:main() -> int {
+                    expr:fn:fibonacci(15)
+                }
+            "#]],
+        );
     }
 
     #[test]

@@ -25,7 +25,20 @@ pub(super) const EXPR_FIRST: [TokenKind; 13] = [
 pub(super) const ITEM_FIRST: &[TokenKind] = &[TokenKind::FnKw, TokenKind::ModKw];
 
 pub(super) fn parse_expr(parser: &mut Parser) -> Option<CompletedMarker> {
-    parse_expr_binding_power(parser, 0)
+    let maybe_call_marker = parser.start();
+
+    let result = parse_expr_binding_power(parser, 0);
+    if result.is_none() {
+        maybe_call_marker.destroy(parser);
+        return None;
+    }
+
+    if parser.peek() == Some(TokenKind::LParen) {
+        parse_args(parser);
+        Some(maybe_call_marker.complete(parser, SyntaxKind::Call))
+    } else {
+        Some(maybe_call_marker.destroy(parser))
+    }
 }
 
 fn parse_expr_binding_power(
@@ -117,7 +130,7 @@ fn parse_lhs(parser: &mut Parser) -> Option<CompletedMarker> {
     {
         parse_literal(parser)
     } else if parser.at(TokenKind::Ident) {
-        parse_path_expr_or_call(parser)
+        parse_path_expr(parser)
     } else if parser.at_set(&[TokenKind::Minus, TokenKind::Bang]) {
         parse_prefix_expr(parser)
     } else if parser.at(TokenKind::LParen) {
@@ -175,25 +188,14 @@ fn validate_literal(parser: &mut Parser) {
     }
 }
 
-fn parse_path_expr_or_call(parser: &mut Parser) -> CompletedMarker {
+fn parse_path_expr(parser: &mut Parser) -> CompletedMarker {
     assert!(parser.at(TokenKind::Ident));
-
-    let maybe_call_marker = parser.start();
 
     let marker = parser.start();
 
     parse_path(parser);
 
-    if parser.peek() == Some(TokenKind::LParen) {
-        marker.complete(parser, SyntaxKind::PathExpr);
-
-        parse_args(parser);
-        maybe_call_marker.complete(parser, SyntaxKind::Call)
-    } else {
-        maybe_call_marker.destroy(parser);
-
-        marker.complete(parser, SyntaxKind::PathExpr)
-    }
+    marker.complete(parser, SyntaxKind::PathExpr)
 }
 
 fn parse_path(parser: &mut Parser) -> CompletedMarker {
@@ -971,24 +973,21 @@ mod tests {
             "{ a }()",
             expect![[r#"
                 SourceFile@0..7
-                  ExprStmt@0..5
-                    Block@0..5
-                      LCurly@0..1 "{"
-                      Whitespace@1..2 " "
-                      ExprStmt@2..4
-                        PathExpr@2..4
-                          Path@2..4
-                            PathSegment@2..4
-                              Ident@2..3 "a"
-                              Whitespace@3..4 " "
-                      RCurly@4..5 "}"
-                  ExprStmt@5..7
-                    ParenExpr@5..7
-                      LParen@5..6 "("
-                      Error@6..7
+                  ExprStmt@0..7
+                    Call@0..7
+                      Block@0..5
+                        LCurly@0..1 "{"
+                        Whitespace@1..2 " "
+                        ExprStmt@2..4
+                          PathExpr@2..4
+                            Path@2..4
+                              PathSegment@2..4
+                                Ident@2..3 "a"
+                                Whitespace@3..4 " "
+                        RCurly@4..5 "}"
+                      ArgList@5..7
+                        LParen@5..6 "("
                         RParen@6..7 ")"
-                error at 6..7: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if' or 'return', but found ')'
-                error at 6..7: expected ')'
             "#]],
         );
     }
@@ -1134,7 +1133,7 @@ mod tests {
                     Error@5..6
                       RParen@5..6 ")"
                 error at 4..5: expected '::', '+', '-', '*', '/', '==', '<', '>', ',' or ')', but found identifier
-                error at 5..6: expected '+', '-', '*', '/', '==', '<', '>', ';', 'let', 'fn', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', '{', 'if' or 'return', but found ')'
+                error at 5..6: expected ';', 'let', 'fn', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if' or 'return', but found ')'
             "#]],
         );
     }

@@ -2002,4 +2002,71 @@ mod tests {
             "#]],
         );
     }
+
+    #[test]
+    fn can_ref_same_scope() {
+        check(
+            r#"
+                fn main() {
+                    mod_aaa::fn_aaa();
+                    bbb();
+
+                    mod mod_aaa {
+                        fn fn_aaa() {
+                        }
+                    }
+
+                    fn bbb() {
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn entry:main() -> () {
+                    <missing>();
+                    fn:bbb();
+                    mod mod_aaa {
+                        fn fn_aaa() -> () {
+                        }
+                    }
+                    fn bbb() -> () {
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn can_ref_in_parent_scope() {
+        check(
+            r#"
+                fn main() {
+                    mod_aaa::fn_aaa();
+                }
+                mod mod_aaa {
+                    fn fn_aaa() {
+                        mod_bbb::fn_aaa();
+                    }
+                    mod mod_bbb {
+                        fn fn_bbb() {
+                        }
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn entry:main() -> () {
+                    <missing>();
+                }
+                mod mod_aaa {
+                    fn fn_aaa() -> () {
+                        <missing>();
+                    }
+
+                    mod mod_bbb {
+                        fn fn_bbb() -> () {
+                        }
+                    }
+                }
+            "#]],
+        );
+    }
 }

@@ -12,7 +12,7 @@ use crate::{
     AstId, Name,
 };
 
-type BlockAstId = AstId<ast::Block>;
+type BlockAstId = AstId<ast::BlockExpr>;
 type ModuleAstId = AstId<ast::Module>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -250,7 +250,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
             ast::Expr::UnaryExpr(unary) => {
                 self.build_expr(unary.expr()?, _current_scope, parent, db)?;
             }
-            ast::Expr::Block(block) => {
+            ast::Expr::BlockExpr(block) => {
                 self.build_block(block, parent, db);
             }
             ast::Expr::IfExpr(if_expr) => {
@@ -266,10 +266,10 @@ impl<'a> ItemTreeBuilderContext<'a> {
 
     fn build_block(
         &mut self,
-        block: ast::Block,
+        block: ast::BlockExpr,
         parent: Parent,
         db: &mut Database,
-    ) -> AstId<ast::Block> {
+    ) -> AstId<ast::BlockExpr> {
         let scope = ItemScope::new(Some(parent));
         let scope_id = db.alloc_item_scope(scope);
         let block_ast_id = db.alloc_node(&block);

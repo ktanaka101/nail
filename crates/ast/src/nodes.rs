@@ -62,8 +62,8 @@ pub enum Expr {
     ParenExpr(ParenExpr),
     UnaryExpr(UnaryExpr),
     PathExpr(PathExpr),
-    Call(Call),
-    Block(Block),
+    CallExpr(CallExpr),
+    BlockExpr(BlockExpr),
     IfExpr(IfExpr),
     ReturnExpr(ReturnExpr),
 }
@@ -77,8 +77,8 @@ impl AstNode for Expr {
                 | SyntaxKind::ParenExpr
                 | SyntaxKind::UnaryExpr
                 | SyntaxKind::PathExpr
-                | SyntaxKind::Call
-                | SyntaxKind::Block
+                | SyntaxKind::CallExpr
+                | SyntaxKind::BlockExpr
                 | SyntaxKind::IfExpr
                 | SyntaxKind::ReturnExpr
         )
@@ -91,8 +91,8 @@ impl AstNode for Expr {
             SyntaxKind::ParenExpr => Self::ParenExpr(ParenExpr { syntax }),
             SyntaxKind::UnaryExpr => Self::UnaryExpr(UnaryExpr { syntax }),
             SyntaxKind::PathExpr => Self::PathExpr(PathExpr { syntax }),
-            SyntaxKind::Call => Self::Call(Call { syntax }),
-            SyntaxKind::Block => Self::Block(Block { syntax }),
+            SyntaxKind::CallExpr => Self::CallExpr(CallExpr { syntax }),
+            SyntaxKind::BlockExpr => Self::BlockExpr(BlockExpr { syntax }),
             SyntaxKind::IfExpr => Self::IfExpr(IfExpr { syntax }),
             SyntaxKind::ReturnExpr => Self::ReturnExpr(ReturnExpr { syntax }),
             _ => return None,
@@ -108,8 +108,8 @@ impl AstNode for Expr {
             Expr::ParenExpr(it) => it.syntax(),
             Expr::UnaryExpr(it) => it.syntax(),
             Expr::PathExpr(it) => it.syntax(),
-            Expr::Call(it) => it.syntax(),
-            Expr::Block(it) => it.syntax(),
+            Expr::CallExpr(it) => it.syntax(),
+            Expr::BlockExpr(it) => it.syntax(),
             Expr::IfExpr(it) => it.syntax(),
             Expr::ReturnExpr(it) => it.syntax(),
         }
@@ -265,8 +265,8 @@ impl PathSegment {
     }
 }
 
-def_ast_node!(Block);
-impl Block {
+def_ast_node!(BlockExpr);
+impl BlockExpr {
     pub fn stmts(&self) -> impl Iterator<Item = Stmt> {
         ast_node::children_nodes(self)
     }
@@ -278,11 +278,11 @@ impl IfExpr {
         ast_node::child_node(self)
     }
 
-    pub fn then_branch(&self) -> Option<Block> {
+    pub fn then_branch(&self) -> Option<BlockExpr> {
         self.children_after_condition().next()
     }
 
-    pub fn else_branch(&self) -> Option<Block> {
+    pub fn else_branch(&self) -> Option<BlockExpr> {
         self.children_after_condition().nth(1)
     }
 
@@ -308,7 +308,7 @@ impl FunctionDef {
         ast_node::child_token(self)
     }
 
-    pub fn body(&self) -> Option<Block> {
+    pub fn body(&self) -> Option<BlockExpr> {
         ast_node::child_node(self)
     }
 
@@ -349,8 +349,8 @@ impl Type {
     }
 }
 
-def_ast_node!(Call);
-impl Call {
+def_ast_node!(CallExpr);
+impl CallExpr {
     pub fn callee(&self) -> Option<Expr> {
         ast_node::child_node(self)
     }

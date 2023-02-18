@@ -97,7 +97,7 @@ mod tests {
                       Type@12..16
                         Ident@12..15 "int"
                         Whitespace@15..16 " "
-                    Block@16..18
+                    BlockExpr@16..18
                       LCurly@16..17 "{"
                       RCurly@17..18 "}"
             "#]],
@@ -124,7 +124,7 @@ mod tests {
                       Type@12..16
                         Ident@12..15 "int"
                         Whitespace@15..16 " "
-                    Block@16..27
+                    BlockExpr@16..27
                       LCurly@16..17 "{"
                       Whitespace@17..18 " "
                       ExprStmt@18..26
@@ -171,7 +171,7 @@ mod tests {
                       Type@20..24
                         Ident@20..23 "int"
                         Whitespace@23..24 " "
-                    Block@24..30
+                    BlockExpr@24..30
                       LCurly@24..25 "{"
                       Whitespace@25..26 " "
                       ExprStmt@26..29
@@ -209,7 +209,7 @@ mod tests {
                       Type@18..22
                         Ident@18..21 "int"
                         Whitespace@21..22 " "
-                    Block@22..28
+                    BlockExpr@22..28
                       LCurly@22..23 "{"
                       Whitespace@23..24 " "
                       ExprStmt@24..27
@@ -246,7 +246,7 @@ mod tests {
                       Type@17..21
                         Ident@17..20 "int"
                         Whitespace@20..21 " "
-                    Block@21..27
+                    BlockExpr@21..27
                       LCurly@21..22 "{"
                       Whitespace@22..23 " "
                       ExprStmt@23..26
@@ -278,7 +278,7 @@ mod tests {
                       Type@13..17
                         Ident@13..16 "int"
                         Whitespace@16..17 " "
-                    Block@17..23
+                    BlockExpr@17..23
                       LCurly@17..18 "{"
                       Whitespace@18..19 " "
                       ExprStmt@19..22
@@ -309,7 +309,7 @@ mod tests {
                       Type@12..16
                         Ident@12..15 "int"
                         Whitespace@15..16 " "
-                    Block@16..22
+                    BlockExpr@16..22
                       LCurly@16..17 "{"
                       Whitespace@17..18 " "
                       ExprStmt@18..21
@@ -339,7 +339,7 @@ mod tests {
                       Type@11..15
                         Ident@11..14 "int"
                         Whitespace@14..15 " "
-                    Block@15..21
+                    BlockExpr@15..21
                       LCurly@15..16 "{"
                       Whitespace@16..17 " "
                       ExprStmt@17..20
@@ -377,7 +377,7 @@ mod tests {
                       Type@13..17
                         Ident@13..16 "int"
                         Whitespace@16..17 " "
-                    Block@17..23
+                    BlockExpr@17..23
                       LCurly@17..18 "{"
                       Whitespace@18..19 " "
                       ExprStmt@19..22
@@ -406,7 +406,7 @@ mod tests {
                       LParen@4..5 "("
                       RParen@5..6 ")"
                       Whitespace@6..7 " "
-                    Block@7..13
+                    BlockExpr@7..13
                       LCurly@7..8 "{"
                       Whitespace@8..9 " "
                       ExprStmt@9..12
@@ -433,7 +433,7 @@ mod tests {
                       ThinArrow@7..9 "->"
                       Whitespace@9..10 " "
                       Type@10..10
-                    Block@10..16
+                    BlockExpr@10..16
                       LCurly@10..11 "{"
                       Whitespace@11..12 " "
                       ExprStmt@12..15
@@ -512,7 +512,7 @@ fn main() {}
                           Type@34..38
                             Ident@34..37 "int"
                             Whitespace@37..38 " "
-                        Block@38..57
+                        BlockExpr@38..57
                           LCurly@38..39 "{"
                           Whitespace@39..48 "\n        "
                           ExprStmt@48..55
@@ -531,7 +531,7 @@ fn main() {}
                       LParen@66..67 "("
                       RParen@67..68 ")"
                       Whitespace@68..69 " "
-                    Block@69..84
+                    BlockExpr@69..84
                       LCurly@69..70 "{"
                       RCurly@70..71 "}"
                       Whitespace@71..84 "\n            "
@@ -592,7 +592,7 @@ fn main() {}
                               Type@62..66
                                 Ident@62..65 "int"
                                 Whitespace@65..66 " "
-                            Block@66..97
+                            BlockExpr@66..97
                               LCurly@66..67 "{"
                               Whitespace@67..80 "\n            "
                               ExprStmt@80..91
@@ -617,7 +617,7 @@ fn main() {}
                           Type@115..119
                             Ident@115..118 "int"
                             Whitespace@118..119 " "
-                        Block@119..227
+                        BlockExpr@119..227
                           LCurly@119..120 "{"
                           Whitespace@120..129 "\n        "
                           Module@129..225
@@ -642,7 +642,7 @@ fn main() {}
                                   Type@172..176
                                     Ident@172..175 "int"
                                     Whitespace@175..176 " "
-                                Block@176..219
+                                BlockExpr@176..219
                                   LCurly@176..177 "{"
                                   Whitespace@177..194 "\n                "
                                   ExprStmt@194..209
@@ -665,7 +665,7 @@ fn main() {}
                       LParen@236..237 "("
                       RParen@237..238 ")"
                       Whitespace@238..239 " "
-                    Block@239..254
+                    BlockExpr@239..254
                       LCurly@239..240 "{"
                       RCurly@240..241 "}"
                       Whitespace@241..254 "\n            "
@@ -709,7 +709,7 @@ mod module_aaa {
                       LParen@8..9 "("
                       RParen@9..10 ")"
                       Whitespace@10..11 " "
-                    Block@11..26
+                    BlockExpr@11..26
                       LCurly@11..12 "{"
                       Whitespace@12..17 "\n    "
                       ExprStmt@17..24
@@ -748,7 +748,7 @@ mod module_aaa {
                               Type@93..97
                                 Ident@93..96 "int"
                                 Whitespace@96..97 " "
-                            Block@97..256
+                            BlockExpr@97..256
                               LCurly@97..98 "{"
                               Whitespace@98..111 "\n            "
                               Module@111..239
@@ -773,7 +773,7 @@ mod module_aaa {
                                       Type@165..169
                                         Ident@165..168 "int"
                                         Whitespace@168..169 " "
-                                    Block@169..224
+                                    BlockExpr@169..224
                                       LCurly@169..170 "{"
                                       Whitespace@170..191 "\n                    "
                                       ExprStmt@191..210
@@ -806,7 +806,7 @@ mod module_aaa {
                           Type@284..288
                             Ident@284..287 "int"
                             Whitespace@287..288 " "
-                        Block@288..307
+                        BlockExpr@288..307
                           LCurly@288..289 "{"
                           Whitespace@289..298 "\n        "
                           ExprStmt@298..305

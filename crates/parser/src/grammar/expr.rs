@@ -138,7 +138,7 @@ fn parse_lhs(parser: &mut Parser) -> Option<CompletedMarker> {
 
     if parser.peek() == Some(TokenKind::LParen) {
         parse_args(parser);
-        Some(maybe_call_marker.complete(parser, SyntaxKind::Call))
+        Some(maybe_call_marker.complete(parser, SyntaxKind::CallExpr))
     } else {
         maybe_call_marker.destroy(parser);
         Some(cm)
@@ -280,7 +280,7 @@ fn parse_block(parser: &mut Parser) -> CompletedMarker {
     }
     parser.expect_on_block(TokenKind::RCurly);
 
-    marker.complete(parser, SyntaxKind::Block)
+    marker.complete(parser, SyntaxKind::BlockExpr)
 }
 
 fn parse_if(parser: &mut Parser) -> CompletedMarker {
@@ -774,7 +774,7 @@ mod tests {
                 SourceFile@0..15
                   ExprStmt@0..15
                     BinaryExpr@0..15
-                      Call@0..7
+                      CallExpr@0..7
                         PathExpr@0..3
                           Path@0..3
                             PathSegment@0..3
@@ -788,7 +788,7 @@ mod tests {
                           Whitespace@6..7 " "
                       Plus@7..8 "+"
                       Whitespace@8..9 " "
-                      Call@9..15
+                      CallExpr@9..15
                         PathExpr@9..12
                           Path@9..12
                             PathSegment@9..12
@@ -847,7 +847,7 @@ mod tests {
             expect![[r#"
                 SourceFile@0..5
                   ExprStmt@0..5
-                    Block@0..5
+                    BlockExpr@0..5
                       LCurly@0..1 "{"
                       Whitespace@1..2 " "
                       ExprStmt@2..4
@@ -866,7 +866,7 @@ mod tests {
             expect![[r#"
                 SourceFile@0..4
                   ExprStmt@0..4
-                    Block@0..4
+                    BlockExpr@0..4
                       LCurly@0..1 "{"
                       Whitespace@1..2 " "
                       ExprStmt@2..4
@@ -888,7 +888,7 @@ mod tests {
             expect![[r#"
                 SourceFile@0..24
                   ExprStmt@0..24
-                    Block@0..24
+                    BlockExpr@0..24
                       LCurly@0..1 "{"
                       Whitespace@1..4 "\n  "
                       VariableDef@4..17
@@ -902,7 +902,7 @@ mod tests {
                           Integer@12..14 "10"
                           Whitespace@14..17 "\n  "
                       ExprStmt@17..23
-                        Block@17..23
+                        BlockExpr@17..23
                           LCurly@17..18 "{"
                           Whitespace@18..19 " "
                           ExprStmt@19..21
@@ -923,7 +923,7 @@ mod tests {
             expect![[r#"
                 SourceFile@0..3
                   ExprStmt@0..3
-                    Call@0..3
+                    CallExpr@0..3
                       PathExpr@0..1
                         Path@0..1
                           PathSegment@0..1
@@ -942,7 +942,7 @@ mod tests {
             expect![[r#"
                 SourceFile@0..7
                   ExprStmt@0..7
-                    Call@0..7
+                    CallExpr@0..7
                       PathExpr@0..1
                         Path@0..1
                           PathSegment@0..1
@@ -970,7 +970,7 @@ mod tests {
             expect![[r#"
                 SourceFile@0..25
                   ExprStmt@0..25
-                    Call@0..25
+                    CallExpr@0..25
                       PathExpr@0..3
                         Path@0..3
                           PathSegment@0..3
@@ -1007,8 +1007,8 @@ mod tests {
             expect![[r#"
                 SourceFile@0..7
                   ExprStmt@0..7
-                    Call@0..7
-                      Block@0..5
+                    CallExpr@0..7
+                      BlockExpr@0..5
                         LCurly@0..1 "{"
                         Whitespace@1..2 " "
                         ExprStmt@2..4
@@ -1032,7 +1032,7 @@ mod tests {
             expect![[r#"
                 SourceFile@0..6
                   ExprStmt@0..6
-                    Call@0..6
+                    CallExpr@0..6
                       PathExpr@0..1
                         Path@0..1
                           PathSegment@0..1
@@ -1060,7 +1060,7 @@ mod tests {
             expect![[r#"
                 SourceFile@0..4
                   ExprStmt@0..4
-                    Call@0..4
+                    CallExpr@0..4
                       PathExpr@0..1
                         Path@0..1
                           PathSegment@0..1
@@ -1082,7 +1082,7 @@ mod tests {
             expect![[r#"
                 SourceFile@0..3
                   ExprStmt@0..3
-                    Call@0..3
+                    CallExpr@0..3
                       PathExpr@0..1
                         Path@0..1
                           PathSegment@0..1
@@ -1103,7 +1103,7 @@ mod tests {
             expect![[r#"
                 SourceFile@0..2
                   ExprStmt@0..2
-                    Call@0..2
+                    CallExpr@0..2
                       PathExpr@0..1
                         Path@0..1
                           PathSegment@0..1
@@ -1122,7 +1122,7 @@ mod tests {
             expect![[r#"
                 SourceFile@0..5
                   ExprStmt@0..5
-                    Call@0..5
+                    CallExpr@0..5
                       PathExpr@0..1
                         Path@0..1
                           PathSegment@0..1
@@ -1147,7 +1147,7 @@ mod tests {
             expect![[r#"
                 SourceFile@0..6
                   ExprStmt@0..5
-                    Call@0..5
+                    CallExpr@0..5
                       PathExpr@0..1
                         Path@0..1
                           PathSegment@0..1
@@ -1178,7 +1178,7 @@ mod tests {
             expect![[r#"
                 SourceFile@0..8
                   ExprStmt@0..8
-                    Call@0..8
+                    CallExpr@0..8
                       PathExpr@0..1
                         Path@0..1
                           PathSegment@0..1
@@ -1207,7 +1207,7 @@ mod tests {
             expect![[r#"
                 SourceFile@0..12
                   ExprStmt@0..12
-                    Call@0..12
+                    CallExpr@0..12
                       PathExpr@0..1
                         Path@0..1
                           PathSegment@0..1
@@ -1215,7 +1215,7 @@ mod tests {
                       ArgList@1..12
                         LParen@1..2 "("
                         Arg@2..11
-                          Block@2..11
+                          BlockExpr@2..11
                             LCurly@2..3 "{"
                             Whitespace@3..4 " "
                             ExprStmt@4..10
@@ -1251,7 +1251,7 @@ mod tests {
                       Literal@3..8
                         TrueKw@3..7 "true"
                         Whitespace@7..8 " "
-                      Block@8..14
+                      BlockExpr@8..14
                         LCurly@8..9 "{"
                         Whitespace@9..10 " "
                         ExprStmt@10..13
@@ -1273,7 +1273,7 @@ mod tests {
                       Literal@3..8
                         TrueKw@3..7 "true"
                         Whitespace@7..8 " "
-                      Block@8..15
+                      BlockExpr@8..15
                         LCurly@8..9 "{"
                         Whitespace@9..10 " "
                         ExprStmt@10..13
@@ -1284,7 +1284,7 @@ mod tests {
                         Whitespace@14..15 " "
                       ElseKw@15..19 "else"
                       Whitespace@19..20 " "
-                      Block@20..26
+                      BlockExpr@20..26
                         LCurly@20..21 "{"
                         Whitespace@21..22 " "
                         ExprStmt@22..25
@@ -1315,7 +1315,7 @@ mod tests {
                       Literal@11..16
                         TrueKw@11..15 "true"
                         Whitespace@15..16 " "
-                      Block@16..23
+                      BlockExpr@16..23
                         LCurly@16..17 "{"
                         Whitespace@17..18 " "
                         ExprStmt@18..21
@@ -1326,7 +1326,7 @@ mod tests {
                         Whitespace@22..23 " "
                       ElseKw@23..27 "else"
                       Whitespace@27..28 " "
-                      Block@28..34
+                      BlockExpr@28..34
                         LCurly@28..29 "{"
                         Whitespace@29..30 " "
                         ExprStmt@30..33
@@ -1348,7 +1348,7 @@ mod tests {
                     IfExpr@0..21
                       IfKw@0..2 "if"
                       Whitespace@2..3 " "
-                      Block@3..10
+                      BlockExpr@3..10
                         LCurly@3..4 "{"
                         Whitespace@4..5 " "
                         ExprStmt@5..8
@@ -1359,7 +1359,7 @@ mod tests {
                         Whitespace@9..10 " "
                       ElseKw@10..14 "else"
                       Whitespace@14..15 " "
-                      Block@15..21
+                      BlockExpr@15..21
                         LCurly@15..16 "{"
                         Whitespace@16..17 " "
                         ExprStmt@17..20
@@ -1386,7 +1386,7 @@ mod tests {
                         Whitespace@7..8 " "
                       ElseKw@8..12 "else"
                       Whitespace@12..13 " "
-                      Block@13..19
+                      BlockExpr@13..19
                         LCurly@13..14 "{"
                         Whitespace@14..15 " "
                         ExprStmt@15..18
@@ -1411,7 +1411,7 @@ mod tests {
                       Literal@3..8
                         TrueKw@3..7 "true"
                         Whitespace@7..8 " "
-                      Block@8..15
+                      BlockExpr@8..15
                         LCurly@8..9 "{"
                         Whitespace@9..10 " "
                         ExprStmt@10..13
@@ -1421,7 +1421,7 @@ mod tests {
                         RCurly@13..14 "}"
                         Whitespace@14..15 " "
                   ExprStmt@15..21
-                    Block@15..21
+                    BlockExpr@15..21
                       LCurly@15..16 "{"
                       Whitespace@16..17 " "
                       ExprStmt@17..20
@@ -1446,7 +1446,7 @@ mod tests {
                       Literal@3..8
                         TrueKw@3..7 "true"
                         Whitespace@7..8 " "
-                      Block@8..15
+                      BlockExpr@8..15
                         LCurly@8..9 "{"
                         Whitespace@9..10 " "
                         ExprStmt@10..13
@@ -1470,7 +1470,7 @@ mod tests {
                     IfExpr@0..30
                       IfKw@0..2 "if"
                       Whitespace@2..3 " "
-                      Block@3..12
+                      BlockExpr@3..12
                         LCurly@3..4 "{"
                         Whitespace@4..5 " "
                         ExprStmt@5..10
@@ -1479,7 +1479,7 @@ mod tests {
                             Whitespace@9..10 " "
                         RCurly@10..11 "}"
                         Whitespace@11..12 " "
-                      Block@12..19
+                      BlockExpr@12..19
                         LCurly@12..13 "{"
                         Whitespace@13..14 " "
                         ExprStmt@14..17
@@ -1490,7 +1490,7 @@ mod tests {
                         Whitespace@18..19 " "
                       ElseKw@19..23 "else"
                       Whitespace@23..24 " "
-                      Block@24..30
+                      BlockExpr@24..30
                         LCurly@24..25 "{"
                         Whitespace@25..26 " "
                         ExprStmt@26..29
@@ -1659,7 +1659,7 @@ mod tests {
                         Literal@279..284
                           TrueKw@279..283 "true"
                           Whitespace@283..284 " "
-                        Block@284..291
+                        BlockExpr@284..291
                           LCurly@284..285 "{"
                           Whitespace@285..286 " "
                           ExprStmt@286..289
@@ -1670,7 +1670,7 @@ mod tests {
                           Whitespace@290..291 " "
                         ElseKw@291..295 "else"
                         Whitespace@295..296 " "
-                        Block@296..319
+                        BlockExpr@296..319
                           LCurly@296..297 "{"
                           Whitespace@297..298 " "
                           ExprStmt@298..301
@@ -1683,7 +1683,7 @@ mod tests {
                     ReturnExpr@319..349
                       ReturnKw@319..325 "return"
                       Whitespace@325..326 " "
-                      Block@326..349
+                      BlockExpr@326..349
                         LCurly@326..327 "{"
                         Whitespace@327..328 " "
                         ExprStmt@328..331
@@ -1734,7 +1734,7 @@ mod tests {
             expect![[r#"
                 SourceFile@0..9
                   ExprStmt@0..9
-                    Call@0..9
+                    CallExpr@0..9
                       PathExpr@0..7
                         Path@0..7
                           PathSegment@0..1
@@ -1759,7 +1759,7 @@ mod tests {
             expect![[r#"
                 SourceFile@0..16
                   ExprStmt@0..16
-                    Call@0..16
+                    CallExpr@0..16
                       PathExpr@0..7
                         Path@0..7
                           PathSegment@0..1

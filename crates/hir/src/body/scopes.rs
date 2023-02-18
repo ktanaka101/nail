@@ -5,7 +5,7 @@ use crate::{AstId, ExprId, Name};
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum ScopeType {
     TopLevel,
-    SubLevel(AstId<ast::Block>),
+    SubLevel(AstId<ast::BlockExpr>),
 }
 
 #[derive(Debug)]
@@ -47,7 +47,7 @@ impl Scopes {
         &self.inner.last().unwrap().scope_type
     }
 
-    pub(crate) fn enter(&mut self, block: AstId<ast::Block>) {
+    pub(crate) fn enter(&mut self, block: AstId<ast::BlockExpr>) {
         self.inner.push(Scope::sub_level(block));
     }
 
@@ -71,7 +71,7 @@ impl Scope {
         }
     }
 
-    fn sub_level(block: AstId<ast::Block>) -> Self {
+    fn sub_level(block: AstId<ast::BlockExpr>) -> Self {
         Self {
             table: HashMap::new(),
             scope_type: ScopeType::SubLevel(block),

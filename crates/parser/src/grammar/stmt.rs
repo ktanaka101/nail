@@ -153,7 +153,7 @@ fn parse_block(parser: &mut Parser) -> CompletedMarker {
     }
     parser.expect_on_block(TokenKind::RCurly);
 
-    marker.complete(parser, SyntaxKind::Block)
+    marker.complete(parser, SyntaxKind::BlockExpr)
 }
 
 #[cfg(test)]
@@ -317,7 +317,7 @@ mod tests {
                       LParen@10..11 "("
                       RParen@11..12 ")"
                       Whitespace@12..13 " "
-                    Block@13..15
+                    BlockExpr@13..15
                       LCurly@13..14 "{"
                       RCurly@14..15 "}"
                 error at 6..8: expected identifier or ')', but found 'fn'
@@ -370,7 +370,7 @@ mod tests {
                       Type@12..16
                         Ident@12..15 "int"
                         Whitespace@15..16 " "
-                    Block@16..18
+                    BlockExpr@16..18
                       LCurly@16..17 "{"
                       RCurly@17..18 "}"
             "#]],
@@ -411,7 +411,7 @@ mod tests {
                       Type@26..30
                         Ident@26..29 "int"
                         Whitespace@29..30 " "
-                    Block@30..32
+                    BlockExpr@30..32
                       LCurly@30..31 "{"
                       RCurly@31..32 "}"
             "#]],
@@ -438,7 +438,7 @@ mod tests {
                       Type@12..16
                         Ident@12..15 "int"
                         Whitespace@15..16 " "
-                    Block@16..27
+                    BlockExpr@16..27
                       LCurly@16..17 "{"
                       Whitespace@17..18 " "
                       ExprStmt@18..26
@@ -485,7 +485,7 @@ mod tests {
                       Type@20..24
                         Ident@20..23 "int"
                         Whitespace@23..24 " "
-                    Block@24..30
+                    BlockExpr@24..30
                       LCurly@24..25 "{"
                       Whitespace@25..26 " "
                       ExprStmt@26..29
@@ -523,7 +523,7 @@ mod tests {
                       Type@18..22
                         Ident@18..21 "int"
                         Whitespace@21..22 " "
-                    Block@22..28
+                    BlockExpr@22..28
                       LCurly@22..23 "{"
                       Whitespace@23..24 " "
                       ExprStmt@24..27
@@ -560,7 +560,7 @@ mod tests {
                       Type@17..21
                         Ident@17..20 "int"
                         Whitespace@20..21 " "
-                    Block@21..27
+                    BlockExpr@21..27
                       LCurly@21..22 "{"
                       Whitespace@22..23 " "
                       ExprStmt@23..26
@@ -592,7 +592,7 @@ mod tests {
                       Type@13..17
                         Ident@13..16 "int"
                         Whitespace@16..17 " "
-                    Block@17..23
+                    BlockExpr@17..23
                       LCurly@17..18 "{"
                       Whitespace@18..19 " "
                       ExprStmt@19..22
@@ -623,7 +623,7 @@ mod tests {
                       Type@12..16
                         Ident@12..15 "int"
                         Whitespace@15..16 " "
-                    Block@16..22
+                    BlockExpr@16..22
                       LCurly@16..17 "{"
                       Whitespace@17..18 " "
                       ExprStmt@18..21
@@ -653,7 +653,7 @@ mod tests {
                       Type@11..15
                         Ident@11..14 "int"
                         Whitespace@14..15 " "
-                    Block@15..21
+                    BlockExpr@15..21
                       LCurly@15..16 "{"
                       Whitespace@16..17 " "
                       ExprStmt@17..20
@@ -691,7 +691,7 @@ mod tests {
                       Type@13..17
                         Ident@13..16 "int"
                         Whitespace@16..17 " "
-                    Block@17..23
+                    BlockExpr@17..23
                       LCurly@17..18 "{"
                       Whitespace@18..19 " "
                       ExprStmt@19..22
@@ -720,7 +720,7 @@ mod tests {
                       LParen@4..5 "("
                       RParen@5..6 ")"
                       Whitespace@6..7 " "
-                    Block@7..13
+                    BlockExpr@7..13
                       LCurly@7..8 "{"
                       Whitespace@8..9 " "
                       ExprStmt@9..12
@@ -747,7 +747,7 @@ mod tests {
                       ThinArrow@7..9 "->"
                       Whitespace@9..10 " "
                       Type@10..10
-                    Block@10..16
+                    BlockExpr@10..16
                       LCurly@10..11 "{"
                       Whitespace@11..12 " "
                       ExprStmt@12..15
@@ -778,7 +778,7 @@ mod tests {
                           Ident@7..10 "int"
                           Whitespace@10..11 " "
                   ExprStmt@11..17
-                    Block@11..17
+                    BlockExpr@11..17
                       LCurly@11..12 "{"
                       Whitespace@12..13 " "
                       ExprStmt@13..16

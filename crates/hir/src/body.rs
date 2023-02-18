@@ -35,7 +35,7 @@ pub struct FunctionBodyId(Idx<Expr>);
 pub struct SharedBodyLowerContext {
     function_bodies: Arena<Expr>,
     exprs: Arena<Expr>,
-    function_body_by_block: HashMap<AstId<ast::Block>, FunctionBodyId>,
+    function_body_by_block: HashMap<AstId<ast::BlockExpr>, FunctionBodyId>,
 }
 impl SharedBodyLowerContext {
     pub fn new() -> Self {
@@ -48,12 +48,12 @@ impl SharedBodyLowerContext {
 
     pub fn function_body_id_by_block(
         &self,
-        block_ast_id: AstId<ast::Block>,
+        block_ast_id: AstId<ast::BlockExpr>,
     ) -> Option<FunctionBodyId> {
         self.function_body_by_block.get(&block_ast_id).copied()
     }
 
-    pub fn function_body_by_block(&self, block_ast_id: AstId<ast::Block>) -> Option<&Expr> {
+    pub fn function_body_by_block(&self, block_ast_id: AstId<ast::BlockExpr>) -> Option<&Expr> {
         self.function_body_id_by_block(block_ast_id)
             .map(|body_id| &self.function_bodies[body_id.0])
     }
@@ -197,8 +197,8 @@ impl BodyLower {
                 }
                 ast::Expr::UnaryExpr(ast) => self.lower_unary(ast, ctx, db, item_tree, interner),
                 ast::Expr::PathExpr(ast) => self.lower_path_expr(ast, ctx, db, item_tree, interner),
-                ast::Expr::Call(ast) => self.lower_call(ast, ctx, db, item_tree, interner),
-                ast::Expr::Block(ast) => self.lower_block(ast, ctx, db, item_tree, interner),
+                ast::Expr::CallExpr(ast) => self.lower_call(ast, ctx, db, item_tree, interner),
+                ast::Expr::BlockExpr(ast) => self.lower_block(ast, ctx, db, item_tree, interner),
                 ast::Expr::IfExpr(ast) => self.lower_if(ast, ctx, db, item_tree, interner),
                 ast::Expr::ReturnExpr(ast) => self.lower_return(ast, ctx, db, item_tree, interner),
             }
@@ -339,7 +339,7 @@ impl BodyLower {
 
     fn lower_call(
         &mut self,
-        ast: ast::Call,
+        ast: ast::CallExpr,
         ctx: &mut SharedBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
@@ -370,7 +370,7 @@ impl BodyLower {
 
     fn lower_block(
         &mut self,
-        ast: ast::Block,
+        ast: ast::BlockExpr,
         ctx: &mut SharedBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,

@@ -182,7 +182,7 @@ pub enum Symbol {
 pub struct Block {
     pub stmts: Vec<Stmt>,
     pub tail: Option<ExprId>,
-    pub ast: AstId<ast::Block>,
+    pub ast: AstId<ast::BlockExpr>,
 }
 impl Block {
     pub fn tail<'a>(&self, ctx: &'a SharedBodyLowerContext) -> Option<&'a Expr> {

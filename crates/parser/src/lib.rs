@@ -131,7 +131,7 @@ mod tests {
                       LParen@4..5 "("
                       RParen@5..6 ")"
                       Whitespace@6..7 " "
-                    Block@7..18
+                    BlockExpr@7..18
                       LCurly@7..8 "{"
                       Whitespace@8..9 " "
                       ExprStmt@9..11
@@ -171,7 +171,7 @@ fn x() {
                       LParen@5..6 "("
                       RParen@6..7 ")"
                       Whitespace@7..8 " "
-                    Block@8..69
+                    BlockExpr@8..69
                       LCurly@8..9 "{"
                       Whitespace@9..14 "\n    "
                       ExprStmt@14..55

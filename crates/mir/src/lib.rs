@@ -161,6 +161,16 @@ impl<'a> FunctionLower<'a> {
     fn lower_expr(&mut self, expr_id: hir::ExprId) -> LoweredExpr {
         let expr = expr_id.lookup(&self.hir_result.shared_ctx);
         match expr {
+            hir::Expr::Symbol(symbol) => match symbol {
+                hir::Symbol::Param { name: _, param } => LoweredExpr::Operand(Operand::Place(
+                    Place::Param(self.get_param_by_expr(*param)),
+                )),
+                hir::Symbol::Local { name: _, expr } => LoweredExpr::Operand(Operand::Place(
+                    Place::Local(self.get_local_by_expr(*expr)),
+                )),
+                hir::Symbol::Function { .. } => todo!(),
+                hir::Symbol::Missing { .. } => unreachable!(),
+            },
             hir::Expr::Literal(literal) => match literal {
                 hir::Literal::Integer(value) => {
                     LoweredExpr::Operand(Operand::Constant(Constant::Integer(*value)))
@@ -172,16 +182,6 @@ impl<'a> FunctionLower<'a> {
                     LoweredExpr::Operand(Operand::Constant(Constant::String(string.to_owned())))
                 }
                 _ => todo!(),
-            },
-            hir::Expr::VariableRef { var } => match var {
-                hir::Symbol::Param { name: _, param } => LoweredExpr::Operand(Operand::Place(
-                    Place::Param(self.get_param_by_expr(*param)),
-                )),
-                hir::Symbol::Local { name: _, expr } => LoweredExpr::Operand(Operand::Place(
-                    Place::Local(self.get_local_by_expr(*expr)),
-                )),
-                hir::Symbol::Function { .. } => todo!(),
-                hir::Symbol::Missing { .. } => unreachable!(),
             },
             hir::Expr::Return { value } => {
                 if let Some(value) = value {
@@ -439,7 +439,7 @@ impl<'a> FunctionLower<'a> {
                 match callee {
                     hir::Symbol::Param { .. } => unimplemented!(),
                     hir::Symbol::Local { .. } => unimplemented!(),
-                    hir::Symbol::Function { name: _, function } => {
+                    hir::Symbol::Function { path: _, function } => {
                         let function_id = self.function_id_by_hir_function[function];
 
                         let signature = self.hir_ty_result.signature_by_function(*function);

@@ -141,6 +141,7 @@ pub enum Literal {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Expr {
+    Symbol(Symbol),
     Binary {
         op: ast::BinaryOp,
         lhs: ExprId,
@@ -150,9 +151,6 @@ pub enum Expr {
     Unary {
         op: ast::UnaryOp,
         expr: ExprId,
-    },
-    VariableRef {
-        var: Symbol,
     },
     Call {
         callee: Symbol,
@@ -171,11 +169,16 @@ pub enum Expr {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+pub struct Path {
+    pub segments: Vec<Name>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum Symbol {
     Param { name: Name, param: ParamId },
     Local { name: Name, expr: ExprId },
-    Function { name: Name, function: FunctionId },
-    Missing { name: Name },
+    Function { path: Path, function: FunctionId },
+    Missing { path: Path },
 }
 
 #[derive(Debug, PartialEq, Eq)]

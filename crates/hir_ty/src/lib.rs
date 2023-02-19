@@ -38,6 +38,7 @@ impl TyLowerResult {
 mod tests {
     use ast::AstNode;
     use expect_test::{expect, Expect};
+    use hir::{Name, Path, Symbol};
 
     use super::*;
 
@@ -173,6 +174,12 @@ mod tests {
     fn debug_hir_expr(expr_id: &hir::ExprId, lower_result: &hir::LowerResult) -> String {
         let expr = expr_id.lookup(&lower_result.shared_ctx);
         match expr {
+            hir::Expr::Symbol(symbol) => match symbol {
+                hir::Symbol::Param { name, .. } => debug_name(lower_result, *name),
+                hir::Symbol::Local { name, .. } => debug_name(lower_result, *name),
+                hir::Symbol::Function { path, .. } => debug_path(lower_result, path),
+                hir::Symbol::Missing { path, .. } => debug_path(lower_result, path),
+            },
             hir::Expr::Missing => "<missing>".to_string(),
             hir::Expr::Unary { op, expr } => {
                 let op = match op {
@@ -198,15 +205,6 @@ mod tests {
 
                 format!("{lhs} {op} {rhs}")
             }
-            hir::Expr::VariableRef { var } => {
-                let name = match var {
-                    hir::Symbol::Param { name, .. } => name,
-                    hir::Symbol::Local { name, .. } => name,
-                    hir::Symbol::Function { name, .. } => name,
-                    hir::Symbol::Missing { name, .. } => name,
-                };
-                lower_result.interner.lookup(name.key()).to_string()
-            }
             hir::Expr::Block(block) => {
                 if let Some(tail) = block.tail {
                     format!("{{ .., {} }}", debug_hir_expr(&tail, lower_result))
@@ -215,13 +213,7 @@ mod tests {
                 }
             }
             hir::Expr::Call { callee, args } => {
-                let name = match callee {
-                    hir::Symbol::Param { name, .. } => name,
-                    hir::Symbol::Local { name, .. } => name,
-                    hir::Symbol::Function { name, .. } => name,
-                    hir::Symbol::Missing { name, .. } => name,
-                };
-                let name = lower_result.interner.lookup(name.key()).to_string();
+                let name = debug_symbol(lower_result, callee);
                 let args = args
                     .iter()
                     .map(|id| debug_hir_expr(id, lower_result))
@@ -264,6 +256,27 @@ mod tests {
                 msg
             }
         }
+    }
+
+    fn debug_symbol(lower_result: &LowerResult, symbol: &Symbol) -> String {
+        match symbol {
+            hir::Symbol::Param { name, .. } => debug_name(lower_result, *name),
+            hir::Symbol::Local { name, .. } => debug_name(lower_result, *name),
+            hir::Symbol::Function { path, .. } => debug_path(lower_result, path),
+            hir::Symbol::Missing { path, .. } => debug_path(lower_result, path),
+        }
+    }
+
+    fn debug_name(lower_result: &LowerResult, name: Name) -> String {
+        lower_result.interner.lookup(name.key()).to_string()
+    }
+
+    fn debug_path(lower_result: &LowerResult, path: &Path) -> String {
+        path.segments
+            .iter()
+            .map(|segment| lower_result.interner.lookup(segment.key()))
+            .collect::<Vec<_>>()
+            .join("::")
     }
 
     fn debug_type(ty: &ResolvedType) -> String {

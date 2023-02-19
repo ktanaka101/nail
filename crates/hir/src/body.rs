@@ -7,7 +7,7 @@ use la_arena::{Arena, Idx};
 use self::scopes::ScopeType;
 use crate::{
     body::scopes::Scopes, db::Database, item_tree::ItemTree, string_interner::Interner, AstId,
-    Block, Expr, ItemDefId, Literal, Name, ParamId, Stmt, Symbol,
+    Block, Expr, ItemDefId, Literal, Name, ParamId, Path, Stmt, Symbol,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -286,50 +286,59 @@ impl BodyLower {
         item_tree: &ItemTree,
         interner: &mut Interner,
     ) -> Expr {
-        // TODO: handle paths
-        let ident = ast
-            .path()
-            .unwrap()
-            .segments()
-            .next()
-            .unwrap()
-            .name()
-            .unwrap();
-        let symbol = self.lookup_ident(&ident, _ctx, db, item_tree, interner);
-
-        Expr::VariableRef { var: symbol }
+        let symbol = self.lookup_path(ast.path().unwrap(), _ctx, db, item_tree, interner);
+        Expr::Symbol(symbol)
     }
 
-    fn lookup_ident(
+    fn lookup_path(
         &mut self,
-        ast: &ast::Ident,
+        ast: ast::Path,
         _ctx: &mut SharedBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
         interner: &mut Interner,
     ) -> Symbol {
-        let name = Name::from_key(interner.intern(ast.name()));
-        if let Some(expr) = self.scopes.lookup_in_only_current_scope(name) {
-            Symbol::Local { name, expr }
-        } else if let Some(param_id) = self.lookup_param(name) {
-            Symbol::Param {
-                name,
-                param: param_id,
-            }
-        } else {
-            let item_scope = match self.scopes.current_scope() {
-                ScopeType::TopLevel => item_tree.top_level_scope(db),
-                ScopeType::SubLevel(block_ast_id) => {
-                    item_tree.scope_by_block(db, block_ast_id).unwrap()
+        match ast.segments().collect::<Vec<_>>().as_slice() {
+            [item_segment] => {
+                let name = Name::from_key(interner.intern(item_segment.name().unwrap().name()));
+                if let Some(expr) = self.scopes.lookup_in_only_current_scope(name) {
+                    Symbol::Local { name, expr }
+                } else if let Some(param_id) = self.lookup_param(name) {
+                    Symbol::Param {
+                        name,
+                        param: param_id,
+                    }
+                } else {
+                    let item_scope = match self.scopes.current_scope() {
+                        ScopeType::TopLevel => item_tree.top_level_scope(db),
+                        ScopeType::SubLevel(block_ast_id) => {
+                            item_tree.scope_by_block(db, block_ast_id).unwrap()
+                        }
+                    };
+                    let name_str = interner.lookup(name.key());
+                    if let Some(function) = item_scope.lookup(name_str, db, item_tree, interner) {
+                        Symbol::Function {
+                            path: Path {
+                                segments: vec![name],
+                            },
+                            function,
+                        }
+                    } else if let Some(expr) = self.scopes.lookup(name) {
+                        Symbol::Local { name, expr }
+                    } else {
+                        Symbol::Missing {
+                            path: Path {
+                                segments: vec![name],
+                            },
+                        }
+                    }
                 }
-            };
-            if let Some(function) = item_scope.lookup(ast.name(), db, item_tree, interner) {
-                Symbol::Function { name, function }
-            } else if let Some(expr) = self.scopes.lookup(name) {
-                Symbol::Local { name, expr }
-            } else {
-                Symbol::Missing { name }
             }
+            [_segments @ .., _item_segment] => {
+                // support module paths
+                todo!()
+            }
+            [] => unreachable!(),
         }
     }
 
@@ -354,10 +363,10 @@ impl BodyLower {
             })
             .collect();
         let callee = match self.lower_expr(ast.callee(), ctx, db, item_tree, interner) {
+            Expr::Symbol(symbol) => symbol,
             Expr::Binary { .. } => todo!(),
             Expr::Literal(_) => todo!(),
             Expr::Unary { .. } => todo!(),
-            Expr::VariableRef { var } => var,
             Expr::Call { .. } => todo!(),
             Expr::Block(_) => todo!(),
             Expr::If { .. } => todo!(),
@@ -606,6 +615,7 @@ mod tests {
 
     fn debug_expr(lower_result: &LowerResult, expr: &Expr, nesting: usize) -> String {
         match expr {
+            Expr::Symbol(symbol) => debug_symbol(lower_result, symbol, nesting),
             Expr::Literal(literal) => match literal {
                 Literal::Bool(b) => b.to_string(),
                 Literal::Char(c) => format!("'{c}'"),
@@ -637,7 +647,6 @@ mod tests {
                     debug_expr(lower_result, expr.lookup(&lower_result.shared_ctx), nesting);
                 format!("{op}{expr_str}")
             }
-            Expr::VariableRef { var } => debug_symbol(lower_result, var, nesting),
             Expr::Call { callee, args } => {
                 let callee = debug_symbol(lower_result, callee, nesting);
                 let args = args
@@ -721,11 +730,11 @@ mod tests {
     fn debug_symbol(lower_result: &LowerResult, symbol: &Symbol, nesting: usize) -> String {
         match symbol {
             Symbol::Local { name, expr } => match expr.lookup(&lower_result.shared_ctx) {
-                Expr::Binary { .. }
+                Expr::Symbol { .. }
+                | Expr::Binary { .. }
                 | Expr::Missing
                 | Expr::Literal(_)
                 | Expr::Unary { .. }
-                | Expr::VariableRef { .. }
                 | Expr::Call { .. }
                 | Expr::If { .. }
                 | Expr::Return { .. } => {
@@ -737,12 +746,20 @@ mod tests {
                 let name = lower_result.interner.lookup(name.key());
                 format!("param:{name}")
             }
-            Symbol::Function { name, .. } => {
-                let name = lower_result.interner.lookup(name.key());
+            Symbol::Function { path, .. } => {
+                let name = debug_path(lower_result, path);
                 format!("fn:{name}")
             }
             Symbol::Missing { .. } => "<missing>".to_string(),
         }
+    }
+
+    fn debug_path(lower_result: &LowerResult, path: &Path) -> String {
+        path.segments
+            .iter()
+            .map(|segment| lower_result.interner.lookup(segment.key()))
+            .collect::<Vec<_>>()
+            .join("::")
     }
 
     fn parse(input: &str) -> ast::SourceFile {

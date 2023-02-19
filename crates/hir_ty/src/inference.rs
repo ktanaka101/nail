@@ -145,6 +145,15 @@ impl<'a> TypeInferencer<'a> {
 
     fn infer_expr(&mut self, expr: &hir::Expr) -> ResolvedType {
         match expr {
+            hir::Expr::Symbol(symbol) => match symbol {
+                hir::Symbol::Local { expr, .. } => self.infer_expr_id(*expr),
+                hir::Symbol::Param { param, .. } => {
+                    let param = &param.lookup(&self.hir_result.db);
+                    self.infer_ty(&param.ty)
+                }
+                hir::Symbol::Missing { .. } => ResolvedType::Unknown,
+                hir::Symbol::Function { .. } => unimplemented!(),
+            },
             hir::Expr::Literal(literal) => match literal {
                 hir::Literal::Integer(_) => ResolvedType::Integer,
                 hir::Literal::String(_) => ResolvedType::String,
@@ -208,15 +217,6 @@ impl<'a> TypeInferencer<'a> {
 
                 ResolvedType::Unknown
             }
-            hir::Expr::VariableRef { var } => match var {
-                hir::Symbol::Local { expr, .. } => self.infer_expr_id(*expr),
-                hir::Symbol::Param { param, .. } => {
-                    let param = &param.lookup(&self.hir_result.db);
-                    self.infer_ty(&param.ty)
-                }
-                hir::Symbol::Missing { .. } => ResolvedType::Unknown,
-                hir::Symbol::Function { .. } => unimplemented!(),
-            },
             hir::Expr::Call { callee, args } => match callee {
                 hir::Symbol::Missing { .. } => ResolvedType::Unknown,
                 hir::Symbol::Function { function, .. } => {

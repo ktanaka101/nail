@@ -126,6 +126,7 @@ impl<'a> TypeChecker<'a> {
     fn check_expr(&mut self, expr: hir::ExprId) {
         let expr = expr.lookup(&self.lower_result.shared_ctx);
         match expr {
+            hir::Expr::Symbol(_) => (),
             hir::Expr::Binary { lhs, rhs, .. } => {
                 let lhs_ty = self.type_by_expr(*lhs);
                 let rhs_ty = self.type_by_expr(*rhs);
@@ -178,7 +179,6 @@ impl<'a> TypeChecker<'a> {
                     }
                 }
             }
-            hir::Expr::VariableRef { .. } => (),
             hir::Expr::If {
                 condition,
                 then_branch,

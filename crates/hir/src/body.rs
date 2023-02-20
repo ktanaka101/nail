@@ -7,7 +7,7 @@ use la_arena::{Arena, Idx};
 use self::scopes::ScopeType;
 use crate::{
     body::scopes::Scopes, db::Database, item_tree::ItemTree, string_interner::Interner, AstId,
-    Block, Expr, ItemDefId, Literal, Name, ParamId, Path, Stmt, Symbol,
+    Block, Expr, FunctionId, ItemDefId, Literal, Name, ParamId, Path, Stmt, Symbol,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -315,39 +315,26 @@ impl BodyLower {
                         name,
                         param: param_id,
                     }
+                } else if let Some(function) = self.lookup_function(&[], name, db, item_tree) {
+                    Symbol::Function {
+                        path: Path {
+                            segments: vec![name],
+                        },
+                        function,
+                    }
+                } else if let Some(expr) = self.scopes.lookup(name) {
+                    Symbol::Local { name, expr }
                 } else {
-                    let item_scope = match self.scopes.current_scope() {
-                        ScopeType::TopLevel => item_tree.top_level_scope(db),
-                        ScopeType::SubLevel(block_ast_id) => {
-                            item_tree.scope_by_block(db, block_ast_id).unwrap()
-                        }
-                    };
-                    if let Some(function) = item_scope.lookup(&[], name, db, item_tree) {
-                        Symbol::Function {
-                            path: Path {
-                                segments: vec![name],
-                            },
-                            function,
-                        }
-                    } else if let Some(expr) = self.scopes.lookup(name) {
-                        Symbol::Local { name, expr }
-                    } else {
-                        Symbol::Missing {
-                            path: Path {
-                                segments: vec![name],
-                            },
-                        }
+                    Symbol::Missing {
+                        path: Path {
+                            segments: vec![name],
+                        },
                     }
                 }
             }
             [segments @ .., item_segment] => {
-                let item_scope = match self.scopes.current_scope() {
-                    ScopeType::TopLevel => item_tree.top_level_scope(db),
-                    ScopeType::SubLevel(block_ast_id) => {
-                        item_tree.scope_by_block(db, block_ast_id).unwrap()
-                    }
-                };
-                if let Some(function) = item_scope.lookup(segments, *item_segment, db, item_tree) {
+                if let Some(function) = self.lookup_function(segments, *item_segment, db, item_tree)
+                {
                     Symbol::Function {
                         path: Path {
                             segments: path.segments().to_vec(),
@@ -364,6 +351,22 @@ impl BodyLower {
             }
             [] => unreachable!(),
         }
+    }
+
+    fn lookup_function(
+        &self,
+        module_paths: &[Name],
+        function_name: Name,
+        db: &Database,
+        item_tree: &ItemTree,
+    ) -> Option<FunctionId> {
+        let item_scope = match self.scopes.current_scope() {
+            ScopeType::TopLevel => item_tree.top_level_scope(db),
+            ScopeType::SubLevel(block_ast_id) => {
+                item_tree.scope_by_block(db, block_ast_id).unwrap()
+            }
+        };
+        item_scope.lookup(module_paths, function_name, db, item_tree)
     }
 
     fn lookup_param(&self, name: Name) -> Option<ParamId> {

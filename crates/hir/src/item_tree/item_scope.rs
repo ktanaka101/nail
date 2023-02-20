@@ -23,37 +23,93 @@ impl ItemScope {
 
     pub fn lookup(
         &self,
-        module_path: &[Name],
-        function_name: &Name,
+        module_paths: &[Name],
+        function_name: Name,
         db: &Database,
         item_tree: &ItemTree,
     ) -> Option<FunctionId> {
-        match module_path {
-            [] => {
-                let function_id = self.function_by_name.get(function_name).copied();
-                if function_id.is_some() {
-                    return function_id;
-                }
-
-                if let Some(parent) = &self.parent {
-                    match parent {
-                        Parent::TopLevel => {
-                            let top_level_item_scope = item_tree.top_level_scope.lookup(db);
-                            top_level_item_scope.lookup(&[], function_name, db, item_tree)
-                        }
-                        Parent::SubLevel(item_scope_id) => {
-                            let item_scope = item_scope_id.lookup(db);
-                            item_scope.lookup(&[], function_name, db, item_tree)
-                        }
-                    }
-                } else {
-                    None
-                }
-            }
+        match module_paths {
+            [] => self.lookup_function(function_name, db, item_tree),
             [module_path, rest @ ..] => {
-                let module_id = self.module_by_name.get(module_path)?;
-                let scope = item_tree.scope_by_module(db, module_id).unwrap();
-                scope.lookup(rest, function_name, db, item_tree)
+                let scope = self.lookup_scope_by_module(*module_path, db, item_tree)?;
+                scope.resolve_function(rest, function_name, db, item_tree)
+            }
+        }
+    }
+
+    fn resolve_function(
+        &self,
+        module_paths: &[Name],
+        function_name: Name,
+        db: &Database,
+        item_tree: &ItemTree,
+    ) -> Option<FunctionId> {
+        match module_paths {
+            [] => self.function_by_name.get(&function_name).copied(),
+            [module_path, rest @ ..] => {
+                let scope = self.find_scope_by_module(*module_path, db, item_tree)?;
+                scope.resolve_function(rest, function_name, db, item_tree)
+            }
+        }
+    }
+
+    fn find_scope_by_module<'a>(
+        &self,
+        module_path: Name,
+        db: &'a Database,
+        item_tree: &ItemTree,
+    ) -> Option<&'a ItemScope> {
+        self.module_by_name
+            .get(&module_path)
+            .map(|module_id| item_tree.scope_by_module(db, module_id).unwrap())
+    }
+
+    fn lookup_function(
+        &self,
+        function_name: Name,
+        db: &Database,
+        item_tree: &ItemTree,
+    ) -> Option<FunctionId> {
+        if let Some(function_id) = self.function_by_name.get(&function_name) {
+            Some(*function_id)
+        } else {
+            match &self.parent {
+                Some(parent) => match parent {
+                    Parent::TopLevel => {
+                        let top_level_item_scope = item_tree.top_level_scope.lookup(db);
+                        top_level_item_scope.lookup_function(function_name, db, item_tree)
+                    }
+                    Parent::SubLevel(item_scope_id) => {
+                        let item_scope = item_scope_id.lookup(db);
+                        item_scope.lookup_function(function_name, db, item_tree)
+                    }
+                },
+                None => None,
+            }
+        }
+    }
+
+    fn lookup_scope_by_module<'a>(
+        &self,
+        module_path: Name,
+        db: &'a Database,
+        item_tree: &ItemTree,
+    ) -> Option<&'a ItemScope> {
+        if let Some(scope) = self.find_scope_by_module(module_path, db, item_tree) {
+            Some(scope)
+        } else {
+            match &self.parent {
+                Some(parent) => match parent {
+                    Parent::TopLevel => {
+                        let top_level_item_scope = item_tree.top_level_scope.lookup(db);
+                        top_level_item_scope.lookup_scope_by_module(module_path, db, item_tree)
+                    }
+                    Parent::SubLevel(item_scope_id) => {
+                        let item_scope = item_scope_id.lookup(db);
+                        item_scope.lookup_scope_by_module(module_path, db, item_tree)
+                    }
+                },
+                None => None,
             }
         }
     }

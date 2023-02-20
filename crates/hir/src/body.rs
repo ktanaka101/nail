@@ -322,7 +322,7 @@ impl BodyLower {
                             item_tree.scope_by_block(db, block_ast_id).unwrap()
                         }
                     };
-                    if let Some(function) = item_scope.lookup(&[], &name, db, item_tree) {
+                    if let Some(function) = item_scope.lookup(&[], name, db, item_tree) {
                         Symbol::Function {
                             path: Path {
                                 segments: vec![name],
@@ -347,7 +347,7 @@ impl BodyLower {
                         item_tree.scope_by_block(db, block_ast_id).unwrap()
                     }
                 };
-                if let Some(function) = item_scope.lookup(segments, item_segment, db, item_tree) {
+                if let Some(function) = item_scope.lookup(segments, *item_segment, db, item_tree) {
                     Symbol::Function {
                         path: Path {
                             segments: path.segments().to_vec(),
@@ -2085,7 +2085,8 @@ mod tests {
                 }
                 mod mod_aaa {
                     fn fn_aaa() {
-                        mod_bbb::fn_aaa();
+                        mod_bbb::fn_bbb();
+                        mod_aaa::mod_bbb::fn_bbb();
                     }
                     mod mod_bbb {
                         fn fn_bbb() {
@@ -2095,11 +2096,12 @@ mod tests {
             "#,
             expect![[r#"
                 fn entry:main() -> () {
-                    <missing>();
+                    fn:mod_aaa::fn_aaa();
                 }
                 mod mod_aaa {
                     fn fn_aaa() -> () {
-                        <missing>();
+                        fn:mod_bbb::fn_bbb();
+                        fn:mod_aaa::mod_bbb::fn_bbb();
                     }
 
                     mod mod_bbb {

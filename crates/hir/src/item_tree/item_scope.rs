@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use super::ItemTree;
 use crate::{
     db::{Database, FunctionId, ItemScopeId, ModuleId},
-    string_interner::Interner,
     Name,
 };
 
@@ -24,33 +23,38 @@ impl ItemScope {
 
     pub fn lookup(
         &self,
-        name_str: &str,
+        module_path: &[Name],
+        function_name: &Name,
         db: &Database,
         item_tree: &ItemTree,
-        interner: &Interner,
     ) -> Option<FunctionId> {
-        let function_name_key = interner.get_key(name_str);
-        if let Some(function_name_key) = function_name_key {
-            let name = &Name::from_key(function_name_key);
-            let function_id = self.function_by_name.get(name).copied();
-            if function_id.is_some() {
-                return function_id;
-            }
-        }
+        match module_path {
+            [] => {
+                let function_id = self.function_by_name.get(function_name).copied();
+                if function_id.is_some() {
+                    return function_id;
+                }
 
-        if let Some(parent) = &self.parent {
-            match parent {
-                Parent::TopLevel => {
-                    let top_level_item_scope = item_tree.top_level_scope.lookup(db);
-                    top_level_item_scope.lookup(name_str, db, item_tree, interner)
-                }
-                Parent::SubLevel(item_scope_id) => {
-                    let item_scope = item_scope_id.lookup(db);
-                    item_scope.lookup(name_str, db, item_tree, interner)
+                if let Some(parent) = &self.parent {
+                    match parent {
+                        Parent::TopLevel => {
+                            let top_level_item_scope = item_tree.top_level_scope.lookup(db);
+                            top_level_item_scope.lookup(&[], function_name, db, item_tree)
+                        }
+                        Parent::SubLevel(item_scope_id) => {
+                            let item_scope = item_scope_id.lookup(db);
+                            item_scope.lookup(&[], function_name, db, item_tree)
+                        }
+                    }
+                } else {
+                    None
                 }
             }
-        } else {
-            None
+            [module_path, rest @ ..] => {
+                let module_id = self.module_by_name.get(module_path)?;
+                let scope = item_tree.scope_by_module(db, module_id).unwrap();
+                scope.lookup(rest, function_name, db, item_tree)
+            }
         }
     }
 

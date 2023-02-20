@@ -272,7 +272,7 @@ mod tests {
     }
 
     fn debug_path(lower_result: &LowerResult, path: &Path) -> String {
-        path.segments
+        path.segments()
             .iter()
             .map(|segment| lower_result.interner.lookup(segment.key()))
             .collect::<Vec<_>>()

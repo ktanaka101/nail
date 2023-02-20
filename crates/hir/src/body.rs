@@ -286,21 +286,28 @@ impl BodyLower {
         item_tree: &ItemTree,
         interner: &mut Interner,
     ) -> Expr {
-        let symbol = self.lookup_path(ast.path().unwrap(), _ctx, db, item_tree, interner);
+        let path = Path {
+            segments: ast
+                .path()
+                .unwrap()
+                .segments()
+                .map(|segment| Name::from_key(interner.intern(segment.name().unwrap().name())))
+                .collect(),
+        };
+        let symbol = self.lookup_path(path, _ctx, db, item_tree);
         Expr::Symbol(symbol)
     }
 
     fn lookup_path(
         &mut self,
-        ast: ast::Path,
+        path: Path,
         _ctx: &mut SharedBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
-        interner: &mut Interner,
     ) -> Symbol {
-        match ast.segments().collect::<Vec<_>>().as_slice() {
-            [item_segment] => {
-                let name = Name::from_key(interner.intern(item_segment.name().unwrap().name()));
+        match path.segments() {
+            [name] => {
+                let name = *name;
                 if let Some(expr) = self.scopes.lookup_in_only_current_scope(name) {
                     Symbol::Local { name, expr }
                 } else if let Some(param_id) = self.lookup_param(name) {
@@ -315,8 +322,7 @@ impl BodyLower {
                             item_tree.scope_by_block(db, block_ast_id).unwrap()
                         }
                     };
-                    let name_str = interner.lookup(name.key());
-                    if let Some(function) = item_scope.lookup(name_str, db, item_tree, interner) {
+                    if let Some(function) = item_scope.lookup(&[], &name, db, item_tree) {
                         Symbol::Function {
                             path: Path {
                                 segments: vec![name],
@@ -334,9 +340,27 @@ impl BodyLower {
                     }
                 }
             }
-            [_segments @ .., _item_segment] => {
-                // support module paths
-                todo!()
+            [segments @ .., item_segment] => {
+                let item_scope = match self.scopes.current_scope() {
+                    ScopeType::TopLevel => item_tree.top_level_scope(db),
+                    ScopeType::SubLevel(block_ast_id) => {
+                        item_tree.scope_by_block(db, block_ast_id).unwrap()
+                    }
+                };
+                if let Some(function) = item_scope.lookup(segments, item_segment, db, item_tree) {
+                    Symbol::Function {
+                        path: Path {
+                            segments: path.segments().to_vec(),
+                        },
+                        function,
+                    }
+                } else {
+                    Symbol::Missing {
+                        path: Path {
+                            segments: path.segments().to_vec(),
+                        },
+                    }
+                }
             }
             [] => unreachable!(),
         }
@@ -2039,7 +2063,7 @@ mod tests {
             "#,
             expect![[r#"
                 fn entry:main() -> () {
-                    <missing>();
+                    fn:mod_aaa::fn_aaa();
                     fn:bbb();
                     mod mod_aaa {
                         fn fn_aaa() -> () {

@@ -170,7 +170,12 @@ pub enum Expr {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Path {
-    pub segments: Vec<Name>,
+    segments: Vec<Name>,
+}
+impl Path {
+    pub fn segments(&self) -> &[Name] {
+        self.segments.as_slice()
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]

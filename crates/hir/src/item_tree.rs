@@ -23,7 +23,8 @@ pub struct ItemTree {
     function_by_block: HashMap<BlockAstId, FunctionId>,
     block_by_function: HashMap<FunctionId, BlockAstId>,
 
-    scope_by_module: HashMap<ModuleAstId, ItemScopeId>,
+    scope_by_module_ast: HashMap<ModuleAstId, ItemScopeId>,
+    scope_by_module: HashMap<ModuleId, ItemScopeId>,
     module_by_ast_module: HashMap<ModuleAstId, ModuleId>,
 }
 impl ItemTree {
@@ -40,12 +41,17 @@ impl ItemTree {
             .map(|scope_id| scope_id.lookup(db))
     }
 
-    pub fn scope_by_module<'a>(
+    pub fn scope_by_ast_module<'a>(
         &self,
         db: &'a Database,
         ast_id: &ModuleAstId,
     ) -> Option<&'a ItemScope> {
-        let scope_id = self.scope_by_module.get(ast_id);
+        let scope_id = self.scope_by_module_ast.get(ast_id);
+        scope_id.map(|scope_id| scope_id.lookup(db))
+    }
+
+    pub fn scope_by_module<'a>(&self, db: &'a Database, id: &ModuleId) -> Option<&'a ItemScope> {
+        let scope_id = self.scope_by_module.get(id);
         scope_id.map(|scope_id| scope_id.lookup(db))
     }
 
@@ -86,7 +92,8 @@ pub(crate) struct ItemTreeBuilderContext<'a> {
     function_by_block: HashMap<BlockAstId, FunctionId>,
     block_by_function: HashMap<FunctionId, BlockAstId>,
 
-    scope_by_module: HashMap<ModuleAstId, ItemScopeId>,
+    scope_by_module_ast: HashMap<ModuleAstId, ItemScopeId>,
+    scope_by_module: HashMap<ModuleId, ItemScopeId>,
     module_by_ast_module: HashMap<ModuleAstId, ModuleId>,
 
     interner: &'a mut Interner,
@@ -98,6 +105,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
             block_by_scope: HashMap::new(),
             function_by_block: HashMap::new(),
             block_by_function: HashMap::new(),
+            scope_by_module_ast: HashMap::new(),
             scope_by_module: HashMap::new(),
             module_by_ast_module: HashMap::new(),
             interner,
@@ -118,6 +126,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
             block_by_scope: self.block_by_scope,
             function_by_block: self.function_by_block,
             block_by_function: self.block_by_function,
+            scope_by_module_ast: self.scope_by_module_ast,
             scope_by_module: self.scope_by_module,
             module_by_ast_module: self.module_by_ast_module,
         }
@@ -304,7 +313,8 @@ impl<'a> ItemTreeBuilderContext<'a> {
             }
 
             let module_ast_id = db.alloc_node(module);
-            self.scope_by_module.insert(module_ast_id.clone(), scope_id);
+            self.scope_by_module_ast
+                .insert(module_ast_id.clone(), scope_id);
 
             let module_name = Name::from_key(self.interner.intern(module.name().unwrap().name()));
             let hir_module = Module {
@@ -316,6 +326,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
                 .lookup_mut(db)
                 .insert_module(module_name, module_id);
             self.module_by_ast_module.insert(module_ast_id, module_id);
+            self.scope_by_module.insert(module_id, scope_id);
 
             Some(module_id)
         } else {

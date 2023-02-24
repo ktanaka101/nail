@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     db::{FunctionId, ModuleId},
-    AstId, Name, ParamId,
+    AstId, Name, ParamId, Path,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -24,6 +24,7 @@ pub enum Type {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Function {
+    pub path: Path,
     pub name: Option<Name>,
     pub params: Vec<ParamId>,
     pub param_by_name: HashMap<Name, ParamId>,

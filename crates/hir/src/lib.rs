@@ -168,7 +168,7 @@ pub enum Expr {
     Missing,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Path {
     segments: Vec<Name>,
 }

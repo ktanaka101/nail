@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use super::ItemTree;
 use crate::{
     db::{Database, FunctionId, ItemScopeId, ModuleId},
-    Name,
+    Name, Path,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -11,6 +11,7 @@ pub struct ItemScope {
     function_by_name: HashMap<Name, FunctionId>,
     module_by_name: HashMap<Name, ModuleId>,
     parent: Option<Parent>,
+    name: Option<Name>,
 }
 impl ItemScope {
     pub fn new(parent: Option<Parent>) -> Self {
@@ -18,6 +19,44 @@ impl ItemScope {
             function_by_name: HashMap::new(),
             module_by_name: HashMap::new(),
             parent,
+            name: None,
+        }
+    }
+
+    pub fn new_with_name(parent: Option<Parent>, name: Name) -> Self {
+        Self {
+            function_by_name: HashMap::new(),
+            module_by_name: HashMap::new(),
+            parent,
+            name: Some(name),
+        }
+    }
+
+    pub fn path(&self, db: &Database) -> Path {
+        match &self.parent {
+            Some(parent) => match parent {
+                Parent::TopLevel => Path {
+                    segments: if let Some(name) = self.name {
+                        vec![name]
+                    } else {
+                        vec![]
+                    },
+                },
+                Parent::SubLevel(parent) => {
+                    let mut path = parent.lookup(db).path(db);
+                    if let Some(name) = self.name {
+                        path.segments.push(name);
+                    }
+                    path
+                }
+            },
+            None => Path {
+                segments: if let Some(name) = self.name {
+                    vec![name]
+                } else {
+                    vec![]
+                },
+            },
         }
     }
 

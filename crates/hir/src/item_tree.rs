@@ -179,6 +179,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
 
                 let ast_id = db.alloc_node(&def);
                 let function = Function {
+                    path: current_scope.lookup(db).path(db),
                     name,
                     params,
                     param_by_name,
@@ -190,7 +191,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
                     current_scope.lookup_mut(db).insert_function(name, function);
                 }
 
-                let block = self.build_block(block, parent, db);
+                let block = self.build_block(block, parent, db, name);
                 self.function_by_block.insert(block.clone(), function);
                 self.block_by_function.insert(function, block);
 
@@ -260,12 +261,12 @@ impl<'a> ItemTreeBuilderContext<'a> {
                 self.build_expr(unary.expr()?, _current_scope, parent, db)?;
             }
             ast::Expr::BlockExpr(block) => {
-                self.build_block(block, parent, db);
+                self.build_block(block, parent, db, None);
             }
             ast::Expr::IfExpr(if_expr) => {
                 self.build_expr(if_expr.condition()?, _current_scope, parent.clone(), db)?;
-                self.build_block(if_expr.then_branch()?, parent.clone(), db);
-                self.build_block(if_expr.else_branch()?, parent, db);
+                self.build_block(if_expr.then_branch()?, parent.clone(), db, None);
+                self.build_block(if_expr.else_branch()?, parent, db, None);
             }
             _ => (),
         };
@@ -278,8 +279,13 @@ impl<'a> ItemTreeBuilderContext<'a> {
         block: ast::BlockExpr,
         parent: Parent,
         db: &mut Database,
+        name: Option<Name>,
     ) -> AstId<ast::BlockExpr> {
-        let scope = ItemScope::new(Some(parent));
+        let scope = if let Some(name) = name {
+            ItemScope::new_with_name(Some(parent), name)
+        } else {
+            ItemScope::new(Some(parent))
+        };
         let scope_id = db.alloc_item_scope(scope);
         let block_ast_id = db.alloc_node(&block);
         let current = Parent::SubLevel(scope_id);
@@ -301,7 +307,9 @@ impl<'a> ItemTreeBuilderContext<'a> {
         db: &mut Database,
     ) -> Option<ModuleId> {
         if let Some(item_list) = module.items() {
-            let scope = ItemScope::new(Some(parent));
+            let module_name = Name::from_key(self.interner.intern(module.name().unwrap().name()));
+
+            let scope = ItemScope::new_with_name(Some(parent), module_name);
             let scope_id = db.alloc_item_scope(scope);
 
             let current = Parent::SubLevel(scope_id);
@@ -316,7 +324,6 @@ impl<'a> ItemTreeBuilderContext<'a> {
             self.scope_by_module_ast
                 .insert(module_ast_id.clone(), scope_id);
 
-            let module_name = Name::from_key(self.interner.intern(module.name().unwrap().name()));
             let hir_module = Module {
                 name: module_name,
                 items,

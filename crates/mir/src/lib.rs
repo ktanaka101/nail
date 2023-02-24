@@ -16,6 +16,7 @@ struct FunctionLower<'a> {
     hir_result: &'a hir::LowerResult,
     hir_ty_result: &'a hir_ty::TyLowerResult,
     function_id_by_hir_function: &'a HashMap<hir::FunctionId, FunctionId>,
+    path: hir::Path,
     function_id: hir::FunctionId,
 
     return_local: Idx<Local>,
@@ -36,6 +37,7 @@ impl<'a> FunctionLower<'a> {
         hir_result: &'a hir::LowerResult,
         hir_ty_result: &'a hir_ty::TyLowerResult,
         function_id_by_hir_function: &'a HashMap<hir::FunctionId, FunctionId>,
+        path: hir::Path,
         function_id: hir::FunctionId,
     ) -> Self {
         let mut locals = Arena::new();
@@ -49,6 +51,7 @@ impl<'a> FunctionLower<'a> {
             hir_result,
             hir_ty_result,
             function_id_by_hir_function,
+            path,
             function_id,
             local_idx: 1,
             return_local,
@@ -559,6 +562,7 @@ impl<'a> FunctionLower<'a> {
         }
 
         Body {
+            path: self.path,
             name: function.name.unwrap(),
             params: self.params,
             return_local: self.return_local,
@@ -614,6 +618,7 @@ impl<'a> MirLower<'a> {
                 self.hir_result,
                 self.hir_ty_result,
                 &function_id_by_hir_function,
+                function.path.clone(),
                 function_id,
             );
             let body = lower.lower();
@@ -680,6 +685,7 @@ impl LowerResult {
 
 #[derive(Debug)]
 pub struct Body {
+    pub path: hir::Path,
     pub name: hir::Name,
     pub params: Arena<Param>,
     pub return_local: LocalIdx,
@@ -919,6 +925,17 @@ mod tests {
         "    ".repeat(nesting)
     }
 
+    fn debug_path(path: &hir::Path, hir_result: &hir::LowerResult) -> String {
+        let mut msg = "".to_string();
+        for (idx, segment) in path.segments().iter().enumerate() {
+            if idx > 0 {
+                msg.push_str("::");
+            }
+            msg.push_str(hir_result.interner.lookup(segment.key()));
+        }
+        msg
+    }
+
     fn debug(
         hir_result: &hir::LowerResult,
         _hir_ty_result: &hir_ty::TyLowerResult,
@@ -927,8 +944,13 @@ mod tests {
         let mut msg = "".to_string();
 
         for (_body_idx, body) in mir_result.bodies.iter() {
+            let path = debug_path(&body.path, hir_result);
             let name = hir_result.interner.lookup(body.name.key());
-            msg.push_str(&format!("fn {name}("));
+            if path.is_empty() {
+                msg.push_str(&format!("fn {name}("));
+            } else {
+                msg.push_str(&format!("fn {path}::{name}("));
+            }
 
             msg.push_str(&debug_params(
                 body.params
@@ -2362,7 +2384,7 @@ mod tests {
                         return _0
                     }
                 }
-                fn function_aaa() -> int {
+                fn module_aaa::module_bbb::function_aaa() -> int {
                     let _0: int
 
                     entry: {
@@ -2374,7 +2396,7 @@ mod tests {
                         return _0
                     }
                 }
-                fn function_bbb() -> int {
+                fn module_aaa::module_bbb::function_aaa::module_ccc::function_bbb() -> int {
                     let _0: int
 
                     entry: {
@@ -2386,7 +2408,7 @@ mod tests {
                         return _0
                     }
                 }
-                fn function_ccc() -> int {
+                fn module_aaa::function_ccc() -> int {
                     let _0: int
 
                     entry: {

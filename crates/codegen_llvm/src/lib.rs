@@ -1859,4 +1859,40 @@ mod tests {
             "#]],
         );
     }
+
+    #[test]
+    fn test_modules() {
+        check_result(
+            r#"
+                fn main() -> int {
+                    let x = module_aaa::module_bbb::function_aaa();
+                    let y = module_aaa::function_ccc();
+                    x + y
+                }
+                mod module_aaa {
+                    mod module_bbb {
+                        fn function_aaa() -> int {
+                            mod module_ccc {
+                                fn function_bbb() -> int {
+                                    10
+                                }
+                            }
+
+                            module_ccc::function_bbb()
+                        }
+                    }
+
+                    fn function_ccc() -> int {
+                        20
+                    }
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 30
+                }
+            "#]],
+        );
+    }
 }

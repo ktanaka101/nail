@@ -34,29 +34,20 @@ impl ItemScope {
 
     pub fn path(&self, db: &Database) -> Path {
         match &self.parent {
-            Some(parent) => match parent {
-                Parent::TopLevel => Path {
-                    segments: if let Some(name) = self.name {
-                        vec![name]
-                    } else {
-                        vec![]
-                    },
-                },
-                Parent::SubLevel(parent) => {
-                    let mut path = parent.lookup(db).path(db);
-                    if let Some(name) = self.name {
-                        path.segments.push(name);
-                    }
-                    path
-                }
-            },
-            None => Path {
+            Some(Parent::TopLevel) | None => Path {
                 segments: if let Some(name) = self.name {
                     vec![name]
                 } else {
                     vec![]
                 },
             },
+            Some(Parent::SubLevel(parent)) => {
+                let mut path = parent.lookup(db).path(db);
+                if let Some(name) = self.name {
+                    path.segments.push(name);
+                }
+                path
+            }
         }
     }
 

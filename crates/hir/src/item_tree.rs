@@ -113,7 +113,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
     }
 
     pub(crate) fn build(mut self, ast: &ast::SourceFile, db: &mut Database) -> ItemTree {
-        let top_level_scope = ItemScope::new(None);
+        let top_level_scope = ItemScope::new_with_nameless(None);
         let top_level_scope_id = db.alloc_item_scope(top_level_scope);
 
         for item in ast.items() {
@@ -284,7 +284,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
         let scope = if let Some(name) = name {
             ItemScope::new_with_name(Some(parent), name)
         } else {
-            ItemScope::new(Some(parent))
+            ItemScope::new_with_nameless(Some(parent))
         };
         let scope_id = db.alloc_item_scope(scope);
         let block_ast_id = db.alloc_node(&block);

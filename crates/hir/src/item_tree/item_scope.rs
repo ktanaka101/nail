@@ -14,7 +14,7 @@ pub struct ItemScope {
     name: Option<Name>,
 }
 impl ItemScope {
-    pub fn new(parent: Option<Parent>) -> Self {
+    pub fn new_with_nameless(parent: Option<Parent>) -> Self {
         Self {
             function_by_name: HashMap::new(),
             module_by_name: HashMap::new(),

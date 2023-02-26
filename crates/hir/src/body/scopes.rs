@@ -9,13 +9,13 @@ pub(crate) enum ScopeType {
 }
 
 #[derive(Debug)]
-pub(crate) struct Scopes {
-    inner: Vec<Scope>,
+pub(crate) struct ExprScopes {
+    inner: Vec<ExprScope>,
 }
-impl Scopes {
+impl ExprScopes {
     pub(crate) fn new() -> Self {
         Self {
-            inner: vec![Scope::top_level()],
+            inner: vec![ExprScope::top_level()],
         }
     }
 
@@ -48,7 +48,7 @@ impl Scopes {
     }
 
     pub(crate) fn enter(&mut self, block: AstId<ast::BlockExpr>) {
-        self.inner.push(Scope::sub_level(block));
+        self.inner.push(ExprScope::sub_level(block));
     }
 
     pub(crate) fn leave(&mut self) {
@@ -59,11 +59,11 @@ impl Scopes {
 }
 
 #[derive(Debug)]
-struct Scope {
+struct ExprScope {
     table: HashMap<Name, ExprId>,
     scope_type: ScopeType,
 }
-impl Scope {
+impl ExprScope {
     fn top_level() -> Self {
         Self {
             table: HashMap::new(),

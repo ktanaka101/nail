@@ -6,7 +6,7 @@ use la_arena::{Arena, Idx};
 
 use self::scopes::ScopeType;
 use crate::{
-    body::scopes::Scopes, db::Database, item_tree::ItemTree, string_interner::Interner, AstId,
+    body::scopes::ExprScopes, db::Database, item_tree::ItemTree, string_interner::Interner, AstId,
     Block, Expr, FunctionId, ItemDefId, Literal, Name, ParamId, Path, Stmt, Symbol,
 };
 
@@ -69,14 +69,14 @@ impl SharedBodyLowerContext {
 
 #[derive(Debug)]
 pub struct BodyLower {
-    scopes: Scopes,
+    scopes: ExprScopes,
     params: HashMap<Name, ParamId>,
 }
 
 impl BodyLower {
     pub(super) fn new(params: HashMap<Name, ParamId>) -> Self {
         Self {
-            scopes: Scopes::new(),
+            scopes: ExprScopes::new(),
             params,
         }
     }

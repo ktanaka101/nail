@@ -34,20 +34,20 @@ impl ItemScope {
 
     pub fn path(&self, db: &Database) -> Path {
         match &self.parent {
-            Some(ParentScope::TopLevel) | None => Path {
-                segments: if let Some(name) = self.name {
-                    vec![name]
-                } else {
-                    vec![]
-                },
-            },
-            Some(ParentScope::SubLevel(parent)) => {
+            Some(ParentScope(parent)) => {
                 let mut path = parent.lookup(db).path(db);
                 if let Some(name) = self.name {
                     path.segments.push(name);
                 }
                 path
             }
+            None => Path {
+                segments: if let Some(name) = self.name {
+                    vec![name]
+                } else {
+                    vec![]
+                },
+            },
         }
     }
 
@@ -59,7 +59,7 @@ impl ItemScope {
         item_tree: &ItemTree,
     ) -> Option<FunctionId> {
         match module_paths {
-            [] => self.lookup_function(function_name, db, item_tree),
+            [] => self.lookup_function(function_name, db),
             [module_path, rest @ ..] => {
                 let scope = self.lookup_scope_by_module(*module_path, db, item_tree)?;
                 scope.resolve_function(rest, function_name, db, item_tree)
@@ -94,26 +94,15 @@ impl ItemScope {
             .map(|module_id| item_tree.scope_by_module(db, module_id).unwrap())
     }
 
-    fn lookup_function(
-        &self,
-        function_name: Name,
-        db: &Database,
-        item_tree: &ItemTree,
-    ) -> Option<FunctionId> {
+    fn lookup_function(&self, function_name: Name, db: &Database) -> Option<FunctionId> {
         if let Some(function_id) = self.function_by_name.get(&function_name) {
             Some(*function_id)
         } else {
             match &self.parent {
-                Some(parent) => match parent {
-                    ParentScope::TopLevel => {
-                        let top_level_item_scope = item_tree.top_level_scope.lookup(db);
-                        top_level_item_scope.lookup_function(function_name, db, item_tree)
-                    }
-                    ParentScope::SubLevel(item_scope_id) => {
-                        let item_scope = item_scope_id.lookup(db);
-                        item_scope.lookup_function(function_name, db, item_tree)
-                    }
-                },
+                Some(ParentScope(scope_id)) => {
+                    let item_scope = scope_id.lookup(db);
+                    item_scope.lookup_function(function_name, db)
+                }
                 None => None,
             }
         }
@@ -130,12 +119,8 @@ impl ItemScope {
         } else {
             match &self.parent {
                 Some(parent) => match parent {
-                    ParentScope::TopLevel => {
-                        let top_level_item_scope = item_tree.top_level_scope.lookup(db);
-                        top_level_item_scope.lookup_scope_by_module(module_path, db, item_tree)
-                    }
-                    ParentScope::SubLevel(item_scope_id) => {
-                        let item_scope = item_scope_id.lookup(db);
+                    ParentScope(scope_id) => {
+                        let item_scope = scope_id.lookup(db);
                         item_scope.lookup_scope_by_module(module_path, db, item_tree)
                     }
                 },
@@ -154,7 +139,13 @@ impl ItemScope {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ParentScope {
-    TopLevel,
-    SubLevel(ItemScopeId),
+pub struct ParentScope(ItemScopeId);
+impl ParentScope {
+    pub fn new(scope_id: ItemScopeId) -> Self {
+        Self(scope_id)
+    }
+
+    pub fn lookup<'a>(&self, db: &'a Database) -> &'a ItemScope {
+        self.0.lookup(db)
+    }
 }

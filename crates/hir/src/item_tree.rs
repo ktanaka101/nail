@@ -117,7 +117,12 @@ impl<'a> ItemTreeBuilderContext<'a> {
         let top_level_scope_id = db.alloc_item_scope(top_level_scope);
 
         for item in ast.items() {
-            self.build_item(item, top_level_scope_id, ParentScope::TopLevel, db);
+            self.build_item(
+                item,
+                top_level_scope_id,
+                ParentScope::new(top_level_scope_id),
+                db,
+            );
         }
 
         ItemTree {
@@ -288,7 +293,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
         };
         let scope_id = db.alloc_item_scope(scope);
         let block_ast_id = db.alloc_node(&block);
-        let current = ParentScope::SubLevel(scope_id);
+        let current = ParentScope::new(scope_id);
         for stmt in block.stmts() {
             self.build_stmt(stmt, scope_id, current.clone(), db);
         }
@@ -312,7 +317,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
             let scope = ItemScope::new_with_name(Some(parent), module_name);
             let scope_id = db.alloc_item_scope(scope);
 
-            let current = ParentScope::SubLevel(scope_id);
+            let current = ParentScope::new(scope_id);
             let mut items = vec![];
             for item in item_list.items() {
                 if let Some(item) = self.build_item(item, scope_id, current.clone(), db) {

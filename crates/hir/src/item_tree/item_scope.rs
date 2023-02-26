@@ -10,11 +10,11 @@ use crate::{
 pub struct ItemScope {
     function_by_name: HashMap<Name, FunctionId>,
     module_by_name: HashMap<Name, ModuleId>,
-    parent: Option<Parent>,
+    parent: Option<ParentScope>,
     name: Option<Name>,
 }
 impl ItemScope {
-    pub fn new_with_nameless(parent: Option<Parent>) -> Self {
+    pub fn new_with_nameless(parent: Option<ParentScope>) -> Self {
         Self {
             function_by_name: HashMap::new(),
             module_by_name: HashMap::new(),
@@ -23,7 +23,7 @@ impl ItemScope {
         }
     }
 
-    pub fn new_with_name(parent: Option<Parent>, name: Name) -> Self {
+    pub fn new_with_name(parent: Option<ParentScope>, name: Name) -> Self {
         Self {
             function_by_name: HashMap::new(),
             module_by_name: HashMap::new(),
@@ -34,14 +34,14 @@ impl ItemScope {
 
     pub fn path(&self, db: &Database) -> Path {
         match &self.parent {
-            Some(Parent::TopLevel) | None => Path {
+            Some(ParentScope::TopLevel) | None => Path {
                 segments: if let Some(name) = self.name {
                     vec![name]
                 } else {
                     vec![]
                 },
             },
-            Some(Parent::SubLevel(parent)) => {
+            Some(ParentScope::SubLevel(parent)) => {
                 let mut path = parent.lookup(db).path(db);
                 if let Some(name) = self.name {
                     path.segments.push(name);
@@ -105,11 +105,11 @@ impl ItemScope {
         } else {
             match &self.parent {
                 Some(parent) => match parent {
-                    Parent::TopLevel => {
+                    ParentScope::TopLevel => {
                         let top_level_item_scope = item_tree.top_level_scope.lookup(db);
                         top_level_item_scope.lookup_function(function_name, db, item_tree)
                     }
-                    Parent::SubLevel(item_scope_id) => {
+                    ParentScope::SubLevel(item_scope_id) => {
                         let item_scope = item_scope_id.lookup(db);
                         item_scope.lookup_function(function_name, db, item_tree)
                     }
@@ -130,11 +130,11 @@ impl ItemScope {
         } else {
             match &self.parent {
                 Some(parent) => match parent {
-                    Parent::TopLevel => {
+                    ParentScope::TopLevel => {
                         let top_level_item_scope = item_tree.top_level_scope.lookup(db);
                         top_level_item_scope.lookup_scope_by_module(module_path, db, item_tree)
                     }
-                    Parent::SubLevel(item_scope_id) => {
+                    ParentScope::SubLevel(item_scope_id) => {
                         let item_scope = item_scope_id.lookup(db);
                         item_scope.lookup_scope_by_module(module_path, db, item_tree)
                     }
@@ -154,7 +154,7 @@ impl ItemScope {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Parent {
+pub enum ParentScope {
     TopLevel,
     SubLevel(ItemScopeId),
 }

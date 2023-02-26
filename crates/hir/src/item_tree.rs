@@ -4,7 +4,7 @@ mod item_scope;
 use std::collections::HashMap;
 
 pub use item::{Function, ItemDefId, Module, Param, Type};
-pub use item_scope::{ItemScope, Parent};
+pub use item_scope::{ItemScope, ParentScope};
 
 use crate::{
     db::{Database, FunctionId, ItemScopeId, ModuleId},
@@ -117,7 +117,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
         let top_level_scope_id = db.alloc_item_scope(top_level_scope);
 
         for item in ast.items() {
-            self.build_item(item, top_level_scope_id, Parent::TopLevel, db);
+            self.build_item(item, top_level_scope_id, ParentScope::TopLevel, db);
         }
 
         ItemTree {
@@ -136,7 +136,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
         &mut self,
         item: ast::Item,
         current_scope: ItemScopeId,
-        parent: Parent,
+        parent: ParentScope,
         db: &mut Database,
     ) -> Option<ItemDefId> {
         match item {
@@ -208,7 +208,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
         &mut self,
         stmt: ast::Stmt,
         current_scope: ItemScopeId,
-        parent: Parent,
+        parent: ParentScope,
         db: &mut Database,
     ) -> Option<()> {
         match stmt {
@@ -246,7 +246,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
         &mut self,
         expr: ast::Expr,
         _current_scope: ItemScopeId,
-        parent: Parent,
+        parent: ParentScope,
         db: &mut Database,
     ) -> Option<()> {
         match expr {
@@ -277,7 +277,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
     fn build_block(
         &mut self,
         block: ast::BlockExpr,
-        parent: Parent,
+        parent: ParentScope,
         db: &mut Database,
         name: Option<Name>,
     ) -> AstId<ast::BlockExpr> {
@@ -288,7 +288,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
         };
         let scope_id = db.alloc_item_scope(scope);
         let block_ast_id = db.alloc_node(&block);
-        let current = Parent::SubLevel(scope_id);
+        let current = ParentScope::SubLevel(scope_id);
         for stmt in block.stmts() {
             self.build_stmt(stmt, scope_id, current.clone(), db);
         }
@@ -303,7 +303,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
         &mut self,
         module: &ast::Module,
         current_scope: ItemScopeId,
-        parent: Parent,
+        parent: ParentScope,
         db: &mut Database,
     ) -> Option<ModuleId> {
         if let Some(item_list) = module.items() {
@@ -312,7 +312,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
             let scope = ItemScope::new_with_name(Some(parent), module_name);
             let scope_id = db.alloc_item_scope(scope);
 
-            let current = Parent::SubLevel(scope_id);
+            let current = ParentScope::SubLevel(scope_id);
             let mut items = vec![];
             for item in item_list.items() {
                 if let Some(item) = self.build_item(item, scope_id, current.clone(), db) {

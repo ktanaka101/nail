@@ -50,7 +50,7 @@ ENV PATH $PATH:/usr/lib/llvm-15/bin/
 ENV LLVM_SYS_150_STRICT_VERSIONING=150
 ENV LLVM_SYS_150_PREFIX=/usr/lib/llvm-15
 
-# Node.js for VSCode extension
+# Node.js and yarn for VSCode extension
 RUN curl -sL https://deb.nodesource.com/setup_18.x | bash -
 RUN apt install -y nodejs
 RUN npm install -g yarn

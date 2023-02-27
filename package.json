@@ -1,0 +1,10 @@
+{
+  "name": "root",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "workspaces": [
+    "website",
+    "nail-language-client"
+  ]
+}

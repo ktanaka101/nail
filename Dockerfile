@@ -53,6 +53,7 @@ ENV LLVM_SYS_150_PREFIX=/usr/lib/llvm-15
 # Node.js for VSCode extension
 RUN curl -sL https://deb.nodesource.com/setup_18.x | bash -
 RUN apt install -y nodejs
+RUN npm install -g yarn
 
 # using by rustfmt and cargo-fuzz
 RUN rustup default nightly

@@ -39,8 +39,7 @@ const config = {
       ({
         docs: {
           sidebarPath: require.resolve('./sidebars.js'),
-          editUrl:
-            'https://github.com/ktanaka101/nail/tree/main/website/',
+          editUrl: 'https://github.com/ktanaka101/nail/tree/main/website/',
         },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
@@ -92,7 +91,7 @@ const config = {
               {
                 label: 'Stack Overflow',
                 href: 'https://stackoverflow.com/questions/tagged/nail',
-              }
+              },
             ],
           },
           {

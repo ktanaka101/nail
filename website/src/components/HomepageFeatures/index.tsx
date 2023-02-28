@@ -14,14 +14,16 @@ const FeatureList: FeatureItem[] = [
     Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
     description: (
       <>
-        Nail Language's intuitive syntax and powerful features make it easy to use, even for beginners.
-        Whether you're a seasoned developer or just starting out, Nail Language's simplicity and efficiency will help you write better code in less time.
+        Nail Language's intuitive syntax and powerful features make it easy to
+        use, even for beginners. Whether you're a seasoned developer or just
+        starting out, Nail Language's simplicity and efficiency will help you
+        write better code in less time.
       </>
     ),
   },
 ];
 
-function Feature({title, Svg, description}: FeatureItem) {
+function Feature({ title, Svg, description }: FeatureItem) {
   return (
     <div className={clsx('col col--4')}>
       <div className="text--center">

@@ -40,7 +40,7 @@ const config = {
         docs: {
           sidebarPath: require.resolve('./sidebars.js'),
           editUrl:
-            'https://github.com/ktanaka101/nail/tree/master/website/',
+            'https://github.com/ktanaka101/nail/tree/main/website/',
         },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),

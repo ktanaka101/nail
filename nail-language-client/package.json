@@ -21,9 +21,6 @@
       }
     ]
   },
-  "activationEvents": [
-    "onLanguage:nail"
-  ],
   "dependencies": {
     "vscode-languageclient": "^8.0.2"
   },

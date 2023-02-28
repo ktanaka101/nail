@@ -109,8 +109,8 @@ impl BodyLower {
         let function_id = item_tree.function_id_by_block(&body_ast_id).unwrap();
 
         let mut body_lower = BodyLower::new(function.param_by_name.clone());
-        let expr = body_lower.lower_block(body, ctx, db, item_tree, interner);
-        let body_id = ctx.alloc_function_body(expr);
+        let body_expr = body_lower.lower_block(body, ctx, db, item_tree, interner);
+        let body_id = ctx.alloc_function_body(body_expr);
         ctx.function_body_by_block.insert(body_ast_id, body_id);
 
         Some(ItemDefId::Function(function_id))

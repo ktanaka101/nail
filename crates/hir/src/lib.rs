@@ -1,5 +1,6 @@
 mod body;
 mod db;
+mod input;
 mod item_tree;
 pub mod string_interner;
 
@@ -8,6 +9,7 @@ use std::{collections::HashMap, marker::PhantomData};
 use ast::Ast;
 pub use body::{BodyLower, ExprId, FunctionBodyId, SharedBodyLowerContext};
 pub use db::{Database, FunctionId, ItemScopeId, ModuleId, ParamId};
+pub use input::{FileId, SourceDatabase, SourceDatabaseTrait, SourceRoot};
 use item_tree::ItemTreeBuilderContext;
 pub use item_tree::{Function, ItemDefId, ItemTree, Param, Type};
 use la_arena::Idx;
@@ -107,10 +109,6 @@ pub struct InFile<T> {
     pub file_id: FileId,
     pub value: T,
 }
-
-/// todo: resolve file paths
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct FileId;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Name(Key);

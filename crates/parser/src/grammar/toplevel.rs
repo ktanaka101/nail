@@ -26,6 +26,15 @@ pub(super) fn parse_module(parser: &mut Parser, recovery_set: &[TokenKind]) -> C
 
     parser.expect_with_recovery_set_no_default(TokenKind::Ident, recovery_set);
 
+    // file module
+    if parser.at(TokenKind::Semicolon) {
+        parser.bump();
+        return marker.complete(parser, SyntaxKind::Module);
+    }
+
+    // or
+
+    // inline module
     {
         let marker = parser.start();
         if parser.at(TokenKind::LCurly) {
@@ -817,6 +826,32 @@ mod module_aaa {
                           Whitespace@306..307 "\n"
                       RCurly@307..308 "}"
                       Whitespace@308..321 "\n            "
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_file_module() {
+        check(
+            r#"
+mod a;
+mod b;
+"#,
+            expect![[r#"
+                SourceFile@0..15
+                  Whitespace@0..1 "\n"
+                  Module@1..8
+                    ModKw@1..4 "mod"
+                    Whitespace@4..5 " "
+                    Ident@5..6 "a"
+                    Semicolon@6..7 ";"
+                    Whitespace@7..8 "\n"
+                  Module@8..15
+                    ModKw@8..11 "mod"
+                    Whitespace@11..12 " "
+                    Ident@12..13 "b"
+                    Semicolon@13..14 ";"
+                    Whitespace@14..15 "\n"
             "#]],
         );
     }

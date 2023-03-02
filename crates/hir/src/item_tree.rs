@@ -9,7 +9,7 @@ pub use item_scope::{ItemScope, ParentScope};
 use crate::{
     db::{Database, FunctionId, ItemScopeId, ModuleId},
     string_interner::Interner,
-    AstId, Name,
+    AstId, FileId, Name,
 };
 
 type BlockAstId = AstId<ast::BlockExpr>;
@@ -17,6 +17,7 @@ type ModuleAstId = AstId<ast::Module>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemTree {
+    file_id: FileId,
     pub top_level_scope: ItemScopeId,
     scope_by_block: HashMap<BlockAstId, ItemScopeId>,
     block_by_scope: HashMap<ItemScopeId, BlockAstId>,
@@ -87,6 +88,7 @@ impl ItemTree {
 }
 
 pub(crate) struct ItemTreeBuilderContext<'a> {
+    file_id: FileId,
     scope_by_block: HashMap<BlockAstId, ItemScopeId>,
     block_by_scope: HashMap<ItemScopeId, BlockAstId>,
     function_by_block: HashMap<BlockAstId, FunctionId>,
@@ -99,8 +101,9 @@ pub(crate) struct ItemTreeBuilderContext<'a> {
     interner: &'a mut Interner,
 }
 impl<'a> ItemTreeBuilderContext<'a> {
-    pub(crate) fn new(interner: &'a mut Interner) -> Self {
+    pub(crate) fn new(file_id: FileId, interner: &'a mut Interner) -> Self {
         Self {
+            file_id,
             scope_by_block: HashMap::new(),
             block_by_scope: HashMap::new(),
             function_by_block: HashMap::new(),
@@ -112,7 +115,12 @@ impl<'a> ItemTreeBuilderContext<'a> {
         }
     }
 
-    pub(crate) fn build(mut self, ast: &ast::SourceFile, db: &mut Database) -> ItemTree {
+    pub(crate) fn build(
+        mut self,
+        file_id: FileId,
+        ast: &ast::SourceFile,
+        db: &mut Database,
+    ) -> ItemTree {
         let top_level_scope = ItemScope::new_with_nameless(None);
         let top_level_scope_id = db.alloc_item_scope(top_level_scope);
 
@@ -126,6 +134,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
         }
 
         ItemTree {
+            file_id,
             top_level_scope: top_level_scope_id,
             scope_by_block: self.scope_by_block,
             block_by_scope: self.block_by_scope,
@@ -182,7 +191,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
                     None
                 };
 
-                let ast_id = db.alloc_node(&def);
+                let ast_id = db.alloc_node(&def, self.file_id);
                 let function = Function {
                     path: current_scope.lookup(db).path(db),
                     name,
@@ -292,7 +301,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
             ItemScope::new_with_nameless(Some(parent))
         };
         let scope_id = db.alloc_item_scope(scope);
-        let block_ast_id = db.alloc_node(&block);
+        let block_ast_id = db.alloc_node(&block, self.file_id);
         let current = ParentScope::new(scope_id);
         for stmt in block.stmts() {
             self.build_stmt(stmt, scope_id, current.clone(), db);
@@ -325,7 +334,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
                 }
             }
 
-            let module_ast_id = db.alloc_node(module);
+            let module_ast_id = db.alloc_node(module, self.file_id);
             self.scope_by_module_ast
                 .insert(module_ast_id.clone(), scope_id);
 

@@ -103,7 +103,7 @@ impl Database {
         ItemScopeId(self.item_scopes.alloc(item_scope))
     }
 
-    pub(crate) fn alloc_node<T: ast::AstNode>(&mut self, ast: &T) -> AstId<T> {
+    pub(crate) fn alloc_node<T: ast::AstNode>(&mut self, ast: &T, file_id: FileId) -> AstId<T> {
         let ptr = SyntaxNodePtr::new(ast.syntax());
         let idx = self.syntax_node_ptrs.alloc(ptr.clone());
         let ast_ptr = AstPtr {
@@ -114,12 +114,16 @@ impl Database {
         self.idx_by_syntax_node_ptr.insert(ptr, idx);
 
         AstId(InFile {
-            file_id: FileId,
+            file_id,
             value: ast_ptr,
         })
     }
 
-    pub(crate) fn lookup_ast_id<T: ast::AstNode>(&self, ast: &T) -> Option<AstId<T>> {
+    pub(crate) fn lookup_ast_id<T: ast::AstNode>(
+        &self,
+        ast: &T,
+        file_id: FileId,
+    ) -> Option<AstId<T>> {
         let ptr = SyntaxNodePtr::new(ast.syntax());
         let idx = self.idx_by_syntax_node_ptr.get(&ptr)?;
 
@@ -129,7 +133,7 @@ impl Database {
         };
 
         Some(AstId(InFile {
-            file_id: FileId,
+            file_id,
             value: ast_ptr,
         }))
     }

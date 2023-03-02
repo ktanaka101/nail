@@ -7,7 +7,7 @@ use la_arena::{Arena, Idx};
 use self::scopes::ScopeType;
 use crate::{
     body::scopes::ExprScopes, db::Database, item_tree::ItemTree, string_interner::Interner, AstId,
-    Block, Expr, FunctionId, ItemDefId, Literal, Name, ParamId, Path, Stmt, Symbol,
+    Block, Expr, FileId, FunctionId, ItemDefId, Literal, Name, ParamId, Path, Stmt, Symbol,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -69,13 +69,15 @@ impl SharedBodyLowerContext {
 
 #[derive(Debug)]
 pub struct BodyLower {
+    file_id: FileId,
     scopes: ExprScopes,
     params: HashMap<Name, ParamId>,
 }
 
 impl BodyLower {
-    pub(super) fn new(params: HashMap<Name, ParamId>) -> Self {
+    pub(super) fn new(file_id: FileId, params: HashMap<Name, ParamId>) -> Self {
         Self {
+            file_id,
             scopes: ExprScopes::new(),
             params,
         }
@@ -104,11 +106,11 @@ impl BodyLower {
         interner: &mut Interner,
     ) -> Option<ItemDefId> {
         let body = def.body()?;
-        let body_ast_id = db.lookup_ast_id(&body).unwrap();
+        let body_ast_id = db.lookup_ast_id(&body, self.file_id).unwrap();
         let function = item_tree.function_by_block(db, &body_ast_id).unwrap();
         let function_id = item_tree.function_id_by_block(&body_ast_id).unwrap();
 
-        let mut body_lower = BodyLower::new(function.param_by_name.clone());
+        let mut body_lower = BodyLower::new(self.file_id, function.param_by_name.clone());
         let body_expr = body_lower.lower_block(body, ctx, db, item_tree, interner);
         let body_id = ctx.alloc_function_body(body_expr);
         ctx.function_body_by_block.insert(body_ast_id, body_id);
@@ -124,7 +126,7 @@ impl BodyLower {
         item_tree: &ItemTree,
         interner: &mut Interner,
     ) -> Option<ItemDefId> {
-        let module_ast_id = db.lookup_ast_id(&module).unwrap();
+        let module_ast_id = db.lookup_ast_id(&module, self.file_id).unwrap();
         let module_id = item_tree.module_id_by_ast_module(module_ast_id).unwrap();
 
         for item in module.items().unwrap().items() {
@@ -412,7 +414,7 @@ impl BodyLower {
         item_tree: &ItemTree,
         interner: &mut Interner,
     ) -> Expr {
-        let block_ast_id = if let Some(ast_id) = db.lookup_ast_id(&ast) {
+        let block_ast_id = if let Some(ast_id) = db.lookup_ast_id(&ast, self.file_id) {
             ast_id
         } else {
             return Expr::Missing;
@@ -503,7 +505,7 @@ mod tests {
     use super::*;
     use crate::{
         item_tree::{ItemDefId, Type},
-        lower, FunctionId, LowerError, LowerResult, ModuleId,
+        lower, FunctionId, LowerError, LowerResult, ModuleId, SourceDatabase,
     };
 
     fn indent(nesting: usize) -> String {
@@ -794,8 +796,10 @@ mod tests {
     }
 
     fn check(input: &str, expected: Expect) {
+        let mut source_db = SourceDatabase::new();
+        let dummy_file_id = source_db.register_file("dummy", input);
         let source_file = parse(input);
-        let result = lower(source_file);
+        let result = lower(dummy_file_id, source_file);
 
         expected.assert_eq(&debug(&result));
     }

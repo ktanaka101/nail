@@ -9,7 +9,7 @@ use std::{collections::HashMap, marker::PhantomData};
 use ast::Ast;
 pub use body::{BodyLower, ExprId, FunctionBodyId, SharedBodyLowerContext};
 pub use db::{Database, FunctionId, ItemScopeId, ModuleId, ParamId};
-pub use input::{FileId, SourceDatabase, SourceDatabaseTrait, SourceRoot};
+pub use input::{FileId, SourceDatabase, SourceRoot};
 use item_tree::ItemTreeBuilderContext;
 pub use item_tree::{Function, ItemDefId, ItemTree, Param, Type};
 use la_arena::Idx;
@@ -38,15 +38,15 @@ impl LowerResult {
     }
 }
 
-pub fn lower(ast: ast::SourceFile) -> LowerResult {
+pub fn lower(file_id: FileId, ast: ast::SourceFile) -> LowerResult {
     let mut interner = Interner::new();
     let mut db = Database::new();
-    let item_tree_builder = ItemTreeBuilderContext::new(&mut interner);
-    let item_tree = item_tree_builder.build(&ast, &mut db);
+    let item_tree_builder = ItemTreeBuilderContext::new(file_id, &mut interner);
+    let item_tree = item_tree_builder.build(file_id, &ast, &mut db);
 
     let mut shared_ctx = SharedBodyLowerContext::new();
 
-    let mut top_level_ctx = BodyLower::new(HashMap::new());
+    let mut top_level_ctx = BodyLower::new(file_id, HashMap::new());
     let top_level_items = ast
         .items()
         .filter_map(|item| {

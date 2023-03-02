@@ -908,12 +908,15 @@ pub enum BasicBlockKind {
 mod tests {
     use ast::AstNode;
     use expect_test::{expect, Expect};
+    use hir::SourceDatabase;
     use hir_ty::ResolvedType;
 
     fn check(actual: &str, expect: Expect) {
+        let mut source_db = SourceDatabase::new();
+        let dummy_file_id = source_db.register_file("dummy", actual);
         let parsed = parser::parse(actual);
         let ast = ast::SourceFile::cast(parsed.syntax()).unwrap();
-        let hir_result = hir::lower(ast);
+        let hir_result = hir::lower(dummy_file_id, ast);
         let ty_hir_result = hir_ty::lower(&hir_result);
 
         let mir_result = crate::lower(&hir_result, &ty_hir_result);

@@ -504,14 +504,17 @@ mod tests {
 
     use ast::AstNode;
     use expect_test::{expect, Expect};
+    use hir::SourceDatabase;
     use inkwell::OptimizationLevel;
 
     use super::*;
 
     fn lower(input: &str) -> (hir::LowerResult, hir_ty::TyLowerResult, mir::LowerResult) {
+        let mut source_db = SourceDatabase::new();
+        let dummy_file_id = source_db.register_file("dummy", input);
         let parsed = parser::parse(input);
         let ast = ast::SourceFile::cast(parsed.syntax()).unwrap();
-        let hir_result = hir::lower(ast);
+        let hir_result = hir::lower(dummy_file_id, ast);
         let ty_result = hir_ty::lower(&hir_result);
         let mir_result = mir::lower(&hir_result, &ty_result);
         (hir_result, ty_result, mir_result)

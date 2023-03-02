@@ -19,7 +19,7 @@ pub struct SourceDatabase {
     file_path_interner: FilePathInterner,
 }
 impl SourceDatabase {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             source_root: SourceRoot { files: vec![] },
             file_by_path: HashMap::new(),
@@ -29,7 +29,7 @@ impl SourceDatabase {
         }
     }
 
-    fn register_file(&self, path: &str, contents: &str) -> FileId {
+    pub fn register_file(&mut self, path: &str, contents: &str) -> FileId {
         let path = self.file_path_interner.intern(path);
         let file_id = FileId(path);
         self.file_by_path.insert(path, file_id);
@@ -37,5 +37,10 @@ impl SourceDatabase {
         self.file_contents.insert(file_id, contents.to_string());
         self.source_root.files.push(file_id);
         file_id
+    }
+}
+impl Default for SourceDatabase {
+    fn default() -> Self {
+        Self::new()
     }
 }

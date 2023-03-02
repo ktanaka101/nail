@@ -38,14 +38,16 @@ impl TyLowerResult {
 mod tests {
     use ast::AstNode;
     use expect_test::{expect, Expect};
-    use hir::{Name, Path, Symbol};
+    use hir::{Name, Path, SourceDatabase, Symbol};
 
     use super::*;
 
     fn check(input: &str, expect: Expect) {
+        let mut source_db = SourceDatabase::new();
+        let dummy_file_id = source_db.register_file("dummy", input);
         let parsed = parser::parse(input);
         let ast = ast::SourceFile::cast(parsed.syntax()).unwrap();
-        let lower_result = hir::lower(ast);
+        let lower_result = hir::lower(dummy_file_id, ast);
         let result = lower(&lower_result);
         expect.assert_eq(&debug(
             &result.inference_result,

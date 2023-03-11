@@ -4,7 +4,7 @@ use std::{convert::TryFrom, ffi::CString, io, os::raw::c_char};
 
 use anyhow::Result;
 use ast::AstNode;
-use hir::SourceDatabase;
+use hir::{FilelessSourceDatabase, SourceDatabaseTrait};
 use inkwell::{context::Context, OptimizationLevel};
 use termion::{event::Key, input::TermRead, raw::IntoRawMode};
 
@@ -72,8 +72,7 @@ pub fn start(executer: Executer) {
 fn dev_run(code: &str) -> Result<String> {
     let mut message = "".to_string();
 
-    let mut source_db = SourceDatabase::new();
-    let dummy_file_id = source_db.register_file("dummy", code);
+    let source_db = FilelessSourceDatabase::new(code);
 
     let parse = parser::parse(code);
     message.push_str(parse.debug_tree().as_str());
@@ -85,7 +84,7 @@ fn dev_run(code: &str) -> Result<String> {
     }
 
     let source_file = ast::SourceFile::cast(syntax).unwrap();
-    let lower_result = hir::lower(dummy_file_id, source_file);
+    let lower_result = hir::lower(source_db.source_root(), source_file);
     message.push_str(format!("\n{lower_result:?}").as_str());
 
     Ok(message)
@@ -107,8 +106,7 @@ fn llvm_run(code: &str) -> Result<String> {
         .create_jit_execution_engine(OptimizationLevel::None)
         .unwrap();
 
-    let mut source_db = SourceDatabase::new();
-    let dummy_file_id = source_db.register_file("dummy", &code_with_entry_point);
+    let source_db = FilelessSourceDatabase::new(&code_with_entry_point);
 
     let parse = parser::parse(&code_with_entry_point);
     let syntax = parse.syntax();
@@ -125,7 +123,7 @@ fn llvm_run(code: &str) -> Result<String> {
     }
 
     let source_file = ast::SourceFile::cast(syntax).unwrap();
-    let hir_lower_result = hir::lower(dummy_file_id, source_file);
+    let hir_lower_result = hir::lower(source_db.source_root(), source_file);
     if !hir_lower_result.errors.is_empty() {
         anyhow::bail!(
             "\n{}",

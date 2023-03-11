@@ -12,8 +12,7 @@ smol_str = { workspace = true }
 
 syntax = { workspace = true }
 ast = { workspace = true }
+parser = { workspace = true }
 
 [dev-dependencies]
 expect-test = { workspace = true }
-
-parser = { workspace = true }

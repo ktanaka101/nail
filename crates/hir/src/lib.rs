@@ -6,10 +6,12 @@ pub mod string_interner;
 
 use std::{collections::HashMap, marker::PhantomData};
 
-use ast::Ast;
+use ast::{Ast, AstNode};
 pub use body::{BodyLower, ExprId, FunctionBodyId, SharedBodyLowerContext};
 pub use db::{Database, FunctionId, ItemScopeId, ModuleId, ParamId};
-pub use input::{FileId, SourceDatabase, SourceRoot};
+pub use input::{
+    FileId, FilelessSourceDatabase, FixtureDatabase, SourceDatabase, SourceDatabaseTrait,
+};
 use item_tree::ItemTreeBuilderContext;
 pub use item_tree::{Function, ItemDefId, ItemTree, Param, Type};
 use la_arena::Idx;
@@ -36,6 +38,15 @@ impl LowerResult {
         let body_block = self.item_tree.block_id_by_function(&function)?;
         self.shared_ctx.function_body_by_block(body_block)
     }
+}
+
+pub fn parse_root(path: &str, source_db: &mut dyn SourceDatabaseTrait) -> LowerResult {
+    let file_id = source_db.register_file_with_read(path);
+
+    let ast = parser::parse(source_db.content(file_id).unwrap());
+    let ast = ast::SourceFile::cast(ast.syntax()).unwrap();
+
+    lower(file_id, ast)
 }
 
 pub fn lower(file_id: FileId, ast: ast::SourceFile) -> LowerResult {

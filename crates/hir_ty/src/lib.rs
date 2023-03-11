@@ -38,16 +38,21 @@ impl TyLowerResult {
 mod tests {
     use ast::AstNode;
     use expect_test::{expect, Expect};
-    use hir::{Name, Path, SourceDatabase, Symbol};
+    use hir::{Name, Path, SourceDatabaseTrait, Symbol};
 
     use super::*;
 
-    fn check(input: &str, expect: Expect) {
-        let mut source_db = SourceDatabase::new();
-        let dummy_file_id = source_db.register_file("dummy", input);
-        let parsed = parser::parse(input);
+    fn check_in_root_file(fixture: &str, expect: Expect) {
+        let mut fixture = fixture.to_string();
+        fixture.insert_str(0, "//- /main.rs\n");
+
+        let source_db = hir::FixtureDatabase::new(&fixture);
+        let source_root_file_id = source_db.source_root();
+        let source_root_file_content = source_db.content(source_root_file_id).unwrap();
+
+        let parsed = parser::parse(source_root_file_content);
         let ast = ast::SourceFile::cast(parsed.syntax()).unwrap();
-        let lower_result = hir::lower(dummy_file_id, ast);
+        let lower_result = hir::lower(source_root_file_id, ast);
         let result = lower(&lower_result);
         expect.assert_eq(&debug(
             &result.inference_result,
@@ -297,7 +302,7 @@ mod tests {
 
     #[test]
     fn test_fibonacci() {
-        check(
+        check_in_root_file(
             r#"
             fn fibonacci(x: int) -> int {
                 if x == 0 {
@@ -350,7 +355,7 @@ mod tests {
 
     #[test]
     fn infer_integer_literal() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     10;
@@ -367,7 +372,7 @@ mod tests {
 
     #[test]
     fn infer_string_literal() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     "aaa";
@@ -384,7 +389,7 @@ mod tests {
 
     #[test]
     fn infer_char_literal() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     'a';
@@ -401,7 +406,7 @@ mod tests {
 
     #[test]
     fn infer_bool_test() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     true;
@@ -415,7 +420,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     false;
@@ -432,7 +437,7 @@ mod tests {
 
     #[test]
     fn infer_variable_def() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     let a = true
@@ -449,7 +454,7 @@ mod tests {
 
     #[test]
     fn infer_multiline_variable_def() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     let a = true
@@ -472,7 +477,7 @@ mod tests {
 
     #[test]
     fn infer_binary() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     10 + 20
@@ -579,7 +584,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     (10 + "aaa") + (10 + "aaa");
@@ -604,7 +609,7 @@ mod tests {
 
     #[test]
     fn infer_unary() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     let a = -10;
@@ -644,7 +649,7 @@ mod tests {
 
     #[test]
     fn aaa() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> bool {
                     let a = !true;
@@ -671,7 +676,7 @@ mod tests {
 
     #[test]
     fn infer_variable_ref() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> int {
                     let a = -10
@@ -691,7 +696,7 @@ mod tests {
 
     #[test]
     fn infer_block() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     {
@@ -708,7 +713,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     {
@@ -730,7 +735,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> int {
                     let a = 10;
@@ -758,7 +763,7 @@ mod tests {
 
     #[test]
     fn infer_last_expr_stmt_with_semicolon_only_as_expr() {
-        check(
+        check_in_root_file(
             r#"
                 fn aaa() {
                     10
@@ -773,7 +778,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_in_root_file(
             r#"
                 fn aaa() {
                     10;
@@ -787,7 +792,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_in_root_file(
             r#"
                 fn aaa() {
                     {
@@ -812,7 +817,7 @@ mod tests {
 
     #[test]
     fn infer_nesting_last_expr_stmt_with_semicolon_only_as_expr() {
-        check(
+        check_in_root_file(
             r#"
                 fn aaa() {
                     {
@@ -833,7 +838,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_in_root_file(
             r#"
                 fn aaa() {
                     {
@@ -853,7 +858,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_in_root_file(
             r#"
                 fn aaa() {
                     {
@@ -876,7 +881,7 @@ mod tests {
 
     #[test]
     fn infer_function() {
-        check(
+        check_in_root_file(
             r#"
                 fn aaa() -> int {
                     let a = 10
@@ -895,7 +900,7 @@ mod tests {
 
     #[test]
     fn infer_function_param() {
-        check(
+        check_in_root_file(
             r#"
                 fn aaa(x: int, y: string) {
                     let a = x
@@ -914,7 +919,7 @@ mod tests {
 
     #[test]
     fn infer_call() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     fn aaa(x: bool, y: string) -> int {
@@ -945,7 +950,7 @@ mod tests {
 
     #[test]
     fn infer_call_missmatch() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     fn aaa(x: bool, y: string) -> int {
@@ -973,7 +978,7 @@ mod tests {
 
     #[test]
     fn infer_if_expr() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     if true {
@@ -999,7 +1004,7 @@ mod tests {
 
     #[test]
     fn infer_if_expr_else_is_unit() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> int {
                     if true {
@@ -1023,7 +1028,7 @@ mod tests {
 
     #[test]
     fn infer_if_expr_empty_block_is_unit() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     if true {
@@ -1042,7 +1047,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     if true {
@@ -1062,7 +1067,7 @@ mod tests {
 
     #[test]
     fn infer_if_expr_mismatched_type() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     if true {
@@ -1090,7 +1095,7 @@ mod tests {
 
     #[test]
     fn infer_if_expr_condition_is_not_bool() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     if 10 {
@@ -1118,7 +1123,7 @@ mod tests {
 
     #[test]
     fn infer_return_in_if_expr() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> int {
                     let value =
@@ -1147,7 +1152,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> int {
                     let value =
@@ -1176,7 +1181,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> int {
                     let value =
@@ -1208,7 +1213,7 @@ mod tests {
 
     #[test]
     fn infer_return_in_function() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     return
@@ -1223,7 +1228,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> int {
                     return 10
@@ -1242,7 +1247,7 @@ mod tests {
 
     #[test]
     fn infer_return_in_function_missing_types() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> int {
                     return
@@ -1258,7 +1263,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> int {
                     return "aaa"
@@ -1278,7 +1283,7 @@ mod tests {
 
     #[test]
     fn infer_modules() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     return;

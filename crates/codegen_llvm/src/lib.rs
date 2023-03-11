@@ -504,24 +504,26 @@ mod tests {
 
     use ast::AstNode;
     use expect_test::{expect, Expect};
-    use hir::SourceDatabase;
+    use hir::{FixtureDatabase, SourceDatabaseTrait};
     use inkwell::OptimizationLevel;
 
     use super::*;
 
-    fn lower(input: &str) -> (hir::LowerResult, hir_ty::TyLowerResult, mir::LowerResult) {
-        let mut source_db = SourceDatabase::new();
-        let dummy_file_id = source_db.register_file("dummy", input);
-        let parsed = parser::parse(input);
+    fn lower(fixture: &str) -> (hir::LowerResult, hir_ty::TyLowerResult, mir::LowerResult) {
+        let source_db = FixtureDatabase::new(fixture);
+        let parsed = parser::parse(fixture);
         let ast = ast::SourceFile::cast(parsed.syntax()).unwrap();
-        let hir_result = hir::lower(dummy_file_id, ast);
+        let hir_result = hir::lower(source_db.source_root(), ast);
         let ty_result = hir_ty::lower(&hir_result);
         let mir_result = mir::lower(&hir_result, &ty_result);
         (hir_result, ty_result, mir_result)
     }
 
-    fn execute(input: &str) -> String {
-        let (hir_result, _ty_result, mir_result) = lower(input);
+    fn execute_in_root_file(fixture: &str) -> String {
+        let mut fixture = fixture.to_string();
+        fixture.insert_str(0, "//- /main.rs\n");
+
+        let (hir_result, _ty_result, mir_result) = lower(&fixture);
 
         let context = Context::create();
         let module = context.create_module("top");
@@ -548,8 +550,11 @@ mod tests {
         }
     }
 
-    fn check_ir(input: &str, expect: Expect) {
-        let (hir_result, _ty_result, mir_result) = lower(input);
+    fn check_ir_in_root_file(fixture: &str, expect: Expect) {
+        let mut fixture = fixture.to_string();
+        fixture.insert_str(0, "//- /main.rs\n");
+
+        let (hir_result, _ty_result, mir_result) = lower(&fixture);
 
         let context = Context::create();
         let module = context.create_module("top");
@@ -581,8 +586,8 @@ mod tests {
         expect.assert_eq(&ir);
     }
 
-    fn check_result(input: &str, expect: Expect) {
-        let result_string = execute(input);
+    fn check_result_in_root_file(fixture: &str, expect: Expect) {
+        let result_string = execute_in_root_file(fixture);
         expect.assert_eq(&result_string);
     }
 
@@ -595,7 +600,7 @@ mod tests {
             "#
         );
 
-        let result_string = execute(&input_with_entry_point);
+        let result_string = execute_in_root_file(&input_with_entry_point);
 
         let output = serde_json::from_str::<crate::Output>(&result_string).unwrap();
         assert_eq!(
@@ -617,7 +622,7 @@ mod tests {
             "#
         );
 
-        let result_string = execute(&input_with_entry_point);
+        let result_string = execute_in_root_file(&input_with_entry_point);
 
         let output = serde_json::from_str::<crate::Output>(&result_string).unwrap();
         assert_eq!(
@@ -632,7 +637,7 @@ mod tests {
 
     #[test]
     fn test_ir_fibonacci() {
-        check_ir(
+        check_ir_in_root_file(
             r#"
                 fn fibonacci(x: int) -> int {
                     if x == 0 {
@@ -771,7 +776,7 @@ mod tests {
 
     #[test]
     fn test_ir_literals() {
-        check_ir(
+        check_ir_in_root_file(
             r#"
             fn main() -> int {
                 let a = "aaa";
@@ -816,7 +821,7 @@ mod tests {
 
     #[test]
     fn test_ir_return_string() {
-        check_ir(
+        check_ir_in_root_file(
             r#"
             fn main() -> string {
                 let a = "aaa";
@@ -859,7 +864,7 @@ mod tests {
 
     #[test]
     fn test_ir_block() {
-        check_ir(
+        check_ir_in_root_file(
             r#"
             fn main() -> int {
                 10;
@@ -898,7 +903,7 @@ mod tests {
 
     #[test]
     fn test_ir_functions() {
-        check_ir(
+        check_ir_in_root_file(
             r#"
             fn main() -> int {
                 10
@@ -952,7 +957,7 @@ mod tests {
 
     #[test]
     fn test_ir_defined_variable() {
-        check_ir(
+        check_ir_in_root_file(
             r#"
             fn main() -> int {
                 let x = 10;
@@ -993,7 +998,7 @@ mod tests {
 
     #[test]
     fn test_fibonacci() {
-        check_result(
+        check_result_in_root_file(
             r#"
                 fn fibonacci(x: int) -> int {
                     if x == 0 {
@@ -1021,7 +1026,7 @@ mod tests {
 
     #[test]
     fn test_return_integer_of_main() {
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() -> int {
                 100
@@ -1038,7 +1043,7 @@ mod tests {
 
     #[test]
     fn test_return_string_of_main() {
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() -> string {
                 "aaa"
@@ -1055,7 +1060,7 @@ mod tests {
 
     #[test]
     fn test_return_bool_of_main() {
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() -> bool {
                 true
@@ -1072,7 +1077,7 @@ mod tests {
 
     #[test]
     fn test_return_unit_of_main() {
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() {
                 let a = 10;
@@ -1089,7 +1094,7 @@ mod tests {
 
     #[test]
     fn test_let_binding() {
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() -> int {
                 let x = 10;
@@ -1104,7 +1109,7 @@ mod tests {
             "#]],
         );
 
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() -> string {
                 let x = "aaa";
@@ -1122,7 +1127,7 @@ mod tests {
 
     #[test]
     fn test_multiple_ref() {
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() -> string {
                 let x = "aaa";
@@ -1142,7 +1147,7 @@ mod tests {
 
     #[test]
     fn test_block() {
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() {
                 {
@@ -1160,7 +1165,7 @@ mod tests {
 
     #[test]
     fn test_block_binding() {
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() {
                 let a = {
@@ -1175,7 +1180,7 @@ mod tests {
             "#]],
         );
 
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() -> int {
                 let a = {
@@ -1195,7 +1200,7 @@ mod tests {
 
     #[test]
     fn test_call() {
-        check_result(
+        check_result_in_root_file(
             r#"
             fn test() -> int {
                 10
@@ -1217,7 +1222,7 @@ mod tests {
 
     #[test]
     fn test_call_with_params() {
-        check_result(
+        check_result_in_root_file(
             r#"
             fn test(x: int) -> int {
                 x
@@ -1236,7 +1241,7 @@ mod tests {
             "#]],
         );
 
-        check_result(
+        check_result_in_root_file(
             r#"
             fn test(x: int, y: int) -> int {
                 y
@@ -1258,7 +1263,7 @@ mod tests {
 
     #[test]
     fn test_call_with_param_types() {
-        check_result(
+        check_result_in_root_file(
             r#"
             fn test(x: int) -> int {
                 x
@@ -1277,7 +1282,7 @@ mod tests {
             "#]],
         );
 
-        check_result(
+        check_result_in_root_file(
             r#"
             fn test(x: string) -> string {
                 x
@@ -1296,7 +1301,7 @@ mod tests {
             "#]],
         );
 
-        check_result(
+        check_result_in_root_file(
             r#"
             fn test(x: bool) -> bool {
                 x
@@ -1318,7 +1323,7 @@ mod tests {
 
     #[test]
     fn test_gen_signature_preorder() {
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() -> bool {
                 let a = test1(true);
@@ -1348,7 +1353,7 @@ mod tests {
 
     #[test]
     fn test_gen_if_expr() {
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() -> int {
                 if true {
@@ -1366,7 +1371,7 @@ mod tests {
             "#]],
         );
 
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() -> int {
                 if false {
@@ -1384,7 +1389,7 @@ mod tests {
             "#]],
         );
 
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() -> int {
                 let a = true;
@@ -1418,7 +1423,7 @@ mod tests {
 
     #[test]
     fn test_add_number() {
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() -> int {
                 let a = 10;
@@ -1440,7 +1445,7 @@ mod tests {
 
     #[test]
     fn test_sub_number() {
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() -> int {
                 let a = 10;
@@ -1459,7 +1464,7 @@ mod tests {
 
     #[test]
     fn test_mul_number() {
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() -> int {
                 let a = 10;
@@ -1478,7 +1483,7 @@ mod tests {
 
     #[test]
     fn test_div_number() {
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() -> int {
                 let a = 10;
@@ -1497,7 +1502,7 @@ mod tests {
 
     #[test]
     fn test_div_number_truncation() {
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() -> int {
                 let a = 20;
@@ -1516,7 +1521,7 @@ mod tests {
 
     #[test]
     fn test_equal_number() {
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() -> bool {
                 let a = 1;
@@ -1532,7 +1537,7 @@ mod tests {
             "#]],
         );
 
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() -> bool {
                 let a = 1;
@@ -1551,7 +1556,7 @@ mod tests {
 
     #[test]
     fn test_equal_bool() {
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() -> bool {
                 let a = true;
@@ -1567,7 +1572,7 @@ mod tests {
             "#]],
         );
 
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() -> bool {
                 let a = true;
@@ -1586,7 +1591,7 @@ mod tests {
 
     #[test]
     fn test_ord_number() {
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() -> bool {
                 let a = 1;
@@ -1602,7 +1607,7 @@ mod tests {
             "#]],
         );
 
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() -> bool {
                 let a = 1;
@@ -1618,7 +1623,7 @@ mod tests {
             "#]],
         );
 
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() -> bool {
                 let a = 2;
@@ -1634,7 +1639,7 @@ mod tests {
             "#]],
         );
 
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() -> bool {
                 let a = 2;
@@ -1685,7 +1690,7 @@ mod tests {
 
     #[test]
     fn test_negative_number() {
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() -> int {
                 let a = -10;
@@ -1708,7 +1713,7 @@ mod tests {
 
     #[test]
     fn test_not_bool() {
-        check_result(
+        check_result_in_root_file(
             r#"
             fn main() -> bool {
                 let a = !{
@@ -1741,7 +1746,7 @@ mod tests {
 
     #[test]
     fn test_return() {
-        check_result(
+        check_result_in_root_file(
             r#"
                 fn main() -> bool {
                     return true;
@@ -1755,7 +1760,7 @@ mod tests {
             "#]],
         );
 
-        check_result(
+        check_result_in_root_file(
             r#"
                 fn main() -> int {
                     return 10;
@@ -1769,7 +1774,7 @@ mod tests {
             "#]],
         );
 
-        check_result(
+        check_result_in_root_file(
             r#"
                 fn main() -> int {
                     if false {
@@ -1787,7 +1792,7 @@ mod tests {
             "#]],
         );
 
-        check_result(
+        check_result_in_root_file(
             r#"
                 fn main() -> int {
                     if true {
@@ -1826,7 +1831,7 @@ mod tests {
         //     "#]],
         // );
 
-        check_result(
+        check_result_in_root_file(
             r#"
                 fn main() -> int {
                     if true {
@@ -1844,7 +1849,7 @@ mod tests {
             "#]],
         );
 
-        check_result(
+        check_result_in_root_file(
             r#"
                 fn main() -> int {
                     if false {
@@ -1865,7 +1870,7 @@ mod tests {
 
     #[test]
     fn test_modules() {
-        check_result(
+        check_result_in_root_file(
             r#"
                 fn main() -> int {
                     let x = module_aaa::module_bbb::function_aaa();

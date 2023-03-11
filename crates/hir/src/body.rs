@@ -504,8 +504,9 @@ mod tests {
 
     use super::*;
     use crate::{
+        input::{FixtureDatabase, SourceDatabaseTrait},
         item_tree::{ItemDefId, Type},
-        lower, FunctionId, LowerError, LowerResult, ModuleId, SourceDatabase,
+        lower, FunctionId, LowerError, LowerResult, ModuleId,
     };
 
     fn indent(nesting: usize) -> String {
@@ -795,18 +796,23 @@ mod tests {
         ast::SourceFile::cast(parser::parse(input).syntax()).unwrap()
     }
 
-    fn check(input: &str, expected: Expect) {
-        let mut source_db = SourceDatabase::new();
-        let dummy_file_id = source_db.register_file("dummy", input);
-        let source_file = parse(input);
-        let result = lower(dummy_file_id, source_file);
+    fn check_in_root_file(fixture: &str, expected: Expect) {
+        let mut fixture = fixture.to_string();
+        fixture.insert_str(0, "//- /main.rs\n");
+
+        let source_db = FixtureDatabase::new(&fixture);
+        let source_root_file_id = source_db.source_root();
+        let source_root_file_content = source_db.content(source_root_file_id).unwrap();
+
+        let source_file = parse(source_root_file_content);
+        let result = lower(source_root_file_id, source_file);
 
         expected.assert_eq(&debug(&result));
     }
 
     #[test]
     fn fibonacci() {
-        check(
+        check_in_root_file(
             r#"
                 fn fibonacci(x: int) -> int {
                     if x == 0 {
@@ -844,7 +850,7 @@ mod tests {
 
     #[test]
     fn entry_point() {
-        check(
+        check_in_root_file(
             r#"
                 fn no_main() { }
             "#,
@@ -854,7 +860,7 @@ mod tests {
                 error: Undefined entry point.(help: fn main() { ... })
             "#]],
         );
-        check(
+        check_in_root_file(
             r#"
                 fn main() { }
             "#,
@@ -867,7 +873,7 @@ mod tests {
 
     #[test]
     fn lower_variable_def() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     let foo = bar
@@ -883,7 +889,7 @@ mod tests {
 
     #[test]
     fn lower_variable_def_without_name() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     let = 10
@@ -898,7 +904,7 @@ mod tests {
 
     #[test]
     fn lower_variable_def_without_eq() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     let foo 10
@@ -914,7 +920,7 @@ mod tests {
 
     #[test]
     fn lower_variable_def_without_value() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     let a =
@@ -930,7 +936,7 @@ mod tests {
 
     #[test]
     fn lower_last_expr_stmt_with_semicolon_only_as_expr() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     123
@@ -968,7 +974,7 @@ mod tests {
 
     #[test]
     fn lower_binary_expr() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     1 + 2;
@@ -996,7 +1002,7 @@ mod tests {
 
     #[test]
     fn lower_binary_expr_without_rhs() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     10 -
@@ -1012,7 +1018,7 @@ mod tests {
 
     #[test]
     fn lower_integer_literal() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     999
@@ -1028,7 +1034,7 @@ mod tests {
 
     #[test]
     fn lower_string_literal() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     "aaa"
@@ -1044,7 +1050,7 @@ mod tests {
 
     #[test]
     fn lower_char_literal() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     'a'
@@ -1060,7 +1066,7 @@ mod tests {
 
     #[test]
     fn lower_bool_literal_true() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     true
@@ -1076,7 +1082,7 @@ mod tests {
 
     #[test]
     fn lower_bool_literal_false() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     false
@@ -1092,7 +1098,7 @@ mod tests {
 
     #[test]
     fn lower_paren_expr() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     ((((((abc))))))
@@ -1108,7 +1114,7 @@ mod tests {
 
     #[test]
     fn lower_unary_expr() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     -10;
@@ -1126,7 +1132,7 @@ mod tests {
 
     #[test]
     fn lower_unary_expr_without_expr() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     -
@@ -1142,7 +1148,7 @@ mod tests {
 
     #[test]
     fn lower_variable_ref() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     foo
@@ -1158,7 +1164,7 @@ mod tests {
 
     #[test]
     fn lookup_variable_ref() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     let foo = 10
@@ -1176,7 +1182,7 @@ mod tests {
 
     #[test]
     fn lower_block() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     {
@@ -1196,7 +1202,7 @@ mod tests {
 
     #[test]
     fn lower_nested_block() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     {
@@ -1226,7 +1232,7 @@ mod tests {
 
     #[test]
     fn lower_with_scope() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     {
@@ -1248,7 +1254,7 @@ mod tests {
 
     #[test]
     fn lower_with_nested_scope() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     let a = 10
@@ -1280,7 +1286,7 @@ mod tests {
 
     #[test]
     fn shadwing() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     let a = 10
@@ -1302,7 +1308,7 @@ mod tests {
 
     #[test]
     fn shadwing_on_block() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     a
@@ -1344,7 +1350,7 @@ mod tests {
 
     #[test]
     fn can_bind_block_because_it_is_expr() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     let a = {
@@ -1379,7 +1385,7 @@ mod tests {
 
     #[test]
     fn can_use_block_in_binary_expr() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     {
@@ -1407,7 +1413,7 @@ mod tests {
 
     #[test]
     fn can_use_block_in_paren_expr() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     (
@@ -1439,7 +1445,7 @@ mod tests {
 
     #[test]
     fn can_use_block_in_unary_expr() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     -{
@@ -1465,7 +1471,7 @@ mod tests {
 
     #[test]
     fn define_function() {
-        check(
+        check_in_root_file(
             r#"
                 fn foo() {
                     let a = 10;
@@ -1484,7 +1490,7 @@ mod tests {
 
     #[test]
     fn define_function_with_params() {
-        check(
+        check_in_root_file(
             r#"
                 fn foo(a: int, b: string) {
                     1
@@ -1501,7 +1507,7 @@ mod tests {
 
     #[test]
     fn define_function_with_return_type() {
-        check(
+        check_in_root_file(
             r#"
                 fn foo() -> int {}
                 fn bar() -> string {}
@@ -1524,7 +1530,7 @@ mod tests {
 
     #[test]
     fn resolve_function_params() {
-        check(
+        check_in_root_file(
             r#"
                 fn foo(a: char, b: bool) {
                     a + b
@@ -1541,7 +1547,7 @@ mod tests {
 
     #[test]
     fn resolve_function_params_by_nested_scope() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     fn foo(a, b) {
@@ -1583,7 +1589,7 @@ mod tests {
 
     #[test]
     fn function_scope() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     let a = 10;
@@ -1609,7 +1615,7 @@ mod tests {
 
     #[test]
     fn define_function_in_block() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     {
@@ -1653,7 +1659,7 @@ mod tests {
 
     #[test]
     fn shadowing_in_function() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     a
@@ -1709,7 +1715,7 @@ mod tests {
 
     #[test]
     fn ref_function_from_outer_scope() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     fn foo() {
@@ -1759,7 +1765,7 @@ mod tests {
 
     #[test]
     fn unclose_block_in_expr() {
-        check(
+        check_in_root_file(
             "fn main() { ($10/{ }",
             expect![[r#"
                 fn entry:main() -> () {
@@ -1771,7 +1777,7 @@ mod tests {
 
     #[test]
     fn function_missing_param() {
-        check(
+        check_in_root_file(
             "fn a(a, ) {}",
             expect![[r#"
                 fn a(a: <unknown>, <missing>: <unknown>) -> () {
@@ -1783,7 +1789,7 @@ mod tests {
 
     #[test]
     fn function_missing_return_type() {
-        check(
+        check_in_root_file(
             "fn a() -> {}",
             expect![[r#"
                 fn a() -> <unknown> {
@@ -1795,7 +1801,7 @@ mod tests {
 
     #[test]
     fn function_missing_block() {
-        check(
+        check_in_root_file(
             "fn a(a, )",
             expect![[r#"
                 error: Undefined entry point.(help: fn main() { ... })
@@ -1805,7 +1811,7 @@ mod tests {
 
     #[test]
     fn function_missing_name() {
-        check(
+        check_in_root_file(
             "fn (a, ) {}",
             expect![[r#"
                 fn <missing>(a: <unknown>, <missing>: <unknown>) -> () {
@@ -1817,7 +1823,7 @@ mod tests {
 
     #[test]
     fn call() {
-        check(
+        check_in_root_file(
             "fn main() { a() }",
             expect![[r#"
                 fn entry:main() -> () {
@@ -1826,7 +1832,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     fn a() { 10 }
@@ -1846,7 +1852,7 @@ mod tests {
 
     #[test]
     fn call_with_arg() {
-        check(
+        check_in_root_file(
             "fn main() { a(10, 20) }",
             expect![[r#"
                 fn entry:main() -> () {
@@ -1855,7 +1861,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     fn a() { 10 }
@@ -1874,7 +1880,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     fn aaa(x: bool, y: string) -> int {
@@ -1896,7 +1902,7 @@ mod tests {
 
     #[test]
     fn if_expr() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     if true {
@@ -1917,7 +1923,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     if true {
@@ -1937,7 +1943,7 @@ mod tests {
 
     #[test]
     fn if_expr_block_condition() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     if { true } {
@@ -1960,7 +1966,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     if { true } {
@@ -1982,7 +1988,7 @@ mod tests {
 
     #[test]
     fn return_expr() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     return
@@ -2004,7 +2010,7 @@ mod tests {
 
     #[test]
     fn modules() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     return
@@ -2053,7 +2059,7 @@ mod tests {
 
     #[test]
     fn can_ref_same_scope() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     mod_aaa::fn_aaa();
@@ -2085,7 +2091,7 @@ mod tests {
 
     #[test]
     fn can_ref_in_parent_scope() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     mod_aaa::fn_aaa();

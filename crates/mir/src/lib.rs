@@ -908,15 +908,20 @@ pub enum BasicBlockKind {
 mod tests {
     use ast::AstNode;
     use expect_test::{expect, Expect};
-    use hir::SourceDatabase;
+    use hir::SourceDatabaseTrait;
     use hir_ty::ResolvedType;
 
-    fn check(actual: &str, expect: Expect) {
-        let mut source_db = SourceDatabase::new();
-        let dummy_file_id = source_db.register_file("dummy", actual);
-        let parsed = parser::parse(actual);
+    fn check_in_root_file(fixture: &str, expect: Expect) {
+        let mut fixture = fixture.to_string();
+        fixture.insert_str(0, "//- /main.rs\n");
+
+        let source_db = hir::FixtureDatabase::new(&fixture);
+        let source_root_file_id = source_db.source_root();
+        let source_root_file_content = source_db.content(source_root_file_id).unwrap();
+
+        let parsed = parser::parse(source_root_file_content);
         let ast = ast::SourceFile::cast(parsed.syntax()).unwrap();
-        let hir_result = hir::lower(dummy_file_id, ast);
+        let hir_result = hir::lower(source_root_file_id, ast);
         let ty_hir_result = hir_ty::lower(&hir_result);
 
         let mir_result = crate::lower(&hir_result, &ty_hir_result);
@@ -1171,7 +1176,7 @@ mod tests {
 
     #[test]
     fn test_add_number() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> int {
                     10 + 20
@@ -1195,7 +1200,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> int {
                     let a = 100;
@@ -1235,7 +1240,7 @@ mod tests {
 
     #[test]
     fn test_sub_number() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> int {
                     10 - 20
@@ -1262,7 +1267,7 @@ mod tests {
 
     #[test]
     fn test_mul_number() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> int {
                     10 * 20
@@ -1289,7 +1294,7 @@ mod tests {
 
     #[test]
     fn test_div_number() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> int {
                     10 / 20
@@ -1316,7 +1321,7 @@ mod tests {
 
     #[test]
     fn test_equal_number() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> bool {
                     10 == 20
@@ -1343,7 +1348,7 @@ mod tests {
 
     #[test]
     fn test_equal_bool() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> bool {
                     let a = true;
@@ -1376,7 +1381,7 @@ mod tests {
 
     #[test]
     fn test_ord_number() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> bool {
                     let a = 1;
@@ -1417,7 +1422,7 @@ mod tests {
 
     #[test]
     fn test_negative_number() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> bool {
                     let a = -10;
@@ -1454,7 +1459,7 @@ mod tests {
 
     #[test]
     fn test_not_bool() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> bool {
                     let a = !true;
@@ -1491,7 +1496,7 @@ mod tests {
 
     #[test]
     fn test_main_return_int() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> int {
                     10
@@ -1516,7 +1521,7 @@ mod tests {
 
     #[test]
     fn test_main_return_unit() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                 }
@@ -1536,7 +1541,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     10;
@@ -1560,7 +1565,7 @@ mod tests {
 
     #[test]
     fn test_main_return_bool() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> bool {
                     true
@@ -1585,7 +1590,7 @@ mod tests {
 
     #[test]
     fn test_main_return_string() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> string {
                     "aaa"
@@ -1610,7 +1615,7 @@ mod tests {
 
     #[test]
     fn test_let() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> int {
                     let x = 10;
@@ -1638,7 +1643,7 @@ mod tests {
 
     #[test]
     fn test_block_resolves_to_tail() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> int {
                     {
@@ -1668,7 +1673,7 @@ mod tests {
 
     #[test]
     fn test_block_without_tail_resolves_to_unit() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     {
@@ -1697,7 +1702,7 @@ mod tests {
 
     #[test]
     fn test_return() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> bool {
                     return true;
@@ -1719,7 +1724,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> bool {
                     return true
@@ -1741,7 +1746,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> int {
                     return 10;
@@ -1768,7 +1773,7 @@ mod tests {
     #[test]
     fn test_return_in_block() {
         // return by statement in block
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> bool {
                     let c = {
@@ -1800,7 +1805,7 @@ mod tests {
         );
 
         // return by tail in block
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> int {
                     let c = {
@@ -1829,7 +1834,7 @@ mod tests {
 
     #[test]
     fn test_return_in_switch() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> int {
                     if true {
@@ -1869,7 +1874,7 @@ mod tests {
 
     #[test]
     fn return_value_when_false_in_switch() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> int {
                     if true {
@@ -1915,7 +1920,7 @@ mod tests {
 
     #[test]
     fn return_value_when_true_in_switch() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> int {
                     if true {
@@ -1961,7 +1966,7 @@ mod tests {
 
     #[test]
     fn test_switch() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> int {
                     if true {
@@ -2007,7 +2012,7 @@ mod tests {
 
     #[test]
     fn test_switch_conditional_early_return() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> int {
                     let a = 10;
@@ -2054,7 +2059,7 @@ mod tests {
 
     #[test]
     fn test_switch_only_then_branch() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> int {
                     let a = 10;
@@ -2103,7 +2108,7 @@ mod tests {
 
     #[test]
     fn test_statements_in_switch() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() -> int {
                     if true {
@@ -2155,7 +2160,7 @@ mod tests {
 
     #[test]
     fn test_call() {
-        check(
+        check_in_root_file(
             r#"
                 fn aaa() -> int {
                     10
@@ -2201,7 +2206,7 @@ mod tests {
 
     #[test]
     fn test_call_with_args() {
-        check(
+        check_in_root_file(
             r#"
                 fn aaa(x: int, y: int) -> int {
                     x + y
@@ -2249,7 +2254,7 @@ mod tests {
 
     #[test]
     fn test_string_arg() {
-        check(
+        check_in_root_file(
             r#"
                 fn aaa(x: string, y: string) -> string {
                     y
@@ -2295,7 +2300,7 @@ mod tests {
 
     #[test]
     fn test_call_binding() {
-        check(
+        check_in_root_file(
             r#"
                 fn aaa(x: int, y: int) -> int {
                     x + y
@@ -2352,7 +2357,7 @@ mod tests {
 
     #[test]
     fn test_modules() {
-        check(
+        check_in_root_file(
             r#"
                 fn main() {
                     return;

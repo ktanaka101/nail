@@ -120,8 +120,8 @@ impl Fixture {
 
 pub struct FixtureDatabase {
     source_root: FileId,
-    file_by_path: HashMap<FilePath, FileId>,
-    path_by_file: HashMap<FileId, FilePath>,
+    _file_by_path: HashMap<FilePath, FileId>,
+    _path_by_file: HashMap<FileId, FilePath>,
     file_contents: HashMap<FileId, String>,
     file_path_interner: FilePathInterner,
 }
@@ -131,8 +131,8 @@ impl FixtureDatabase {
 
         Self {
             source_root: fixture.source_root,
-            file_by_path: fixture.file_by_path,
-            path_by_file: fixture.path_by_file,
+            _file_by_path: fixture.file_by_path,
+            _path_by_file: fixture.path_by_file,
             file_contents: fixture.file_contents,
             file_path_interner: fixture.file_path_interner,
         }
@@ -158,7 +158,7 @@ impl SourceDatabaseTrait for FixtureDatabase {
 pub struct FilelessSourceDatabase {
     dummy_source_root: FileId,
     content: String,
-    file_path_interner: FilePathInterner,
+    _file_path_interner: FilePathInterner,
 }
 impl FilelessSourceDatabase {
     pub fn new(content: &str) -> Self {
@@ -167,7 +167,7 @@ impl FilelessSourceDatabase {
         Self {
             dummy_source_root,
             content: content.to_string(),
-            file_path_interner,
+            _file_path_interner: file_path_interner,
         }
     }
 }

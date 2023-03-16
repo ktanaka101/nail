@@ -253,7 +253,7 @@ fn start_terminal(executer: Executer) {
                     current.insert(idx, c);
 
                     term.clear_current_line();
-                    term.write(format!("{}{}", PROMPT, line.as_str()).as_str());
+                    term.write(format!("{PROMPT}{}", line.as_str()).as_str());
 
                     term.move_cursor(terminal::MoveCursorAction::Pos(pos));
                     term.move_cursor(terminal::MoveCursorAction::Right(1));
@@ -283,7 +283,7 @@ fn start_terminal(executer: Executer) {
                 }
 
                 term.clear_current_line();
-                term.write(format!("{}{}", PROMPT, line.as_str()).as_str());
+                term.write(format!("{PROMPT}{}", line.as_str()).as_str());
             }
             Key::Down => {
                 if current_history.next().is_ok() {
@@ -291,7 +291,7 @@ fn start_terminal(executer: Executer) {
                 }
 
                 term.clear_current_line();
-                term.write(format!("{}{}", PROMPT, line.as_str()).as_str());
+                term.write(format!("{PROMPT}{}", line.as_str()).as_str());
             }
             Key::Backspace => {
                 let left_limit = u16::try_from(PROMPT.len()).unwrap() + 1;
@@ -307,7 +307,7 @@ fn start_terminal(executer: Executer) {
                 current.remove(idx);
 
                 term.clear_current_line();
-                term.write(format!("{}{}", PROMPT, line.as_str()).as_str());
+                term.write(format!("{PROMPT}{}", line.as_str()).as_str());
 
                 term.move_cursor(terminal::MoveCursorAction::Pos(pos));
                 term.move_cursor(terminal::MoveCursorAction::Left(1));

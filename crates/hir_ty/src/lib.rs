@@ -76,8 +76,7 @@ mod tests {
                 .collect::<Vec<String>>()
                 .join(", ");
             msg.push_str(&format!(
-                "fn({}) -> {}\n",
-                params,
+                "fn({params}) -> {}\n",
                 debug_type(&signature.return_type)
             ));
         }

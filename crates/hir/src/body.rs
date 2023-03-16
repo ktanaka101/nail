@@ -628,7 +628,7 @@ mod tests {
                     value.lookup(&lower_result.shared_ctx),
                     nesting,
                 );
-                format!("{}let {} = {}\n", indent(nesting), name, expr_str)
+                format!("{}let {name} = {expr_str}\n", indent(nesting))
             }
             Stmt::ExprStmt {
                 expr,

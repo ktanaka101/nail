@@ -38,7 +38,7 @@ impl Fixture {
             file_path_interner: &mut FilePathInterner,
         ) -> FileId {
             if file_path_interner.get(file_path).is_some() {
-                panic!("duplicate file path: {}", file_path);
+                panic!("duplicate file path: {file_path}");
             }
 
             let file_path = file_path_interner.intern(file_path);

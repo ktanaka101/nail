@@ -41,8 +41,7 @@ impl TryFrom<i64> for PrimitiveType {
             4 => PrimitiveType::Unit,
             other => {
                 return Err(anyhow::format_err!(
-                    "Expected 1, 2, 3 or 4. Received {}",
-                    other
+                    "Expected 1, 2, 3 or 4. Received {other}"
                 ))
             }
         })

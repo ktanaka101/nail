@@ -521,7 +521,7 @@ mod tests {
 
     fn execute_in_root_file(fixture: &str) -> String {
         let mut fixture = fixture.to_string();
-        fixture.insert_str(0, "//- /main.rs\n");
+        fixture.insert_str(0, "//- /main.nail\n");
 
         let (hir_result, _ty_result, mir_result) = lower(&fixture);
 
@@ -552,7 +552,7 @@ mod tests {
 
     fn check_ir_in_root_file(fixture: &str, expect: Expect) {
         let mut fixture = fixture.to_string();
-        fixture.insert_str(0, "//- /main.rs\n");
+        fixture.insert_str(0, "//- /main.nail\n");
 
         let (hir_result, _ty_result, mir_result) = lower(&fixture);
 

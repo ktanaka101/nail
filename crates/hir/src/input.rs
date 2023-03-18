@@ -68,7 +68,7 @@ impl Fixture {
                 &mut path_by_file,
                 &mut file_path_interner,
             );
-            if file_path == "/main.rs" {
+            if file_path == "/main.nail" {
                 source_root = Some(file_id);
             }
 
@@ -89,7 +89,7 @@ impl Fixture {
                             &mut path_by_file,
                             &mut file_path_interner,
                         );
-                        if file_path == "/main.rs" {
+                        if file_path == "/main.nail" {
                             source_root = Some(file_id);
                         }
                         current_file_id = file_id;
@@ -106,7 +106,7 @@ impl Fixture {
             }
         }
 
-        let Some(source_root) = source_root else { panic!("source root is not found. need: `/main.rs`") };
+        let Some(source_root) = source_root else { panic!("source root is not found. need: `/main.nail`") };
 
         Self {
             source_root,

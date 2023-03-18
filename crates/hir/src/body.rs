@@ -798,7 +798,7 @@ mod tests {
 
     fn check_in_root_file(fixture: &str, expected: Expect) {
         let mut fixture = fixture.to_string();
-        fixture.insert_str(0, "//- /main.rs\n");
+        fixture.insert_str(0, "//- /main.nail\n");
 
         let source_db = FixtureDatabase::new(&fixture);
         let source_root_file_id = source_db.source_root();

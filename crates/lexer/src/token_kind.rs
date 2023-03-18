@@ -15,6 +15,8 @@ pub enum TokenKind {
     FnKw,
     #[token("mod")]
     ModKw,
+    #[token("use")]
+    UseKw,
 
     // body keywords
     #[token("let")]
@@ -115,6 +117,7 @@ impl fmt::Display for TokenKind {
             Self::Whitespace => "whitespace",
             Self::FnKw => "'fn'",
             Self::ModKw => "'mod'",
+            Self::UseKw => "'use'",
             Self::LetKw => "'let'",
             Self::TrueKw => "'true'",
             Self::FalseKw => "'false'",
@@ -181,6 +184,11 @@ mod tests {
     #[test]
     fn lex_mod_keyword() {
         check("mod", TokenKind::ModKw);
+    }
+
+    #[test]
+    fn lex_use_keyword() {
+        check("use", TokenKind::UseKw);
     }
 
     #[test]

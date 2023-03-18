@@ -40,6 +40,7 @@ pub enum SyntaxKind {
     // item nodes
     FunctionDef,
     Module,
+    Use,
 
     // part nodes
     ParamList,
@@ -55,6 +56,7 @@ pub enum SyntaxKind {
     // item keywords
     FnKw,
     ModKw,
+    UseKw,
 
     // body keywords
     LetKw,
@@ -121,6 +123,7 @@ impl From<TokenKind> for SyntaxKind {
         match token_kind {
             TokenKind::FnKw => Self::FnKw,
             TokenKind::ModKw => Self::ModKw,
+            TokenKind::UseKw => Self::UseKw,
 
             TokenKind::LetKw => Self::LetKw,
             TokenKind::TrueKw => Self::TrueKw,

@@ -12,6 +12,8 @@ pub(super) fn parse_stmt_on_toplevel(parser: &mut Parser) -> Option<CompletedMar
         Some(stmt::parse_function_def(parser, &TOPLEVEL_RECOVERY_SET))
     } else if parser.at(TokenKind::ModKw) {
         Some(parse_module(parser, &TOPLEVEL_RECOVERY_SET))
+    } else if parser.at(TokenKind::UseKw) {
+        Some(parse_use(parser, &TOPLEVEL_RECOVERY_SET))
     } else {
         parser.error_with_recovery_set_only_default_on_toplevel();
         None
@@ -55,6 +57,26 @@ pub(super) fn parse_module(parser: &mut Parser, recovery_set: &[TokenKind]) -> C
     marker.complete(parser, SyntaxKind::Module)
 }
 
+pub(crate) fn parse_use(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedMarker {
+    assert!(parser.at(TokenKind::UseKw));
+
+    let marker = parser.start();
+    parser.bump();
+
+    parser.expect_with_recovery_set_no_default(TokenKind::Ident, recovery_set);
+
+    while parser.at(TokenKind::Colon2) {
+        parser.bump();
+        parser.expect_with_recovery_set_no_default(TokenKind::Ident, recovery_set);
+    }
+
+    if parser.at(TokenKind::Semicolon) {
+        parser.bump();
+    }
+
+    marker.complete(parser, SyntaxKind::Use)
+}
+
 #[cfg(test)]
 mod tests {
     use expect_test::expect;
@@ -78,10 +100,10 @@ mod tests {
                     Whitespace@9..10 " "
                   Error@10..13
                     Ident@10..13 "bar"
-                error at 0..3: expected 'fn' or 'mod', but found 'let'
-                error at 4..7: expected 'fn' or 'mod', but found identifier
-                error at 8..9: expected 'fn' or 'mod', but found '='
-                error at 10..13: expected 'fn' or 'mod', but found identifier
+                error at 0..3: expected 'fn', 'mod' or 'use', but found 'let'
+                error at 4..7: expected 'fn', 'mod' or 'use', but found identifier
+                error at 8..9: expected 'fn', 'mod' or 'use', but found '='
+                error at 10..13: expected 'fn', 'mod' or 'use', but found identifier
             "#]],
         );
     }
@@ -477,10 +499,10 @@ mod tests {
                     Whitespace@15..16 " "
                   Error@16..17
                     RCurly@16..17 "}"
-                error at 7..10: expected ->, '{', 'fn' or 'mod', but found identifier
-                error at 11..12: expected 'fn' or 'mod', but found '{'
-                error at 13..15: expected 'fn' or 'mod', but found integerLiteral
-                error at 16..17: expected 'fn' or 'mod', but found '}'
+                error at 7..10: expected ->, '{', 'fn', 'mod' or 'use', but found identifier
+                error at 11..12: expected 'fn', 'mod' or 'use', but found '{'
+                error at 13..15: expected 'fn', 'mod' or 'use', but found integerLiteral
+                error at 16..17: expected 'fn', 'mod' or 'use', but found '}'
             "#]],
         );
     }
@@ -852,6 +874,45 @@ mod b;
                     Ident@12..13 "b"
                     Semicolon@13..14 ";"
                     Whitespace@14..15 "\n"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_use() {
+        check(
+            r#"
+use a;
+use b::fn_a;
+use c::d::fn_b;
+"#,
+            expect![[r#"
+                SourceFile@0..37
+                  Whitespace@0..1 "\n"
+                  Use@1..8
+                    UseKw@1..4 "use"
+                    Whitespace@4..5 " "
+                    Ident@5..6 "a"
+                    Semicolon@6..7 ";"
+                    Whitespace@7..8 "\n"
+                  Use@8..21
+                    UseKw@8..11 "use"
+                    Whitespace@11..12 " "
+                    Ident@12..13 "b"
+                    Colon2@13..15 "::"
+                    Ident@15..19 "fn_a"
+                    Semicolon@19..20 ";"
+                    Whitespace@20..21 "\n"
+                  Use@21..37
+                    UseKw@21..24 "use"
+                    Whitespace@24..25 " "
+                    Ident@25..26 "c"
+                    Colon2@26..28 "::"
+                    Ident@28..29 "d"
+                    Colon2@29..31 "::"
+                    Ident@31..35 "fn_b"
+                    Semicolon@35..36 ";"
+                    Whitespace@36..37 "\n"
             "#]],
         );
     }

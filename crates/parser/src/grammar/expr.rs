@@ -2,7 +2,7 @@ use lexer::TokenKind;
 use syntax::SyntaxKind;
 
 use crate::{
-    grammar::stmt::parse_stmt_on_block,
+    grammar::{parse_path, stmt::parse_stmt_on_block},
     parser::{marker::CompletedMarker, Parser},
 };
 
@@ -192,28 +192,6 @@ fn parse_path_expr(parser: &mut Parser) -> CompletedMarker {
     parse_path(parser);
 
     marker.complete(parser, SyntaxKind::PathExpr)
-}
-
-fn parse_path(parser: &mut Parser) -> CompletedMarker {
-    assert!(parser.at(TokenKind::Ident));
-
-    let marker = parser.start();
-
-    parse_path_segment(parser);
-    while parser.at(TokenKind::Colon2) {
-        parser.bump();
-        parse_path_segment(parser);
-    }
-
-    marker.complete(parser, SyntaxKind::Path)
-}
-
-fn parse_path_segment(parser: &mut Parser) -> CompletedMarker {
-    let marker = parser.start();
-
-    parser.expect_on_block(TokenKind::Ident);
-
-    marker.complete(parser, SyntaxKind::PathSegment)
 }
 
 fn parse_args(parser: &mut Parser) -> CompletedMarker {

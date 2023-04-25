@@ -3,7 +3,7 @@ use syntax::SyntaxKind;
 
 use super::stmt;
 use crate::{
-    grammar::expr::ITEM_FIRST,
+    grammar::{expr::ITEM_FIRST, parse_path},
     parser::{marker::CompletedMarker, Parser, TOPLEVEL_RECOVERY_SET},
 };
 
@@ -57,18 +57,13 @@ pub(super) fn parse_module(parser: &mut Parser, recovery_set: &[TokenKind]) -> C
     marker.complete(parser, SyntaxKind::Module)
 }
 
-pub(crate) fn parse_use(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedMarker {
+pub(crate) fn parse_use(parser: &mut Parser, _recovery_set: &[TokenKind]) -> CompletedMarker {
     assert!(parser.at(TokenKind::UseKw));
 
     let marker = parser.start();
     parser.bump();
 
-    parser.expect_with_recovery_set_no_default(TokenKind::Ident, recovery_set);
-
-    while parser.at(TokenKind::Colon2) {
-        parser.bump();
-        parser.expect_with_recovery_set_no_default(TokenKind::Ident, recovery_set);
-    }
+    parse_path(parser);
 
     if parser.at(TokenKind::Semicolon) {
         parser.bump();
@@ -892,25 +887,34 @@ use c::d::fn_b;
                   Use@1..8
                     UseKw@1..4 "use"
                     Whitespace@4..5 " "
-                    Ident@5..6 "a"
+                    Path@5..6
+                      PathSegment@5..6
+                        Ident@5..6 "a"
                     Semicolon@6..7 ";"
                     Whitespace@7..8 "\n"
                   Use@8..21
                     UseKw@8..11 "use"
                     Whitespace@11..12 " "
-                    Ident@12..13 "b"
-                    Colon2@13..15 "::"
-                    Ident@15..19 "fn_a"
+                    Path@12..19
+                      PathSegment@12..13
+                        Ident@12..13 "b"
+                      Colon2@13..15 "::"
+                      PathSegment@15..19
+                        Ident@15..19 "fn_a"
                     Semicolon@19..20 ";"
                     Whitespace@20..21 "\n"
                   Use@21..37
                     UseKw@21..24 "use"
                     Whitespace@24..25 " "
-                    Ident@25..26 "c"
-                    Colon2@26..28 "::"
-                    Ident@28..29 "d"
-                    Colon2@29..31 "::"
-                    Ident@31..35 "fn_b"
+                    Path@25..35
+                      PathSegment@25..26
+                        Ident@25..26 "c"
+                      Colon2@26..28 "::"
+                      PathSegment@28..29
+                        Ident@28..29 "d"
+                      Colon2@29..31 "::"
+                      PathSegment@31..35
+                        Ident@31..35 "fn_b"
                     Semicolon@35..36 ";"
                     Whitespace@36..37 "\n"
             "#]],

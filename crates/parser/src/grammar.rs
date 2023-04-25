@@ -2,6 +2,7 @@ mod expr;
 mod stmt;
 mod toplevel;
 
+use lexer::TokenKind;
 use syntax::SyntaxKind;
 
 use crate::parser::{marker::CompletedMarker, Parser};
@@ -23,4 +24,26 @@ pub(crate) fn in_block(parser: &mut Parser) -> CompletedMarker {
     }
 
     marker.complete(parser, SyntaxKind::SourceFile)
+}
+
+pub(crate) fn parse_path(parser: &mut Parser) -> CompletedMarker {
+    assert!(parser.at(TokenKind::Ident));
+
+    let marker = parser.start();
+
+    parse_path_segment(parser);
+    while parser.at(TokenKind::Colon2) {
+        parser.bump();
+        parse_path_segment(parser);
+    }
+
+    marker.complete(parser, SyntaxKind::Path)
+}
+
+pub(crate) fn parse_path_segment(parser: &mut Parser) -> CompletedMarker {
+    let marker = parser.start();
+
+    parser.expect_on_block(TokenKind::Ident);
+
+    marker.complete(parser, SyntaxKind::PathSegment)
 }

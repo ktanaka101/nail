@@ -23,7 +23,7 @@ either = "1.8.1"
 expect-test = "1.4"
 indexmap = "1.9"
 inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = [
-  "llvm15-0",
+  "llvm16-0",
 ] }
 la-arena = "0.2"
 lasso = "0.6"

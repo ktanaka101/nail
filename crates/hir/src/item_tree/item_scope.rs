@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use super::ItemTree;
 use crate::{
-    db::{Database, FunctionId, ItemScopeId, ModuleId},
+    db::{Database, FunctionId, ItemScopeId, ModuleId, UseItemId},
     Name, Path,
 };
 
@@ -10,6 +10,7 @@ use crate::{
 pub struct ItemScope {
     function_by_name: HashMap<Name, FunctionId>,
     module_by_name: HashMap<Name, ModuleId>,
+    use_item_by_name: HashMap<Name, UseItemId>,
     parent: Option<ParentScope>,
     name: Option<Name>,
 }
@@ -18,6 +19,7 @@ impl ItemScope {
         Self {
             function_by_name: HashMap::new(),
             module_by_name: HashMap::new(),
+            use_item_by_name: HashMap::new(),
             parent,
             name: None,
         }
@@ -27,6 +29,7 @@ impl ItemScope {
         Self {
             function_by_name: HashMap::new(),
             module_by_name: HashMap::new(),
+            use_item_by_name: HashMap::new(),
             parent,
             name: Some(name),
         }
@@ -135,6 +138,10 @@ impl ItemScope {
 
     pub(crate) fn insert_module(&mut self, name: Name, module_id: ModuleId) {
         self.module_by_name.insert(name, module_id);
+    }
+
+    pub(crate) fn insert_use_item(&mut self, name: Name, use_item_id: UseItemId) {
+        self.use_item_by_name.insert(name, use_item_id);
     }
 }
 

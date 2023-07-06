@@ -3,17 +3,18 @@ mod item_scope;
 
 use std::collections::HashMap;
 
-pub use item::{Function, ItemDefId, Module, Param, Type};
+pub use item::{Function, ItemDefId, Module, Param, Type, UseItem};
 pub use item_scope::{ItemScope, ParentScope};
 
 use crate::{
-    db::{Database, FunctionId, ItemScopeId, ModuleId},
+    db::{Database, FunctionId, ItemScopeId, ModuleId, UseItemId},
     string_interner::Interner,
-    AstId, FileId, Name,
+    AstId, FileId, Name, Path,
 };
 
 type BlockAstId = AstId<ast::BlockExpr>;
 type ModuleAstId = AstId<ast::Module>;
+type UseAstId = AstId<ast::Use>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemTree {
@@ -27,6 +28,8 @@ pub struct ItemTree {
     scope_by_module_ast: HashMap<ModuleAstId, ItemScopeId>,
     scope_by_module: HashMap<ModuleId, ItemScopeId>,
     module_by_ast_module: HashMap<ModuleAstId, ModuleId>,
+
+    use_item_by_ast_use: HashMap<UseAstId, UseItemId>,
 }
 impl ItemTree {
     pub fn top_level_scope<'a>(&self, db: &'a Database) -> &'a ItemScope {
@@ -85,6 +88,19 @@ impl ItemTree {
         self.module_id_by_ast_module(module_ast_id)
             .map(|module_id| module_id.lookup(db))
     }
+
+    pub fn use_item_id_by_ast_use(&self, use_ast_id: UseAstId) -> Option<UseItemId> {
+        self.use_item_by_ast_use.get(&use_ast_id).copied()
+    }
+
+    pub fn use_item_by_ast_use<'a>(
+        &self,
+        db: &'a Database,
+        use_ast_id: UseAstId,
+    ) -> Option<&'a UseItem> {
+        self.use_item_id_by_ast_use(use_ast_id)
+            .map(|use_item_id| use_item_id.lookup(db))
+    }
 }
 
 pub(crate) struct ItemTreeBuilderContext<'a> {
@@ -97,6 +113,8 @@ pub(crate) struct ItemTreeBuilderContext<'a> {
     scope_by_module_ast: HashMap<ModuleAstId, ItemScopeId>,
     scope_by_module: HashMap<ModuleId, ItemScopeId>,
     module_by_ast_module: HashMap<ModuleAstId, ModuleId>,
+
+    use_item_by_ast_use: HashMap<UseAstId, UseItemId>,
 
     interner: &'a mut Interner,
 }
@@ -111,6 +129,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
             scope_by_module_ast: HashMap::new(),
             scope_by_module: HashMap::new(),
             module_by_ast_module: HashMap::new(),
+            use_item_by_ast_use: HashMap::new(),
             interner,
         }
     }
@@ -143,6 +162,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
             scope_by_module_ast: self.scope_by_module_ast,
             scope_by_module: self.scope_by_module,
             module_by_ast_module: self.module_by_ast_module,
+            use_item_by_ast_use: self.use_item_by_ast_use,
         }
     }
 
@@ -214,6 +234,10 @@ impl<'a> ItemTreeBuilderContext<'a> {
             ast::Item::Module(module) => {
                 let module_id = self.build_module(&module, current_scope, parent, db)?;
                 Some(ItemDefId::Module(module_id))
+            }
+            ast::Item::Use(r#use) => {
+                let use_item_id = self.build_use(&r#use, current_scope, parent, db)?;
+                Some(ItemDefId::UseItem(use_item_id))
             }
         }
     }
@@ -352,6 +376,41 @@ impl<'a> ItemTreeBuilderContext<'a> {
             Some(module_id)
         } else {
             None
+        }
+    }
+
+    fn build_use(
+        &mut self,
+        r#use: &ast::Use,
+        current_scope: ItemScopeId,
+        _parent: ParentScope,
+        db: &mut Database,
+    ) -> Option<UseItemId> {
+        let use_path = r#use.path()?.segments().collect::<Vec<_>>();
+        match use_path.as_slice() {
+            [] => unreachable!("use path should not be empty"),
+            [path @ .., name] => {
+                let name = Name::from_key(self.interner.intern(name.name().unwrap().name()));
+                let segments = path
+                    .iter()
+                    .map(|segment| {
+                        let key = self.interner.intern(segment.name().unwrap().name());
+                        Name::from_key(key)
+                    })
+                    .collect::<Vec<_>>();
+                let path = Path { segments };
+                let use_item = UseItem { path, name };
+                let use_item_id = db.alloc_use_item(use_item);
+                current_scope
+                    .lookup_mut(db)
+                    .insert_use_item(name, use_item_id);
+
+                let use_item_ast_id = db.alloc_node(r#use, self.file_id);
+                self.use_item_by_ast_use
+                    .insert(use_item_ast_id, use_item_id);
+
+                Some(use_item_id)
+            }
         }
     }
 }

@@ -156,17 +156,22 @@ impl AstNode for Stmt {
 pub enum Item {
     FunctionDef(FunctionDef),
     Module(Module),
+    Use(Use),
 }
 impl Ast for Item {}
 impl AstNode for Item {
     fn can_cast(kind: SyntaxKind) -> bool {
-        matches!(kind, SyntaxKind::FunctionDef | SyntaxKind::Module)
+        matches!(
+            kind,
+            SyntaxKind::FunctionDef | SyntaxKind::Module | SyntaxKind::Use
+        )
     }
 
     fn cast(syntax: SyntaxNode) -> Option<Self> {
         let result = match syntax.kind() {
             SyntaxKind::FunctionDef => Self::FunctionDef(FunctionDef { syntax }),
             SyntaxKind::Module => Self::Module(Module { syntax }),
+            SyntaxKind::Use => Self::Use(Use { syntax }),
             _ => return None,
         };
 
@@ -177,6 +182,7 @@ impl AstNode for Item {
         match self {
             Item::FunctionDef(it) => it.syntax(),
             Item::Module(it) => it.syntax(),
+            Item::Use(it) => it.syntax(),
         }
     }
 }
@@ -389,5 +395,12 @@ def_ast_node!(ItemList);
 impl ItemList {
     pub fn items(&self) -> impl Iterator<Item = Item> {
         ast_node::children_nodes(self)
+    }
+}
+
+def_ast_node!(Use);
+impl Use {
+    pub fn path(&self) -> Option<Path> {
+        ast_node::child_node(self)
     }
 }

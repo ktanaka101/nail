@@ -98,6 +98,7 @@ fn get_entry_point(
                 }
             }
             ItemDefId::Module(_) => (),
+            ItemDefId::UseItem(_) => (),
         }
     }
 

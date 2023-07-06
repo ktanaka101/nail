@@ -1903,4 +1903,37 @@ mod tests {
             "#]],
         );
     }
+
+    #[test]
+    fn test_use_in_file() {
+        check_result_in_root_file(
+            r#"
+                use module_aaa::module_bbb::function_aaa;
+                use module_bbb::function_bbb;
+                fn main() -> int {
+                    let x = function_aaa();
+                    let y = function_bbb();
+                    x + y
+                }
+                mod module_aaa {
+                    mod module_bbb {
+                        fn function_aaa() -> int {
+                            10
+                        }
+                    }
+                }
+                mod module_bbb {
+                    mod fn function_bbb() -> int {
+                        20
+                    }
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 30
+                }
+            "#]],
+        );
+    }
 }

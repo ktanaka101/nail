@@ -4,7 +4,7 @@ use la_arena::{Arena, Idx};
 use syntax::SyntaxNodePtr;
 
 use crate::{
-    item_tree::{Function, ItemScope, Module, Param},
+    item_tree::{Function, ItemScope, Module, Param, UseItem},
     AstId, AstPtr, FileId, InFile,
 };
 
@@ -44,12 +44,21 @@ impl ModuleId {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct UseItemId(Idx<UseItem>);
+impl UseItemId {
+    pub fn lookup(self, db: &Database) -> &UseItem {
+        &db.use_items[self.0]
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct Database {
     functions: Arena<Function>,
     params: Arena<Param>,
     item_scopes: Arena<ItemScope>,
     modules: Arena<Module>,
+    use_items: Arena<UseItem>,
     syntax_node_ptrs: Arena<SyntaxNodePtr>,
     idx_by_syntax_node_ptr: HashMap<SyntaxNodePtr, Idx<SyntaxNodePtr>>,
 }
@@ -60,6 +69,7 @@ impl Database {
             params: Arena::default(),
             item_scopes: Arena::default(),
             modules: Arena::default(),
+            use_items: Arena::default(),
             syntax_node_ptrs: Arena::default(),
             idx_by_syntax_node_ptr: HashMap::default(),
         }
@@ -87,6 +97,12 @@ impl Database {
             .map(|(idx, module)| (ModuleId(idx), module))
     }
 
+    pub fn use_items(&self) -> impl Iterator<Item = (UseItemId, &UseItem)> {
+        self.use_items
+            .iter()
+            .map(|(idx, use_item)| (UseItemId(idx), use_item))
+    }
+
     pub(crate) fn alloc_param(&mut self, param: Param) -> ParamId {
         ParamId(self.params.alloc(param))
     }
@@ -97,6 +113,10 @@ impl Database {
 
     pub(crate) fn alloc_module(&mut self, module: Module) -> ModuleId {
         ModuleId(self.modules.alloc(module))
+    }
+
+    pub(crate) fn alloc_use_item(&mut self, use_item: UseItem) -> UseItemId {
+        UseItemId(self.use_items.alloc(use_item))
     }
 
     pub(crate) fn alloc_item_scope(&mut self, item_scope: ItemScope) -> ItemScopeId {

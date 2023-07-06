@@ -493,7 +493,7 @@ impl<'a> FunctionLower<'a> {
             }
             hir::Stmt::Item { item } => match item {
                 hir::ItemDefId::Function(_) => unreachable!(),
-                hir::ItemDefId::Module(_) => {
+                hir::ItemDefId::Module(_) | hir::ItemDefId::UseItem(_) => {
                     return LoweredStmt::Unit;
                 }
             },

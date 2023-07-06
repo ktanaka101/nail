@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    db::{FunctionId, ModuleId},
+    db::{FunctionId, ModuleId, UseItemId},
     AstId, Name, ParamId, Path,
 };
 
@@ -38,8 +38,15 @@ pub struct Module {
     pub items: Vec<ItemDefId>,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct UseItem {
+    pub name: Name,
+    pub path: Path,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ItemDefId {
     Function(FunctionId),
     Module(ModuleId),
+    UseItem(UseItemId),
 }

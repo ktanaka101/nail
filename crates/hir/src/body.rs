@@ -94,6 +94,7 @@ impl BodyLower {
         match ast {
             ast::Item::FunctionDef(def) => self.lower_function(def, ctx, db, item_tree, interner),
             ast::Item::Module(module) => self.lower_module(module, ctx, db, item_tree, interner),
+            ast::Item::Use(r#use) => self.lower_use(r#use, db, item_tree),
         }
     }
 
@@ -134,6 +135,18 @@ impl BodyLower {
         }
 
         Some(ItemDefId::Module(module_id))
+    }
+
+    fn lower_use(
+        &mut self,
+        r#use: ast::Use,
+        db: &Database,
+        item_tree: &ItemTree,
+    ) -> Option<ItemDefId> {
+        let use_ast_id = db.lookup_ast_id(&r#use, self.file_id).unwrap();
+        let use_item_id = item_tree.use_item_id_by_ast_use(use_ast_id).unwrap();
+
+        Some(ItemDefId::UseItem(use_item_id))
     }
 
     fn lower_stmt(
@@ -179,6 +192,7 @@ impl BodyLower {
         match item {
             ast::Item::FunctionDef(def) => self.lower_function(def, ctx, db, item_tree, interner),
             ast::Item::Module(module) => self.lower_module(module, ctx, db, item_tree, interner),
+            ast::Item::Use(r#use) => self.lower_use(r#use, db, item_tree),
         }
     }
 
@@ -504,6 +518,7 @@ mod tests {
 
     use super::*;
     use crate::{
+        db::UseItemId,
         input::{FixtureDatabase, SourceDatabaseTrait},
         item_tree::{ItemDefId, Type},
         lower, FunctionId, LowerError, LowerResult, ModuleId,
@@ -612,10 +627,19 @@ mod tests {
         module_str
     }
 
+    fn debug_use_item(lower_result: &LowerResult, use_item_id: UseItemId) -> String {
+        let use_item = use_item_id.lookup(&lower_result.db);
+        let path_name = debug_path(lower_result, &use_item.path);
+        let item_name = lower_result.interner.lookup(use_item.name.key());
+
+        format!("{path_name}::{item_name}")
+    }
+
     fn debug_item(lower_result: &LowerResult, item: &ItemDefId, nesting: usize) -> String {
         match item {
             ItemDefId::Function(function) => debug_function(lower_result, *function, nesting),
             ItemDefId::Module(module) => debug_module(lower_result, *module, nesting),
+            ItemDefId::UseItem(use_item) => debug_use_item(lower_result, *use_item),
         }
     }
 

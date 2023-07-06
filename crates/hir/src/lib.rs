@@ -8,7 +8,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 use ast::{Ast, AstNode};
 pub use body::{BodyLower, ExprId, FunctionBodyId, SharedBodyLowerContext};
-pub use db::{Database, FunctionId, ItemScopeId, ModuleId, ParamId};
+pub use db::{Database, FunctionId, ItemScopeId, ModuleId, ParamId, UseItemId};
 pub use input::{
     FileId, FilelessSourceDatabase, FixtureDatabase, SourceDatabase, SourceDatabaseTrait,
 };

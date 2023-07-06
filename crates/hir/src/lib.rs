@@ -25,6 +25,7 @@ pub enum LowerError {
 
 #[derive(Debug)]
 pub struct LowerResult {
+    pub file_id: FileId,
     pub shared_ctx: SharedBodyLowerContext,
     pub top_level_items: Vec<ItemDefId>,
     pub entry_point: Option<FunctionId>,
@@ -72,6 +73,7 @@ pub fn lower(file_id: FileId, ast: ast::SourceFile) -> LowerResult {
     }
 
     LowerResult {
+        file_id,
         shared_ctx,
         top_level_items,
         entry_point,

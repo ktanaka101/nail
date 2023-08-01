@@ -107,23 +107,31 @@ fn get_entry_point(
     None
 }
 
+/// ファイルと構文ノードを一意に表します
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct AstId<T: Ast>(InFile<AstPtr<T>>);
 
+/// 単一のシンタックスノード上で一意の値を表します
+/// ジェネリクスにより異なるノード種類を区別します
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct AstPtr<T: Ast> {
     raw: AstIdx,
     _ty: PhantomData<fn() -> T>,
 }
 
+/// 単一のシンタックスノード上で一意の値を表します
 pub type AstIdx = Idx<SyntaxNodePtr>;
 
+/// ファイルと任意の値を保持します
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct InFile<T> {
     pub file_id: FileId,
     pub value: T,
 }
 
+/// HIR中に現れるシンボルを表します
+/// メモリ効率のため、シンボルは文字列のインデックスとして表現されます
+/// 元の文字列は`Interner`によって管理されます
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Name(Key);
 impl Name {

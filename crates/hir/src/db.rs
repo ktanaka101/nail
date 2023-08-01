@@ -8,6 +8,8 @@ use crate::{
     AstId, AstPtr, FileId, InFile,
 };
 
+/// 関数を一意に特定するためのIDです。
+/// 元データは`Database`に格納されています。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct FunctionId(Idx<Function>);
 impl FunctionId {
@@ -16,6 +18,8 @@ impl FunctionId {
     }
 }
 
+/// 関数が持つ引数を一意に特定するためのIDです。
+/// 元データは`Database`に格納されています。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ParamId(Idx<Param>);
 impl ParamId {
@@ -24,6 +28,8 @@ impl ParamId {
     }
 }
 
+/// アイテムスコープを一意に特定するためのIDです。
+/// 元データは`Database`に格納されています。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ItemScopeId(Idx<ItemScope>);
 impl ItemScopeId {
@@ -36,6 +42,8 @@ impl ItemScopeId {
     }
 }
 
+/// モジュールを一意に特定するためのIDです。
+/// 元データは`Database`に格納されています。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ModuleId(Idx<Module>);
 impl ModuleId {
@@ -44,6 +52,9 @@ impl ModuleId {
     }
 }
 
+/// 別モジュールを参照するUseアイテムアイテムを一意に特定するためのIDです。
+/// 元データは`Database`に格納されています。
+/// `use math::max;`
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct UseItemId(Idx<UseItem>);
 impl UseItemId {
@@ -52,6 +63,7 @@ impl UseItemId {
     }
 }
 
+/// HIRのさまざまな値を保持するデータベースです。
 #[derive(Debug, Default)]
 pub struct Database {
     functions: Arena<Function>,
@@ -63,6 +75,7 @@ pub struct Database {
     idx_by_syntax_node_ptr: HashMap<SyntaxNodePtr, Idx<SyntaxNodePtr>>,
 }
 impl Database {
+    /// データベースを作成します。
     pub fn new() -> Self {
         Self {
             functions: Arena::default(),
@@ -75,54 +88,71 @@ impl Database {
         }
     }
 
+    /// データベースに格納されている関数一覧を返します。
     pub fn functions(&self) -> impl Iterator<Item = (FunctionId, &Function)> {
         self.functions
             .iter()
             .map(|(idx, function)| (FunctionId(idx), function))
     }
 
+    /// データベースに格納されている関数の引数一覧を返します。
     pub fn params(&self) -> impl Iterator<Item = (ParamId, &Param)> {
         self.params.iter().map(|(idx, param)| (ParamId(idx), param))
     }
 
+    /// データベースに格納されているアイテムスコープ一覧を返します。
     pub fn item_scopes(&self) -> impl Iterator<Item = (ItemScopeId, &ItemScope)> {
         self.item_scopes
             .iter()
             .map(|(idx, item_scope)| (ItemScopeId(idx), item_scope))
     }
 
+    /// データベースに格納されているモジュール一覧を返します。
     pub fn modules(&self) -> impl Iterator<Item = (ModuleId, &Module)> {
         self.modules
             .iter()
             .map(|(idx, module)| (ModuleId(idx), module))
     }
 
+    /// データベースに格納されているUseアイテム一覧を返します。
     pub fn use_items(&self) -> impl Iterator<Item = (UseItemId, &UseItem)> {
         self.use_items
             .iter()
             .map(|(idx, use_item)| (UseItemId(idx), use_item))
     }
 
+    /// データベースに引数を保存します。
+    /// 保存時にデータを取得するためのIDを生成し返します。
     pub(crate) fn alloc_param(&mut self, param: Param) -> ParamId {
         ParamId(self.params.alloc(param))
     }
 
+    /// データベースに引数を保存します。
+    /// 保存時にデータを取得するためのIDを生成し返します。
     pub(crate) fn alloc_function(&mut self, function: Function) -> FunctionId {
         FunctionId(self.functions.alloc(function))
     }
 
+    /// データベースにモジュールを保存します。
+    /// 保存時にデータを取得するためのIDを生成し返します。
     pub(crate) fn alloc_module(&mut self, module: Module) -> ModuleId {
         ModuleId(self.modules.alloc(module))
     }
 
+    /// データベースにUseアイテムを保存します。
+    /// 保存時にデータを取得するためのIDを生成し返します。
     pub(crate) fn alloc_use_item(&mut self, use_item: UseItem) -> UseItemId {
         UseItemId(self.use_items.alloc(use_item))
     }
 
+    /// データベースにアイテムスコープを保存します。
+    /// 保存時にデータを取得するためのIDを生成し返します。
     pub(crate) fn alloc_item_scope(&mut self, item_scope: ItemScope) -> ItemScopeId {
         ItemScopeId(self.item_scopes.alloc(item_scope))
     }
 
+    /// データベースに構文ノードを保存します。
+    /// 保存時にデータを取得するためのIDを生成し返します。
     pub(crate) fn alloc_node<T: ast::AstNode>(&mut self, ast: &T, file_id: FileId) -> AstId<T> {
         let ptr = SyntaxNodePtr::new(ast.syntax());
         let idx = self.syntax_node_ptrs.alloc(ptr.clone());
@@ -139,6 +169,8 @@ impl Database {
         })
     }
 
+    /// 構文ノードのIDを取得します。
+    /// 構文ノードがデータベースに存在しない場合はNoneを返します。
     pub(crate) fn lookup_ast_id<T: ast::AstNode>(
         &self,
         ast: &T,

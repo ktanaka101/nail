@@ -12,8 +12,17 @@ use crate::{
     AstId, FileId, Name, Path,
 };
 
+/// `BlockAstId`は`ast::BlockExpr`（ブロック式）ノードを一意に識別するためのAST IDです。
+/// この型は、ファイル内の特定のブロック式ノードを一意に参照するために使用されます。
+/// `AstId`構造体のジェネリクスとして`ast::BlockExpr`を指定することで、型レベルでブロック式ノードのIDとして機能します。
 type BlockAstId = AstId<ast::BlockExpr>;
+
+/// `ModuleAstId`は`ast::Module`（モジュール）ノードを一意に識別するためのAST IDです。
+/// この型は、ファイル内の特定のモジュールノードを一意に参照するために使用されます。
 type ModuleAstId = AstId<ast::Module>;
+
+/// `UseAstId`は`ast::Use`（使用宣言）ノードを一意に識別するためのAST IDです。
+/// この型は、ファイル内の特定の使用宣言ノードを一意に参照するために使用されます。
 type UseAstId = AstId<ast::Use>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

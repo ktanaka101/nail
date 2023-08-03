@@ -107,22 +107,22 @@ fn get_entry_point(
     None
 }
 
-/// ファイルと構文ノードを一意に表します
+/// ファイル内のASTノードを一意に表します
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct AstId<T: Ast>(InFile<AstPtr<T>>);
 
-/// 単一のシンタックスノード上で一意の値を表します
-/// ジェネリクスにより異なるノード種類を区別します
+/// 単一のASTノード上の特定のノードを一意に識別するための値です。
+/// ジェネリクスにより異なるノード種類を型レベルで区別します。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct AstPtr<T: Ast> {
     raw: AstIdx,
     _ty: PhantomData<fn() -> T>,
 }
 
-/// 単一のシンタックスノード上で一意の値を表します
+/// 単一のASTノード上で一意に識別するための値です。
 pub type AstIdx = Idx<SyntaxNodePtr>;
 
-/// ファイルと任意の値を保持します
+/// ファイル内の任意の値を保持します。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct InFile<T> {
     pub file_id: FileId,
@@ -144,50 +144,78 @@ impl Name {
     }
 }
 
+/// ステートメントです。
 #[derive(Debug, PartialEq, Eq)]
 pub enum Stmt {
+    /// 変数定義を表します。
+    /// `let <name> = <value>;`
     VariableDef { name: Name, value: ExprId },
+    /// 式を表します。
+    /// `<expr>`
+    /// `<expr>;`
     ExprStmt { expr: ExprId, has_semicolon: bool },
+    /// アイテムを表します。
     Item { item: ItemDefId },
 }
 
+/// リテラル
 #[derive(Debug, PartialEq, Eq)]
 pub enum Literal {
+    /// 整数リテラルです。
     Integer(u64),
+    /// 文字列リテラルです。
     String(String),
+    /// 文字リテラルです。
     Char(char),
+    /// 真偽値リテラルです。
     Bool(bool),
 }
 
+/// 式
 #[derive(Debug, PartialEq, Eq)]
 pub enum Expr {
+    /// ローカル変数や関数の参照名です。
+    /// `aaa`
     Symbol(Symbol),
+    /// 二項演算子です。
+    /// `<lhs> <op> <rhs>`
     Binary {
         op: ast::BinaryOp,
         lhs: ExprId,
         rhs: ExprId,
     },
+    /// リテラルです。
+    /// `123`
+    /// `abc`
+    /// `true`
+    /// `'a'`
     Literal(Literal),
-    Unary {
-        op: ast::UnaryOp,
-        expr: ExprId,
-    },
-    Call {
-        callee: Symbol,
-        args: Vec<ExprId>,
-    },
+    /// 単項演算子です。
+    /// `<op> <expr>`
+    Unary { op: ast::UnaryOp, expr: ExprId },
+    /// 関数呼び出しです。
+    /// `<callee>(<args>)`
+    Call { callee: Symbol, args: Vec<ExprId> },
+    /// ブロックです。
+    /// `{ <stmts> }`
     Block(Block),
+    /// if式です。
+    /// `if <condition> { <then_branch> } else { <else_branch> }`
     If {
         condition: ExprId,
         then_branch: ExprId,
         else_branch: Option<ExprId>,
     },
-    Return {
-        value: Option<ExprId>,
-    },
+    /// 関数を途中で中断し、指定した値を戻り値として返します。
+    /// `return <value>;`
+    /// `return;`
+    Return { value: Option<ExprId> },
+    /// 解釈できない不明な式です。
     Missing,
 }
 
+/// パスを表します
+/// `aaa::bbb`
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Path {
     segments: Vec<Name>,
@@ -198,14 +226,30 @@ impl Path {
     }
 }
 
+/// コード中に現れるシンボルを表します
+/// コード中のを解決した結果として、Param, Localなどに変換されます
+/// ```nail
+/// let a = 10;
+/// a // Symbol::Local { name: "a", expr: ExprId(0) }
+/// ```
 #[derive(Debug, PartialEq, Eq)]
 pub enum Symbol {
+    /// 関数パラメータ
     Param { name: Name, param: ParamId },
+    /// ローカル変数
     Local { name: Name, expr: ExprId },
+    /// 関数
     Function { path: Path, function: FunctionId },
+    /// 解決できない
     Missing { path: Path },
 }
 
+/// ブロック
+/// ```nail
+/// {
+///     let a = 10;
+/// } // Block { stmts: [Stmt::VariableDef { name: "a", value: ExprId(0) }], tail: None }
+/// ```
 #[derive(Debug, PartialEq, Eq)]
 pub struct Block {
     pub stmts: Vec<Stmt>,

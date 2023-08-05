@@ -221,6 +221,7 @@ pub struct Path {
     segments: Vec<Name>,
 }
 impl Path {
+    /// 区切り文字で分割したパスの一覧を返します
     pub fn segments(&self) -> &[Name] {
         self.segments.as_slice()
     }
@@ -257,6 +258,20 @@ pub struct Block {
     pub ast: AstId<ast::BlockExpr>,
 }
 impl Block {
+    /// ブロックの最後の式を返します
+    /// ブロックの最後の式がない場合はNoneが返ります。
+    /// ```nail
+    /// {
+    ///    let a = 10;
+    ///    a + 1
+    /// } // Some(ExprId(1))
+    /// ```
+    ///
+    /// ```nail
+    /// {
+    ///   let a = 10;
+    /// } // None
+    /// ```
     pub fn tail<'a>(&self, ctx: &'a SharedBodyLowerContext) -> Option<&'a Expr> {
         if let Some(tail) = self.tail {
             Some(tail.lookup(ctx))

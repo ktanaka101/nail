@@ -25,35 +25,56 @@ type ModuleAstId = AstId<ast::Module>;
 /// この型は、ファイル内の特定の使用宣言ノードを一意に参照するために使用されます。
 type UseAstId = AstId<ast::Use>;
 
+/// `ItemTree`は、ファイル内のすべてのアイテムをツリー構造で保持するデータ構造です。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemTree {
+    /// ファイルID
     file_id: FileId,
+    /// ファイル内のトップレベルのアイテムスコープID
     pub top_level_scope: ItemScopeId,
+    /// ブロック(AST)に対応するアイテムスコープID
+    /// トップレベルのアイテムスコープは含まれません。
     scope_by_block: HashMap<BlockAstId, ItemScopeId>,
+    /// アイテムスコープに対応するブロックID
+    /// トップレベルのアイテムスコープは含まれません。
     block_by_scope: HashMap<ItemScopeId, BlockAstId>,
+    /// ブロック(AST)に対応する関数ID
     function_by_block: HashMap<BlockAstId, FunctionId>,
+    /// 関数に対応するブロックID
     block_by_function: HashMap<FunctionId, BlockAstId>,
 
+    /// モジュール(AST)に対応するアイテムスコープID
     scope_by_module_ast: HashMap<ModuleAstId, ItemScopeId>,
+    /// モジュールに対応するアイテムスコープID
     scope_by_module: HashMap<ModuleId, ItemScopeId>,
+    /// モジュール(AST)に対応するモジュールID
     module_by_ast_module: HashMap<ModuleAstId, ModuleId>,
 
+    /// 使用宣言(AST)に対応する使用宣言ID
     use_item_by_ast_use: HashMap<UseAstId, UseItemId>,
 }
 impl ItemTree {
+    /// トップレベルのアイテムスコープを取得します。
+    /// トップレベルのアイテムスコープは1ファイルに必ず存在します。
     pub fn top_level_scope<'a>(&self, db: &'a Database) -> &'a ItemScope {
         self.top_level_scope.lookup(db)
     }
 
+    /// ブロック(AST)に対応するアイテムスコープIDを取得します。
+    /// 存在しない場合は`None`を返します。
     pub fn scope_id_by_block(&self, ast: &BlockAstId) -> Option<ItemScopeId> {
         self.scope_by_block.get(ast).copied()
     }
 
+    /// ブロック(AST)に対応するアイテムスコープを取得します。
+    /// 存在しない場合は`None`を返します。
     pub fn scope_by_block<'a>(&self, db: &'a Database, ast: &BlockAstId) -> Option<&'a ItemScope> {
         self.scope_id_by_block(ast)
             .map(|scope_id| scope_id.lookup(db))
     }
 
+    /// モジュール(AST)に対応するアイテムスコープを取得します。
+    /// 存在しない場合は`None`を返します。
     pub fn scope_by_ast_module<'a>(
         &self,
         db: &'a Database,
@@ -63,15 +84,21 @@ impl ItemTree {
         scope_id.map(|scope_id| scope_id.lookup(db))
     }
 
+    /// モジュールに対応するアイテムスコープを取得します。
+    /// 存在しない場合は`None`を返します。
     pub fn scope_by_module<'a>(&self, db: &'a Database, id: &ModuleId) -> Option<&'a ItemScope> {
         let scope_id = self.scope_by_module.get(id);
         scope_id.map(|scope_id| scope_id.lookup(db))
     }
 
+    /// ブロック(AST)に対応する関数IDを取得します。
+    /// 存在しない場合は`None`を返します。
     pub fn function_id_by_block(&self, block_ast_id: &BlockAstId) -> Option<FunctionId> {
         self.function_by_block.get(block_ast_id).copied()
     }
 
+    /// ブロック(AST)に対応する関数を取得します。
+    /// 存在しない場合は`None`を返します。
     pub fn function_by_block<'a>(
         &self,
         db: &'a Database,
@@ -81,14 +108,20 @@ impl ItemTree {
             .map(|fn_id| fn_id.lookup(db))
     }
 
+    /// 関数に対応するブロック(AST)IDを取得します。
+    /// 存在しない場合は`None`を返します。
     pub fn block_id_by_function(&self, function_id: &FunctionId) -> Option<BlockAstId> {
         Some(self.block_by_function.get(function_id)?.clone())
     }
 
+    /// モジュール(AST)に対応するモジュールIDを取得します。
+    /// 存在しない場合は`None`を返します。
     pub fn module_id_by_ast_module(&self, module_ast_id: ModuleAstId) -> Option<ModuleId> {
         self.module_by_ast_module.get(&module_ast_id).copied()
     }
 
+    /// モジュール(AST)に対応するモジュールを取得します。
+    /// 存在しない場合は`None`を返します。
     pub fn module_by_ast_module_id<'a>(
         &self,
         db: &'a Database,
@@ -98,10 +131,14 @@ impl ItemTree {
             .map(|module_id| module_id.lookup(db))
     }
 
+    /// 使用宣言(AST)に対応する使用宣言IDを取得します。
+    /// 存在しない場合は`None`を返します。
     pub fn use_item_id_by_ast_use(&self, use_ast_id: UseAstId) -> Option<UseItemId> {
         self.use_item_by_ast_use.get(&use_ast_id).copied()
     }
 
+    /// 使用宣言(AST)に対応する使用宣言を取得します。
+    /// 存在しない場合は`None`を返します。
     pub fn use_item_by_ast_use<'a>(
         &self,
         db: &'a Database,
@@ -112,6 +149,7 @@ impl ItemTree {
     }
 }
 
+/// アイテムツリー構築用コンテキスト
 pub(crate) struct ItemTreeBuilderContext<'a> {
     file_id: FileId,
     scope_by_block: HashMap<BlockAstId, ItemScopeId>,
@@ -128,6 +166,7 @@ pub(crate) struct ItemTreeBuilderContext<'a> {
     interner: &'a mut Interner,
 }
 impl<'a> ItemTreeBuilderContext<'a> {
+    /// コンテキストを作成します。
     pub(crate) fn new(file_id: FileId, interner: &'a mut Interner) -> Self {
         Self {
             file_id,
@@ -143,6 +182,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
         }
     }
 
+    /// アイテムツリーを構築します。
     pub(crate) fn build(
         mut self,
         file_id: FileId,
@@ -175,6 +215,8 @@ impl<'a> ItemTreeBuilderContext<'a> {
         }
     }
 
+    /// アイテムを構築します。
+    /// アイテムが構築できなかった場合は`None`を返します。
     fn build_item(
         &mut self,
         item: ast::Item,
@@ -251,6 +293,8 @@ impl<'a> ItemTreeBuilderContext<'a> {
         }
     }
 
+    /// ステートメントを構築します。
+    /// ステートメントが構築できなかった場合は`None`を返します。
     fn build_stmt(
         &mut self,
         stmt: ast::Stmt,
@@ -273,6 +317,8 @@ impl<'a> ItemTreeBuilderContext<'a> {
         Some(())
     }
 
+    /// 型を構築します。
+    /// 型を構築できなかった場合は`Type::Unknown`を返します。
     fn lower_ty(&mut self, ty: Option<ast::Type>) -> Type {
         let ident = match ty.and_then(|ty| ty.ty()) {
             Some(ident) => ident,
@@ -289,6 +335,18 @@ impl<'a> ItemTreeBuilderContext<'a> {
         }
     }
 
+    /// 式を構築します。
+    /// 式自体はアイテムではないため、値を返すわけではありません。
+    /// 式の中のアイテムを探すためにトラバースしています。
+    /// 式の中のアイテムを構築できなかった場合は`None`を返します。
+    /// 式の中にアイテムがあるのは、例えばブロック自体やIf式です。
+    /// ```nail
+    /// if true {
+    ///     fn a() -> int { // Item
+    ///         10
+    ///     }
+    /// }
+    /// ```
     fn build_expr(
         &mut self,
         expr: ast::Expr,
@@ -321,6 +379,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
         Some(())
     }
 
+    /// ブロックを構築します。
     fn build_block(
         &mut self,
         block: ast::BlockExpr,
@@ -346,6 +405,8 @@ impl<'a> ItemTreeBuilderContext<'a> {
         block_ast_id
     }
 
+    /// モジュールを構築します。
+    /// モジュールを構築できなかった場合は`None`を返します。
     fn build_module(
         &mut self,
         module: &ast::Module,
@@ -388,6 +449,8 @@ impl<'a> ItemTreeBuilderContext<'a> {
         }
     }
 
+    /// アイテムを構築します。
+    /// アイテムを構築できなかった場合は`None`を返します。
     fn build_use(
         &mut self,
         r#use: &ast::Use,

@@ -389,6 +389,7 @@ Implemented = ✅, Partially Implemented = 🚧, Not Implemented = ❌
 
 - ❌ Concurrency models
   Nail supports the CSP concurrency model and has an asynchronous runtime. By default, functions are executed in the asynchronous runtime, so there is no need to mark individual asynchronous functions. Use spawn for non-blocking execution; otherwise, it will be a blocking execution.
+  The work-stealing algorithm is continuation stealing.
   ```rust
   fn async_function() -> i32 {
     10

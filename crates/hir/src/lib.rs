@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 mod body;
 mod db;
 mod input;

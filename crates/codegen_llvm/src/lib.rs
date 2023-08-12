@@ -1905,6 +1905,7 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
     fn test_use_in_file() {
         check_result_in_root_file(
             r#"

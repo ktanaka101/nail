@@ -5,6 +5,8 @@ authors = ["ktanaka101 <kentanaka101@gmail.com>"]
 edition = "2021"
 license = "MIT"
 
+default-run = "nail-cure"
+
 [dependencies]
 clap = { workspace = true }
 tokio = { workspace = true }

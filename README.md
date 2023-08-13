@@ -4,11 +4,12 @@ WIP
 
 ## Summury
 
-We create robust and flexible programming languages.
+We create robust and flexible programming languages.  
+We want to create something like Rust with a Go runtime.
 
 - Base: Rust
 - Memory Management: GC
-- Type System: Rust, TypeScript
+- Type System: Rust, if possible TypeScript
 - Concurrency: Go
 
 Furthermore, we want to make sure that once compiled, it works as intended.

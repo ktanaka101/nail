@@ -19,7 +19,7 @@ members = ["crates/*"]
 anyhow = "1.0"
 clap = { version = "4.3", features = ["derive"] }
 drop_bomb = "0.1"
-either = "1.8.1"
+either = "1.9.0"
 expect-test = "1.4"
 indexmap = "1.9"
 inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = [

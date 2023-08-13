@@ -8,10 +8,16 @@ license = "MIT"
 default-run = "nail-cure"
 
 [dependencies]
+anyhow = { workspace = true }
 clap = { workspace = true }
 tokio = { workspace = true }
+inkwell = { workspace = true }
 
 lsp = { workspace = true }
+hir = { workspace = true }
+hir_ty = { workspace = true }
+mir = { workspace = true }
+codegen_llvm = { workspace = true }
 
 [workspace]
 members = ["crates/*"]

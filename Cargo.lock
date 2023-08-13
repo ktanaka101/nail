@@ -729,8 +729,14 @@ dependencies = [
 name = "nail"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "clap",
+ "codegen_llvm",
+ "hir",
+ "hir_ty",
+ "inkwell",
  "lsp",
+ "mir",
  "tokio",
 ]
 

@@ -11,7 +11,6 @@ default-run = "nail-cure"
 clap = { workspace = true }
 tokio = { workspace = true }
 
-repl = { workspace = true }
 lsp = { workspace = true }
 
 [workspace]
@@ -36,7 +35,6 @@ rowan = "0.15"
 smol_str = "0.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-termion = "2.0"
 text-size = "1.1"
 thiserror = "1.0"
 tokio = { version = "1.31", features = ["full"] }
@@ -52,7 +50,6 @@ hir_ty = { path = "crates/hir_ty" }
 mir = { path = "crates/mir" }
 codegen_llvm = { path = "crates/codegen_llvm" }
 lsp = { path = "crates/lsp" }
-repl = { path = "crates/repl" }
 
 [profile.dev]
 debug = 0

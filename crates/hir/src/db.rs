@@ -9,10 +9,11 @@ use crate::{
 };
 
 /// 関数を一意に特定するためのIDです。
-/// 元データは`Database`に格納されています。
+/// 元データは[Database]に格納されています。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct FunctionId(Idx<Function>);
 impl FunctionId {
+    /// DBから関数を取得します。
     pub fn lookup(self, db: &Database) -> &Function {
         &db.functions[self.0]
     }
@@ -23,6 +24,7 @@ impl FunctionId {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ParamId(Idx<Param>);
 impl ParamId {
+    /// DBから関数の引数を取得します。
     pub fn lookup(self, db: &Database) -> &Param {
         &db.params[self.0]
     }
@@ -33,10 +35,12 @@ impl ParamId {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ItemScopeId(Idx<ItemScope>);
 impl ItemScopeId {
+    /// DBからアイテムスコープを取得します。
     pub fn lookup(self, db: &Database) -> &ItemScope {
         &db.item_scopes[self.0]
     }
 
+    /// DBから可変なアイテムスコープを取得します。
     pub(crate) fn lookup_mut(self, db: &mut Database) -> &mut ItemScope {
         &mut db.item_scopes[self.0]
     }
@@ -47,6 +51,7 @@ impl ItemScopeId {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ModuleId(Idx<Module>);
 impl ModuleId {
+    /// DBからモジュールを取得します。
     pub fn lookup(self, db: &Database) -> &Module {
         &db.modules[self.0]
     }
@@ -58,6 +63,7 @@ impl ModuleId {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct UseItemId(Idx<UseItem>);
 impl UseItemId {
+    /// DBから使用宣言を取得します。
     pub fn lookup(self, db: &Database) -> &UseItem {
         &db.use_items[self.0]
     }

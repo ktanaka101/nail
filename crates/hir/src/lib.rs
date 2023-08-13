@@ -15,7 +15,7 @@ pub use input::{
     FileId, FilelessSourceDatabase, FixtureDatabase, SourceDatabase, SourceDatabaseTrait,
 };
 use item_tree::ItemTreeBuilderContext;
-pub use item_tree::{Function, ItemDefId, ItemTree, Param, Type};
+pub use item_tree::{Function, ItemDefId, ItemTree, Module, Param, Type, UseItem};
 use la_arena::Idx;
 use string_interner::{Interner, Key};
 use syntax::SyntaxNodePtr;

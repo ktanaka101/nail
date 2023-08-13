@@ -10,9 +10,11 @@ use crate::{
     Block, Expr, FileId, FunctionId, ItemDefId, Literal, Name, ParamId, Path, Stmt, Symbol,
 };
 
+/// 式を一意に識別するためのID
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ExprId(Idx<Expr>);
 impl ExprId {
+    /// このIDに対応する式を取得する
     pub fn lookup(self, ctx: &SharedBodyLowerContext) -> &Expr {
         &ctx.exprs[self.0]
     }
@@ -28,9 +30,13 @@ impl Ord for ExprId {
     }
 }
 
+/// 関数本体を一意に識別するためのID
+///
+/// TODO: [Expr]の代わりに`Block`等を使うようにし、構造を明確にする
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct FunctionBodyId(Idx<Expr>);
 
+/// 1ファイル内における式と関数本体を保持する
 #[derive(Debug, Default)]
 pub struct SharedBodyLowerContext {
     function_bodies: Arena<Expr>,
@@ -38,6 +44,7 @@ pub struct SharedBodyLowerContext {
     function_body_by_block: HashMap<AstId<ast::BlockExpr>, FunctionBodyId>,
 }
 impl SharedBodyLowerContext {
+    /// 空のコンテキストを作成する
     pub fn new() -> Self {
         Self {
             function_bodies: Arena::new(),
@@ -46,6 +53,7 @@ impl SharedBodyLowerContext {
         }
     }
 
+    /// ASTブロックIDを元に関数本体IDを取得する
     pub fn function_body_id_by_block(
         &self,
         block_ast_id: AstId<ast::BlockExpr>,
@@ -53,20 +61,31 @@ impl SharedBodyLowerContext {
         self.function_body_by_block.get(&block_ast_id).copied()
     }
 
+    /// ASTブロックIDを元に関数本体を取得する
+    ///
+    /// 現状、関数本体は[Expr::Block]として表現されているため、[Expr]を返す
     pub fn function_body_by_block(&self, block_ast_id: AstId<ast::BlockExpr>) -> Option<&Expr> {
         self.function_body_id_by_block(block_ast_id)
             .map(|body_id| &self.function_bodies[body_id.0])
     }
 
+    /// 式を保存し、参照するためのIDを返す
     pub(crate) fn alloc_expr(&mut self, expr: Expr) -> ExprId {
         ExprId(self.exprs.alloc(expr))
     }
 
+    /// 関数本体を保存し、参照するためのIDを返す
     pub(crate) fn alloc_function_body(&mut self, expr: Expr) -> FunctionBodyId {
         FunctionBodyId(self.function_bodies.alloc(expr))
     }
 }
 
+/// ASTを元にHIRを構築するためのコンテキスト/ビルダー
+///
+/// ユースケースはトップレベルと関数本体の2種類あります。
+/// トップレベルの場合、`params`は空で指定します。
+/// 関数本体の場合、`params`に関数パラメータを指定します。
+/// `params`は、名前解決に使用されます。
 #[derive(Debug)]
 pub struct BodyLower {
     file_id: FileId,
@@ -75,6 +94,7 @@ pub struct BodyLower {
 }
 
 impl BodyLower {
+    /// 空のコンテキストを作成する
     pub(super) fn new(file_id: FileId, params: HashMap<Name, ParamId>) -> Self {
         Self {
             file_id,
@@ -83,6 +103,7 @@ impl BodyLower {
         }
     }
 
+    /// トップレベルに定義された[ast::Item]を元に、トップレベルのHIRを構築する
     pub(super) fn lower_toplevel(
         &mut self,
         ast: ast::Item,

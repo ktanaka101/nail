@@ -1,8 +1,24 @@
+//! MIRを構築するためのモジュールです。
+//!
+//! MIRはLLVM IRに変換しやすくするための中間表現です。
+//! このモジュールでは、HIRとTyped HIRをMIRに変換するための機能を提供します。
+//!
+//! MIRに変換する際に以下を行います。
+//! - 脱糖
+//!   例えば、`for`式は`while`式に変換されます。
+//!   脱糖することにより、MIRからLLVM IRへの変換が容易になります。
+//! - 制御フローグラフの構築
+//!   制御フローグラフは、基本ブロックとその間の制御フローからなります。
+//!   例えば、`if`式は、`then`ブロックと`else`ブロックを持つ基本ブロックに変換されます。
+//!   この構造は、LLVM IRの基本ブロックと制御フローに対応しており、LLVM IRへの変換が容易になります。
+#![warn(missing_docs)]
+
 use std::collections::HashMap;
 
 use hir_ty::ResolvedType;
 use la_arena::{Arena, Idx};
 
+/// HIRとTyped HIRからMIRを構築する
 pub fn lower(hir_result: &hir::LowerResult, hir_ty_result: &hir_ty::TyLowerResult) -> LowerResult {
     let mir_lower = MirLower {
         hir_result,
@@ -572,9 +588,13 @@ impl<'a> FunctionLower<'a> {
     }
 }
 
+/// 関数ID
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FunctionId(u32);
 
+/// 関数IDを生成する
+///
+/// 生成されるIDは0から始まり、1ずつ増えていきます。
 struct FunctionIdGenerator {
     id: u32,
 }
@@ -652,6 +672,7 @@ impl<'a> MirLower<'a> {
     }
 }
 
+/// MIRの構築結果
 #[derive(Debug)]
 pub struct LowerResult {
     entry_point: Option<Idx<Body>>,
@@ -661,38 +682,51 @@ pub struct LowerResult {
 }
 
 impl LowerResult {
+    /// エントリポイントのボディを返す
     pub fn entry_point(&self) -> Option<&Body> {
         self.entry_point.map(|idx| &self.bodies[idx])
     }
 
+    /// エントリポイントの関数IDを返す
     pub fn function_id_of_entry_point(&self) -> Option<FunctionId> {
         self.entry_point.map(|idx| self.function_by_body[&idx])
     }
 
+    /// 関数IDからボディを返す
     pub fn body_by_function_id(&self, function_id: FunctionId) -> &Body {
         let body_idx = self.body_by_function.get(&function_id).unwrap();
         &self.bodies[*body_idx]
     }
 
+    /// ボディから関数IDを返す
     pub fn function_id_by_body_idx(&self, idx: Idx<Body>) -> FunctionId {
         self.function_by_body[&idx]
     }
 
+    /// (ボディインデックス, ボディ)のイテレータを返す
     pub fn ref_bodies(&self) -> impl Iterator<Item = (Idx<Body>, &Body)> {
         self.bodies.iter()
     }
 }
 
+/// 関数のボディ
 #[derive(Debug)]
 pub struct Body {
+    /// 関数のパス
     pub path: hir::Path,
+    /// 関数名
     pub name: hir::Name,
+    /// 関数のパラメータ一覧
     pub params: Arena<Param>,
+    /// 関数の戻り値
     pub return_local: LocalIdx,
+    /// 関数内のローカル変数一覧
     pub locals: Arena<Local>,
+    /// 関数内の基本ブロック一覧
     pub blocks: Arena<BasicBlock>,
 }
 impl Body {
+    /// 関数のシグネチャを返す
     pub fn signature(&self) -> Signature {
         let params = self.params.iter().map(|(idx, _param)| idx).collect();
         Signature {
@@ -702,36 +736,54 @@ impl Body {
     }
 }
 
+/// 関数のシグネチャ
 #[derive(Debug)]
 pub struct Signature {
+    /// パラメータ一覧
     pub params: Vec<ParamIdx>,
+    /// 戻り値
     pub return_value: LocalIdx,
 }
 
+/// 関数のパラメータ
 #[derive(Debug)]
 pub struct Param {
+    /// パラメータの型
     pub ty: ResolvedType,
+    /// パラメータのローカル変数のインデックス
     pub idx: u64,
+    /// パラメータの位置
     pub pos: u32,
 }
+/// パラメータの保持インデックス
 pub type ParamIdx = Idx<Param>;
 
+/// 関数内のローカル変数
 #[derive(Debug)]
 pub struct Local {
+    /// ローカル変数の型
     pub ty: ResolvedType,
+    /// ローカル変数のインデックス
     pub idx: u64,
 }
+/// ローカル変数の保持インデックス
 pub type LocalIdx = Idx<Local>;
 
+/// 基本ブロック
 #[derive(Debug)]
 pub struct BasicBlock {
+    /// 基本ブロックの種類
     pub kind: BasicBlockKind,
+    /// 基本ブロック内の文一覧
     pub statements: Vec<Statement>,
+    /// 基本ブロックの終端
     pub termination: Option<Termination>,
+    /// 基本ブロックのインデックス
     idx: u64,
 }
 
 impl BasicBlock {
+    /// 基本ブロックの名前を返す
     pub fn name(&self) -> String {
         match self.kind {
             crate::BasicBlockKind::Entry => "entry".to_string(),
@@ -798,6 +850,7 @@ impl BasicBlock {
     }
 }
 
+/// 基本ブロックの保持インデックス
 pub type BasicBlockIdx = Idx<BasicBlock>;
 
 struct AllocatedSwitchBB {
@@ -805,46 +858,73 @@ struct AllocatedSwitchBB {
     else_bb_idx: Idx<BasicBlock>,
 }
 
+/// 値の位置を指す
+/// 参照のようなもの
 #[derive(Debug, Clone, Copy)]
 pub enum Place {
+    /// 関数パラメータ
     Param(Idx<Param>),
+    /// ローカル変数
     Local(Idx<Local>),
 }
 
+/// 値
 #[derive(Debug)]
 pub enum Value {
+    /// オペランド(値)
     Operand(Operand),
+    /// 二項演算
     BinaryOp {
+        /// 二項演算子
         op: BinaryOp,
+        /// 左辺
         left: Operand,
+        /// 右辺
         right: Operand,
     },
+    /// 単項演算
     UnaryOp {
+        /// 単項演算子
         op: UnaryOp,
+        /// 式
         expr: Operand,
     },
 }
 
+/// 二項演算子
 #[derive(Debug)]
 pub enum BinaryOp {
+    /// 加算
     Add,
+    /// 減算
     Sub,
+    /// 乗算
     Mul,
+    /// 除算
     Div,
+    /// 等価
     Equal,
+    /// 大なり(>)
     GreaterThan,
+    /// 小なり(<)
     LessThan,
 }
 
+/// 単項演算子
 #[derive(Debug)]
 pub enum UnaryOp {
+    /// 負符号(-)
     Neg,
+    /// 論理否定(!)
     Not,
 }
 
+/// オペランド
 #[derive(Debug)]
 pub enum Operand {
+    /// 値の位置
     Place(Place),
+    /// 定数
     Constant(Constant),
 }
 impl From<Operand> for Value {
@@ -865,42 +945,72 @@ enum LoweredStmt {
     Unit,
 }
 
+/// 定数
 #[derive(Debug)]
 pub enum Constant {
+    /// 整数
     Integer(u64),
+    /// 真偽値
     Boolean(bool),
+    /// 文字列
     String(String),
+    /// 単値
     Unit,
 }
 
+/// ステートメント
 #[derive(Debug)]
 pub enum Statement {
-    Assign { place: Place, value: Value },
+    /// 値の代入
+    Assign {
+        /// 代入先
+        place: Place,
+        /// 代入する値
+        value: Value,
+    },
 }
 
+/// 終端
 #[derive(Debug)]
 pub enum Termination {
+    /// 戻り値
     Return(Idx<Local>),
+    /// ジャンプ
     Goto(Idx<BasicBlock>),
+    /// 条件分岐
     Switch {
+        /// 条件
         condition: Place,
+        /// 条件が真の場合にジャンプする先の基本ブロック
         then_bb: Idx<BasicBlock>,
+        /// 条件が偽の場合にジャンプする先の基本ブロック
         else_bb: Idx<BasicBlock>,
     },
+    /// 関数呼び出し
     Call {
+        /// 呼び出し対象の関数
         function: FunctionId,
+        /// 引数
         args: Vec<Operand>,
+        /// 戻り値の代入先
         destination: Place,
+        /// 呼び出し後にジャンプする先の基本ブロック
         target: Idx<BasicBlock>,
     },
 }
 
+/// 基本ブロックの種類
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum BasicBlockKind {
+    /// 関数の開始を表す基本ブロック
     Entry,
+    /// 関数の終了を表す基本ブロック
     Exit,
+    /// 標準的な基本ブロック
     Standard,
+    /// 条件分岐の真の場合の基本ブロック
     Then,
+    /// 条件分岐の偽の場合の基本ブロック
     Else,
 }
 

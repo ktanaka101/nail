@@ -1,3 +1,18 @@
+//! HIRに型付けを行います。
+//! Typed HIRと呼びます。
+//!
+//! 以下のステップで行います。
+//! 1. 型推論
+//! 2. 型チェック
+//!
+//! 以下のように、HIRとTypedHIRはセットで扱います。TypedHIR単体では機能しません。
+//! AST -----> HIR -------------------------------> MIR -----> LLVM IR
+//!                \-----> TypedHIR(このcrate) ---/
+//!
+//! 現時点の型推論は簡易なもので、Hindley-Milner型推論ベースに変更する予定です。
+
+#![warn(missing_docs)]
+
 mod checker;
 mod inference;
 
@@ -5,6 +20,7 @@ pub use checker::{TypeCheckError, TypeCheckResult};
 use hir::LowerResult;
 pub use inference::{InferenceError, InferenceResult, ResolvedType, Signature};
 
+/// HIRを元にTypedHIRを構築します。
 pub fn lower(lower_result: &LowerResult) -> TyLowerResult {
     let inference_result = inference::infer(lower_result);
     let type_check_result = checker::check_type(lower_result, &inference_result);
@@ -15,20 +31,26 @@ pub fn lower(lower_result: &LowerResult) -> TyLowerResult {
     }
 }
 
+/// TypedHIRの構築結果です。
 pub struct TyLowerResult {
+    /// 型推論の結果
     pub inference_result: InferenceResult,
+    /// 型チェックの結果
     pub type_check_result: TypeCheckResult,
 }
 impl TyLowerResult {
+    /// 指定した関数の型を取得します。
     pub fn signature_by_function(&self, function_id: hir::FunctionId) -> &Signature {
         let signature_idx = self.inference_result.signature_by_function[&function_id];
         &self.inference_result.signatures[signature_idx]
     }
 
+    /// 指定したパラメータの型を取得します。
     pub fn type_by_param(&self, param_id: hir::ParamId) -> ResolvedType {
         self.inference_result.type_by_param[&param_id]
     }
 
+    /// 指定した式の型を取得します。
     pub fn type_by_expr(&self, expr: hir::ExprId) -> ResolvedType {
         self.inference_result.type_by_expr[&expr]
     }

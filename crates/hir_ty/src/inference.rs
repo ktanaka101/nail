@@ -7,12 +7,18 @@ pub fn infer(hir_result: &hir::LowerResult) -> InferenceResult {
     inferencer.infer()
 }
 
+/// 型推論の結果
 #[derive(Debug)]
 pub struct InferenceResult {
+    /// 式に対応する型
     pub type_by_expr: collections::HashMap<hir::ExprId, ResolvedType>,
+    /// パラメータに対応する型
     pub type_by_param: collections::HashMap<hir::ParamId, ResolvedType>,
+    /// 関数シグネチャ一覧
     pub signatures: Arena<Signature>,
+    /// 関数に対応するシグネチャ
     pub signature_by_function: collections::HashMap<hir::FunctionId, Idx<Signature>>,
+    /// 型推論中に発生したエラー
     pub errors: Vec<InferenceError>,
 }
 
@@ -37,28 +43,46 @@ impl InferenceContext {
     }
 }
 
+/// 型推論中に発生したエラー
 #[derive(Debug, Clone)]
 pub enum InferenceError {}
 
+/// 解決後の型
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ResolvedType {
+    /// 未解決の型
     Unknown,
+    /// 数値型
     Integer,
+    /// 文字列型
     String,
+    /// 文字型
     Char,
+    /// 真偽値型
     Bool,
+    /// 単一値型
     Unit,
+    /// 値を取り得ないことを表す型
+    ///
+    /// 例えば、必ず`panic`を起こす関数の型は`Never`です。
     Never,
+    /// 関数型
     #[allow(dead_code)]
     Function(Idx<Signature>),
 }
 
+/// 関数シグネチャ
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Signature {
+    /// パラメータの型一覧
+    ///
+    /// パラメータの順番に対応しています。
     pub params: Vec<ResolvedType>,
+    /// 戻り値の型
     pub return_type: ResolvedType,
 }
 
+/// 型推論器
 struct TypeInferencer<'a> {
     hir_result: &'a hir::LowerResult,
     ctx: InferenceContext,

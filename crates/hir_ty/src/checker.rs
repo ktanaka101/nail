@@ -7,41 +7,72 @@ pub fn check_type(lower_result: &LowerResult, infer_result: &InferenceResult) ->
     type_checker.check()
 }
 
+/// 型チェックのエラー
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeCheckError {
+    /// 型を解決できない
     UnresolvedType {
+        /// 対象の式
         expr: hir::ExprId,
     },
+    /// 一致するべき型が一致しない
     MismatchedTypes {
+        /// 期待される型の式
         expected_expr: hir::ExprId,
+        /// 期待される型
         expected_ty: ResolvedType,
+        /// 実際の式
         found_expr: hir::ExprId,
+        /// 実際の型
         found_ty: ResolvedType,
     },
+    /// Ifの条件式の型が一致しない
     MismatchedTypeIfCondition {
+        /// 期待される型
         expected_ty: ResolvedType,
+        /// 実際の式
         found_expr: hir::ExprId,
+        /// 実際の型
         found_ty: ResolvedType,
     },
+    /// Ifのthenブランチとelseブランチの型が一致しない
     MismatchedTypeElseBranch {
+        /// 期待される型
         expected_ty: ResolvedType,
+        /// 実際の式
         found_expr: hir::ExprId,
+        /// 実際の型
         found_ty: ResolvedType,
     },
+    /// 関数呼び出しの引数の数が一致しない
     MismaatchedSignature {
+        /// 期待される型
         expected_ty: ResolvedType,
+        /// 呼び出そうとしている関数のシグネチャ
         signature: Signature,
+        /// 実際の式
         found_expr: hir::ExprId,
+        /// 実際の型
         found_ty: ResolvedType,
     },
+    /// 関数の戻り値の型と実際の戻り値の型が異なる
+    ///
+    /// 以下のいずれかが関数の戻り値の型と一致しない場合に発生する
+    /// - `return`に指定した式の型
+    /// - 関数ボディの最後の式の型
     MismatchedReturnType {
+        /// 期待される型
         expected_ty: ResolvedType,
+        /// 実際の式
         found_expr: Option<hir::ExprId>,
+        /// 実際の型
         found_ty: ResolvedType,
     },
 }
 
+/// 型チェックの結果
 pub struct TypeCheckResult {
+    /// 型チェックのエラー一覧
     pub errors: Vec<TypeCheckError>,
 }
 

@@ -8,104 +8,150 @@ fn lex_char(lex: &mut Lexer<TokenKind>) -> Option<bool> {
     Some(slice.ends_with('\''))
 }
 
+/// トークン種別
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Logos)]
 pub enum TokenKind {
     // item keywords
+    /// `fn`
     #[token("fn")]
     FnKw,
+    /// `mod`
     #[token("mod")]
     ModKw,
+    /// `use`
     #[token("use")]
     UseKw,
 
     // body keywords
+    /// `let`
     #[token("let")]
     LetKw,
+    /// `true`
     #[token("true")]
     TrueKw,
+    /// `false`
     #[token("false")]
     FalseKw,
+    /// `if`
     #[token("if")]
     IfKw,
+    /// `else`
     #[token("else")]
     ElseKw,
+    /// `return`
     #[token("return")]
     ReturnKw,
 
     // identifier
+    /// `[A-Za-z_][A-Za-z0-9_]*`
     #[regex("[A-Za-z_][A-Za-z0-9_]*")]
     Ident,
 
     // literals
+    /// `[0-9]+`
     #[regex("[0-9]+")]
     IntegerLiteral,
+    /// `"[^"]*"`
     #[regex(r#""[^"]*""#)]
     StringLiteral,
+    /// `'[^']?'?`
+    ///
+    /// 終了のシングルクォートが含まれている場合、`true`となります。
+    /// 終了のシングルクォーとが含まれていない場合、`false`となります。
     #[regex("'[^']?'?", lex_char)]
     CharLiteral(bool),
 
     // symbols
+    /// `+`
     #[token("+")]
     Plus,
+    /// `-`
     #[token("-")]
     Minus,
+    /// `*`
     #[token("*")]
     Star,
+    /// `/`
     #[token("/")]
     Slash,
+    /// `!`
     #[token("!")]
     Bang,
+    /// `=`
     #[token("=")]
     Eq,
+    /// `==`
     #[token("==")]
     Eq2,
+    /// `<`
     #[token("<")]
     LAngle,
+    /// `>`
     #[token(">")]
     RAngle,
 
     // composite symbols
+    /// `->`
     #[token("->")]
     ThinArrow,
 
     // delimiters
+    /// `,`
     #[token(",")]
     Comma,
+    /// `:`
     #[token(":")]
     Colon,
+    /// `::`
     #[token("::")]
     Colon2,
+    /// `;`
     #[token(";")]
     Semicolon,
+    /// `(`
     #[token("(")]
     LParen,
+    /// `)`
     #[token(")")]
     RParen,
+    /// `[`
     #[token("[")]
     LBrace,
+    /// `]`
     #[token("]")]
     RBrace,
+    /// `{`
     #[token("{")]
     LCurly,
+    /// `}`
     #[token("}")]
     RCurly,
+    /// `|`
     #[token("|")]
     Pipe,
 
     // trivias
+    /// `[ \n]+`
     #[regex("[ \n]+")]
     Whitespace,
+    /// `//.*`
     #[regex("//.*")]
     CommentSingle,
 
+    /// トークンとして認識できなかったもの
     #[error]
     Error,
 
-    // only token validation
+    /// `'`
+    ///
+    /// バリデーションエラー時の期待するトークンにのみ使用します。
+    /// 例えば、`'a`のように閉じない文字リテラルの場合、バリデーションエラーとします。
+    /// その際、期待されるトークンとして`SingleQuote`が使用されます。
     SingleQuote,
 }
 
 impl TokenKind {
+    /// 動作上意味のないトークンかどうかを返します。
     pub fn is_trivia(self) -> bool {
         matches!(self, Self::Whitespace | Self::CommentSingle)
     }
@@ -156,10 +202,14 @@ impl fmt::Display for TokenKind {
     }
 }
 
+/// トークン
 #[derive(Debug, PartialEq, Eq)]
 pub struct Token<'a> {
+    /// トークンの種類
     pub kind: TokenKind,
+    /// トークンに対応する文字列
     pub text: &'a str,
+    /// トークンに対応する、ファイル中のトークン位置の範囲
     pub range: TextRange,
 }
 

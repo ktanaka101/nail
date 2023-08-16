@@ -3,9 +3,12 @@ use std::fmt;
 use lexer::TokenKind;
 use text_size::TextRange;
 
+/// AST構築時のエラー
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParserError {
+    /// パース時のエラー
     ParseError(ParseError),
+    /// トークン自体のエラー
     TokenError(TokenError),
 }
 
@@ -18,6 +21,7 @@ impl fmt::Display for ParserError {
     }
 }
 
+/// トークン自体のエラー
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TokenError {
     pub(super) expected: Vec<TokenKind>,
@@ -26,14 +30,20 @@ pub struct TokenError {
 }
 
 impl TokenError {
+    /// 期待されるトークンの種類
     pub fn expected(&self) -> &[TokenKind] {
         &self.expected
     }
 
+    /// 実際に得られたトークンの種類
     pub fn actual(&self) -> TokenKind {
         self.actual
     }
 
+    /// エラーが発生したトークンの範囲
+    ///
+    /// この範囲は、入力に対する位置です。
+    /// 例えば、あるファイルの内容が入力だとすると、そのファイルの先頭からの位置になります。
     pub fn range(&self) -> TextRange {
         self.range
     }
@@ -68,6 +78,7 @@ impl fmt::Display for TokenError {
     }
 }
 
+/// パース時のエラー
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParseError {
     pub(super) expected: Vec<TokenKind>,
@@ -76,14 +87,17 @@ pub struct ParseError {
 }
 
 impl ParseError {
+    /// 期待されるトークンの種類
     pub fn expected(&self) -> &[TokenKind] {
         &self.expected
     }
 
+    /// 実際に得られたトークンの種類
     pub fn found(&self) -> Option<TokenKind> {
         self.found
     }
 
+    /// エラーが発生したトークンの範囲
     pub fn range(&self) -> TextRange {
         self.range
     }

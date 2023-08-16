@@ -6,6 +6,7 @@ use crate::{
     parser::{marker::CompletedMarker, Parser},
 };
 
+/// 式の最初に現れる可能性があるトークンの集合
 pub(super) const EXPR_FIRST: [TokenKind; 13] = [
     TokenKind::StringLiteral,
     TokenKind::CharLiteral(false),
@@ -22,12 +23,26 @@ pub(super) const EXPR_FIRST: [TokenKind; 13] = [
     TokenKind::ReturnKw,
 ];
 
+/// アイテムの最初に現れる可能性があるトークンの集合
 pub(super) const ITEM_FIRST: &[TokenKind] = &[TokenKind::FnKw, TokenKind::ModKw];
 
+/// 式のパース
 pub(super) fn parse_expr(parser: &mut Parser) -> Option<CompletedMarker> {
     parse_expr_binding_power(parser, 0)
 }
 
+/// 優先順位を考慮した式のパース
+///
+/// `minimum_binding_power`よりも結合力が弱い演算子が現れるまで式をパースします。
+/// `minimum_binding_power`以上の結合力を持つ演算子が現れる限り結合し続けます。
+///
+/// `1 + 2 * 3 + 4`を例にすると、以下の各演算子の結合力は以下となります。
+/// `1 +(5, 6) 2  *(7, 8) 3 +(5, 6) 4`
+/// 以下のように結合されていきます。ノード自体は内側から構成されていきます。
+/// `1 + 2`
+/// `1 + 2 * 3`
+/// `(1 + 2 * 3) + 4`
+/// `(1 + (2 * 3)) + 4`
 fn parse_expr_binding_power(
     parser: &mut Parser,
     minimum_binding_power: u8,
@@ -73,17 +88,28 @@ fn parse_expr_binding_power(
     Some(lhs)
 }
 
+/// 二項演算子
 enum BinaryOp {
+    /// `+`
     Add,
+    /// `-`
     Sub,
+    /// `*`
     Mul,
+    /// `/`
     Div,
+    /// `==`
     Equal,
+    /// `>`
     GreaterThan,
+    /// `<`
     LessThan,
 }
 
 impl BinaryOp {
+    /// 結合力を返します。
+    /// 結合力はタプルの左側の要素が左結合力、右側の要素が右結合力です。
+    /// 結合力が強いほど値が大きくなります。
     fn binding_power(&self) -> (u8, u8) {
         match self {
             Self::Equal => (1, 2),
@@ -94,12 +120,18 @@ impl BinaryOp {
     }
 }
 
+/// 単項演算子
 enum PrefixOp {
+    /// `-`
     Neg,
+    /// `!`
     Not,
 }
 
 impl PrefixOp {
+    /// 結合力を返します。
+    /// 結合力はタプルの左側の要素が左結合力、右側の要素が右結合力です。
+    /// 結合力が強いほど値が大きくなります。
     fn binding_power(&self) -> ((), u8) {
         match self {
             Self::Not => ((), 9),
@@ -108,7 +140,12 @@ impl PrefixOp {
     }
 }
 
+/// 左辺のパース
 fn parse_lhs(parser: &mut Parser) -> Option<CompletedMarker> {
+    // 関数呼び出しの場合はCallノードとしたいが、そうでない場合はラップしたくないので、destroyを呼ぶ可能性がある
+    // 以下のようなイメージ。
+    // 関数呼び出しの場合: ExprStmt -> CallExpr   -> PathExpr -> ArgListExpr
+    // 式の場合:         ExprStmt -> destroy対象 -> PathExpr
     let maybe_call_marker = parser.start();
 
     let cm = if parser.at(TokenKind::IntegerLiteral)
@@ -145,6 +182,7 @@ fn parse_lhs(parser: &mut Parser) -> Option<CompletedMarker> {
     }
 }
 
+/// リテラルのパース
 fn parse_literal(parser: &mut Parser) -> CompletedMarker {
     assert!(matches!(
         parser.peek(),
@@ -164,6 +202,7 @@ fn parse_literal(parser: &mut Parser) -> CompletedMarker {
     marker.complete(parser, SyntaxKind::Literal)
 }
 
+/// リテラルのバリデーション
 fn validate_literal(parser: &mut Parser) {
     assert!(matches!(
         parser.peek(),
@@ -184,6 +223,7 @@ fn validate_literal(parser: &mut Parser) {
     }
 }
 
+/// パスのパース
 fn parse_path_expr(parser: &mut Parser) -> CompletedMarker {
     assert!(parser.at(TokenKind::Ident));
 
@@ -194,6 +234,8 @@ fn parse_path_expr(parser: &mut Parser) -> CompletedMarker {
     marker.complete(parser, SyntaxKind::PathExpr)
 }
 
+/// 関数呼び出しの引数のパース
+/// `(arg1, arg2, ...)`
 fn parse_args(parser: &mut Parser) -> CompletedMarker {
     assert!(parser.at(TokenKind::LParen));
 
@@ -215,6 +257,7 @@ fn parse_args(parser: &mut Parser) -> CompletedMarker {
     marker.complete(parser, SyntaxKind::ArgList)
 }
 
+/// 単項演算式のパース
 fn parse_prefix_expr(parser: &mut Parser) -> CompletedMarker {
     assert!(parser.at_set_no_expected(&[TokenKind::Minus, TokenKind::Bang]));
 
@@ -237,6 +280,9 @@ fn parse_prefix_expr(parser: &mut Parser) -> CompletedMarker {
     marker.complete(parser, SyntaxKind::UnaryExpr)
 }
 
+/// `()`で囲まれている式のパース
+///
+/// `()`の中の式は`()`と結合させるため、最小の結合力である`0`で呼び出しています。
 fn parse_paren_expr(parser: &mut Parser) -> CompletedMarker {
     assert!(parser.at(TokenKind::LParen));
 
@@ -248,6 +294,10 @@ fn parse_paren_expr(parser: &mut Parser) -> CompletedMarker {
     marker.complete(parser, SyntaxKind::ParenExpr)
 }
 
+/// ブロックのパース
+///
+/// ブロックはさまざまな箇所で使用されています。
+/// `if-else`式や、`while`式、関数などです。
 fn parse_block(parser: &mut Parser) -> CompletedMarker {
     assert!(parser.at(TokenKind::LCurly));
 
@@ -261,6 +311,7 @@ fn parse_block(parser: &mut Parser) -> CompletedMarker {
     marker.complete(parser, SyntaxKind::BlockExpr)
 }
 
+/// `if`式のパース
 fn parse_if(parser: &mut Parser) -> CompletedMarker {
     assert!(parser.at(TokenKind::IfKw));
 
@@ -274,6 +325,7 @@ fn parse_if(parser: &mut Parser) -> CompletedMarker {
 
     if parser.at(TokenKind::ElseKw) {
         parser.bump();
+        // elseのブロックがなくても続きを食わない事で、続きの一連のトークンに影響を及ぼさない
         if parser.at(TokenKind::LCurly) {
             parse_block(parser);
         }
@@ -282,6 +334,7 @@ fn parse_if(parser: &mut Parser) -> CompletedMarker {
     marker.complete(parser, SyntaxKind::IfExpr)
 }
 
+/// `return`式のパース
 fn parse_return(parser: &mut Parser) -> CompletedMarker {
     assert!(parser.at(TokenKind::ReturnKw));
 

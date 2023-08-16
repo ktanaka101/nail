@@ -1,3 +1,9 @@
+//! パース元のソースコードの情報が無損失の具象構文木(CST: concrete syntax tree)を構築するためのパーサです。
+//!
+//! パーサは入力の文字列を受け取り、CSTを構築します。
+
+#![warn(missing_docs)]
+
 mod event;
 mod grammar;
 mod parser;
@@ -15,6 +21,7 @@ use syntax::SyntaxNode;
 use crate::parser::Parser;
 pub use crate::parser::{ParseError, ParserError, TokenError};
 
+/// 入力を元にCSTを構築します。
 pub fn parse(input: &str) -> Parse {
     let tokens: Vec<_> = Lexer::new(input).collect();
     let source = Source::new(&tokens);
@@ -25,6 +32,7 @@ pub fn parse(input: &str) -> Parse {
     sink.finish()
 }
 
+/// パースした結果
 pub struct Parse {
     green_node: GreenNode,
     errors: Vec<ParserError>,
@@ -37,6 +45,7 @@ impl fmt::Debug for Parse {
 }
 
 impl Parse {
+    /// パースした結果をデバッグ用の文字列として返します。
     pub fn debug_tree(&self) -> String {
         let mut s = String::new();
 
@@ -52,21 +61,27 @@ impl Parse {
         s
     }
 
+    /// パースした結果のCSTを返します。
     pub fn syntax(&self) -> SyntaxNode {
         SyntaxNode::new_root(self.green_node.clone())
     }
 
+    /// パース中に発生したエラーを返します。
     pub fn errors(&self) -> &[ParserError] {
         &self.errors
     }
 }
 
+/// パース結果のデバッグ出力と期待結果を比較します。
 #[cfg(test)]
 fn check(input: &str, expected_tree: expect_test::Expect) {
     let parse = parse(input);
     expected_tree.assert_eq(&parse.debug_tree());
 }
 
+/// パース結果のデバッグ出力と期待結果を比較します。
+///
+/// ブロック内コンテキストで入力はパースされます。
 #[cfg(test)]
 fn check_in_block(input: &str, expected_tree: expect_test::Expect) {
     let tokens: Vec<_> = Lexer::new(input).collect();

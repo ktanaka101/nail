@@ -6,6 +6,7 @@ use syntax::NailLanguage;
 
 use crate::{event::Event, parser::ParserError, Parse};
 
+/// イベントシンク
 pub(crate) struct Sink<'l, 'input> {
     builder: GreenNodeBuilder<'static>,
     tokens: &'l [Token<'input>],
@@ -15,6 +16,7 @@ pub(crate) struct Sink<'l, 'input> {
 }
 
 impl<'l, 'input> Sink<'l, 'input> {
+    /// イベントシンクを作成します。
     pub(crate) fn new(tokens: &'l [Token<'input>], events: Vec<Event>) -> Self {
         Self {
             builder: GreenNodeBuilder::new(),
@@ -25,6 +27,7 @@ impl<'l, 'input> Sink<'l, 'input> {
         }
     }
 
+    /// CSTを生成します。
     pub(crate) fn finish(mut self) -> Parse {
         for idx in 0..self.events.len() {
             match mem::replace(&mut self.events[idx], Event::Placeholder) {
@@ -72,6 +75,7 @@ impl<'l, 'input> Sink<'l, 'input> {
         }
     }
 
+    /// 現在のトークンを木(rowan)に追加し、1つ進めます。
     fn token(&mut self) {
         let Token { kind, text, .. } = self.tokens[self.cursor];
 
@@ -80,6 +84,7 @@ impl<'l, 'input> Sink<'l, 'input> {
         self.cursor += 1;
     }
 
+    /// トリビアを飛ばします。
     fn eat_trivia(&mut self) {
         while let Some(token) = self.tokens.get(self.cursor) {
             if !token.kind.is_trivia() {

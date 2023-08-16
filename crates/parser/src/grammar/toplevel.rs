@@ -7,6 +7,7 @@ use crate::{
     parser::{marker::CompletedMarker, Parser, TOPLEVEL_RECOVERY_SET},
 };
 
+/// トップレベルでのステートメントのパースを行います。
 pub(super) fn parse_stmt_on_toplevel(parser: &mut Parser) -> Option<CompletedMarker> {
     if parser.at(TokenKind::FnKw) {
         Some(stmt::parse_function_def(parser, &TOPLEVEL_RECOVERY_SET))
@@ -20,6 +21,7 @@ pub(super) fn parse_stmt_on_toplevel(parser: &mut Parser) -> Option<CompletedMar
     }
 }
 
+/// モジュールのパースを行います。
 pub(super) fn parse_module(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedMarker {
     assert!(parser.at(TokenKind::ModKw));
 
@@ -57,6 +59,7 @@ pub(super) fn parse_module(parser: &mut Parser, recovery_set: &[TokenKind]) -> C
     marker.complete(parser, SyntaxKind::Module)
 }
 
+/// 使用宣言のパースを行います。
 pub(crate) fn parse_use(parser: &mut Parser, _recovery_set: &[TokenKind]) -> CompletedMarker {
     assert!(parser.at(TokenKind::UseKw));
 

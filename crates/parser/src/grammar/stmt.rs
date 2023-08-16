@@ -4,6 +4,9 @@ use syntax::SyntaxKind;
 use super::{expr, toplevel};
 use crate::parser::{marker::CompletedMarker, Parser, BLOCK_RECOVERY_SET};
 
+/// ブロック内のステートメントをパースする
+///
+/// トップレベルのステートメントのパースと区別するために定義しています。
 pub(super) fn parse_stmt_on_block(parser: &mut Parser) -> Option<CompletedMarker> {
     if parser.at(TokenKind::LetKw) {
         Some(parse_variable_def(parser))
@@ -16,6 +19,7 @@ pub(super) fn parse_stmt_on_block(parser: &mut Parser) -> Option<CompletedMarker
     }
 }
 
+/// ローカル変数の定義をパースする
 fn parse_variable_def(parser: &mut Parser) -> CompletedMarker {
     assert!(parser.at(TokenKind::LetKw));
     let marker = parser.start();
@@ -33,6 +37,10 @@ fn parse_variable_def(parser: &mut Parser) -> CompletedMarker {
     marker.complete(parser, SyntaxKind::VariableDef)
 }
 
+/// 関数定義をパースする
+///
+/// 関数定義はトップレベルとブロック内でパースするため、
+/// それぞれに合わせて復帰トークン種別を`recovery_set`に指定可能にしています。
 pub(super) fn parse_function_def(
     parser: &mut Parser,
     recovery_set: &[TokenKind],
@@ -69,6 +77,7 @@ pub(super) fn parse_function_def(
     marker.complete(parser, SyntaxKind::FunctionDef)
 }
 
+/// ステートメントをパースする
 fn parse_expr_stmt(parser: &mut Parser) -> Option<CompletedMarker> {
     let marker = parser.start();
 
@@ -81,6 +90,10 @@ fn parse_expr_stmt(parser: &mut Parser) -> Option<CompletedMarker> {
     Some(marker.complete(parser, SyntaxKind::ExprStmt))
 }
 
+/// 関数のパラメータをパースする
+///
+/// 関数定義はトップレベルとブロック内でパースするため、
+/// それぞれに合わせて復帰トークン種別を`recovery_set`に指定可能にしています。
 fn parse_params(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedMarker {
     assert!(parser.at(TokenKind::LParen));
 
@@ -127,6 +140,10 @@ fn parse_params(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedMar
     marker.complete(parser, SyntaxKind::ParamList)
 }
 
+/// 関数の戻り値の型をパースする
+///
+/// 関数定義はトップレベルとブロック内でパースするため、
+/// それぞれに合わせて復帰トークン種別を`recovery_set`に指定可能にしています。
 fn parse_return_type(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedMarker {
     assert!(parser.at(TokenKind::ThinArrow));
 
@@ -142,6 +159,7 @@ fn parse_return_type(parser: &mut Parser, recovery_set: &[TokenKind]) -> Complet
     marker.complete(parser, SyntaxKind::ReturnType)
 }
 
+/// ブロックをパースする
 fn parse_block(parser: &mut Parser) -> CompletedMarker {
     assert!(parser.at(TokenKind::LCurly));
 

@@ -66,15 +66,15 @@ impl NodeMarker {
 /// 完了済マーカー
 ///
 /// [NodeMarker#complete]によって作成されます。
-/// 元の[NodeMarker]の位置を保持し、[NodeMarker#complete]によって置き換えられた。
+/// 元の[NodeMarker]の位置を保持します。
+/// [ComepletedNodeMarker::precede]を呼び出すことで、元の[NodeMarker]をラップした[NodeMarker]を作成できます。
 pub(crate) struct CompletedNodeMarker {
     pos: usize,
 }
 
 impl CompletedNodeMarker {
-    /// マーカーをNodeでラップします。
+    /// 元のNodeを新しい[NodeMarker]でラップします。
     ///
-    /// ラップするNodeのマーカーが返ります。
     /// この関数を呼び出した時点では、Node種別は決まらないため、
     /// 戻り値のマーカーで[NodeMarker::complete]か[NodeMarker::destroy]を必ず呼び出してください。
     pub(crate) fn precede(self, parser: &mut Parser) -> NodeMarker {

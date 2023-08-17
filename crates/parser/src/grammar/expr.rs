@@ -3,7 +3,7 @@ use syntax::SyntaxKind;
 
 use crate::{
     grammar::{parse_path, stmt::parse_stmt_on_block},
-    parser::{marker::CompletedMarker, Parser},
+    parser::{marker::CompletedNodeMarker, Parser},
 };
 
 /// 式の最初に現れる可能性があるトークンの集合
@@ -27,7 +27,7 @@ pub(super) const EXPR_FIRST: [TokenKind; 13] = [
 pub(super) const ITEM_FIRST: &[TokenKind] = &[TokenKind::FnKw, TokenKind::ModKw];
 
 /// 式のパース
-pub(super) fn parse_expr(parser: &mut Parser) -> Option<CompletedMarker> {
+pub(super) fn parse_expr(parser: &mut Parser) -> Option<CompletedNodeMarker> {
     parse_expr_binding_power(parser, 0)
 }
 
@@ -46,7 +46,7 @@ pub(super) fn parse_expr(parser: &mut Parser) -> Option<CompletedMarker> {
 fn parse_expr_binding_power(
     parser: &mut Parser,
     minimum_binding_power: u8,
-) -> Option<CompletedMarker> {
+) -> Option<CompletedNodeMarker> {
     let mut lhs = parse_lhs(parser)?;
 
     loop {
@@ -141,7 +141,7 @@ impl PrefixOp {
 }
 
 /// 左辺のパース
-fn parse_lhs(parser: &mut Parser) -> Option<CompletedMarker> {
+fn parse_lhs(parser: &mut Parser) -> Option<CompletedNodeMarker> {
     // 関数呼び出しの場合はCallノードとしたいが、そうでない場合はラップしたくないので、destroyを呼ぶ可能性がある
     // 以下のようなイメージ。
     // 関数呼び出しの場合: ExprStmt -> CallExpr   -> PathExpr -> ArgListExpr
@@ -183,7 +183,7 @@ fn parse_lhs(parser: &mut Parser) -> Option<CompletedMarker> {
 }
 
 /// リテラルのパース
-fn parse_literal(parser: &mut Parser) -> CompletedMarker {
+fn parse_literal(parser: &mut Parser) -> CompletedNodeMarker {
     assert!(matches!(
         parser.peek(),
         Some(
@@ -224,7 +224,7 @@ fn validate_literal(parser: &mut Parser) {
 }
 
 /// パスのパース
-fn parse_path_expr(parser: &mut Parser) -> CompletedMarker {
+fn parse_path_expr(parser: &mut Parser) -> CompletedNodeMarker {
     assert!(parser.at(TokenKind::Ident));
 
     let marker = parser.start();
@@ -236,7 +236,7 @@ fn parse_path_expr(parser: &mut Parser) -> CompletedMarker {
 
 /// 関数呼び出しの引数のパース
 /// `(arg1, arg2, ...)`
-fn parse_args(parser: &mut Parser) -> CompletedMarker {
+fn parse_args(parser: &mut Parser) -> CompletedNodeMarker {
     assert!(parser.at(TokenKind::LParen));
 
     let marker = parser.start();
@@ -258,7 +258,7 @@ fn parse_args(parser: &mut Parser) -> CompletedMarker {
 }
 
 /// 単項演算式のパース
-fn parse_prefix_expr(parser: &mut Parser) -> CompletedMarker {
+fn parse_prefix_expr(parser: &mut Parser) -> CompletedNodeMarker {
     assert!(parser.at_set_no_expected(&[TokenKind::Minus, TokenKind::Bang]));
 
     let marker = parser.start();
@@ -283,7 +283,7 @@ fn parse_prefix_expr(parser: &mut Parser) -> CompletedMarker {
 /// `()`で囲まれている式のパース
 ///
 /// `()`の中の式は`()`と結合させるため、最小の結合力である`0`で呼び出しています。
-fn parse_paren_expr(parser: &mut Parser) -> CompletedMarker {
+fn parse_paren_expr(parser: &mut Parser) -> CompletedNodeMarker {
     assert!(parser.at(TokenKind::LParen));
 
     let marker = parser.start();
@@ -298,7 +298,7 @@ fn parse_paren_expr(parser: &mut Parser) -> CompletedMarker {
 ///
 /// ブロックはさまざまな箇所で使用されています。
 /// `if-else`式や、`while`式、関数などです。
-fn parse_block(parser: &mut Parser) -> CompletedMarker {
+fn parse_block(parser: &mut Parser) -> CompletedNodeMarker {
     assert!(parser.at(TokenKind::LCurly));
 
     let marker = parser.start();
@@ -312,7 +312,7 @@ fn parse_block(parser: &mut Parser) -> CompletedMarker {
 }
 
 /// `if`式のパース
-fn parse_if(parser: &mut Parser) -> CompletedMarker {
+fn parse_if(parser: &mut Parser) -> CompletedNodeMarker {
     assert!(parser.at(TokenKind::IfKw));
 
     let marker = parser.start();
@@ -335,7 +335,7 @@ fn parse_if(parser: &mut Parser) -> CompletedMarker {
 }
 
 /// `return`式のパース
-fn parse_return(parser: &mut Parser) -> CompletedMarker {
+fn parse_return(parser: &mut Parser) -> CompletedNodeMarker {
     assert!(parser.at(TokenKind::ReturnKw));
 
     let marker = parser.start();

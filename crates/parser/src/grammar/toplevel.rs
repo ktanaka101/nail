@@ -4,11 +4,11 @@ use syntax::SyntaxKind;
 use super::stmt;
 use crate::{
     grammar::{expr::ITEM_FIRST, parse_path},
-    parser::{marker::CompletedMarker, Parser, TOPLEVEL_RECOVERY_SET},
+    parser::{marker::CompletedNodeMarker, Parser, TOPLEVEL_RECOVERY_SET},
 };
 
 /// トップレベルでのステートメントのパースを行います。
-pub(super) fn parse_stmt_on_toplevel(parser: &mut Parser) -> Option<CompletedMarker> {
+pub(super) fn parse_stmt_on_toplevel(parser: &mut Parser) -> Option<CompletedNodeMarker> {
     if parser.at(TokenKind::FnKw) {
         Some(stmt::parse_function_def(parser, &TOPLEVEL_RECOVERY_SET))
     } else if parser.at(TokenKind::ModKw) {
@@ -22,7 +22,7 @@ pub(super) fn parse_stmt_on_toplevel(parser: &mut Parser) -> Option<CompletedMar
 }
 
 /// モジュールのパースを行います。
-pub(super) fn parse_module(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedMarker {
+pub(super) fn parse_module(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedNodeMarker {
     assert!(parser.at(TokenKind::ModKw));
 
     let marker = parser.start();
@@ -60,7 +60,7 @@ pub(super) fn parse_module(parser: &mut Parser, recovery_set: &[TokenKind]) -> C
 }
 
 /// 使用宣言のパースを行います。
-pub(crate) fn parse_use(parser: &mut Parser, _recovery_set: &[TokenKind]) -> CompletedMarker {
+pub(crate) fn parse_use(parser: &mut Parser, _recovery_set: &[TokenKind]) -> CompletedNodeMarker {
     assert!(parser.at(TokenKind::UseKw));
 
     let marker = parser.start();

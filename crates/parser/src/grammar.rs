@@ -5,10 +5,10 @@ mod toplevel;
 use lexer::TokenKind;
 use syntax::SyntaxKind;
 
-use crate::parser::{marker::CompletedMarker, Parser};
+use crate::parser::{marker::CompletedNodeMarker, Parser};
 
 /// ルートのソースコードをパースします。
-pub(crate) fn parse_source_file(parser: &mut Parser) -> CompletedMarker {
+pub(crate) fn parse_source_file(parser: &mut Parser) -> CompletedNodeMarker {
     let marker = parser.start();
     while !parser.at_end() {
         toplevel::parse_stmt_on_toplevel(parser);
@@ -21,7 +21,7 @@ pub(crate) fn parse_source_file(parser: &mut Parser) -> CompletedMarker {
 ///
 /// テスト用に定義されています。
 #[cfg(test)]
-pub(crate) fn parse_in_block(parser: &mut Parser) -> CompletedMarker {
+pub(crate) fn parse_in_block(parser: &mut Parser) -> CompletedNodeMarker {
     let marker = parser.start();
     while !parser.at_end() {
         stmt::parse_stmt_on_block(parser);
@@ -31,7 +31,7 @@ pub(crate) fn parse_in_block(parser: &mut Parser) -> CompletedMarker {
 }
 
 /// パスをパースします。
-pub(crate) fn parse_path(parser: &mut Parser) -> CompletedMarker {
+pub(crate) fn parse_path(parser: &mut Parser) -> CompletedNodeMarker {
     assert!(parser.at(TokenKind::Ident));
 
     let marker = parser.start();
@@ -46,7 +46,7 @@ pub(crate) fn parse_path(parser: &mut Parser) -> CompletedMarker {
 }
 
 /// パスのセグメントをパースします。
-pub(crate) fn parse_path_segment(parser: &mut Parser) -> CompletedMarker {
+pub(crate) fn parse_path_segment(parser: &mut Parser) -> CompletedNodeMarker {
     let marker = parser.start();
 
     parser.expect_on_block(TokenKind::Ident);

@@ -4,7 +4,7 @@ mod parse_error;
 
 use indexmap::IndexSet;
 use lexer::{Token, TokenKind};
-use marker::Marker;
+use marker::NodeMarker;
 pub use parse_error::{ParseError, ParserError, TokenError};
 use syntax::SyntaxKind;
 
@@ -61,11 +61,11 @@ impl<'l, 'input> Parser<'l, 'input> {
     }
 
     /// Node開始イベントを追加し、Nodeマーカーを返します。
-    pub(crate) fn start(&mut self) -> Marker {
+    pub(crate) fn start(&mut self) -> NodeMarker {
         let pos = self.events.len();
         self.events.push(Event::Placeholder);
 
-        Marker::new(pos)
+        NodeMarker::new(pos)
     }
 
     /// トークンを1つ進め、トークン追加イベントを追加します。

@@ -2,12 +2,12 @@ use lexer::TokenKind;
 use syntax::SyntaxKind;
 
 use super::{expr, toplevel};
-use crate::parser::{marker::CompletedMarker, Parser, BLOCK_RECOVERY_SET};
+use crate::parser::{marker::CompletedNodeMarker, Parser, BLOCK_RECOVERY_SET};
 
 /// ブロック内のステートメントをパースする
 ///
 /// トップレベルのステートメントのパースと区別するために定義しています。
-pub(super) fn parse_stmt_on_block(parser: &mut Parser) -> Option<CompletedMarker> {
+pub(super) fn parse_stmt_on_block(parser: &mut Parser) -> Option<CompletedNodeMarker> {
     if parser.at(TokenKind::LetKw) {
         Some(parse_variable_def(parser))
     } else if parser.at(TokenKind::FnKw) {
@@ -20,7 +20,7 @@ pub(super) fn parse_stmt_on_block(parser: &mut Parser) -> Option<CompletedMarker
 }
 
 /// ローカル変数の定義をパースする
-fn parse_variable_def(parser: &mut Parser) -> CompletedMarker {
+fn parse_variable_def(parser: &mut Parser) -> CompletedNodeMarker {
     assert!(parser.at(TokenKind::LetKw));
     let marker = parser.start();
     parser.bump();
@@ -44,7 +44,7 @@ fn parse_variable_def(parser: &mut Parser) -> CompletedMarker {
 pub(super) fn parse_function_def(
     parser: &mut Parser,
     recovery_set: &[TokenKind],
-) -> CompletedMarker {
+) -> CompletedNodeMarker {
     assert!(parser.at(TokenKind::FnKw));
 
     let marker = parser.start();
@@ -78,7 +78,7 @@ pub(super) fn parse_function_def(
 }
 
 /// ステートメントをパースする
-fn parse_expr_stmt(parser: &mut Parser) -> Option<CompletedMarker> {
+fn parse_expr_stmt(parser: &mut Parser) -> Option<CompletedNodeMarker> {
     let marker = parser.start();
 
     expr::parse_expr(parser);
@@ -94,7 +94,7 @@ fn parse_expr_stmt(parser: &mut Parser) -> Option<CompletedMarker> {
 ///
 /// 関数定義はトップレベルとブロック内でパースするため、
 /// それぞれに合わせて復帰トークン種別を`recovery_set`に指定可能にしています。
-fn parse_params(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedMarker {
+fn parse_params(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedNodeMarker {
     assert!(parser.at(TokenKind::LParen));
 
     let recovery_set = &[recovery_set, &[TokenKind::Comma, TokenKind::RParen]].concat();
@@ -144,7 +144,7 @@ fn parse_params(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedMar
 ///
 /// 関数定義はトップレベルとブロック内でパースするため、
 /// それぞれに合わせて復帰トークン種別を`recovery_set`に指定可能にしています。
-fn parse_return_type(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedMarker {
+fn parse_return_type(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedNodeMarker {
     assert!(parser.at(TokenKind::ThinArrow));
 
     let marker = parser.start();
@@ -160,7 +160,7 @@ fn parse_return_type(parser: &mut Parser, recovery_set: &[TokenKind]) -> Complet
 }
 
 /// ブロックをパースする
-fn parse_block(parser: &mut Parser) -> CompletedMarker {
+fn parse_block(parser: &mut Parser) -> CompletedNodeMarker {
     assert!(parser.at(TokenKind::LCurly));
 
     let marker = parser.start();

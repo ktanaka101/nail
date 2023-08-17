@@ -51,8 +51,6 @@ impl Marker {
     }
 
     /// 置き換え対象の[Event::Placeholder]を[Event::Ignore]に置き換え、完了済マーカーを作成します。
-    ///
-    ///
     pub(crate) fn destroy(mut self, parser: &mut Parser) -> CompletedMarker {
         self.bomb_when_uncompleted.defuse();
 
@@ -74,7 +72,11 @@ pub(crate) struct CompletedMarker {
 }
 
 impl CompletedMarker {
+    /// マーカーをNodeでラップします。
     ///
+    /// ラップするNodeのマーカーが返ります。
+    /// この関数を呼び出した時点では、Node種別は決まらないため、
+    /// 戻り値のマーカーで[Marker::complete]か[Marker::destroy]を必ず呼び出してください。
     pub(crate) fn precede(self, parser: &mut Parser) -> Marker {
         let new_marker = parser.start();
 

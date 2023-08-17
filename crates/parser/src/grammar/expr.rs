@@ -351,11 +351,11 @@ fn parse_return(parser: &mut Parser) -> CompletedNodeMarker {
 mod tests {
     use expect_test::expect;
 
-    use crate::check_debug_tree_in_block as check;
+    use crate::check_debug_tree_in_block;
 
     #[test]
     fn parse_integer() {
-        check(
+        check_debug_tree_in_block(
             "123",
             expect![[r#"
                 SourceFile@0..3
@@ -368,7 +368,7 @@ mod tests {
 
     #[test]
     fn parse_variable_ref() {
-        check(
+        check_debug_tree_in_block(
             "counter",
             expect![[r#"
                 SourceFile@0..7
@@ -383,7 +383,7 @@ mod tests {
 
     #[test]
     fn parse_simple_binary_expression() {
-        check(
+        check_debug_tree_in_block(
             "1+2",
             expect![[r#"
                 SourceFile@0..3
@@ -400,7 +400,7 @@ mod tests {
 
     #[test]
     fn parse_binary_expression() {
-        check(
+        check_debug_tree_in_block(
             "1 + 2 - 3 * 4 / 5 == 6 < 7 > 8",
             expect![[r#"
                 SourceFile@0..30
@@ -455,7 +455,7 @@ mod tests {
 
     #[test]
     fn parse_left_associative_binary_expression() {
-        check(
+        check_debug_tree_in_block(
             "1+2+3+4",
             expect![[r#"
                 SourceFile@0..7
@@ -480,7 +480,7 @@ mod tests {
 
     #[test]
     fn parse_binary_expression_with_mixed_binding_power() {
-        check(
+        check_debug_tree_in_block(
             "1+2*3-4",
             expect![[r#"
                 SourceFile@0..7
@@ -505,7 +505,7 @@ mod tests {
 
     #[test]
     fn parse_low_precedence_of_equality_operator() {
-        check(
+        check_debug_tree_in_block(
             "1 + 2 == 3 * 4",
             expect![[r#"
                 SourceFile@0..14
@@ -536,7 +536,7 @@ mod tests {
 
     #[test]
     fn parse_negation() {
-        check(
+        check_debug_tree_in_block(
             "-10",
             expect![[r#"
                 SourceFile@0..3
@@ -551,7 +551,7 @@ mod tests {
 
     #[test]
     fn parse_not() {
-        check(
+        check_debug_tree_in_block(
             "!10",
             expect![[r#"
                 SourceFile@0..3
@@ -566,7 +566,7 @@ mod tests {
 
     #[test]
     fn negation_has_higher_binding_power_than_infix_operators() {
-        check(
+        check_debug_tree_in_block(
             "-20+20",
             expect![[r#"
                 SourceFile@0..6
@@ -585,7 +585,7 @@ mod tests {
 
     #[test]
     fn parse_nested_parentheses() {
-        check(
+        check_debug_tree_in_block(
             "((((((10))))))",
             expect![[r#"
                 SourceFile@0..14
@@ -616,7 +616,7 @@ mod tests {
 
     #[test]
     fn parentheses_affect_precedence() {
-        check(
+        check_debug_tree_in_block(
             "5*(2+1)",
             expect![[r#"
                 SourceFile@0..7
@@ -640,7 +640,7 @@ mod tests {
 
     #[test]
     fn parse_integer_preceded_by_whitespace() {
-        check(
+        check_debug_tree_in_block(
             "   9876",
             expect![[r#"
                 SourceFile@0..7
@@ -654,7 +654,7 @@ mod tests {
 
     #[test]
     fn parse_integer_followed_by_whitespace() {
-        check(
+        check_debug_tree_in_block(
             "999   ",
             expect![[r#"
                 SourceFile@0..6
@@ -668,7 +668,7 @@ mod tests {
 
     #[test]
     fn parse_integer_surrounded_by_whitespace() {
-        check(
+        check_debug_tree_in_block(
             " 123     ",
             expect![[r#"
                 SourceFile@0..9
@@ -683,7 +683,7 @@ mod tests {
 
     #[test]
     fn parse_char() {
-        check(
+        check_debug_tree_in_block(
             "'a'",
             expect![[r#"
                 SourceFile@0..3
@@ -696,7 +696,7 @@ mod tests {
 
     #[test]
     fn parse_string() {
-        check(
+        check_debug_tree_in_block(
             r#""aaa""#,
             expect![[r#"
                 SourceFile@0..5
@@ -709,7 +709,7 @@ mod tests {
 
     #[test]
     fn parse_true() {
-        check(
+        check_debug_tree_in_block(
             r#"true"#,
             expect![[r#"
                 SourceFile@0..4
@@ -722,7 +722,7 @@ mod tests {
 
     #[test]
     fn parse_false() {
-        check(
+        check_debug_tree_in_block(
             r#"false"#,
             expect![[r#"
                 SourceFile@0..5
@@ -735,7 +735,7 @@ mod tests {
 
     #[test]
     fn parse_unterminated_char() {
-        check(
+        check_debug_tree_in_block(
             "'a",
             expect![[r#"
                 SourceFile@0..2
@@ -749,7 +749,7 @@ mod tests {
 
     #[test]
     fn parse_unterminated_char_with_statement() {
-        check(
+        check_debug_tree_in_block(
             "'a let b = 10",
             expect![[r#"
                 SourceFile@0..13
@@ -773,7 +773,7 @@ mod tests {
 
     #[test]
     fn parse_binary_expression_with_whitespace() {
-        check(
+        check_debug_tree_in_block(
             " 1 +   2* 3 ",
             expect![[r#"
                 SourceFile@0..12
@@ -799,7 +799,7 @@ mod tests {
 
     #[test]
     fn parse_call_in_binary() {
-        check(
+        check_debug_tree_in_block(
             "foo(1) + bar(2)",
             expect![[r#"
                 SourceFile@0..15
@@ -836,7 +836,7 @@ mod tests {
 
     #[test]
     fn parse_unclosed_parentheses() {
-        check(
+        check_debug_tree_in_block(
             "(foo",
             expect![[r#"
                 SourceFile@0..4
@@ -854,7 +854,7 @@ mod tests {
 
     #[test]
     fn parse_multi_recover() {
-        check(
+        check_debug_tree_in_block(
             "(1+",
             expect![[r#"
                 SourceFile@0..3
@@ -873,7 +873,7 @@ mod tests {
 
     #[test]
     fn parse_block() {
-        check(
+        check_debug_tree_in_block(
             "{ 1 }",
             expect![[r#"
                 SourceFile@0..5
@@ -892,7 +892,7 @@ mod tests {
 
     #[test]
     fn parse_block_missing_close() {
-        check(
+        check_debug_tree_in_block(
             "{ 1 ",
             expect![[r#"
                 SourceFile@0..4
@@ -911,7 +911,7 @@ mod tests {
 
     #[test]
     fn parse_nested_block() {
-        check(
+        check_debug_tree_in_block(
             r#"{
   let a = 10
   { 1 }
@@ -949,7 +949,7 @@ mod tests {
 
     #[test]
     fn parse_call() {
-        check(
+        check_debug_tree_in_block(
             "a()",
             expect![[r#"
                 SourceFile@0..3
@@ -968,7 +968,7 @@ mod tests {
 
     #[test]
     fn parse_call_with_args() {
-        check(
+        check_debug_tree_in_block(
             "a(x, y)",
             expect![[r#"
                 SourceFile@0..7
@@ -996,7 +996,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_debug_tree_in_block(
             r#"aaa("aaa", true, 'a', 10)"#,
             expect![[r#"
                 SourceFile@0..25
@@ -1033,7 +1033,7 @@ mod tests {
 
     #[test]
     fn parse_call_by_block() {
-        check(
+        check_debug_tree_in_block(
             "{ a }()",
             expect![[r#"
                 SourceFile@0..7
@@ -1058,7 +1058,7 @@ mod tests {
 
     #[test]
     fn parse_call_missing_rparen() {
-        check(
+        check_debug_tree_in_block(
             "a(x, y",
             expect![[r#"
                 SourceFile@0..6
@@ -1086,7 +1086,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_debug_tree_in_block(
             "a(x,",
             expect![[r#"
                 SourceFile@0..4
@@ -1108,7 +1108,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_debug_tree_in_block(
             "a(x",
             expect![[r#"
                 SourceFile@0..3
@@ -1129,7 +1129,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_debug_tree_in_block(
             "a(",
             expect![[r#"
                 SourceFile@0..2
@@ -1148,7 +1148,7 @@ mod tests {
 
     #[test]
     fn parse_call_missing_expr() {
-        check(
+        check_debug_tree_in_block(
             "a(x,)",
             expect![[r#"
                 SourceFile@0..5
@@ -1173,7 +1173,7 @@ mod tests {
 
     #[test]
     fn parse_call_missing_comma() {
-        check(
+        check_debug_tree_in_block(
             "a(x y)",
             expect![[r#"
                 SourceFile@0..6
@@ -1204,7 +1204,7 @@ mod tests {
 
     #[test]
     fn parse_expr_on_arg() {
-        check(
+        check_debug_tree_in_block(
             "a(x + y)",
             expect![[r#"
                 SourceFile@0..8
@@ -1233,7 +1233,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_debug_tree_in_block(
             "a({ x + y })",
             expect![[r#"
                 SourceFile@0..12
@@ -1271,7 +1271,7 @@ mod tests {
 
     #[test]
     fn parse_if_expr() {
-        check(
+        check_debug_tree_in_block(
             "if true { 10 }",
             expect![[r#"
                 SourceFile@0..14
@@ -1293,7 +1293,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_debug_tree_in_block(
             "if true { 10 } else { 20 }",
             expect![[r#"
                 SourceFile@0..26
@@ -1329,7 +1329,7 @@ mod tests {
 
     #[test]
     fn parse_if_is_expr() {
-        check(
+        check_debug_tree_in_block(
             "let a = if true { 10 } else { 20 }",
             expect![[r#"
                 SourceFile@0..34
@@ -1371,7 +1371,7 @@ mod tests {
 
     #[test]
     fn parse_if_expr_missing_condition() {
-        check(
+        check_debug_tree_in_block(
             "if { 10 } else { 20 }",
             expect![[r#"
                 SourceFile@0..21
@@ -1404,7 +1404,7 @@ mod tests {
 
     #[test]
     fn parse_if_expr_missing_then_block() {
-        check(
+        check_debug_tree_in_block(
             "if true else { 20 }",
             expect![[r#"
                 SourceFile@0..19
@@ -1431,7 +1431,7 @@ mod tests {
 
     #[test]
     fn parse_if_expr_missing_else() {
-        check(
+        check_debug_tree_in_block(
             "if true { 10 } { 20 }",
             expect![[r#"
                 SourceFile@0..21
@@ -1466,7 +1466,7 @@ mod tests {
 
     #[test]
     fn parse_if_expr_missing_else_block() {
-        check(
+        check_debug_tree_in_block(
             "if true { 10 } else",
             expect![[r#"
                 SourceFile@0..19
@@ -1493,7 +1493,7 @@ mod tests {
 
     #[test]
     fn parse_if_block_condition() {
-        check(
+        check_debug_tree_in_block(
             "if { true } { 10 } else { 20 }",
             expect![[r#"
                 SourceFile@0..30
@@ -1535,7 +1535,7 @@ mod tests {
 
     #[test]
     fn parse_equal() {
-        check(
+        check_debug_tree_in_block(
             "10 == 20",
             expect![[r#"
                 SourceFile@0..8
@@ -1554,7 +1554,7 @@ mod tests {
 
     #[test]
     fn parse_return() {
-        check(
+        check_debug_tree_in_block(
             "return",
             expect![[r#"
                 SourceFile@0..6
@@ -1567,7 +1567,7 @@ mod tests {
 
     #[test]
     fn parse_return_with_value() {
-        check(
+        check_debug_tree_in_block(
             "return 10",
             expect![[r#"
                 SourceFile@0..9
@@ -1583,7 +1583,7 @@ mod tests {
 
     #[test]
     fn support_return_values() {
-        check(
+        check_debug_tree_in_block(
             r#"
                 return 10
                 return 'a'
@@ -1739,7 +1739,7 @@ mod tests {
 
     #[test]
     fn parse_path() {
-        check(
+        check_debug_tree_in_block(
             "a::b::c",
             expect![[r#"
                 SourceFile@0..7
@@ -1760,7 +1760,7 @@ mod tests {
 
     #[test]
     fn parse_path_call() {
-        check(
+        check_debug_tree_in_block(
             "a::b::c()",
             expect![[r#"
                 SourceFile@0..9
@@ -1785,7 +1785,7 @@ mod tests {
 
     #[test]
     fn parse_path_call_with_params() {
-        check(
+        check_debug_tree_in_block(
             "a::b::c(e, f, g)",
             expect![[r#"
                 SourceFile@0..16

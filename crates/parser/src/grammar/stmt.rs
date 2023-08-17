@@ -178,11 +178,11 @@ fn parse_block(parser: &mut Parser) -> CompletedNodeMarker {
 mod tests {
     use expect_test::expect;
 
-    use crate::check_debug_tree_in_block as check;
+    use crate::check_debug_tree_in_block;
 
     #[test]
     fn parse_variable_definition() {
-        check(
+        check_debug_tree_in_block(
             "let foo = bar",
             expect![[r#"
                 SourceFile@0..13
@@ -203,7 +203,7 @@ mod tests {
 
     #[test]
     fn parse_expr_stmt() {
-        check(
+        check_debug_tree_in_block(
             "10;",
             expect![[r#"
                 SourceFile@0..3
@@ -217,7 +217,7 @@ mod tests {
 
     #[test]
     fn parse_expr_stmt_missing_semicolon() {
-        check(
+        check_debug_tree_in_block(
             "10",
             expect![[r#"
                 SourceFile@0..2
@@ -230,7 +230,7 @@ mod tests {
 
     #[test]
     fn parse_variable_definition_with_semicolon() {
-        check(
+        check_debug_tree_in_block(
             "let foo = 10;",
             expect![[r#"
                 SourceFile@0..13
@@ -250,7 +250,7 @@ mod tests {
 
     #[test]
     fn parse_varialbe_def_without_eq() {
-        check(
+        check_debug_tree_in_block(
             "let foo 10",
             expect![[r#"
                 SourceFile@0..10
@@ -269,7 +269,7 @@ mod tests {
 
     #[test]
     fn parse_varialbe_def_without_name() {
-        check(
+        check_debug_tree_in_block(
             "let = 10",
             expect![[r#"
                 SourceFile@0..8
@@ -287,7 +287,7 @@ mod tests {
 
     #[test]
     fn recover_on_let_token() {
-        check(
+        check_debug_tree_in_block(
             "let a =\nlet b = a",
             expect![[r#"
                 SourceFile@0..17
@@ -316,7 +316,7 @@ mod tests {
 
     #[test]
     fn recover_on_fn_token() {
-        check(
+        check_debug_tree_in_block(
             "fn a(\nfn b() {}",
             expect![[r#"
                 SourceFile@0..15
@@ -345,7 +345,7 @@ mod tests {
 
     #[test]
     fn parse_multiple_statements() {
-        check(
+        check_debug_tree_in_block(
             "let a = 1\na",
             expect![[r#"
                 SourceFile@0..11
@@ -370,7 +370,7 @@ mod tests {
 
     #[test]
     fn parse_function_definition() {
-        check(
+        check_debug_tree_in_block(
             "fn foo() -> int {}",
             expect![[r#"
                 SourceFile@0..18
@@ -397,7 +397,7 @@ mod tests {
 
     #[test]
     fn parse_function_with_params_definition() {
-        check(
+        check_debug_tree_in_block(
             "fn foo(a: int, b: int) -> int {}",
             expect![[r#"
                 SourceFile@0..32
@@ -438,7 +438,7 @@ mod tests {
 
     #[test]
     fn parse_function_with_block_definition() {
-        check(
+        check_debug_tree_in_block(
             "fn foo() -> int { 10 + 20 }",
             expect![[r#"
                 SourceFile@0..27
@@ -476,7 +476,7 @@ mod tests {
 
     #[test]
     fn parse_function_missing_param() {
-        check(
+        check_debug_tree_in_block(
             "fn foo(x: int, y -> int { 10 }",
             expect![[r#"
                 SourceFile@0..30
@@ -516,7 +516,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_debug_tree_in_block(
             "fn foo(x: int, -> int { 10 }",
             expect![[r#"
                 SourceFile@0..28
@@ -555,7 +555,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_debug_tree_in_block(
             "fn foo(x: int -> int { 10 }",
             expect![[r#"
                 SourceFile@0..27
@@ -590,7 +590,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_debug_tree_in_block(
             "fn foo(x: -> int { 10 }",
             expect![[r#"
                 SourceFile@0..23
@@ -622,7 +622,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_debug_tree_in_block(
             "fn foo(x -> int { 10 }",
             expect![[r#"
                 SourceFile@0..22
@@ -654,7 +654,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_debug_tree_in_block(
             "fn foo( -> int { 10 }",
             expect![[r#"
                 SourceFile@0..21
@@ -686,7 +686,7 @@ mod tests {
 
     #[test]
     fn parse_function_missing_ident() {
-        check(
+        check_debug_tree_in_block(
             "fn (a, b) -> int { 10 }",
             expect![[r#"
                 SourceFile@0..23
@@ -726,7 +726,7 @@ mod tests {
 
     #[test]
     fn parse_function_missing_return_type() {
-        check(
+        check_debug_tree_in_block(
             "fn a() { 10 }",
             expect![[r#"
                 SourceFile@0..13
@@ -749,7 +749,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_debug_tree_in_block(
             "fn a() -> { 10 }",
             expect![[r#"
                 SourceFile@0..16
@@ -777,7 +777,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_debug_tree_in_block(
             "fn a() int { 10 }",
             expect![[r#"
                 SourceFile@0..17

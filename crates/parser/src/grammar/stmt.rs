@@ -178,7 +178,7 @@ fn parse_block(parser: &mut Parser) -> CompletedMarker {
 mod tests {
     use expect_test::expect;
 
-    use crate::check_in_block as check;
+    use crate::check_debug_tree_in_block as check;
 
     #[test]
     fn parse_variable_definition() {

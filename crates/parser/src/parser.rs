@@ -49,14 +49,14 @@ impl<'l, 'input> Parser<'l, 'input> {
 
     /// パースします。
     pub(crate) fn parse(mut self) -> Vec<Event> {
-        grammar::source_file(&mut self);
+        grammar::parse_source_file(&mut self);
         self.events
     }
 
     /// ブロックコンテキストでパースを行います。
     #[cfg(test)]
     pub(crate) fn parse_in_block(mut self) -> Vec<Event> {
-        grammar::in_block(&mut self);
+        grammar::parse_in_block(&mut self);
         self.events
     }
 

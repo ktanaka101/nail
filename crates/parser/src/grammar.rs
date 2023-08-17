@@ -8,7 +8,7 @@ use syntax::SyntaxKind;
 use crate::parser::{marker::CompletedMarker, Parser};
 
 /// ルートのソースコードをパースします。
-pub(crate) fn source_file(parser: &mut Parser) -> CompletedMarker {
+pub(crate) fn parse_source_file(parser: &mut Parser) -> CompletedMarker {
     let marker = parser.start();
     while !parser.at_end() {
         toplevel::parse_stmt_on_toplevel(parser);
@@ -21,7 +21,7 @@ pub(crate) fn source_file(parser: &mut Parser) -> CompletedMarker {
 ///
 /// テスト用に定義されています。
 #[cfg(test)]
-pub(crate) fn in_block(parser: &mut Parser) -> CompletedMarker {
+pub(crate) fn parse_in_block(parser: &mut Parser) -> CompletedMarker {
     let marker = parser.start();
     while !parser.at_end() {
         stmt::parse_stmt_on_block(parser);

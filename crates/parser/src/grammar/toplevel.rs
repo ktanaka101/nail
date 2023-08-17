@@ -79,11 +79,11 @@ pub(crate) fn parse_use(parser: &mut Parser, _recovery_set: &[TokenKind]) -> Com
 mod tests {
     use expect_test::expect;
 
-    use crate::check;
+    use crate::check_debug_tree;
 
     #[test]
     fn parse_variable_definition() {
-        check(
+        check_debug_tree(
             "let foo = bar",
             expect![[r#"
                 SourceFile@0..13
@@ -108,7 +108,7 @@ mod tests {
 
     #[test]
     fn parse_function_definition() {
-        check(
+        check_debug_tree(
             "fn foo() -> int {}",
             expect![[r#"
                 SourceFile@0..18
@@ -135,7 +135,7 @@ mod tests {
 
     #[test]
     fn parse_function_with_block_definition() {
-        check(
+        check_debug_tree(
             "fn foo() -> int { 10 + 20 }",
             expect![[r#"
                 SourceFile@0..27
@@ -173,7 +173,7 @@ mod tests {
 
     #[test]
     fn parse_function_missing_param() {
-        check(
+        check_debug_tree(
             "fn foo(x: int, y -> int { 10 }",
             expect![[r#"
                 SourceFile@0..30
@@ -213,7 +213,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_debug_tree(
             "fn foo(x: int, -> int { 10 }",
             expect![[r#"
                 SourceFile@0..28
@@ -252,7 +252,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_debug_tree(
             "fn foo(x: int -> int { 10 }",
             expect![[r#"
                 SourceFile@0..27
@@ -287,7 +287,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_debug_tree(
             "fn foo(x: -> int { 10 }",
             expect![[r#"
                 SourceFile@0..23
@@ -319,7 +319,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_debug_tree(
             "fn foo(x -> int { 10 }",
             expect![[r#"
                 SourceFile@0..22
@@ -351,7 +351,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_debug_tree(
             "fn foo( -> int { 10 }",
             expect![[r#"
                 SourceFile@0..21
@@ -383,7 +383,7 @@ mod tests {
 
     #[test]
     fn parse_function_missing_ident() {
-        check(
+        check_debug_tree(
             "fn (a, b) -> int { 10 }",
             expect![[r#"
                 SourceFile@0..23
@@ -423,7 +423,7 @@ mod tests {
 
     #[test]
     fn parse_function_missing_return_type() {
-        check(
+        check_debug_tree(
             "fn a() { 10 }",
             expect![[r#"
                 SourceFile@0..13
@@ -446,7 +446,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_debug_tree(
             "fn a() -> { 10 }",
             expect![[r#"
                 SourceFile@0..16
@@ -474,7 +474,7 @@ mod tests {
             "#]],
         );
 
-        check(
+        check_debug_tree(
             "fn a() int { 10 }",
             expect![[r#"
                 SourceFile@0..17
@@ -507,7 +507,7 @@ mod tests {
 
     #[test]
     fn parse_module() {
-        check(
+        check_debug_tree(
             r#"
 mod one_module {
     fn bbb() -> int {
@@ -570,7 +570,7 @@ fn main() {}
 
     #[test]
     fn parse_module_in_block() {
-        check(
+        check_debug_tree(
             r#"
 mod one_module {
     mod second_module {
@@ -704,7 +704,7 @@ fn main() {}
 
     #[test]
     fn parse_module_in_function_and_module() {
-        check(
+        check_debug_tree(
             r#"
 fn main() {
     return
@@ -852,7 +852,7 @@ mod module_aaa {
 
     #[test]
     fn parse_file_module() {
-        check(
+        check_debug_tree(
             r#"
 mod a;
 mod b;
@@ -878,7 +878,7 @@ mod b;
 
     #[test]
     fn parse_use() {
-        check(
+        check_debug_tree(
             r#"
 use a;
 use b::fn_a;

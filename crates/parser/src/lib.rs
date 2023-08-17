@@ -74,7 +74,7 @@ impl Parse {
 
 /// パース結果のデバッグ出力と期待結果を比較します。
 #[cfg(test)]
-fn check(input: &str, expected_tree: expect_test::Expect) {
+fn check_debug_tree(input: &str, expected_tree: expect_test::Expect) {
     let parse = parse(input);
     expected_tree.assert_eq(&parse.debug_tree());
 }
@@ -83,7 +83,7 @@ fn check(input: &str, expected_tree: expect_test::Expect) {
 ///
 /// ブロック内コンテキストで入力はパースされます。
 #[cfg(test)]
-fn check_in_block(input: &str, expected_tree: expect_test::Expect) {
+fn check_debug_tree_in_block(input: &str, expected_tree: expect_test::Expect) {
     let tokens: Vec<_> = Lexer::new(input).collect();
     let source = Source::new(&tokens);
     let parser = Parser::new(source);
@@ -102,7 +102,7 @@ mod tests {
 
     #[test]
     fn parse_nothing() {
-        check(
+        check_debug_tree(
             "",
             expect![[r#"
                 SourceFile@0..0
@@ -112,7 +112,7 @@ mod tests {
 
     #[test]
     fn parse_whitespace() {
-        check(
+        check_debug_tree(
             "   ",
             expect![[r#"
                 SourceFile@0..3
@@ -123,7 +123,7 @@ mod tests {
 
     #[test]
     fn parse_comment() {
-        check(
+        check_debug_tree(
             "// hello!",
             expect![[r#"
                 SourceFile@0..9
@@ -134,7 +134,7 @@ mod tests {
 
     #[test]
     fn parse_binary_expression_when_single_slash() {
-        check(
+        check_debug_tree(
             "fn x() { / hello }",
             expect![[r#"
                 SourceFile@0..18
@@ -167,7 +167,7 @@ mod tests {
 
     #[test]
     fn parse_binary_expression_interspersed_with_comments() {
-        check(
+        check_debug_tree(
             r#"
 fn x() {
     1

@@ -3,7 +3,7 @@ mod item_scope;
 
 use std::collections::HashMap;
 
-pub use item::{Function, ItemDefId, Module, Param, Type, UseItem};
+pub use item::{Function, ItemDefId, Module, ModuleKind, Param, Type, UseItem};
 pub use item_scope::{ItemScope, ParentScope};
 
 use crate::{
@@ -414,28 +414,36 @@ impl<'a> ItemTreeBuilderContext<'a> {
         parent: ParentScope,
         db: &mut Database,
     ) -> Option<ModuleId> {
-        if let Some(item_list) = module.items() {
-            let module_name = Name::from_key(self.interner.intern(module.name().unwrap().name()));
+        if let Some(name) = module.name() {
+            let module_name = Name::from_key(self.interner.intern(name.name()));
 
             let scope = ItemScope::new_with_name(Some(parent), module_name);
             let scope_id = db.alloc_item_scope(scope);
 
             let current = ParentScope::new(scope_id);
-            let mut items = vec![];
-            for item in item_list.items() {
-                if let Some(item) = self.build_item(item, scope_id, current.clone(), db) {
-                    items.push(item);
-                }
-            }
 
             let module_ast_id = db.alloc_node(module, self.file_id);
             self.scope_by_module_ast
                 .insert(module_ast_id.clone(), scope_id);
 
-            let hir_module = Module {
-                name: module_name,
-                items,
+            let hir_module = if let Some(item_list) = module.items() {
+                let mut items = vec![];
+                for item in item_list.items() {
+                    if let Some(item) = self.build_item(item, scope_id, current.clone(), db) {
+                        items.push(item);
+                    }
+                }
+                Module {
+                    name: module_name,
+                    kind: ModuleKind::Inline { items },
+                }
+            } else {
+                Module {
+                    name: module_name,
+                    kind: ModuleKind::Outline,
+                }
             };
+
             let module_id = db.alloc_module(hir_module);
             current_scope
                 .lookup_mut(db)

@@ -32,10 +32,81 @@ pub use input::{
     FileId, FilelessSourceDatabase, FixtureDatabase, SourceDatabase, SourceDatabaseTrait,
 };
 use item_tree::ItemTreeBuilderContext;
-pub use item_tree::{Function, ItemDefId, ItemTree, Module, Param, Type, UseItem};
+pub use item_tree::{Function, ItemDefId, ItemTree, Module, ModuleKind, Param, Type, UseItem};
 use la_arena::Idx;
 use string_interner::{Interner, Key};
 use syntax::SyntaxNodePtr;
+
+/// モジュール一覧
+pub struct Modules {
+    /// ルートファイルのHIR構築結果
+    pub root_file_id: FileId,
+
+    /// ルートファイルのHIR構築結果
+    pub root_lower_result: LowerResult,
+
+    /// ファイル別のHIR構築結果
+    ///
+    /// ルートファイルは含まれません。
+    lower_result_by_file: HashMap<FileId, LowerResult>,
+
+    /// ファイルの登録順
+    ///
+    /// ルートファイルは含まれません。
+    registration_order: Vec<FileId>,
+}
+impl Modules {
+    /// 指定したファイルのHIR構築結果を返します。
+    ///
+    /// ルートファイルのHIR構築結果は`root_lower_result`で参照してください。
+    /// この関数はルートファイルを指定されても`None`を返します。
+    pub fn get_lower_result_by_file(&self, file: FileId) -> Option<&LowerResult> {
+        self.lower_result_by_file.get(&file)
+    }
+
+    /// ファイルの登録順の昇順でHIR構築結果を返します。
+    pub fn lower_results_order_registration_asc(&self) -> Vec<(FileId, &LowerResult)> {
+        let mut lower_results = vec![];
+        for file_id in &self.registration_order {
+            lower_results.push((*file_id, self.lower_result_by_file.get(file_id).unwrap()));
+        }
+
+        lower_results
+    }
+}
+
+/// ルートファイル、サブファイルをパースします。
+pub fn parse_modules(path: &str, source_db: &mut dyn SourceDatabaseTrait) -> Modules {
+    let mut lower_result_by_file = HashMap::new();
+    let mut registration_order = vec![];
+
+    let root_result = parse_root(path, source_db);
+
+    let dir = std::path::PathBuf::from(path);
+    for (_, module) in root_result.db.modules() {
+        if matches!(module.kind, ModuleKind::Inline { .. }) {
+            continue;
+        }
+
+        let sub_module_name = module.name.lookup_self(&root_result.interner);
+        let sub_module_file_name = dir.with_file_name(format!("{sub_module_name}.nail"));
+        let sub_module_file_id =
+            source_db.register_file_with_read(sub_module_file_name.to_str().unwrap());
+        let sub_module_file_content = sub_module_file_id.file_content(source_db).unwrap();
+        dbg!(&sub_module_file_content);
+
+        let sub_module_result = parse_sub_module(sub_module_file_id, sub_module_file_content);
+        lower_result_by_file.insert(sub_module_file_id, sub_module_result);
+        registration_order.push(sub_module_file_id);
+    }
+
+    Modules {
+        root_file_id: source_db.source_root(),
+        root_lower_result: root_result,
+        lower_result_by_file,
+        registration_order,
+    }
+}
 
 /// HIR構築時のエラー
 #[derive(Debug)]
@@ -74,18 +145,26 @@ impl LowerResult {
     }
 }
 
-/// 指定したファイルパスをルートファイルとして、ファイルの読み込みからHIRの構築までを行います。
+/// 指定したファイルパスをルートファイルとして、ファイルの読み込みからHIRの構築まで行います。
 pub fn parse_root(path: &str, source_db: &mut dyn SourceDatabaseTrait) -> LowerResult {
     let file_id = source_db.register_file_with_read(path);
 
     let ast = parser::parse(source_db.content(file_id).unwrap());
     let ast = ast::SourceFile::cast(ast.syntax()).unwrap();
 
-    lower(file_id, ast)
+    lower_root(file_id, ast)
 }
 
-/// ASTからHIRの構築を行います。
-pub fn lower(file_id: FileId, ast: ast::SourceFile) -> LowerResult {
+/// 指定したファイル内容をサブファイル(サブモジュール)として、HIRの構築まで行います。
+fn parse_sub_module(file_id: FileId, file_content: &str) -> LowerResult {
+    let ast = parser::parse(file_content);
+    let ast = ast::SourceFile::cast(ast.syntax()).unwrap();
+
+    lower_sub_module(file_id, ast)
+}
+
+/// ルートファイルのASTからHIRの構築します。
+pub fn lower_root(file_id: FileId, ast: ast::SourceFile) -> LowerResult {
     let mut interner = Interner::new();
     let mut db = Database::new();
     let item_tree_builder = ItemTreeBuilderContext::new(file_id, &mut interner);
@@ -116,6 +195,35 @@ pub fn lower(file_id: FileId, ast: ast::SourceFile) -> LowerResult {
         item_tree,
         interner,
         errors,
+    }
+}
+
+/// サブファイル(モジュール)のASTからHIRを構築します。
+fn lower_sub_module(file_id: FileId, ast: ast::SourceFile) -> LowerResult {
+    let mut interner = Interner::new();
+    let mut db = Database::new();
+    let item_tree_builder = ItemTreeBuilderContext::new(file_id, &mut interner);
+    let item_tree = item_tree_builder.build(file_id, &ast, &mut db);
+
+    let mut shared_ctx = SharedBodyLowerContext::new();
+
+    let mut top_level_ctx = BodyLower::new(file_id, HashMap::new());
+    let top_level_items = ast
+        .items()
+        .filter_map(|item| {
+            top_level_ctx.lower_toplevel(item, &mut shared_ctx, &db, &item_tree, &mut interner)
+        })
+        .collect::<Vec<_>>();
+
+    LowerResult {
+        file_id,
+        shared_ctx,
+        top_level_items,
+        entry_point: None,
+        db,
+        item_tree,
+        interner,
+        errors: vec![],
     }
 }
 
@@ -178,6 +286,11 @@ pub struct InFile<T> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Name(Key);
 impl Name {
+    /// 元の文字列を取得します。
+    pub fn lookup_self<'a>(&self, interner: &'a Interner) -> &'a str {
+        interner.lookup(self.0)
+    }
+
     /// 内部表現であるキーを取得します
     ///
     /// このキーは[Interner]によって管理されている文字列の参照用の値です。

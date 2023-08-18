@@ -19,7 +19,7 @@ impl FilePathInterner {
     }
 
     #[must_use]
-    pub fn _lookup(&self, path: FilePath) -> &str {
+    pub fn resolve(&self, path: FilePath) -> &str {
         self.0.resolve(&path.0)
     }
 }
@@ -29,7 +29,7 @@ impl FilePathInterner {
 pub struct FilePath(lasso::Spur);
 impl FilePath {
     #[must_use]
-    pub fn _lookup(self, interner: &FilePathInterner) -> &str {
-        interner._lookup(self)
+    pub fn lookup(self, interner: &FilePathInterner) -> &str {
+        interner.resolve(self)
     }
 }

@@ -513,7 +513,7 @@ mod tests {
         let source_db = FixtureDatabase::new(fixture);
         let parsed = parser::parse(fixture);
         let ast = ast::SourceFile::cast(parsed.syntax()).unwrap();
-        let hir_result = hir::lower(source_db.source_root(), ast);
+        let hir_result = hir::lower_root(source_db.source_root(), ast);
         let ty_result = hir_ty::lower(&hir_result);
         let mir_result = mir::lower(&hir_result, &ty_result);
         (hir_result, ty_result, mir_result)

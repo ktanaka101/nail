@@ -1031,7 +1031,7 @@ mod tests {
 
         let parsed = parser::parse(source_root_file_content);
         let ast = ast::SourceFile::cast(parsed.syntax()).unwrap();
-        let hir_result = hir::lower(source_root_file_id, ast);
+        let hir_result = hir::lower_root(source_root_file_id, ast);
         let ty_hir_result = hir_ty::lower(&hir_result);
 
         let mir_result = crate::lower(&hir_result, &ty_hir_result);

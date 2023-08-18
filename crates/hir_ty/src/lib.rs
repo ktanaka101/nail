@@ -74,7 +74,7 @@ mod tests {
 
         let parsed = parser::parse(source_root_file_content);
         let ast = ast::SourceFile::cast(parsed.syntax()).unwrap();
-        let lower_result = hir::lower(source_root_file_id, ast);
+        let lower_result = hir::lower_root(source_root_file_id, ast);
         let result = lower(&lower_result);
         expect.assert_eq(&debug(
             &result.inference_result,

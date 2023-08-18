@@ -80,8 +80,48 @@ pub struct Function {
 pub struct Module {
     /// モジュール名
     pub name: Name,
-    /// モジュール内のアイテム一覧
-    pub items: Vec<ItemDefId>,
+
+    /// モジュール種別
+    pub kind: ModuleKind,
+}
+
+/// モジュール種別
+///
+/// モジュール定義には以下の2種類があります。
+/// - 別ファイルにモジュールがあることを表す`mod outline;`
+/// - 1ファイル中にインラインで記述可能な`mod inline { /** モジュール内 */ }`
+#[derive(Debug, PartialEq, Eq)]
+pub enum ModuleKind {
+    /// インラインモジュール
+    ///
+    /// ```nail
+    /// //- mail.nail
+    /// mod aaa;
+    ///
+    /// //- aaa.nail
+    /// // mod aaa
+    /// mod bbb;
+    ///
+    /// //- aaa/bbb.nail
+    /// // mod bbb
+    /// ```
+    Inline {
+        /// アイテム一覧
+        items: Vec<ItemDefId>,
+    },
+
+    /// アウトラインモジュール
+    ///
+    /// ```nail
+    /// mod aaa {
+    ///     mod bbb {
+    ///     }
+    ///
+    ///     fn aaa {
+    ///     }
+    /// }
+    /// ```
+    Outline,
 }
 
 /// アイテムの使用宣言を表す

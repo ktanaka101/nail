@@ -7,7 +7,8 @@ use la_arena::{Arena, Idx};
 use self::scopes::ScopeType;
 use crate::{
     body::scopes::ExprScopes, db::Database, item_tree::ItemTree, string_interner::Interner, AstId,
-    Block, Expr, FileId, FunctionId, ItemDefId, Literal, Name, ParamId, Path, Stmt, Symbol,
+    Block, Expr, FileId, FunctionId, ItemDefId, Literal, ModuleKind, Name, ParamId, Path, Stmt,
+    Symbol,
 };
 
 /// 式を一意に識別するためのID
@@ -140,6 +141,11 @@ impl BodyLower {
         Some(ItemDefId::Function(function_id))
     }
 
+    /// モジュールのHIRを構築します。
+    ///
+    /// アウトラインモジュール(`mod aaa;`)のパースは[crate::parse_modules]で行います。
+    /// この中では、トラバースするために各アイテムのHIR化を行っています。
+    /// また、[ItemDefId]を返すために、アウトラインモジュールも返します。
     fn lower_module(
         &mut self,
         module: ast::Module,
@@ -149,13 +155,23 @@ impl BodyLower {
         interner: &mut Interner,
     ) -> Option<ItemDefId> {
         let module_ast_id = db.lookup_ast_id(&module, self.file_id).unwrap();
-        let module_id = item_tree.module_id_by_ast_module(module_ast_id).unwrap();
+        let module_id = item_tree
+            .module_id_by_ast_module(module_ast_id.clone())
+            .unwrap();
 
-        for item in module.items().unwrap().items() {
-            self.lower_item(item, ctx, db, item_tree, interner);
+        let hir_module = item_tree
+            .module_by_ast_module_id(db, module_ast_id)
+            .unwrap();
+        match &hir_module.kind {
+            ModuleKind::Inline { .. } => {
+                for item in module.items().expect("Already parsed ").items() {
+                    self.lower_item(item, ctx, db, item_tree, interner);
+                }
+
+                Some(ItemDefId::Module(module_id))
+            }
+            ModuleKind::Outline => Some(ItemDefId::Module(module_id)),
         }
-
-        Some(ItemDefId::Module(module_id))
     }
 
     fn lower_use(
@@ -542,14 +558,30 @@ mod tests {
         db::UseItemId,
         input::{FixtureDatabase, SourceDatabaseTrait},
         item_tree::{ItemDefId, Type},
-        lower, FunctionId, LowerError, LowerResult, ModuleId,
+        lower_root, parse_modules, FunctionId, LowerError, LowerResult, ModuleId, ModuleKind,
+        Modules,
     };
 
     fn indent(nesting: usize) -> String {
         "    ".repeat(nesting)
     }
 
-    fn debug(lower_result: &LowerResult) -> String {
+    fn debug_modules(modules: &Modules, source_db: &FixtureDatabase) -> String {
+        let mut msg = "".to_string();
+
+        msg.push_str("//- /main.nail\n");
+        msg.push_str(&debug_lower_result(&modules.root_lower_result));
+
+        for (file_id, lower_result) in modules.lower_results_order_registration_asc() {
+            let file_path = source_db.file_path(file_id);
+            msg.push_str(&format!("//- {file_path}\n"));
+            msg.push_str(&debug_lower_result(lower_result));
+        }
+
+        msg
+    }
+
+    fn debug_lower_result(lower_result: &LowerResult) -> String {
         let mut msg = "".to_string();
 
         for item in &lower_result.top_level_items {
@@ -633,19 +665,25 @@ mod tests {
         let module = module_id.lookup(&lower_result.db);
         let module_name = lower_result.interner.lookup(module.name.key());
 
-        let mut module_str = "".to_string();
-        module_str.push_str(&format!("{curr_indent}mod {module_name} {{\n"));
-        for (i, item) in module.items.iter().enumerate() {
-            module_str.push_str(&debug_item(lower_result, item, nesting + 1));
-            if i == module.items.len() - 1 {
-                continue;
+        match &module.kind {
+            ModuleKind::Inline { items } => {
+                let mut module_str = "".to_string();
+                module_str.push_str(&format!("{curr_indent}mod {module_name} {{\n"));
+                for (i, item) in items.iter().enumerate() {
+                    module_str.push_str(&debug_item(lower_result, item, nesting + 1));
+                    if i == items.len() - 1 {
+                        continue;
+                    }
+
+                    module_str.push('\n');
+                }
+                module_str.push_str(&format!("{curr_indent}}}\n"));
+                module_str
             }
-
-            module_str.push('\n');
+            ModuleKind::Outline => {
+                format!("{curr_indent}mod {module_name};\n")
+            }
         }
-        module_str.push_str(&format!("{curr_indent}}}\n"));
-
-        module_str
     }
 
     fn debug_use_item(lower_result: &LowerResult, use_item_id: UseItemId) -> String {
@@ -850,9 +888,18 @@ mod tests {
         let source_root_file_content = source_db.content(source_root_file_id).unwrap();
 
         let source_file = parse(source_root_file_content);
-        let result = lower(source_root_file_id, source_file);
+        let result = lower_root(source_root_file_id, source_file);
 
-        expected.assert_eq(&debug(&result));
+        expected.assert_eq(&debug_lower_result(&result));
+    }
+
+    /// ルートファイルからパースして、すべてのモジュールの期待結果をテストする
+    fn check_modules_start_with_root_file(fixture: &str, expected: Expect) {
+        let mut source_db = FixtureDatabase::new(fixture);
+
+        let modules = parse_modules("/main.nail", &mut source_db);
+
+        expected.assert_eq(&debug_modules(&modules, &source_db));
     }
 
     #[test]
@@ -2166,6 +2213,36 @@ mod tests {
                         fn fn_bbb() -> () {
                         }
                     }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn inline_module() {
+        check_modules_start_with_root_file(
+            r#"
+                //- /main.nail
+                mod mod_aaa;
+
+                fn main() {
+                    mod_aaa::fn_aaa();
+                }
+
+                //- /mod_aaa.nail
+                fn fn_aaa() {
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                mod mod_aaa;
+                fn entry:main() -> () {
+                    mod_aaa::fn_aaa();
+                }
+
+                //- /mod_aaa.nail
+                fn fn_aaa() -> () {
                 }
             "#]],
         );

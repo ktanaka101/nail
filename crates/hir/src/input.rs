@@ -7,6 +7,17 @@ use self::file_path_interner::{FilePath, FilePathInterner};
 /// ファイルを一意に識別するためのID
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct FileId(FilePath);
+impl FileId {
+    /// ファイルパスを取得します。
+    pub fn file_path(self, interner: &FilePathInterner) -> &str {
+        self.0.lookup(interner)
+    }
+
+    /// ファイルの内容を取得します。
+    pub fn file_content(self, source_db: &dyn SourceDatabaseTrait) -> Option<&str> {
+        source_db.content(self)
+    }
+}
 
 /// ソースコードの元となる、ファイルを管理するデータベーストレイト
 pub trait SourceDatabaseTrait {
@@ -14,6 +25,8 @@ pub trait SourceDatabaseTrait {
     fn source_root(&self) -> FileId;
     /// ファイルパスからファイルIDを返す
     fn register_file_with_read(&mut self, path: &str) -> FileId;
+    /// ファイルIDからファイルパスを返す
+    fn file_path(&self, file_id: FileId) -> &str;
     /// ファイルIDからファイル内容を返す
     fn content(&self, file_id: FileId) -> Option<&str>;
 }
@@ -188,6 +201,10 @@ impl SourceDatabaseTrait for FixtureDatabase {
         FileId(file_path)
     }
 
+    fn file_path(&self, file_id: FileId) -> &str {
+        file_id.file_path(&self.file_path_interner)
+    }
+
     fn content(&self, file_id: FileId) -> Option<&str> {
         self.file_contents
             .get(&file_id)
@@ -201,7 +218,7 @@ impl SourceDatabaseTrait for FixtureDatabase {
 pub struct FilelessSourceDatabase {
     dummy_source_root: FileId,
     content: String,
-    _file_path_interner: FilePathInterner,
+    file_path_interner: FilePathInterner,
 }
 impl FilelessSourceDatabase {
     /// 入力元のソースコードを構成する文字列をパースして、データベースを構築します。
@@ -215,7 +232,7 @@ impl FilelessSourceDatabase {
         Self {
             dummy_source_root,
             content: content.to_string(),
-            _file_path_interner: file_path_interner,
+            file_path_interner,
         }
     }
 }
@@ -226,6 +243,10 @@ impl SourceDatabaseTrait for FilelessSourceDatabase {
 
     fn register_file_with_read(&mut self, _path: &str) -> FileId {
         unreachable!("unsupported registering file");
+    }
+
+    fn file_path(&self, file_id: FileId) -> &str {
+        file_id.file_path(&self.file_path_interner)
     }
 
     fn content(&self, file_id: FileId) -> Option<&str> {
@@ -279,6 +300,10 @@ impl SourceDatabaseTrait for SourceDatabase {
         self.path_by_file.insert(file_id, path);
         self.file_contents.insert(file_id, contents);
         file_id
+    }
+
+    fn file_path(&self, file_id: FileId) -> &str {
+        file_id.file_path(&self.file_path_interner)
     }
 
     fn content(&self, file_id: FileId) -> Option<&str> {

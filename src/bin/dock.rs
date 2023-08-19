@@ -1,3 +1,5 @@
+//! Dock is Nail project's build system and package manager.
+
 use std::ffi::{c_char, CString};
 
 use anyhow::Result;

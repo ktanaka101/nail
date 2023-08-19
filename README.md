@@ -4,7 +4,7 @@ WIP
 
 ## Summury
 
-We create robust and flexible programming languages.  
+We create robust and flexible programming languages.
 We want to create something like Rust with a Go runtime.
 
 - Base: Rust

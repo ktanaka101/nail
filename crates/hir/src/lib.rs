@@ -38,8 +38,9 @@ use string_interner::{Interner, Key};
 use syntax::SyntaxNodePtr;
 
 /// モジュール一覧
+#[derive(Debug)]
 pub struct Modules {
-    /// ルートファイルのHIR構築結果
+    /// ルートファイルID
     pub root_file_id: FileId,
 
     /// ルートファイルのHIR構築結果

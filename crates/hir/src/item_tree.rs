@@ -479,7 +479,11 @@ impl<'a> ItemTreeBuilderContext<'a> {
                     })
                     .collect::<Vec<_>>();
                 let path = Path { segments };
-                let use_item = UseItem { path, name };
+                let use_item = UseItem {
+                    path,
+                    name,
+                    item_scope: current_scope,
+                };
                 let use_item_id = db.alloc_use_item(use_item);
                 current_scope
                     .lookup_mut(db)

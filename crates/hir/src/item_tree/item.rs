@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     db::{FunctionId, ModuleId, UseItemId},
-    AstId, Name, ParamId, Path,
+    AstId, ItemScopeId, Name, ParamId, Path,
 };
 
 /// 関数のパラメータを表す
@@ -137,6 +137,9 @@ pub struct UseItem {
     ///
     /// 例: `use std::io::println;` であれば `std::io`
     pub path: Path,
+
+    /// 宣言したアイテムスコープ
+    pub item_scope: ItemScopeId,
 }
 
 /// ファイルルート及びモジュール内のアイテムを表す

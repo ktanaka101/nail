@@ -1,3 +1,32 @@
+//! アイテムのスコープ
+//!
+//! 同じスコープ内に同じ名前の関数は定義できない。
+//! 同じようにスコープ内の関数と同じ名前の使用宣言ができない。
+//! ```nail
+//! mod aaa1 {
+//!     use super::bbb::bbb;
+//!     fn bbb() {} // <-- 使用宣言した関数名と名前が重複しているのでエラー
+//! }
+//!
+//! mod aaa2 {
+//!     use super::bbb;
+//!     fn bbb() {} // <-- 使用宣言したモジュール名と名前が重複しているのでエラー
+//! }
+//!
+//! mod bbb {
+//!     pub fn bbb() {}
+//! }
+//! ```
+//!
+//! ただし、同じ名前の関数が外のスコープであれば定義できる。
+//! ```nail
+//! mod aaa1 {
+//!     fn bbb() {} // <-- OK
+//! }
+//!
+//! fn bbb() {}
+//! ```
+
 use std::collections::HashMap;
 
 use super::ItemTree;
@@ -14,6 +43,7 @@ pub struct ItemScope {
     parent: Option<ParentScope>,
     name: Option<Name>,
 }
+
 impl ItemScope {
     pub fn new_with_nameless(parent: Option<ParentScope>) -> Self {
         Self {

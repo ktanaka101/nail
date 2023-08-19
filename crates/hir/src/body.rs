@@ -558,15 +558,14 @@ mod tests {
         db::UseItemId,
         input::{FixtureDatabase, SourceDatabaseTrait},
         item_tree::{ItemDefId, Type},
-        lower_root, parse_modules, FunctionId, LowerError, LowerResult, ModuleId, ModuleKind,
-        Modules,
+        lower_root, parse_pod, FunctionId, LowerError, LowerResult, ModuleId, ModuleKind, Pod,
     };
 
     fn indent(nesting: usize) -> String {
         "    ".repeat(nesting)
     }
 
-    fn debug_modules(modules: &Modules, source_db: &FixtureDatabase) -> String {
+    fn debug_modules(modules: &Pod, source_db: &FixtureDatabase) -> String {
         let mut msg = "".to_string();
 
         msg.push_str("//- /main.nail\n");
@@ -897,7 +896,7 @@ mod tests {
     fn check_modules_start_with_root_file(fixture: &str, expected: Expect) {
         let mut source_db = FixtureDatabase::new(fixture);
 
-        let modules = parse_modules("/main.nail", &mut source_db);
+        let modules = parse_pod("/main.nail", &mut source_db);
 
         expected.assert_eq(&debug_modules(&modules, &source_db));
     }

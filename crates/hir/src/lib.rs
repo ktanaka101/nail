@@ -37,9 +37,9 @@ use la_arena::Idx;
 use string_interner::{Interner, Key};
 use syntax::SyntaxNodePtr;
 
-/// モジュール一覧
+/// PodはNailにおけるパッケージの単位です。
 #[derive(Debug)]
-pub struct Modules {
+pub struct Pod {
     /// ルートファイルID
     pub root_file_id: FileId,
 
@@ -56,7 +56,7 @@ pub struct Modules {
     /// ルートファイルは含まれません。
     registration_order: Vec<FileId>,
 }
-impl Modules {
+impl Pod {
     /// 指定したファイルのHIR構築結果を返します。
     ///
     /// ルートファイルのHIR構築結果は`root_lower_result`で参照してください。
@@ -76,8 +76,8 @@ impl Modules {
     }
 }
 
-/// ルートファイル、サブファイルをパースします。
-pub fn parse_modules(path: &str, source_db: &mut dyn SourceDatabaseTrait) -> Modules {
+/// ルートファイル、サブファイルをパースし、Podを構築します。
+pub fn parse_pod(path: &str, source_db: &mut dyn SourceDatabaseTrait) -> Pod {
     let mut lower_result_by_file = HashMap::new();
     let mut registration_order = vec![];
 
@@ -101,7 +101,7 @@ pub fn parse_modules(path: &str, source_db: &mut dyn SourceDatabaseTrait) -> Mod
         registration_order.push(sub_module_file_id);
     }
 
-    Modules {
+    Pod {
         root_file_id: source_db.source_root(),
         root_lower_result: root_result,
         lower_result_by_file,

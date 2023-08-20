@@ -549,7 +549,6 @@ impl BodyLower {
 
 #[cfg(test)]
 mod tests {
-    use ast::AstNode;
     use expect_test::{expect, Expect};
 
     use super::*;
@@ -557,19 +556,14 @@ mod tests {
         db::UseItemId,
         input::{FixtureDatabase, SourceDatabaseTrait},
         item_tree::{ItemDefId, Type},
-        lower_root, parse_pod, FunctionId, LowerError, LowerResult, ModuleId, ModuleKind, Pod,
-        SalsaDatabase,
+        parse_pod, FunctionId, LowerError, LowerResult, ModuleId, ModuleKind, Pod, SalsaDatabase,
     };
 
     fn indent(nesting: usize) -> String {
         "    ".repeat(nesting)
     }
 
-    fn debug_modules(
-        salsa_db: &dyn crate::Db,
-        modules: &Pod,
-        source_db: &FixtureDatabase,
-    ) -> String {
+    fn debug_pod(salsa_db: &dyn crate::Db, modules: &Pod, source_db: &FixtureDatabase) -> String {
         let mut msg = "".to_string();
 
         msg.push_str("//- /main.nail\n");
@@ -941,33 +935,22 @@ mod tests {
             .join("::")
     }
 
-    fn parse(input: &str) -> ast::SourceFile {
-        ast::SourceFile::cast(parser::parse(input).syntax()).unwrap()
-    }
-
+    /// ルートファイル前提としてパースして、Podの期待結果をテストする
     fn check_in_root_file(fixture: &str, expected: Expect) {
         let mut fixture = fixture.to_string();
         fixture.insert_str(0, "//- /main.nail\n");
 
-        let salsa_db = SalsaDatabase::default();
-        let source_db = FixtureDatabase::new(&fixture);
-        let source_root_file_id = source_db.source_root();
-        let source_root_file_content = source_db.content(source_root_file_id).unwrap();
-
-        let source_file = parse(source_root_file_content);
-        let result = lower_root(&salsa_db, source_root_file_id, source_file);
-
-        expected.assert_eq(&debug_lower_result(&salsa_db, &result));
+        check_pod_start_with_root_file(&fixture, expected);
     }
 
-    /// ルートファイルからパースして、すべてのモジュールの期待結果をテストする
-    fn check_modules_start_with_root_file(fixture: &str, expected: Expect) {
+    /// ルートファイルからパースして、Podの期待結果をテストする
+    fn check_pod_start_with_root_file(fixture: &str, expected: Expect) {
         let salsa_db = SalsaDatabase::default();
         let mut source_db = FixtureDatabase::new(fixture);
 
         let modules = parse_pod(&salsa_db, "/main.nail", &mut source_db);
 
-        expected.assert_eq(&debug_modules(&salsa_db, &modules, &source_db));
+        expected.assert_eq(&debug_pod(&salsa_db, &modules, &source_db));
     }
 
     #[test]
@@ -990,6 +973,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn fibonacci(x: int) -> int {
                     expr:if param:x == 0 {
                         expr:0
@@ -1015,6 +999,7 @@ mod tests {
                 fn no_main() { }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn no_main() -> () {
                 }
                 error: Undefined entry point.(help: fn main() { ... })
@@ -1025,6 +1010,7 @@ mod tests {
                 fn main() { }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                 }
             "#]],
@@ -1040,6 +1026,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     let foo = <missing>
                 }
@@ -1056,6 +1043,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                 }
             "#]],
@@ -1071,6 +1059,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     let foo = <missing>
                 }
@@ -1087,6 +1076,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     let a = <missing>
                 }
@@ -1114,6 +1104,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:123
                 }
@@ -1147,6 +1138,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     1 + 2;
                     1 - 2;
@@ -1169,6 +1161,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:10 - <missing>
                 }
@@ -1185,6 +1178,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:999
                 }
@@ -1201,6 +1195,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:"aaa"
                 }
@@ -1217,6 +1212,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:'a'
                 }
@@ -1233,6 +1229,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:true
                 }
@@ -1249,6 +1246,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:false
                 }
@@ -1265,6 +1263,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:<missing>
                 }
@@ -1282,6 +1281,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     -10;
                     !20;
@@ -1299,6 +1299,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:-<missing>
                 }
@@ -1315,6 +1316,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:<missing>
                 }
@@ -1332,6 +1334,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     let foo = 10
                     expr:10
@@ -1351,6 +1354,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:{
                         let foo = 10
@@ -1376,6 +1380,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:{
                         let a = 10
@@ -1402,6 +1407,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     {
                         let a = 10
@@ -1429,6 +1435,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     let a = 10
                     {
@@ -1456,6 +1463,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     let a = 10
                     10
@@ -1488,6 +1496,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     <missing>
                     let a = 10
@@ -1527,6 +1536,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     let a = {
                         <missing>
@@ -1558,6 +1568,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:{
                         let a = 10
@@ -1591,6 +1602,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:{
                         let a = 10
@@ -1617,6 +1629,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:-{
                         let a = 10
@@ -1639,6 +1652,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn foo() -> () {
                     let a = 10
                     expr:10
@@ -1657,6 +1671,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn foo(a: int, b: string) -> () {
                     expr:1
                 }
@@ -1675,6 +1690,7 @@ mod tests {
                 fn bar() -> bool {}
             "#,
             expect![[r#"
+                //- /main.nail
                 fn foo() -> int {
                 }
                 fn bar() -> string {
@@ -1697,6 +1713,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn foo(a: char, b: bool) -> () {
                     expr:param:a + param:b
                 }
@@ -1727,6 +1744,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     fn foo(a: <unknown>, b: <unknown>) -> () {
                         let a = 0
@@ -1761,6 +1779,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     let a = 10
                     fn foo() -> () {
@@ -1796,6 +1815,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:{
                         fn foo() -> () {
@@ -1846,6 +1866,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     <missing>
                     let a = 10
@@ -1899,6 +1920,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     fn foo() -> () {
                         fn:foo
@@ -1928,6 +1950,7 @@ mod tests {
         check_in_root_file(
             "fn main() { ($10/{ }",
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:<missing> / <missing>
                 }
@@ -1940,6 +1963,7 @@ mod tests {
         check_in_root_file(
             "fn a(a, ) {}",
             expect![[r#"
+                //- /main.nail
                 fn a(a: <unknown>, <missing>: <unknown>) -> () {
                 }
                 error: Undefined entry point.(help: fn main() { ... })
@@ -1952,6 +1976,7 @@ mod tests {
         check_in_root_file(
             "fn a() -> {}",
             expect![[r#"
+                //- /main.nail
                 fn a() -> <unknown> {
                 }
                 error: Undefined entry point.(help: fn main() { ... })
@@ -1964,6 +1989,7 @@ mod tests {
         check_in_root_file(
             "fn a(a, )",
             expect![[r#"
+                //- /main.nail
                 error: Undefined entry point.(help: fn main() { ... })
             "#]],
         );
@@ -1974,6 +2000,7 @@ mod tests {
         check_in_root_file(
             "fn (a, ) {}",
             expect![[r#"
+                //- /main.nail
                 fn <missing>(a: <unknown>, <missing>: <unknown>) -> () {
                 }
                 error: Undefined entry point.(help: fn main() { ... })
@@ -1986,6 +2013,7 @@ mod tests {
         check_in_root_file(
             "fn main() { a() }",
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:<missing>()
                 }
@@ -2000,6 +2028,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     fn a() -> () {
                         expr:10
@@ -2015,6 +2044,7 @@ mod tests {
         check_in_root_file(
             "fn main() { a(10, 20) }",
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:<missing>(10, 20)
                 }
@@ -2030,6 +2060,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     fn a() -> () {
                         expr:10
@@ -2050,6 +2081,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     fn aaa(x: bool, y: string) -> int {
                         expr:10 + 20
@@ -2073,6 +2105,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:if true {
                         expr:10
@@ -2092,6 +2125,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:if true {
                         expr:10
@@ -2114,6 +2148,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:if {
                         expr:true
@@ -2135,6 +2170,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:if {
                         expr:true
@@ -2158,6 +2194,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:return
                 }
@@ -2194,6 +2231,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:return
                 }
@@ -2235,6 +2273,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     fn:mod_aaa::fn_aaa();
                     fn:bbb();
@@ -2268,6 +2307,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     fn:mod_aaa::fn_aaa();
                 }
@@ -2289,7 +2329,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn inline_module() {
-        check_modules_start_with_root_file(
+        check_pod_start_with_root_file(
             r#"
                 //- /main.nail
                 mod mod_aaa;
@@ -2308,7 +2348,6 @@ mod tests {
                 fn entry:main() -> () {
                     mod_aaa::fn_aaa();
                 }
-
                 //- /mod_aaa.nail
                 fn fn_aaa() -> () {
                 }

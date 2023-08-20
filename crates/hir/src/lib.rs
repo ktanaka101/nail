@@ -41,7 +41,7 @@ pub use input::{
 use item_tree::ItemTreeBuilderContext;
 pub use item_tree::{Function, ItemDefId, ItemTree, Module, ModuleKind, Param, Type, UseItem};
 use la_arena::Idx;
-pub use salsa_db::{build_hir, parse_to_ast, AstSourceFile, NailFile, SalsaDatabase};
+pub use salsa_db::{AstSourceFile, NailFile, SalsaDatabase};
 use syntax::SyntaxNodePtr;
 
 /// ここに`salsa`データを定義します。
@@ -97,7 +97,11 @@ pub fn parse_pod(salsa_db: &dyn Db, path: &str, source_db: &mut dyn SourceDataba
     let mut lower_result_by_file = HashMap::new();
     let mut registration_order = vec![];
 
-    let root_result = parse_root(salsa_db, path, source_db);
+    let file_id = source_db.register_file_with_read(path);
+    let file_contents = file_id.file_content(source_db).unwrap();
+    let nail_file = NailFile::new(salsa_db, file_id, true, file_contents.to_string());
+    let ast_source = parse_to_ast(salsa_db, nail_file);
+    let root_result = build_hir(salsa_db, ast_source);
 
     let dir = std::path::PathBuf::from(path);
     for (_, module) in root_result.db.modules() {
@@ -109,11 +113,17 @@ pub fn parse_pod(salsa_db: &dyn Db, path: &str, source_db: &mut dyn SourceDataba
         let sub_module_file_name = dir.with_file_name(format!("{sub_module_name}.nail"));
         let sub_module_file_id =
             source_db.register_file_with_read(sub_module_file_name.to_str().unwrap());
-        let sub_module_file_content = sub_module_file_id.file_content(source_db).unwrap();
-        dbg!(&sub_module_file_content);
+        let sub_module_file_contents = sub_module_file_id.file_content(source_db).unwrap();
+        let nail_file = NailFile::new(
+            salsa_db,
+            sub_module_file_id,
+            false,
+            sub_module_file_contents.to_string(),
+        );
 
-        let sub_module_result =
-            parse_sub_module(salsa_db, sub_module_file_id, sub_module_file_content);
+        let sub_module_ast_source = parse_to_ast(salsa_db, nail_file);
+        let sub_module_result = build_hir(salsa_db, sub_module_ast_source);
+
         lower_result_by_file.insert(sub_module_file_id, sub_module_result);
         registration_order.push(sub_module_file_id);
     }
@@ -161,26 +171,30 @@ impl LowerResult {
     }
 }
 
-/// 指定したファイルパスをルートファイルとして、ファイルの読み込みからHIRの構築まで行います。
-pub fn parse_root(
-    salsa_db: &dyn Db,
-    path: &str,
-    source_db: &mut dyn SourceDatabaseTrait,
-) -> LowerResult {
-    let file_id = source_db.register_file_with_read(path);
-
-    let ast = parser::parse(source_db.content(file_id).unwrap());
-    let ast = ast::SourceFile::cast(ast.syntax()).unwrap();
-
-    lower_root(salsa_db, file_id, ast)
+/// ファイルを元にASTを構築します。
+#[salsa::tracked]
+pub fn parse_to_ast(db: &dyn crate::Db, nail_file: NailFile) -> AstSourceFile {
+    let ast = parser::parse(nail_file.contents(db));
+    let ast_source_file = ast::SourceFile::cast(ast.syntax()).unwrap();
+    AstSourceFile::new(db, nail_file, ast_source_file)
 }
 
-/// 指定したファイル内容をサブファイル(サブモジュール)として、HIRの構築まで行います。
-fn parse_sub_module(salsa_db: &dyn Db, file_id: FileId, file_content: &str) -> LowerResult {
-    let ast = parser::parse(file_content);
-    let ast = ast::SourceFile::cast(ast.syntax()).unwrap();
-
-    lower_sub_module(salsa_db, file_id, ast)
+/// ASTを元に[ItemTree]を構築します。
+#[salsa::tracked]
+pub fn build_hir(salsa_db: &dyn crate::Db, ast_source: AstSourceFile) -> crate::LowerResult {
+    if ast_source.file(salsa_db).root(salsa_db) {
+        lower_root(
+            salsa_db,
+            ast_source.file(salsa_db).file_id(salsa_db),
+            ast_source.source(salsa_db),
+        )
+    } else {
+        lower_sub_module(
+            salsa_db,
+            ast_source.file(salsa_db).file_id(salsa_db),
+            ast_source.source(salsa_db),
+        )
+    }
 }
 
 /// ルートファイルのASTからHIRの構築します。

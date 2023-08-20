@@ -1,9 +1,8 @@
 use std::sync::{Arc, Mutex};
 
-use ast::AstNode;
 use salsa::DebugWithDb;
 
-use crate::{lower_root, lower_sub_module, FileId};
+use crate::FileId;
 
 /// 入力元のNailファイルです。
 #[salsa::input]
@@ -12,19 +11,11 @@ pub struct NailFile {
     pub file_id: FileId,
 
     /// ルートファイルか
-    root: bool,
+    pub root: bool,
 
     /// ファイルの内容
     #[return_ref]
     pub contents: String,
-}
-
-/// ファイルを元にASTを構築します。
-#[salsa::tracked]
-pub fn parse_to_ast(db: &dyn crate::Db, nail_file: NailFile) -> AstSourceFile {
-    let ast = parser::parse(nail_file.contents(db));
-    let ast_source_file = ast::SourceFile::cast(ast.syntax()).unwrap();
-    AstSourceFile::new(db, nail_file, ast_source_file)
 }
 
 #[salsa::tracked]
@@ -35,25 +26,6 @@ pub struct AstSourceFile {
     /** AST */
     #[salsa::return_ref]
     pub source: ast::SourceFile,
-}
-
-
-/// ASTを元に[ItemTree]を構築します。
-#[salsa::tracked]
-pub fn build_hir(salsa_db: &dyn crate::Db, ast_source: AstSourceFile) -> crate::LowerResult {
-    if ast_source.file(salsa_db).root(salsa_db) {
-        lower_root(
-            salsa_db,
-            ast_source.file(salsa_db).file_id(salsa_db),
-            ast_source.source(salsa_db),
-        )
-    } else {
-        lower_sub_module(
-            salsa_db,
-            ast_source.file(salsa_db).file_id(salsa_db),
-            ast_source.source(salsa_db),
-        )
-    }
 }
 
 #[derive(Default)]

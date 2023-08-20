@@ -212,52 +212,6 @@ impl SourceDatabaseTrait for FixtureDatabase {
     }
 }
 
-/// ファイルシステムを使用しない、ファイルレスのソースコードを管理するデータベース
-/// ファイルシステムを使用する場合、代わりにpanicします。
-/// 主なユースケースは、REPLやプレイグラウンドです。
-pub struct FilelessSourceDatabase {
-    dummy_source_root: FileId,
-    content: String,
-    file_path_interner: FilePathInterner,
-}
-impl FilelessSourceDatabase {
-    /// 入力元のソースコードを構成する文字列をパースして、データベースを構築します。
-    ///
-    /// # Arguments
-    ///
-    /// * `content` - ソースコードを構成する文字列
-    pub fn new(content: &str) -> Self {
-        let mut file_path_interner = FilePathInterner::new();
-        let dummy_source_root = FileId(file_path_interner.intern(".dummy"));
-        Self {
-            dummy_source_root,
-            content: content.to_string(),
-            file_path_interner,
-        }
-    }
-}
-impl SourceDatabaseTrait for FilelessSourceDatabase {
-    fn source_root(&self) -> FileId {
-        self.dummy_source_root
-    }
-
-    fn register_file_with_read(&mut self, _path: &str) -> FileId {
-        unreachable!("unsupported registering file");
-    }
-
-    fn file_path(&self, file_id: FileId) -> &str {
-        file_id.file_path(&self.file_path_interner)
-    }
-
-    fn content(&self, file_id: FileId) -> Option<&str> {
-        if file_id != self.dummy_source_root {
-            panic!("not source root file: {file_id:?}");
-        }
-
-        Some(self.content.as_str())
-    }
-}
-
 /// ファイルシステムを使用する、ソースコードを管理するデータベース
 pub struct SourceDatabase {
     source_root: Option<FileId>,

@@ -182,42 +182,33 @@ pub fn parse_to_ast(db: &dyn crate::Db, nail_file: NailFile) -> AstSourceFile {
 /// ASTを元に[ItemTree]を構築します。
 #[salsa::tracked]
 pub fn build_hir(salsa_db: &dyn crate::Db, ast_source: AstSourceFile) -> crate::LowerResult {
-    if ast_source.file(salsa_db).root(salsa_db) {
-        lower_root(
-            salsa_db,
-            ast_source.file(salsa_db).file_id(salsa_db),
-            ast_source.source(salsa_db),
-        )
-    } else {
-        lower_sub_module(
-            salsa_db,
-            ast_source.file(salsa_db).file_id(salsa_db),
-            ast_source.source(salsa_db),
-        )
-    }
-}
+    let file_id = ast_source.file(salsa_db).file_id(salsa_db);
+    let source_file = ast_source.source(salsa_db);
 
-/// ルートファイルのASTからHIRの構築します。
-pub fn lower_root(salsa_db: &dyn Db, file_id: FileId, ast: ast::SourceFile) -> LowerResult {
     let mut db = Database::new();
     let item_tree_builder = ItemTreeBuilderContext::new(file_id);
-    let item_tree = item_tree_builder.build(salsa_db, &ast, &mut db);
+    let item_tree = item_tree_builder.build(salsa_db, &source_file, &mut db);
 
     let mut shared_ctx = SharedBodyLowerContext::new();
 
     let mut top_level_ctx = BodyLower::new(file_id, HashMap::new());
-    let top_level_items = ast
+    let top_level_items = source_file
         .items()
         .filter_map(|item| {
             top_level_ctx.lower_toplevel(salsa_db, item, &mut shared_ctx, &db, &item_tree)
         })
         .collect::<Vec<_>>();
 
-    let mut errors = vec![];
-    let entry_point = get_entry_point(salsa_db, &top_level_items, &db);
-    if entry_point.is_none() {
-        errors.push(LowerError::UndefinedEntryPoint);
-    }
+    let (errors, entry_point) = if ast_source.file(salsa_db).root(salsa_db) {
+        let mut errors = vec![];
+        let entry_point = get_entry_point(salsa_db, &top_level_items, &db);
+        if entry_point.is_none() {
+            errors.push(LowerError::UndefinedEntryPoint);
+        }
+        (errors, entry_point)
+    } else {
+        (vec![], None)
+    };
 
     LowerResult {
         file_id,
@@ -227,33 +218,6 @@ pub fn lower_root(salsa_db: &dyn Db, file_id: FileId, ast: ast::SourceFile) -> L
         db,
         item_tree,
         errors,
-    }
-}
-
-/// サブファイル(モジュール)のASTからHIRを構築します。
-fn lower_sub_module(salsa_db: &dyn Db, file_id: FileId, ast: ast::SourceFile) -> LowerResult {
-    let mut db = Database::new();
-    let item_tree_builder = ItemTreeBuilderContext::new(file_id);
-    let item_tree = item_tree_builder.build(salsa_db, &ast, &mut db);
-
-    let mut shared_ctx = SharedBodyLowerContext::new();
-
-    let mut top_level_ctx = BodyLower::new(file_id, HashMap::new());
-    let top_level_items = ast
-        .items()
-        .filter_map(|item| {
-            top_level_ctx.lower_toplevel(salsa_db, item, &mut shared_ctx, &db, &item_tree)
-        })
-        .collect::<Vec<_>>();
-
-    LowerResult {
-        file_id,
-        shared_ctx,
-        top_level_items,
-        entry_point: None,
-        db,
-        item_tree,
-        errors: vec![],
     }
 }
 

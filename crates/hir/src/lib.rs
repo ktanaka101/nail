@@ -28,7 +28,7 @@ mod body;
 mod db;
 mod input;
 mod item_tree;
-mod string_interner;
+mod salsa_db;
 
 use std::{collections::HashMap, marker::PhantomData};
 
@@ -41,8 +41,17 @@ pub use input::{
 use item_tree::ItemTreeBuilderContext;
 pub use item_tree::{Function, ItemDefId, ItemTree, Module, ModuleKind, Param, Type, UseItem};
 use la_arena::Idx;
-use string_interner::{Interner, Key};
+pub use salsa_db::{build_hir, parse_to_ast, AstSourceFile, NailFile, SalsaDatabase};
 use syntax::SyntaxNodePtr;
+
+/// ここに`salsa`データを定義します。
+#[salsa::jar(db = Db)]
+pub struct Jar(Name, NailFile, parse_to_ast, AstSourceFile, build_hir);
+
+/// [Jar]用のDBトレイトです。
+pub trait Db: salsa::DbWithJar<Jar> {}
+
+impl<DB> Db for DB where DB: ?Sized + salsa::DbWithJar<Jar> {}
 
 /// PodはNailにおけるパッケージの単位です。
 #[derive(Debug)]
@@ -84,11 +93,11 @@ impl Pod {
 }
 
 /// ルートファイル、サブファイルをパースし、Podを構築します。
-pub fn parse_pod(path: &str, source_db: &mut dyn SourceDatabaseTrait) -> Pod {
+pub fn parse_pod(salsa_db: &dyn Db, path: &str, source_db: &mut dyn SourceDatabaseTrait) -> Pod {
     let mut lower_result_by_file = HashMap::new();
     let mut registration_order = vec![];
 
-    let root_result = parse_root(path, source_db);
+    let root_result = parse_root(salsa_db, path, source_db);
 
     let dir = std::path::PathBuf::from(path);
     for (_, module) in root_result.db.modules() {
@@ -96,14 +105,15 @@ pub fn parse_pod(path: &str, source_db: &mut dyn SourceDatabaseTrait) -> Pod {
             continue;
         }
 
-        let sub_module_name = module.name.lookup_self(&root_result.interner);
+        let sub_module_name = module.name.text(salsa_db);
         let sub_module_file_name = dir.with_file_name(format!("{sub_module_name}.nail"));
         let sub_module_file_id =
             source_db.register_file_with_read(sub_module_file_name.to_str().unwrap());
         let sub_module_file_content = sub_module_file_id.file_content(source_db).unwrap();
         dbg!(&sub_module_file_content);
 
-        let sub_module_result = parse_sub_module(sub_module_file_id, sub_module_file_content);
+        let sub_module_result =
+            parse_sub_module(salsa_db, sub_module_file_id, sub_module_file_content);
         lower_result_by_file.insert(sub_module_file_id, sub_module_result);
         registration_order.push(sub_module_file_id);
     }
@@ -117,14 +127,14 @@ pub fn parse_pod(path: &str, source_db: &mut dyn SourceDatabaseTrait) -> Pod {
 }
 
 /// HIR構築時のエラー
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LowerError {
     /// エントリーポイントが見つからない場合
     UndefinedEntryPoint,
 }
 
 /// HIR構築結果
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LowerResult {
     /// ファイルID
     pub file_id: FileId,
@@ -140,8 +150,6 @@ pub struct LowerResult {
     pub db: Database,
     /// アイテムツリー
     pub item_tree: ItemTree,
-    /// シンボルインターナ
-    pub interner: Interner,
     /// エラー一覧
     pub errors: Vec<LowerError>,
 }
@@ -154,29 +162,32 @@ impl LowerResult {
 }
 
 /// 指定したファイルパスをルートファイルとして、ファイルの読み込みからHIRの構築まで行います。
-pub fn parse_root(path: &str, source_db: &mut dyn SourceDatabaseTrait) -> LowerResult {
+pub fn parse_root(
+    salsa_db: &dyn Db,
+    path: &str,
+    source_db: &mut dyn SourceDatabaseTrait,
+) -> LowerResult {
     let file_id = source_db.register_file_with_read(path);
 
     let ast = parser::parse(source_db.content(file_id).unwrap());
     let ast = ast::SourceFile::cast(ast.syntax()).unwrap();
 
-    lower_root(file_id, ast)
+    lower_root(salsa_db, file_id, ast)
 }
 
 /// 指定したファイル内容をサブファイル(サブモジュール)として、HIRの構築まで行います。
-fn parse_sub_module(file_id: FileId, file_content: &str) -> LowerResult {
+fn parse_sub_module(salsa_db: &dyn Db, file_id: FileId, file_content: &str) -> LowerResult {
     let ast = parser::parse(file_content);
     let ast = ast::SourceFile::cast(ast.syntax()).unwrap();
 
-    lower_sub_module(file_id, ast)
+    lower_sub_module(salsa_db, file_id, ast)
 }
 
 /// ルートファイルのASTからHIRの構築します。
-pub fn lower_root(file_id: FileId, ast: ast::SourceFile) -> LowerResult {
-    let mut interner = Interner::new();
+pub fn lower_root(salsa_db: &dyn Db, file_id: FileId, ast: ast::SourceFile) -> LowerResult {
     let mut db = Database::new();
-    let item_tree_builder = ItemTreeBuilderContext::new(file_id, &mut interner);
-    let item_tree = item_tree_builder.build(file_id, &ast, &mut db);
+    let item_tree_builder = ItemTreeBuilderContext::new(file_id);
+    let item_tree = item_tree_builder.build(salsa_db, &ast, &mut db);
 
     let mut shared_ctx = SharedBodyLowerContext::new();
 
@@ -184,12 +195,12 @@ pub fn lower_root(file_id: FileId, ast: ast::SourceFile) -> LowerResult {
     let top_level_items = ast
         .items()
         .filter_map(|item| {
-            top_level_ctx.lower_toplevel(item, &mut shared_ctx, &db, &item_tree, &mut interner)
+            top_level_ctx.lower_toplevel(salsa_db, item, &mut shared_ctx, &db, &item_tree)
         })
         .collect::<Vec<_>>();
 
     let mut errors = vec![];
-    let entry_point = get_entry_point(&top_level_items, &db, &interner);
+    let entry_point = get_entry_point(salsa_db, &top_level_items, &db);
     if entry_point.is_none() {
         errors.push(LowerError::UndefinedEntryPoint);
     }
@@ -201,17 +212,15 @@ pub fn lower_root(file_id: FileId, ast: ast::SourceFile) -> LowerResult {
         entry_point,
         db,
         item_tree,
-        interner,
         errors,
     }
 }
 
 /// サブファイル(モジュール)のASTからHIRを構築します。
-fn lower_sub_module(file_id: FileId, ast: ast::SourceFile) -> LowerResult {
-    let mut interner = Interner::new();
+fn lower_sub_module(salsa_db: &dyn Db, file_id: FileId, ast: ast::SourceFile) -> LowerResult {
     let mut db = Database::new();
-    let item_tree_builder = ItemTreeBuilderContext::new(file_id, &mut interner);
-    let item_tree = item_tree_builder.build(file_id, &ast, &mut db);
+    let item_tree_builder = ItemTreeBuilderContext::new(file_id);
+    let item_tree = item_tree_builder.build(salsa_db, &ast, &mut db);
 
     let mut shared_ctx = SharedBodyLowerContext::new();
 
@@ -219,7 +228,7 @@ fn lower_sub_module(file_id: FileId, ast: ast::SourceFile) -> LowerResult {
     let top_level_items = ast
         .items()
         .filter_map(|item| {
-            top_level_ctx.lower_toplevel(item, &mut shared_ctx, &db, &item_tree, &mut interner)
+            top_level_ctx.lower_toplevel(salsa_db, item, &mut shared_ctx, &db, &item_tree)
         })
         .collect::<Vec<_>>();
 
@@ -230,7 +239,6 @@ fn lower_sub_module(file_id: FileId, ast: ast::SourceFile) -> LowerResult {
         entry_point: None,
         db,
         item_tree,
-        interner,
         errors: vec![],
     }
 }
@@ -240,16 +248,16 @@ fn lower_sub_module(file_id: FileId, ast: ast::SourceFile) -> LowerResult {
 /// エントリポイントが見つからない場合は`None`を返します。
 /// エントリポイントが複数存在する場合は、最初に見つかったものを返します。
 fn get_entry_point(
+    salsa_db: &dyn Db,
     top_level_items: &[ItemDefId],
     db: &Database,
-    interner: &Interner,
 ) -> Option<FunctionId> {
     for item in top_level_items {
         match item {
             ItemDefId::Function(function_id) => {
                 let function = function_id.lookup(db);
                 if let Some(name) = function.name {
-                    if interner.lookup(name.key()) == "main" {
+                    if name.text(salsa_db) == "main" {
                         return Some(*function_id);
                     }
                 }
@@ -291,29 +299,14 @@ pub struct InFile<T> {
 /// HIR中に現れるシンボルを表します
 /// メモリ効率のため、シンボルは文字列のインデックスとして表現されます
 /// 元の文字列は[Interner]によって管理されます
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Name(Key);
-impl Name {
-    /// 元の文字列を取得します。
-    pub fn lookup_self<'a>(&self, interner: &'a Interner) -> &'a str {
-        interner.lookup(self.0)
-    }
-
-    /// 内部表現であるキーを取得します
-    ///
-    /// このキーは[Interner]によって管理されている文字列の参照用の値です。
-    pub fn key(&self) -> Key {
-        self.0
-    }
-
-    /// キーから[Name]を取得します
-    fn from_key(key: Key) -> Self {
-        Self(key)
-    }
+#[salsa::interned]
+pub struct Name {
+    #[return_ref]
+    pub text: String,
 }
 
 /// ステートメントです。
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Stmt {
     /// 変数定義を表します。
     ///
@@ -342,7 +335,7 @@ pub enum Stmt {
 }
 
 /// リテラル
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Literal {
     /// 整数リテラルです。
     Integer(u64),
@@ -355,7 +348,7 @@ pub enum Literal {
 }
 
 /// 式
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Expr {
     /// ローカル変数や関数の参照名です。
     ///
@@ -447,7 +440,7 @@ impl Path {
 /// let a = 10;
 /// a // Symbol::Local { name: "a", expr: ExprId(0) }
 /// ```
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Symbol {
     /// 関数パラメータ
     Param {
@@ -484,7 +477,7 @@ pub enum Symbol {
 ///     let a = 10;
 /// } // Block { stmts: [Stmt::VariableDef { name: "a", value: ExprId(0) }], tail: None }
 /// ```
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Block {
     /// ブロック内のステートメント一覧
     pub stmts: Vec<Stmt>,

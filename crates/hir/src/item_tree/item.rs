@@ -76,7 +76,7 @@ pub struct Function {
 }
 
 /// モジュール定義を表す
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Module {
     /// モジュール名
     pub name: Name,
@@ -90,7 +90,7 @@ pub struct Module {
 /// モジュール定義には以下の2種類があります。
 /// - 別ファイルにモジュールがあることを表す`mod outline;`
 /// - 1ファイル中にインラインで記述可能な`mod inline { /** モジュール内 */ }`
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ModuleKind {
     /// インラインモジュール
     ///
@@ -127,7 +127,7 @@ pub enum ModuleKind {
 /// アイテムの使用宣言を表す
 ///
 /// 例: `use std::io::println;`
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UseItem {
     /// 使用宣言の名前
     ///

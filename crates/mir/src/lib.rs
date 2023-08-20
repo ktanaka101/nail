@@ -19,13 +19,17 @@ use hir_ty::ResolvedType;
 use la_arena::{Arena, Idx};
 
 /// HIRとTyped HIRからMIRを構築する
-pub fn lower(hir_result: &hir::LowerResult, hir_ty_result: &hir_ty::TyLowerResult) -> LowerResult {
+pub fn lower(
+    salsa_db: &dyn hir::Db,
+    hir_result: &hir::LowerResult,
+    hir_ty_result: &hir_ty::TyLowerResult,
+) -> LowerResult {
     let mir_lower = MirLower {
         hir_result,
         hir_ty_result,
     };
 
-    mir_lower.lower()
+    mir_lower.lower(salsa_db)
 }
 
 struct FunctionLower<'a> {
@@ -617,7 +621,7 @@ struct MirLower<'a> {
 }
 
 impl<'a> MirLower<'a> {
-    fn lower(self) -> LowerResult {
+    fn lower(self, salsa_db: &dyn hir::Db) -> LowerResult {
         let mut entry_point: Option<Idx<Body>> = None;
         let mut bodies = Arena::new();
 
@@ -653,10 +657,7 @@ impl<'a> MirLower<'a> {
                 *function_id_by_hir_function.get(&function_id).unwrap(),
             );
 
-            let name = self
-                .hir_result
-                .interner
-                .lookup(function.name.unwrap().key());
+            let name = function.name.unwrap().text(salsa_db);
             if name == "main" {
                 assert_eq!(entry_point, None);
                 entry_point = Some(body_idx);
@@ -1016,7 +1017,6 @@ pub enum BasicBlockKind {
 
 #[cfg(test)]
 mod tests {
-    use ast::AstNode;
     use expect_test::{expect, Expect};
     use hir::SourceDatabaseTrait;
     use hir_ty::ResolvedType;
@@ -1025,45 +1025,54 @@ mod tests {
         let mut fixture = fixture.to_string();
         fixture.insert_str(0, "//- /main.nail\n");
 
+        let salsa_db = hir::SalsaDatabase::default();
         let source_db = hir::FixtureDatabase::new(&fixture);
         let source_root_file_id = source_db.source_root();
         let source_root_file_content = source_db.content(source_root_file_id).unwrap();
 
-        let parsed = parser::parse(source_root_file_content);
-        let ast = ast::SourceFile::cast(parsed.syntax()).unwrap();
-        let hir_result = hir::lower_root(source_root_file_id, ast);
+        let ast = hir::parse_to_ast(
+            &salsa_db,
+            hir::NailFile::new(
+                &salsa_db,
+                source_root_file_id,
+                true,
+                source_root_file_content.to_string(),
+            ),
+        );
+        let hir_result = hir::build_hir(&salsa_db, ast);
         let ty_hir_result = hir_ty::lower(&hir_result);
 
-        let mir_result = crate::lower(&hir_result, &ty_hir_result);
+        let mir_result = crate::lower(&salsa_db, &hir_result, &ty_hir_result);
 
-        expect.assert_eq(&debug(&hir_result, &ty_hir_result, &mir_result));
+        expect.assert_eq(&debug(&salsa_db, &hir_result, &ty_hir_result, &mir_result));
     }
 
     fn indent(nesting: usize) -> String {
         "    ".repeat(nesting)
     }
 
-    fn debug_path(path: &hir::Path, hir_result: &hir::LowerResult) -> String {
+    fn debug_path(salsa_db: &dyn hir::Db, path: &hir::Path) -> String {
         let mut msg = "".to_string();
         for (idx, segment) in path.segments().iter().enumerate() {
             if idx > 0 {
                 msg.push_str("::");
             }
-            msg.push_str(hir_result.interner.lookup(segment.key()));
+            msg.push_str(segment.text(salsa_db));
         }
         msg
     }
 
     fn debug(
-        hir_result: &hir::LowerResult,
+        salsa_db: &dyn hir::Db,
+        _hir_result: &hir::LowerResult,
         _hir_ty_result: &hir_ty::TyLowerResult,
         mir_result: &crate::LowerResult,
     ) -> String {
         let mut msg = "".to_string();
 
         for (_body_idx, body) in mir_result.bodies.iter() {
-            let path = debug_path(&body.path, hir_result);
-            let name = hir_result.interner.lookup(body.name.key());
+            let path = debug_path(salsa_db, &body.path);
+            let name = body.name.text(salsa_db);
             if path.is_empty() {
                 msg.push_str(&format!("fn {name}("));
             } else {
@@ -1110,7 +1119,7 @@ mod tests {
                     msg.push_str(&format!(
                         "{}{}\n",
                         indent(2),
-                        debug_termination(termination, body, hir_result, mir_result)
+                        debug_termination(salsa_db, termination, body, mir_result)
                     ));
                 }
 
@@ -1209,9 +1218,9 @@ mod tests {
     }
 
     fn debug_termination(
+        salsa_db: &dyn hir::Db,
         termination: &crate::Termination,
         body: &crate::Body,
-        hir_result: &hir::LowerResult,
         mir_result: &crate::LowerResult,
     ) -> String {
         match termination {
@@ -1241,7 +1250,7 @@ mod tests {
             } => {
                 let function = mir_result.body_by_function[function];
                 let function_name = mir_result.bodies[function].name;
-                let function_name = hir_result.interner.lookup(function_name.key());
+                let function_name = function_name.text(salsa_db);
                 let args = debug_args(args, body);
                 let dest = debug_place(destination, body);
                 let target_bb_name = debug_bb_name_by_idx(*target, body);

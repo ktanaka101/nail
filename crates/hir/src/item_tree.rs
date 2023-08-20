@@ -8,7 +8,6 @@ pub use item_scope::{ItemScope, ParentScope};
 
 use crate::{
     db::{Database, FunctionId, ItemScopeId, ModuleId, UseItemId},
-    string_interner::Interner,
     AstId, FileId, Name, Path,
 };
 
@@ -150,7 +149,7 @@ impl ItemTree {
 }
 
 /// アイテムツリー構築用コンテキスト
-pub(crate) struct ItemTreeBuilderContext<'a> {
+pub(crate) struct ItemTreeBuilderContext {
     file_id: FileId,
     scope_by_block: HashMap<BlockAstId, ItemScopeId>,
     block_by_scope: HashMap<ItemScopeId, BlockAstId>,
@@ -162,12 +161,10 @@ pub(crate) struct ItemTreeBuilderContext<'a> {
     module_by_ast_module: HashMap<ModuleAstId, ModuleId>,
 
     use_item_by_ast_use: HashMap<UseAstId, UseItemId>,
-
-    interner: &'a mut Interner,
 }
-impl<'a> ItemTreeBuilderContext<'a> {
+impl ItemTreeBuilderContext {
     /// コンテキストを作成します。
-    pub(crate) fn new(file_id: FileId, interner: &'a mut Interner) -> Self {
+    pub(crate) fn new(file_id: FileId) -> Self {
         Self {
             file_id,
             scope_by_block: HashMap::new(),
@@ -178,14 +175,13 @@ impl<'a> ItemTreeBuilderContext<'a> {
             scope_by_module: HashMap::new(),
             module_by_ast_module: HashMap::new(),
             use_item_by_ast_use: HashMap::new(),
-            interner,
         }
     }
 
     /// アイテムツリーを構築します。
     pub(crate) fn build(
         mut self,
-        file_id: FileId,
+        salsa_db: &dyn crate::Db,
         ast: &ast::SourceFile,
         db: &mut Database,
     ) -> ItemTree {
@@ -194,6 +190,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
 
         for item in ast.items() {
             self.build_item(
+                salsa_db,
                 item,
                 top_level_scope_id,
                 ParentScope::new(top_level_scope_id),
@@ -202,7 +199,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
         }
 
         ItemTree {
-            file_id,
+            file_id: self.file_id,
             top_level_scope: top_level_scope_id,
             scope_by_block: self.scope_by_block,
             block_by_scope: self.block_by_scope,
@@ -219,6 +216,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
     /// アイテムが構築できなかった場合は`None`を返します。
     fn build_item(
         &mut self,
+        salsa_db: &dyn crate::Db,
         item: ast::Item,
         current_scope: ItemScopeId,
         parent: ParentScope,
@@ -232,11 +230,9 @@ impl<'a> ItemTreeBuilderContext<'a> {
                     .params()
                     .enumerate()
                     .map(|(pos, param)| {
-                        let name = if let Some(name) = param.name() {
-                            Some(Name::from_key(self.interner.intern(name.name())))
-                        } else {
-                            None
-                        };
+                        let name = param
+                            .name()
+                            .map(|name| Name::new(salsa_db, name.name().to_string()));
                         let ty = self.lower_ty(param.ty());
                         let param = Param { name, ty, pos };
                         db.alloc_param(param)
@@ -256,11 +252,9 @@ impl<'a> ItemTreeBuilderContext<'a> {
                     Type::Unit
                 };
 
-                let name = if let Some(name) = def.name() {
-                    Some(Name::from_key(self.interner.intern(name.name())))
-                } else {
-                    None
-                };
+                let name = def
+                    .name()
+                    .map(|name| Name::new(salsa_db, name.name().to_string()));
 
                 let ast_id = db.alloc_node(&def, self.file_id);
                 let function = Function {
@@ -276,18 +270,18 @@ impl<'a> ItemTreeBuilderContext<'a> {
                     current_scope.lookup_mut(db).insert_function(name, function);
                 }
 
-                let block = self.build_block(block, parent, db, name);
+                let block = self.build_block(salsa_db, block, parent, db, name);
                 self.function_by_block.insert(block.clone(), function);
                 self.block_by_function.insert(function, block);
 
                 Some(ItemDefId::Function(function))
             }
             ast::Item::Module(module) => {
-                let module_id = self.build_module(&module, current_scope, parent, db)?;
+                let module_id = self.build_module(salsa_db, &module, current_scope, parent, db)?;
                 Some(ItemDefId::Module(module_id))
             }
             ast::Item::Use(r#use) => {
-                let use_item_id = self.build_use(&r#use, current_scope, parent, db)?;
+                let use_item_id = self.build_use(salsa_db, &r#use, current_scope, parent, db)?;
                 Some(ItemDefId::UseItem(use_item_id))
             }
         }
@@ -297,6 +291,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
     /// ステートメントが構築できなかった場合は`None`を返します。
     fn build_stmt(
         &mut self,
+        salsa_db: &dyn crate::Db,
         stmt: ast::Stmt,
         current_scope: ItemScopeId,
         parent: ParentScope,
@@ -304,13 +299,13 @@ impl<'a> ItemTreeBuilderContext<'a> {
     ) -> Option<()> {
         match stmt {
             ast::Stmt::ExprStmt(expr_stmt) => {
-                self.build_expr(expr_stmt.expr()?, current_scope, parent, db)?
+                self.build_expr(salsa_db, expr_stmt.expr()?, current_scope, parent, db)?
             }
             ast::Stmt::VariableDef(def) => {
-                self.build_expr(def.value()?, current_scope, parent, db)?
+                self.build_expr(salsa_db, def.value()?, current_scope, parent, db)?
             }
             ast::Stmt::Item(item) => {
-                self.build_item(item, current_scope, parent, db)?;
+                self.build_item(salsa_db, item, current_scope, parent, db)?;
             }
         }
 
@@ -349,6 +344,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
     /// ```
     fn build_expr(
         &mut self,
+        salsa_db: &dyn crate::Db,
         expr: ast::Expr,
         _current_scope: ItemScopeId,
         parent: ParentScope,
@@ -356,22 +352,28 @@ impl<'a> ItemTreeBuilderContext<'a> {
     ) -> Option<()> {
         match expr {
             ast::Expr::BinaryExpr(binary) => {
-                self.build_expr(binary.lhs()?, _current_scope, parent.clone(), db)?;
-                self.build_expr(binary.rhs()?, _current_scope, parent, db)?;
+                self.build_expr(salsa_db, binary.lhs()?, _current_scope, parent.clone(), db)?;
+                self.build_expr(salsa_db, binary.rhs()?, _current_scope, parent, db)?;
             }
             ast::Expr::ParenExpr(paren) => {
-                self.build_expr(paren.expr()?, _current_scope, parent, db)?;
+                self.build_expr(salsa_db, paren.expr()?, _current_scope, parent, db)?;
             }
             ast::Expr::UnaryExpr(unary) => {
-                self.build_expr(unary.expr()?, _current_scope, parent, db)?;
+                self.build_expr(salsa_db, unary.expr()?, _current_scope, parent, db)?;
             }
             ast::Expr::BlockExpr(block) => {
-                self.build_block(block, parent, db, None);
+                self.build_block(salsa_db, block, parent, db, None);
             }
             ast::Expr::IfExpr(if_expr) => {
-                self.build_expr(if_expr.condition()?, _current_scope, parent.clone(), db)?;
-                self.build_block(if_expr.then_branch()?, parent.clone(), db, None);
-                self.build_block(if_expr.else_branch()?, parent, db, None);
+                self.build_expr(
+                    salsa_db,
+                    if_expr.condition()?,
+                    _current_scope,
+                    parent.clone(),
+                    db,
+                )?;
+                self.build_block(salsa_db, if_expr.then_branch()?, parent.clone(), db, None);
+                self.build_block(salsa_db, if_expr.else_branch()?, parent, db, None);
             }
             _ => (),
         };
@@ -382,6 +384,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
     /// ブロックを構築します。
     fn build_block(
         &mut self,
+        salsa_db: &dyn crate::Db,
         block: ast::BlockExpr,
         parent: ParentScope,
         db: &mut Database,
@@ -396,7 +399,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
         let block_ast_id = db.alloc_node(&block, self.file_id);
         let current = ParentScope::new(scope_id);
         for stmt in block.stmts() {
-            self.build_stmt(stmt, scope_id, current.clone(), db);
+            self.build_stmt(salsa_db, stmt, scope_id, current.clone(), db);
         }
 
         self.scope_by_block.insert(block_ast_id.clone(), scope_id);
@@ -409,13 +412,14 @@ impl<'a> ItemTreeBuilderContext<'a> {
     /// モジュールを構築できなかった場合は`None`を返します。
     fn build_module(
         &mut self,
+        salsa_db: &dyn crate::Db,
         module: &ast::Module,
         current_scope: ItemScopeId,
         parent: ParentScope,
         db: &mut Database,
     ) -> Option<ModuleId> {
         if let Some(name) = module.name() {
-            let module_name = Name::from_key(self.interner.intern(name.name()));
+            let module_name = Name::new(salsa_db, name.name().to_string());
 
             let scope = ItemScope::new_with_name(Some(parent), module_name);
             let scope_id = db.alloc_item_scope(scope);
@@ -429,7 +433,9 @@ impl<'a> ItemTreeBuilderContext<'a> {
             let hir_module = if let Some(item_list) = module.items() {
                 let mut items = vec![];
                 for item in item_list.items() {
-                    if let Some(item) = self.build_item(item, scope_id, current.clone(), db) {
+                    if let Some(item) =
+                        self.build_item(salsa_db, item, scope_id, current.clone(), db)
+                    {
                         items.push(item);
                     }
                 }
@@ -461,6 +467,7 @@ impl<'a> ItemTreeBuilderContext<'a> {
     /// アイテムを構築できなかった場合は`None`を返します。
     fn build_use(
         &mut self,
+        salsa_db: &dyn crate::Db,
         r#use: &ast::Use,
         current_scope: ItemScopeId,
         _parent: ParentScope,
@@ -470,13 +477,10 @@ impl<'a> ItemTreeBuilderContext<'a> {
         match use_path.as_slice() {
             [] => unreachable!("use path should not be empty"),
             [path @ .., name] => {
-                let name = Name::from_key(self.interner.intern(name.name().unwrap().name()));
+                let name = Name::new(salsa_db, name.name().unwrap().name().to_string());
                 let segments = path
                     .iter()
-                    .map(|segment| {
-                        let key = self.interner.intern(segment.name().unwrap().name());
-                        Name::from_key(key)
-                    })
+                    .map(|segment| Name::new(salsa_db, segment.name().unwrap().name().to_string()))
                     .collect::<Vec<_>>();
                 let path = Path { segments };
                 let use_item = UseItem {

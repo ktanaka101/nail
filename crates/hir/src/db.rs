@@ -70,7 +70,7 @@ impl UseItemId {
 }
 
 /// HIRのさまざまな値を保持するデータベースです。
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Database {
     functions: Arena<Function>,
     params: Arena<Param>,

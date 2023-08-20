@@ -58,7 +58,6 @@ impl TyLowerResult {
 
 #[cfg(test)]
 mod tests {
-    use ast::AstNode;
     use expect_test::{expect, Expect};
     use hir::{Name, Path, SourceDatabaseTrait, Symbol};
 
@@ -68,15 +67,24 @@ mod tests {
         let mut fixture = fixture.to_string();
         fixture.insert_str(0, "//- /main.nail\n");
 
+        let salsa_db = hir::SalsaDatabase::default();
         let source_db = hir::FixtureDatabase::new(&fixture);
         let source_root_file_id = source_db.source_root();
         let source_root_file_content = source_db.content(source_root_file_id).unwrap();
 
-        let parsed = parser::parse(source_root_file_content);
-        let ast = ast::SourceFile::cast(parsed.syntax()).unwrap();
-        let lower_result = hir::lower_root(source_root_file_id, ast);
+        let ast = hir::parse_to_ast(
+            &salsa_db,
+            hir::NailFile::new(
+                &salsa_db,
+                source_root_file_id,
+                true,
+                source_root_file_content.to_string(),
+            ),
+        );
+        let lower_result = hir::build_hir(&salsa_db, ast);
         let result = lower(&lower_result);
         expect.assert_eq(&debug(
+            &salsa_db,
             &result.inference_result,
             &result.type_check_result,
             &lower_result,
@@ -84,6 +92,7 @@ mod tests {
     }
 
     fn debug(
+        salsa_db: &dyn hir::Db,
         inference_result: &InferenceResult,
         check_result: &TypeCheckResult,
         lower_result: &hir::LowerResult,
@@ -108,7 +117,7 @@ mod tests {
         let mut indexes = inference_result.type_by_expr.keys().collect::<Vec<_>>();
         indexes.sort();
         for expr_id in indexes {
-            let expr = debug_hir_expr(expr_id, lower_result);
+            let expr = debug_hir_expr(salsa_db, expr_id, lower_result);
             msg.push_str(&format!(
                 "`{}`: {}\n",
                 expr,
@@ -123,7 +132,7 @@ mod tests {
                 TypeCheckError::UnresolvedType { expr } => {
                     msg.push_str(&format!(
                         "error: `{}` is unresolved type.\n",
-                        debug_hir_expr(expr, lower_result),
+                        debug_hir_expr(salsa_db, expr, lower_result),
                     ));
                 }
                 TypeCheckError::MismatchedTypes {
@@ -136,8 +145,8 @@ mod tests {
                         "error: expected {}, found {} by `{}` and `{}`\n",
                         debug_type(expected_ty),
                         debug_type(found_ty),
-                        debug_hir_expr(expected_expr, lower_result),
-                        debug_hir_expr(found_expr, lower_result)
+                        debug_hir_expr(salsa_db, expected_expr, lower_result),
+                        debug_hir_expr(salsa_db, found_expr, lower_result)
                     ));
                 }
                 TypeCheckError::MismaatchedSignature {
@@ -149,7 +158,7 @@ mod tests {
                     "error: expected {}, found {} by `{}`\n",
                     debug_type(expected_ty),
                     debug_type(found_ty),
-                    debug_hir_expr(found_expr, lower_result)
+                    debug_hir_expr(salsa_db, found_expr, lower_result)
                 )),
                 TypeCheckError::MismatchedTypeIfCondition {
                     expected_ty,
@@ -160,7 +169,7 @@ mod tests {
                         "error: expected {}, found {} by `{}`\n",
                         debug_type(expected_ty),
                         debug_type(found_ty),
-                        debug_hir_expr(found_expr, lower_result)
+                        debug_hir_expr(salsa_db, found_expr, lower_result)
                     ));
                 }
                 TypeCheckError::MismatchedTypeElseBranch {
@@ -172,7 +181,7 @@ mod tests {
                         "error: expected {}, found {} by `{}`\n",
                         debug_type(expected_ty),
                         debug_type(found_ty),
-                        debug_hir_expr(found_expr, lower_result)
+                        debug_hir_expr(salsa_db, found_expr, lower_result)
                     ));
                 }
                 TypeCheckError::MismatchedReturnType {
@@ -188,7 +197,7 @@ mod tests {
                     if let Some(found_expr) = found_expr {
                         msg.push_str(&format!(
                             " by `{}`",
-                            debug_hir_expr(found_expr, lower_result)
+                            debug_hir_expr(salsa_db, found_expr, lower_result)
                         ));
                     }
                     msg.push('\n');
@@ -199,14 +208,18 @@ mod tests {
         msg
     }
 
-    fn debug_hir_expr(expr_id: &hir::ExprId, lower_result: &hir::LowerResult) -> String {
+    fn debug_hir_expr(
+        salsa_db: &dyn hir::Db,
+        expr_id: &hir::ExprId,
+        lower_result: &hir::LowerResult,
+    ) -> String {
         let expr = expr_id.lookup(&lower_result.shared_ctx);
         match expr {
             hir::Expr::Symbol(symbol) => match symbol {
-                hir::Symbol::Param { name, .. } => debug_name(lower_result, *name),
-                hir::Symbol::Local { name, .. } => debug_name(lower_result, *name),
-                hir::Symbol::Function { path, .. } => debug_path(lower_result, path),
-                hir::Symbol::Missing { path, .. } => debug_path(lower_result, path),
+                hir::Symbol::Param { name, .. } => debug_name(salsa_db, *name),
+                hir::Symbol::Local { name, .. } => debug_name(salsa_db, *name),
+                hir::Symbol::Function { path, .. } => debug_path(salsa_db, path),
+                hir::Symbol::Missing { path, .. } => debug_path(salsa_db, path),
             },
             hir::Expr::Missing => "<missing>".to_string(),
             hir::Expr::Unary { op, expr } => {
@@ -214,7 +227,7 @@ mod tests {
                     ast::UnaryOp::Neg(_) => "-".to_string(),
                     ast::UnaryOp::Not(_) => "!".to_string(),
                 };
-                let expr = debug_hir_expr(expr, lower_result);
+                let expr = debug_hir_expr(salsa_db, expr, lower_result);
                 format!("{op}{expr}")
             }
             hir::Expr::Binary { op, lhs, rhs } => {
@@ -228,23 +241,26 @@ mod tests {
                     ast::BinaryOp::LessThan(_) => "<",
                 }
                 .to_string();
-                let lhs = debug_hir_expr(lhs, lower_result);
-                let rhs = debug_hir_expr(rhs, lower_result);
+                let lhs = debug_hir_expr(salsa_db, lhs, lower_result);
+                let rhs = debug_hir_expr(salsa_db, rhs, lower_result);
 
                 format!("{lhs} {op} {rhs}")
             }
             hir::Expr::Block(block) => {
                 if let Some(tail) = block.tail {
-                    format!("{{ .., {} }}", debug_hir_expr(&tail, lower_result))
+                    format!(
+                        "{{ .., {} }}",
+                        debug_hir_expr(salsa_db, &tail, lower_result)
+                    )
                 } else {
                     "{{ .. }}".to_string()
                 }
             }
             hir::Expr::Call { callee, args } => {
-                let name = debug_symbol(lower_result, callee);
+                let name = debug_symbol(salsa_db, callee);
                 let args = args
                     .iter()
-                    .map(|id| debug_hir_expr(id, lower_result))
+                    .map(|id| debug_hir_expr(salsa_db, id, lower_result))
                     .collect::<Vec<String>>()
                     .join(", ");
 
@@ -263,13 +279,13 @@ mod tests {
             } => {
                 let mut if_expr = format!(
                     "if {} {}",
-                    debug_hir_expr(condition, lower_result),
-                    debug_hir_expr(then_branch, lower_result)
+                    debug_hir_expr(salsa_db, condition, lower_result),
+                    debug_hir_expr(salsa_db, then_branch, lower_result)
                 );
                 if let Some(else_branch) = else_branch {
                     if_expr.push_str(&format!(
                         " else {}",
-                        debug_hir_expr(else_branch, lower_result)
+                        debug_hir_expr(salsa_db, else_branch, lower_result)
                     ));
                 }
 
@@ -278,7 +294,10 @@ mod tests {
             hir::Expr::Return { value } => {
                 let mut msg = "return".to_string();
                 if let Some(value) = value {
-                    msg.push_str(&format!(" {}", debug_hir_expr(value, lower_result)));
+                    msg.push_str(&format!(
+                        " {}",
+                        debug_hir_expr(salsa_db, value, lower_result)
+                    ));
                 }
 
                 msg
@@ -286,23 +305,23 @@ mod tests {
         }
     }
 
-    fn debug_symbol(lower_result: &LowerResult, symbol: &Symbol) -> String {
+    fn debug_symbol(salsa_db: &dyn hir::Db, symbol: &Symbol) -> String {
         match symbol {
-            hir::Symbol::Param { name, .. } => debug_name(lower_result, *name),
-            hir::Symbol::Local { name, .. } => debug_name(lower_result, *name),
-            hir::Symbol::Function { path, .. } => debug_path(lower_result, path),
-            hir::Symbol::Missing { path, .. } => debug_path(lower_result, path),
+            hir::Symbol::Param { name, .. } => debug_name(salsa_db, *name),
+            hir::Symbol::Local { name, .. } => debug_name(salsa_db, *name),
+            hir::Symbol::Function { path, .. } => debug_path(salsa_db, path),
+            hir::Symbol::Missing { path, .. } => debug_path(salsa_db, path),
         }
     }
 
-    fn debug_name(lower_result: &LowerResult, name: Name) -> String {
-        lower_result.interner.lookup(name.key()).to_string()
+    fn debug_name(salsa_db: &dyn hir::Db, name: Name) -> String {
+        name.text(salsa_db).to_string()
     }
 
-    fn debug_path(lower_result: &LowerResult, path: &Path) -> String {
+    fn debug_path(salsa_db: &dyn hir::Db, path: &Path) -> String {
         path.segments()
             .iter()
-            .map(|segment| lower_result.interner.lookup(segment.key()))
+            .map(|segment| segment.text(salsa_db).to_string())
             .collect::<Vec<_>>()
             .join("::")
     }

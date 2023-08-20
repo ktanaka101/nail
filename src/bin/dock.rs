@@ -4,6 +4,7 @@ use std::ffi::{c_char, CString};
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use hir::SourceDatabaseTrait;
 use inkwell::{context::Context, OptimizationLevel};
 
 #[derive(Debug, Parser)]
@@ -42,13 +43,33 @@ fn main() {
     }
 }
 
-fn lower(filepath: &str) -> (hir::LowerResult, hir_ty::TyLowerResult, mir::LowerResult) {
-    let mut source_db = hir::SourceDatabase::new(filepath);
+fn lower(
+    filepath: &str,
+) -> (
+    hir::SalsaDatabase,
+    hir::LowerResult,
+    hir_ty::TyLowerResult,
+    mir::LowerResult,
+) {
+    let salsa_db = hir::SalsaDatabase::default();
+    let source_db = hir::SourceDatabase::new(filepath);
 
-    let hir_result = hir::parse_root(filepath, &mut source_db);
+    let ast_source = hir::parse_to_ast(
+        &salsa_db,
+        hir::NailFile::new(
+            &salsa_db,
+            source_db.source_root(),
+            true,
+            source_db
+                .content(source_db.source_root())
+                .unwrap()
+                .to_string(),
+        ),
+    );
+    let hir_result = hir::build_hir(&salsa_db, ast_source);
     let ty_result = hir_ty::lower(&hir_result);
-    let mir_result = mir::lower(&hir_result, &ty_result);
-    (hir_result, ty_result, mir_result)
+    let mir_result = mir::lower(&salsa_db, &hir_result, &ty_result);
+    (salsa_db, hir_result, ty_result, mir_result)
 }
 
 fn execute(filepath: &str) -> Result<String> {
@@ -59,9 +80,10 @@ fn execute(filepath: &str) -> Result<String> {
         .create_jit_execution_engine(OptimizationLevel::None)
         .unwrap();
 
-    let (hir_result, _ty_hir_result, mir_result) = lower(filepath);
+    let (salsa_db, hir_result, _ty_hir_result, mir_result) = lower(filepath);
 
     let codegen_result = codegen_llvm::codegen(
+        &salsa_db,
         &hir_result,
         &mir_result,
         &context,

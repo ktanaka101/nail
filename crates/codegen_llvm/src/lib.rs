@@ -310,7 +310,7 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
 }
 
 struct Codegen<'a, 'ctx> {
-    hir_result: &'a hir::LowerResult,
+    _hir_result: &'a hir::LowerResult,
     mir_result: &'a mir::LowerResult,
 
     context: &'ctx Context,
@@ -334,7 +334,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         execution_engine: &'a ExecutionEngine<'ctx>,
     ) -> Self {
         let mut codegen = Self {
-            hir_result,
+            _hir_result: hir_result,
             mir_result,
             context,
             module,
@@ -503,7 +503,6 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
 mod tests {
     use std::ffi::{c_char, CString};
 
-    use ast::AstNode;
     use expect_test::{expect, Expect};
     use hir::{FixtureDatabase, SourceDatabaseTrait};
     use inkwell::OptimizationLevel;

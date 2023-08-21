@@ -8,7 +8,7 @@ pub use item_scope::{ItemScope, ParentScope};
 
 use crate::{
     db::{Database, FunctionId, ItemScopeId, ModuleId, UseItemId},
-    AstId, FileId, Name, Path,
+    AstId, NailFile, Name, Path,
 };
 
 /// `BlockAstId`は`ast::BlockExpr`（ブロック式）ノードを一意に識別するためのAST IDです。
@@ -27,8 +27,8 @@ type UseAstId = AstId<ast::Use>;
 /// `ItemTree`は、ファイル内のすべてのアイテムをツリー構造で保持するデータ構造です。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemTree {
-    /// ファイルID
-    file_id: FileId,
+    /// ファイル
+    file: NailFile,
     /// ファイル内のトップレベルのアイテムスコープID
     pub top_level_scope: ItemScopeId,
     /// ブロック(AST)に対応するアイテムスコープID
@@ -150,7 +150,7 @@ impl ItemTree {
 
 /// アイテムツリー構築用コンテキスト
 pub(crate) struct ItemTreeBuilderContext {
-    file_id: FileId,
+    file: NailFile,
     scope_by_block: HashMap<BlockAstId, ItemScopeId>,
     block_by_scope: HashMap<ItemScopeId, BlockAstId>,
     function_by_block: HashMap<BlockAstId, FunctionId>,
@@ -164,9 +164,9 @@ pub(crate) struct ItemTreeBuilderContext {
 }
 impl ItemTreeBuilderContext {
     /// コンテキストを作成します。
-    pub(crate) fn new(file_id: FileId) -> Self {
+    pub(crate) fn new(file: NailFile) -> Self {
         Self {
-            file_id,
+            file,
             scope_by_block: HashMap::new(),
             block_by_scope: HashMap::new(),
             function_by_block: HashMap::new(),
@@ -199,7 +199,7 @@ impl ItemTreeBuilderContext {
         }
 
         ItemTree {
-            file_id: self.file_id,
+            file: self.file,
             top_level_scope: top_level_scope_id,
             scope_by_block: self.scope_by_block,
             block_by_scope: self.block_by_scope,
@@ -256,7 +256,7 @@ impl ItemTreeBuilderContext {
                     .name()
                     .map(|name| Name::new(salsa_db, name.name().to_string()));
 
-                let ast_id = db.alloc_node(&def, self.file_id);
+                let ast_id = db.alloc_node(&def, self.file);
                 let function = Function {
                     path: current_scope.lookup(db).path(db),
                     name,
@@ -396,7 +396,7 @@ impl ItemTreeBuilderContext {
             ItemScope::new_with_nameless(Some(parent))
         };
         let scope_id = db.alloc_item_scope(scope);
-        let block_ast_id = db.alloc_node(&block, self.file_id);
+        let block_ast_id = db.alloc_node(&block, self.file);
         let current = ParentScope::new(scope_id);
         for stmt in block.stmts() {
             self.build_stmt(salsa_db, stmt, scope_id, current.clone(), db);
@@ -426,7 +426,7 @@ impl ItemTreeBuilderContext {
 
             let current = ParentScope::new(scope_id);
 
-            let module_ast_id = db.alloc_node(module, self.file_id);
+            let module_ast_id = db.alloc_node(module, self.file);
             self.scope_by_module_ast
                 .insert(module_ast_id.clone(), scope_id);
 
@@ -493,7 +493,7 @@ impl ItemTreeBuilderContext {
                     .lookup_mut(db)
                     .insert_use_item(name, use_item_id);
 
-                let use_item_ast_id = db.alloc_node(r#use, self.file_id);
+                let use_item_ast_id = db.alloc_node(r#use, self.file);
                 self.use_item_by_ast_use
                     .insert(use_item_ast_id, use_item_id);
 

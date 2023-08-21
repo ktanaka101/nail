@@ -5,7 +5,7 @@ use syntax::SyntaxNodePtr;
 
 use crate::{
     item_tree::{Function, ItemScope, Module, Param, UseItem},
-    AstId, AstPtr, FileId, InFile,
+    AstId, AstPtr, InFile, NailFile,
 };
 
 /// 関数を一意に特定するためのIDです。
@@ -159,7 +159,7 @@ impl Database {
 
     /// データベースに構文ノードを保存します。
     /// 保存時にデータを取得するためのIDを生成し返します。
-    pub(crate) fn alloc_node<T: ast::AstNode>(&mut self, ast: &T, file_id: FileId) -> AstId<T> {
+    pub(crate) fn alloc_node<T: ast::AstNode>(&mut self, ast: &T, file: NailFile) -> AstId<T> {
         let ptr = SyntaxNodePtr::new(ast.syntax());
         let idx = self.syntax_node_ptrs.alloc(ptr.clone());
         let ast_ptr = AstPtr {
@@ -170,7 +170,7 @@ impl Database {
         self.idx_by_syntax_node_ptr.insert(ptr, idx);
 
         AstId(InFile {
-            file_id,
+            file,
             value: ast_ptr,
         })
     }
@@ -180,7 +180,7 @@ impl Database {
     pub(crate) fn lookup_ast_id<T: ast::AstNode>(
         &self,
         ast: &T,
-        file_id: FileId,
+        file: NailFile,
     ) -> Option<AstId<T>> {
         let ptr = SyntaxNodePtr::new(ast.syntax());
         let idx = self.idx_by_syntax_node_ptr.get(&ptr)?;
@@ -191,7 +191,7 @@ impl Database {
         };
 
         Some(AstId(InFile {
-            file_id,
+            file,
             value: ast_ptr,
         }))
     }

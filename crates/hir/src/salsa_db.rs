@@ -2,21 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use salsa::DebugWithDb;
 
-use crate::FileId;
-
-/// 入力元のNailファイルです。
-#[salsa::input]
-pub struct NailFile {
-    /// ファイルID
-    pub file_id: FileId,
-
-    /// ルートファイルか
-    pub root: bool,
-
-    /// ファイルの内容
-    #[return_ref]
-    pub contents: String,
-}
+use crate::input::NailFile;
 
 #[salsa::tracked]
 pub struct AstSourceFile {

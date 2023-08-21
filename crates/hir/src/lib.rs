@@ -35,11 +35,11 @@ use std::{collections::HashMap, marker::PhantomData};
 use ast::{Ast, AstNode};
 pub use body::{BodyLower, ExprId, FunctionBodyId, SharedBodyLowerContext};
 pub use db::{Database, FunctionId, ItemScopeId, ModuleId, ParamId, UseItemId};
-pub use input::{FileId, FixtureDatabase, SourceDatabase, SourceDatabaseTrait};
+pub use input::{FixtureDatabase, NailFile, SourceDatabase, SourceDatabaseTrait};
 use item_tree::ItemTreeBuilderContext;
 pub use item_tree::{Function, ItemDefId, ItemTree, Module, ModuleKind, Param, Type, UseItem};
 use la_arena::Idx;
-pub use salsa_db::{AstSourceFile, NailFile, SalsaDatabase};
+pub use salsa_db::{AstSourceFile, SalsaDatabase};
 use syntax::SyntaxNodePtr;
 
 /// ここに`salsa`データを定義します。
@@ -55,7 +55,7 @@ impl<DB> Db for DB where DB: ?Sized + salsa::DbWithJar<Jar> {}
 #[derive(Debug)]
 pub struct Pod {
     /// ルートファイルID
-    pub root_file_id: FileId,
+    pub root_file: NailFile,
 
     /// ルートファイルのHIR構築結果
     pub root_lower_result: LowerResult,
@@ -63,27 +63,27 @@ pub struct Pod {
     /// ファイル別のHIR構築結果
     ///
     /// ルートファイルは含まれません。
-    lower_result_by_file: HashMap<FileId, LowerResult>,
+    lower_result_by_file: HashMap<NailFile, LowerResult>,
 
     /// ファイルの登録順
     ///
     /// ルートファイルは含まれません。
-    registration_order: Vec<FileId>,
+    registration_order: Vec<NailFile>,
 }
 impl Pod {
     /// 指定したファイルのHIR構築結果を返します。
     ///
     /// ルートファイルのHIR構築結果は`root_lower_result`で参照してください。
     /// この関数はルートファイルを指定されても`None`を返します。
-    pub fn get_lower_result_by_file(&self, file: FileId) -> Option<&LowerResult> {
+    pub fn get_lower_result_by_file(&self, file: NailFile) -> Option<&LowerResult> {
         self.lower_result_by_file.get(&file)
     }
 
     /// ファイルの登録順の昇順でHIR構築結果を返します。
-    pub fn lower_results_order_registration_asc(&self) -> Vec<(FileId, &LowerResult)> {
+    pub fn lower_results_order_registration_asc(&self) -> Vec<(NailFile, &LowerResult)> {
         let mut lower_results = vec![];
-        for file_id in &self.registration_order {
-            lower_results.push((*file_id, self.lower_result_by_file.get(file_id).unwrap()));
+        for file in &self.registration_order {
+            lower_results.push((*file, self.lower_result_by_file.get(file).unwrap()));
         }
 
         lower_results
@@ -95,43 +95,46 @@ pub fn parse_pod(salsa_db: &dyn Db, path: &str, source_db: &mut dyn SourceDataba
     let mut lower_result_by_file = HashMap::new();
     let mut registration_order = vec![];
 
-    let file_id = source_db.register_file_with_read(path);
-    let file_contents = file_id.file_content(source_db).unwrap();
-    let nail_file = NailFile::new(salsa_db, file_id, true, file_contents.to_string());
+    let root_file_path = std::path::PathBuf::from(path);
+    let nail_file = source_db.source_root();
     let ast_source = parse_to_ast(salsa_db, nail_file);
     let root_result = build_hir(salsa_db, ast_source);
 
-    let dir = std::path::PathBuf::from(path);
     for (_, module) in root_result.db.modules() {
         if matches!(module.kind, ModuleKind::Inline { .. }) {
             continue;
         }
 
         let sub_module_name = module.name.text(salsa_db);
-        let sub_module_file_name = dir.with_file_name(format!("{sub_module_name}.nail"));
-        let sub_module_file_id =
-            source_db.register_file_with_read(sub_module_file_name.to_str().unwrap());
-        let sub_module_file_contents = sub_module_file_id.file_content(source_db).unwrap();
-        let nail_file = NailFile::new(
-            salsa_db,
-            sub_module_file_id,
-            false,
-            sub_module_file_contents.to_string(),
-        );
+        let sub_module_lower_result =
+            parse_sub_module(salsa_db, sub_module_name, &root_file_path, source_db);
 
-        let sub_module_ast_source = parse_to_ast(salsa_db, nail_file);
-        let sub_module_result = build_hir(salsa_db, sub_module_ast_source);
-
-        lower_result_by_file.insert(sub_module_file_id, sub_module_result);
-        registration_order.push(sub_module_file_id);
+        registration_order.push(sub_module_lower_result.file);
+        lower_result_by_file.insert(sub_module_lower_result.file, sub_module_lower_result);
     }
 
     Pod {
-        root_file_id: source_db.source_root(),
+        root_file: source_db.source_root(),
         root_lower_result: root_result,
         lower_result_by_file,
         registration_order,
     }
+}
+
+/// サブモジュールをパースします
+/// `root_file_path`はルートファイルのファイルパスまで込みのパスを指定します。(`/main.nail`)
+fn parse_sub_module(
+    salsa_db: &dyn Db,
+    sub_module_name: &str,
+    root_file_path: &std::path::Path,
+    source_db: &mut dyn SourceDatabaseTrait,
+) -> LowerResult {
+    // todo: サブモジュールのサブモジュールの場合はaaa/bbb.nailのようにする必要がある
+    let file_name = root_file_path.with_file_name(format!("{sub_module_name}.nail"));
+    let nail_file = source_db.register_file_with_read(salsa_db, file_name);
+
+    let ast_source = parse_to_ast(salsa_db, nail_file);
+    build_hir(salsa_db, ast_source)
 }
 
 /// HIR構築時のエラー
@@ -144,8 +147,8 @@ pub enum LowerError {
 /// HIR構築結果
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LowerResult {
-    /// ファイルID
-    pub file_id: FileId,
+    /// ファイル
+    pub file: NailFile,
     /// ボディ構築時に共有されるコンテキスト
     ///
     /// 1ファイル内のコンテキストです。
@@ -180,16 +183,16 @@ pub fn parse_to_ast(db: &dyn crate::Db, nail_file: NailFile) -> AstSourceFile {
 /// ASTを元に[ItemTree]を構築します。
 #[salsa::tracked]
 pub fn build_hir(salsa_db: &dyn crate::Db, ast_source: AstSourceFile) -> crate::LowerResult {
-    let file_id = ast_source.file(salsa_db).file_id(salsa_db);
+    let file = ast_source.file(salsa_db);
     let source_file = ast_source.source(salsa_db);
 
     let mut db = Database::new();
-    let item_tree_builder = ItemTreeBuilderContext::new(file_id);
+    let item_tree_builder = ItemTreeBuilderContext::new(file);
     let item_tree = item_tree_builder.build(salsa_db, &source_file, &mut db);
 
     let mut shared_ctx = SharedBodyLowerContext::new();
 
-    let mut top_level_ctx = BodyLower::new(file_id, HashMap::new());
+    let mut top_level_ctx = BodyLower::new(file, HashMap::new());
     let top_level_items = source_file
         .items()
         .filter_map(|item| {
@@ -209,7 +212,7 @@ pub fn build_hir(salsa_db: &dyn crate::Db, ast_source: AstSourceFile) -> crate::
     };
 
     LowerResult {
-        file_id,
+        file,
         shared_ctx,
         top_level_items,
         entry_point,
@@ -264,8 +267,8 @@ pub type AstIdx = Idx<SyntaxNodePtr>;
 /// ファイル内の任意の値を保持します。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct InFile<T> {
-    /// ファイルID
-    pub file_id: FileId,
+    /// ファイル
+    pub file: NailFile,
     /// 値
     ///
     /// ファイルIDとの組み合わせで一意に識別されるものを使用することを推奨します。

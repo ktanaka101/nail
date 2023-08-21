@@ -1,140 +1,128 @@
-mod file_path_interner;
-
 use std::collections::HashMap;
 
-use self::file_path_interner::{FilePath, FilePathInterner};
+/// 入力元のNailファイルです。
+#[salsa::input]
+pub struct NailFile {
+    /// ファイルパス
+    #[reutrn_ref]
+    pub file_path: std::path::PathBuf,
 
-/// ファイルを一意に識別するためのID
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct FileId(FilePath);
-impl FileId {
-    /// ファイルパスを取得します。
-    pub fn file_path(self, interner: &FilePathInterner) -> &str {
-        self.0.lookup(interner)
-    }
+    /// ファイルの内容
+    #[return_ref]
+    pub contents: String,
 
-    /// ファイルの内容を取得します。
-    pub fn file_content(self, source_db: &dyn SourceDatabaseTrait) -> Option<&str> {
-        source_db.content(self)
-    }
+    /// ルートファイルか
+    pub root: bool,
 }
 
 /// ソースコードの元となる、ファイルを管理するデータベーストレイト
 pub trait SourceDatabaseTrait {
     /// エントリポイントとなるファイルのIDを返す
-    fn source_root(&self) -> FileId;
-    /// ファイルパスからファイルIDを返す
-    fn register_file_with_read(&mut self, path: &str) -> FileId;
-    /// ファイルIDからファイルパスを返す
-    fn file_path(&self, file_id: FileId) -> &str;
-    /// ファイルIDからファイル内容を返す
-    fn content(&self, file_id: FileId) -> Option<&str>;
+    fn source_root(&self) -> NailFile;
+    /// 指定したファイルパスからファイルを返す
+    fn register_file_with_read(&mut self, db: &dyn crate::Db, path: std::path::PathBuf)
+        -> NailFile;
 }
 
 /// テスト用のFixture
 struct Fixture {
-    source_root: FileId,
-    file_by_path: HashMap<FilePath, FileId>,
-    path_by_file: HashMap<FileId, FilePath>,
-    file_contents: HashMap<FileId, String>,
-    file_path_interner: FilePathInterner,
+    source_root: NailFile,
+    file_by_path: HashMap<std::path::PathBuf, NailFile>,
 }
 impl Fixture {
     /// 入力元のソースコードを構成する文字列をパースします。
-    fn parse(fixture: &str) -> Self {
+    fn parse(db: &dyn crate::Db, fixture: &str) -> Self {
         let fixture = fixture.trim();
         if !fixture.starts_with("//- ") {
             panic!("fixture must start with `//- `");
         }
 
-        let mut file_by_path = HashMap::<FilePath, FileId>::new();
-        let mut path_by_file = HashMap::<FileId, FilePath>::new();
-        let mut file_path_interner = FilePathInterner::new();
-
-        fn register_file_path(
-            file_path: &str,
-            file_by_path: &mut HashMap<FilePath, FileId>,
-            path_by_file: &mut HashMap<FileId, FilePath>,
-            file_path_interner: &mut FilePathInterner,
-        ) -> FileId {
-            if file_path_interner.get(file_path).is_some() {
-                panic!("duplicate file path: {file_path}");
-            }
-
-            let file_path = file_path_interner.intern(file_path);
-            let file_id = FileId(file_path);
-            file_by_path.insert(file_path, file_id);
-            path_by_file.insert(file_id, file_path);
-
-            file_id
-        }
-        fn is_file_path_line(line: &str) -> bool {
-            line.starts_with("//- ")
-        }
-        fn take_file_path(line: &str) -> &str {
-            line.trim_start_matches("//- ")
-        }
-
-        let mut source_root: Option<FileId> = None;
+        let mut file_by_path = HashMap::<std::path::PathBuf, NailFile>::new();
 
         let mut lines = fixture.lines().map(|line| line.trim());
-        let mut current_file = String::new();
-        let mut current_file_id = {
-            let first_line = lines.next().unwrap();
-            let file_path = take_file_path(first_line);
-            let file_id = register_file_path(
-                file_path,
-                &mut file_by_path,
-                &mut path_by_file,
-                &mut file_path_interner,
-            );
-            if file_path == "/main.nail" {
-                source_root = Some(file_id);
-            }
+        let mut current_file_path: Option<std::path::PathBuf> = None;
+        let mut current_file_contents = String::new();
 
-            file_id
-        };
-
-        let mut file_contents = HashMap::<FileId, String>::new();
         loop {
             match lines.next() {
                 Some(line) => {
-                    if is_file_path_line(line) {
-                        file_contents.insert(current_file_id, current_file);
-
-                        let file_path = take_file_path(line);
-                        let file_id = register_file_path(
-                            file_path,
-                            &mut file_by_path,
-                            &mut path_by_file,
-                            &mut file_path_interner,
-                        );
-                        if file_path == "/main.nail" {
-                            source_root = Some(file_id);
+                    if Self::is_file_path_line(line) {
+                        // ファイルパス行が見つかったら、そこまでの情報で現在のファイルを登録します。
+                        // 1行目の場合は`file_path`が`None`になので、登録は行われません。
+                        if let Some(file_path) = current_file_path {
+                            Self::register_file(
+                                db,
+                                file_path,
+                                current_file_contents,
+                                &mut file_by_path,
+                            );
                         }
-                        current_file_id = file_id;
-                        current_file = String::new();
+
+                        current_file_path =
+                            Some(std::path::PathBuf::from(Self::take_file_path(line)));
+                        current_file_contents = String::new();
                     } else {
-                        current_file.push_str(line);
-                        current_file.push('\n');
+                        current_file_contents.push_str(line);
+                        current_file_contents.push('\n');
                     }
                 }
                 None => {
-                    file_contents.insert(current_file_id, current_file);
+                    if let Some(current_file_path) = current_file_path {
+                        if file_by_path.get(&current_file_path).is_none() {
+                            Self::register_file(
+                                db,
+                                current_file_path,
+                                current_file_contents,
+                                &mut file_by_path,
+                            );
+                        }
+                    }
+
                     break;
                 }
             }
         }
 
+        let source_root: Option<NailFile> = file_by_path
+            .values()
+            .find(|file| file.file_path(db) == std::path::Path::new("/main.nail"))
+            .cloned();
         let Some(source_root) = source_root else { panic!("source root is not found. need: `/main.nail`") };
 
         Self {
             source_root,
             file_by_path,
-            path_by_file,
-            file_contents,
-            file_path_interner,
         }
+    }
+
+    fn register_file(
+        db: &dyn crate::Db,
+        file_path: std::path::PathBuf,
+        file_contents: String,
+        file_by_path: &mut HashMap<std::path::PathBuf, NailFile>,
+    ) -> NailFile {
+        if file_by_path.get(&file_path).is_some() {
+            panic!("duplicate file path: {}", file_path.to_string_lossy());
+        }
+
+        let file = if file_path.to_str().unwrap() == "/main.nail" {
+            NailFile::new(db, file_path, file_contents, true)
+        } else {
+            NailFile::new(db, file_path, file_contents, false)
+        };
+        file_by_path.insert(file.file_path(db), file);
+
+        file
+    }
+
+    /// 行がファイルパス行かどうかを判定します。
+    fn is_file_path_line(line: &str) -> bool {
+        line.starts_with("//- ")
+    }
+
+    /// 行から、ファイルパスを取り出します。
+    fn take_file_path(line: &str) -> &str {
+        line.trim_start_matches("//- ")
     }
 }
 
@@ -144,11 +132,8 @@ impl Fixture {
 /// 単純な文字列リテラルをソースコードとして扱います。
 /// そのため、ファイルシステムを使用する代わりにpanicします。
 pub struct FixtureDatabase {
-    source_root: FileId,
-    _file_by_path: HashMap<FilePath, FileId>,
-    _path_by_file: HashMap<FileId, FilePath>,
-    file_contents: HashMap<FileId, String>,
-    file_path_interner: FilePathInterner,
+    source_root: NailFile,
+    file_by_path: HashMap<std::path::PathBuf, NailFile>,
 }
 impl FixtureDatabase {
     /// 入力元のソースコードを構成する文字列をパースして、データベースを構築します。
@@ -160,8 +145,9 @@ impl FixtureDatabase {
     /// // `//- /main.nail`というファイル名で始まる行は、ソースコードのルートファイルとして扱われます。
     /// // この例では、/main.nailというエントリポイントと、/foo.nailというnailファイルが存在します。
     /// // /main.nailから、/foo.nailのbar関数が呼び出されています。
-    /// use hir::FixtureDatabase;
-    /// let fixture_db = FixtureDatabase::new("
+    /// use hir::{FixtureDatabase, SalsaDatabase};
+    /// let salsa_db = SalsaDatabase::default();
+    /// let fixture_db = FixtureDatabase::new(&salsa_db, r#"
     ///    //- /main.nail
     ///    mod foo;
     ///    fn main() {
@@ -171,21 +157,18 @@ impl FixtureDatabase {
     ///    pub fn bar() -> i32 {
     ///      10
     ///    }
-    /// ");
-    pub fn new(fixture: &str) -> Self {
-        let fixture = Fixture::parse(fixture);
+    /// "#);
+    pub fn new(db: &dyn crate::Db, fixture: &str) -> Self {
+        let fixture = Fixture::parse(db, fixture);
 
         Self {
             source_root: fixture.source_root,
-            _file_by_path: fixture.file_by_path,
-            _path_by_file: fixture.path_by_file,
-            file_contents: fixture.file_contents,
-            file_path_interner: fixture.file_path_interner,
+            file_by_path: fixture.file_by_path,
         }
     }
 }
 impl SourceDatabaseTrait for FixtureDatabase {
-    fn source_root(&self) -> FileId {
+    fn source_root(&self) -> NailFile {
         self.source_root
     }
 
@@ -196,29 +179,20 @@ impl SourceDatabaseTrait for FixtureDatabase {
     /// # Panics
     ///
     /// ファイルパスが見つからない場合はpanicします。
-    fn register_file_with_read(&mut self, path: &str) -> FileId {
-        let Some(file_path) = self.file_path_interner.get(path) else { panic!("Not found file path: {path}") };
-        FileId(file_path)
-    }
-
-    fn file_path(&self, file_id: FileId) -> &str {
-        file_id.file_path(&self.file_path_interner)
-    }
-
-    fn content(&self, file_id: FileId) -> Option<&str> {
-        self.file_contents
-            .get(&file_id)
-            .map(|content| content.as_str())
+    fn register_file_with_read(
+        &mut self,
+        _db: &dyn crate::Db,
+        path: std::path::PathBuf,
+    ) -> NailFile {
+        let Some(file) = self.file_by_path.get(&path).copied() else { panic!("Not found file. Help: [FixtureDatabase::new] docs comment.") };
+        file
     }
 }
 
 /// ファイルシステムを使用する、ソースコードを管理するデータベース
 pub struct SourceDatabase {
-    source_root: Option<FileId>,
-    file_by_path: HashMap<FilePath, FileId>,
-    path_by_file: HashMap<FileId, FilePath>,
-    file_contents: HashMap<FileId, String>,
-    file_path_interner: FilePathInterner,
+    source_root: NailFile,
+    file_by_path: HashMap<std::path::PathBuf, NailFile>,
 }
 impl SourceDatabase {
     /// エントリポイントのソースコードをパースして、データベースを構築します。
@@ -226,41 +200,32 @@ impl SourceDatabase {
     /// # Arguments
     ///
     /// * `root_file_path` - ソースコードのルートファイルのパス
-    pub fn new(root_file_path: &str) -> Self {
-        let mut db = Self {
-            source_root: None,
-            file_by_path: HashMap::new(),
-            file_contents: HashMap::new(),
-            path_by_file: HashMap::new(),
-            file_path_interner: FilePathInterner::new(),
-        };
-        let root_file_id = db.register_file_with_read(root_file_path);
-        db.source_root = Some(root_file_id);
+    pub fn new(db: &dyn crate::Db, root_file_path: std::path::PathBuf) -> Self {
+        let contents = std::fs::read_to_string(&root_file_path).unwrap();
+        let root_file = NailFile::new(db, root_file_path.clone(), contents, true);
+        let mut file_by_path = HashMap::new();
+        file_by_path.insert(root_file_path, root_file);
 
-        db
+        Self {
+            source_root: root_file,
+            file_by_path,
+        }
     }
 }
 impl SourceDatabaseTrait for SourceDatabase {
-    fn source_root(&self) -> FileId {
-        self.source_root.unwrap()
+    fn source_root(&self) -> NailFile {
+        self.source_root
     }
 
-    fn register_file_with_read(&mut self, path: &str) -> FileId {
-        let contents = std::fs::read_to_string(path).unwrap();
+    fn register_file_with_read(
+        &mut self,
+        db: &dyn crate::Db,
+        file_path: std::path::PathBuf,
+    ) -> NailFile {
+        let contents = std::fs::read_to_string(&file_path).unwrap();
+        let file = NailFile::new(db, file_path.clone(), contents, false);
+        self.file_by_path.insert(file_path, file);
 
-        let path = self.file_path_interner.intern(path);
-        let file_id = FileId(path);
-        self.file_by_path.insert(path, file_id);
-        self.path_by_file.insert(file_id, path);
-        self.file_contents.insert(file_id, contents);
-        file_id
-    }
-
-    fn file_path(&self, file_id: FileId) -> &str {
-        file_id.file_path(&self.file_path_interner)
-    }
-
-    fn content(&self, file_id: FileId) -> Option<&str> {
-        self.file_contents.get(&file_id).map(|s| s.as_str())
+        file
     }
 }

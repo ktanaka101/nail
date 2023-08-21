@@ -1026,19 +1026,9 @@ mod tests {
         fixture.insert_str(0, "//- /main.nail\n");
 
         let salsa_db = hir::SalsaDatabase::default();
-        let source_db = hir::FixtureDatabase::new(&fixture);
-        let source_root_file_id = source_db.source_root();
-        let source_root_file_content = source_db.content(source_root_file_id).unwrap();
+        let source_db = hir::FixtureDatabase::new(&salsa_db, &fixture);
 
-        let ast = hir::parse_to_ast(
-            &salsa_db,
-            hir::NailFile::new(
-                &salsa_db,
-                source_root_file_id,
-                true,
-                source_root_file_content.to_string(),
-            ),
-        );
+        let ast = hir::parse_to_ast(&salsa_db, source_db.source_root());
         let hir_result = hir::build_hir(&salsa_db, ast);
         let ty_hir_result = hir_ty::lower(&hir_result);
 

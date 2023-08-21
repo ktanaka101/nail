@@ -6,8 +6,8 @@ use la_arena::{Arena, Idx};
 
 use self::scopes::ScopeType;
 use crate::{
-    body::scopes::ExprScopes, db::Database, item_tree::ItemTree, AstId, Block, Expr, FileId,
-    FunctionId, ItemDefId, Literal, ModuleKind, Name, ParamId, Path, Stmt, Symbol,
+    body::scopes::ExprScopes, db::Database, item_tree::ItemTree, AstId, Block, Expr, FunctionId,
+    ItemDefId, Literal, ModuleKind, NailFile, Name, ParamId, Path, Stmt, Symbol,
 };
 
 /// 式を一意に識別するためのID
@@ -88,16 +88,16 @@ impl SharedBodyLowerContext {
 /// `params`は、名前解決に使用されます。
 #[derive(Debug)]
 pub struct BodyLower {
-    file_id: FileId,
+    file: NailFile,
     scopes: ExprScopes,
     params: HashMap<Name, ParamId>,
 }
 
 impl BodyLower {
     /// 空のコンテキストを作成する
-    pub(super) fn new(file_id: FileId, params: HashMap<Name, ParamId>) -> Self {
+    pub(super) fn new(file: NailFile, params: HashMap<Name, ParamId>) -> Self {
         Self {
-            file_id,
+            file,
             scopes: ExprScopes::new(),
             params,
         }
@@ -128,11 +128,11 @@ impl BodyLower {
         item_tree: &ItemTree,
     ) -> Option<ItemDefId> {
         let body = def.body()?;
-        let body_ast_id = db.lookup_ast_id(&body, self.file_id).unwrap();
+        let body_ast_id = db.lookup_ast_id(&body, self.file).unwrap();
         let function = item_tree.function_by_block(db, &body_ast_id).unwrap();
         let function_id = item_tree.function_id_by_block(&body_ast_id).unwrap();
 
-        let mut body_lower = BodyLower::new(self.file_id, function.param_by_name.clone());
+        let mut body_lower = BodyLower::new(self.file, function.param_by_name.clone());
         let body_expr = body_lower.lower_block(salsa_db, body, ctx, db, item_tree);
         let body_id = ctx.alloc_function_body(body_expr);
         ctx.function_body_by_block.insert(body_ast_id, body_id);
@@ -153,7 +153,7 @@ impl BodyLower {
         db: &Database,
         item_tree: &ItemTree,
     ) -> Option<ItemDefId> {
-        let module_ast_id = db.lookup_ast_id(&module, self.file_id).unwrap();
+        let module_ast_id = db.lookup_ast_id(&module, self.file).unwrap();
         let module_id = item_tree
             .module_id_by_ast_module(module_ast_id.clone())
             .unwrap();
@@ -179,7 +179,7 @@ impl BodyLower {
         db: &Database,
         item_tree: &ItemTree,
     ) -> Option<ItemDefId> {
-        let use_ast_id = db.lookup_ast_id(&r#use, self.file_id).unwrap();
+        let use_ast_id = db.lookup_ast_id(&r#use, self.file).unwrap();
         let use_item_id = item_tree.use_item_id_by_ast_use(use_ast_id).unwrap();
 
         Some(ItemDefId::UseItem(use_item_id))
@@ -464,7 +464,7 @@ impl BodyLower {
         db: &Database,
         item_tree: &ItemTree,
     ) -> Expr {
-        let block_ast_id = if let Some(ast_id) = db.lookup_ast_id(&ast, self.file_id) {
+        let block_ast_id = if let Some(ast_id) = db.lookup_ast_id(&ast, self.file) {
             ast_id
         } else {
             return Expr::Missing;
@@ -554,7 +554,7 @@ mod tests {
     use super::*;
     use crate::{
         db::UseItemId,
-        input::{FixtureDatabase, SourceDatabaseTrait},
+        input::FixtureDatabase,
         item_tree::{ItemDefId, Type},
         parse_pod, FunctionId, LowerError, LowerResult, ModuleId, ModuleKind, Pod, SalsaDatabase,
     };
@@ -563,15 +563,15 @@ mod tests {
         "    ".repeat(nesting)
     }
 
-    fn debug_pod(salsa_db: &dyn crate::Db, modules: &Pod, source_db: &FixtureDatabase) -> String {
+    fn debug_pod(salsa_db: &dyn crate::Db, modules: &Pod) -> String {
         let mut msg = "".to_string();
 
         msg.push_str("//- /main.nail\n");
         msg.push_str(&debug_lower_result(salsa_db, &modules.root_lower_result));
 
-        for (file_id, lower_result) in modules.lower_results_order_registration_asc() {
-            let file_path = source_db.file_path(file_id);
-            msg.push_str(&format!("//- {file_path}\n"));
+        for (file, lower_result) in modules.lower_results_order_registration_asc() {
+            let file_path = file.file_path(salsa_db);
+            msg.push_str(&format!("//- {}\n", file_path.to_string_lossy()));
             msg.push_str(&debug_lower_result(salsa_db, lower_result));
         }
 
@@ -946,11 +946,11 @@ mod tests {
     /// ルートファイルからパースして、Podの期待結果をテストする
     fn check_pod_start_with_root_file(fixture: &str, expected: Expect) {
         let salsa_db = SalsaDatabase::default();
-        let mut source_db = FixtureDatabase::new(fixture);
+        let mut source_db = FixtureDatabase::new(&salsa_db, fixture);
 
         let modules = parse_pod(&salsa_db, "/main.nail", &mut source_db);
 
-        expected.assert_eq(&debug_pod(&salsa_db, &modules, &source_db));
+        expected.assert_eq(&debug_pod(&salsa_db, &modules));
     }
 
     #[test]
@@ -2327,8 +2327,36 @@ mod tests {
     }
 
     #[test]
+    fn outline_module_unimplements_resolving_name() {
+        check_pod_start_with_root_file(
+            r#"
+                //- /main.nail
+                mod mod_aaa;
+
+                fn main() {
+                    mod_aaa::fn_aaa();
+                }
+
+                //- /mod_aaa.nail
+                fn fn_aaa() {
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                mod mod_aaa;
+                fn entry:main() -> () {
+                    <missing>();
+                }
+                //- /mod_aaa.nail
+                fn fn_aaa() -> () {
+                }
+            "#]],
+        );
+    }
+
+    #[test]
     #[should_panic]
-    fn inline_module() {
+    fn outline_module() {
         check_pod_start_with_root_file(
             r#"
                 //- /main.nail

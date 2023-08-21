@@ -444,7 +444,72 @@ Implemented = ✅, Partially Implemented = 🚧, Not Implemented = ❌
   Undefined
 
 14. Parallel compilation
-    Per-file basis
+    Per-file or per-pod(package) basis
+
+## Experimental
+
+It is a specification that I am currently considering whether to include it as a language feature.
+
+- Partial Type
+Support structural subtyping.
+```
+partial type V4IpAddress {
+    address: Vec<u8>
+}
+
+partial type V6IpAddress {
+    address: Vec<u8>
+}
+
+fn is_empty(ip_address: IpAddress) -> bool {
+    ip_address.address.is_empty()
+}
+
+fn handle(ip_address: IpAddress) -> bool {
+    match ip_address {
+        // IpAddressV4 and IpAddressV6 cannot be matched because I don't know what to pass to IpAddress.
+        // It is close to the concept of Trait and Interface.
+        // It might be called an implicitly implemented Trait or Interface.
+    }
+}
+
+let ip_address = V4IpAddress {
+    address: vec![127, 0, 0, 1]
+};
+is_empty(ip_address); // false
+
+let ip_address = V6IpAddress {
+    address: vec![0, 0, 0, 0, 0, 0, 0, 1]
+};
+is_empty(ip_address); // false
+```
+
+- Nested type definition
+Support for type definitions with nested structures such as Json
+```
+type Json {
+    key1: {
+        key2: {
+            key3: String
+        }
+    },
+    key4: String
+}
+
+let json = Json {
+    key1: .{ // This has the problem of being indistinguishable from BlockExpr. So let's add.
+        key2: .{
+            key3: "value"
+        }
+    },
+    key4: "value"
+};
+json.key1.key2.key3; // "value"
+json.key4; // "value"
+fn handle(json: Json) -> bool {
+    json.key1.key2.key3; // "value"
+}
+```
 
 ## Contributors
 

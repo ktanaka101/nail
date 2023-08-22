@@ -47,12 +47,12 @@ fn main() {
 fn lower(
     filepath: &str,
 ) -> (
-    hir::SalsaDatabase,
+    base_db::SalsaDatabase,
     hir::LowerResult,
     hir_ty::TyLowerResult,
     mir::LowerResult,
 ) {
-    let salsa_db = hir::SalsaDatabase::default();
+    let salsa_db = base_db::SalsaDatabase::default();
     let source_db = hir::SourceDatabase::new(&salsa_db, filepath.into());
 
     let ast_source = hir::parse_to_ast(&salsa_db, source_db.source_root());

@@ -13,6 +13,7 @@ clap = { workspace = true }
 tokio = { workspace = true }
 inkwell = { workspace = true }
 
+base_db = { workspace = true }
 lsp = { workspace = true }
 hir = { workspace = true }
 hir_ty = { workspace = true }
@@ -57,6 +58,7 @@ hir = { path = "crates/hir" }
 hir_ty = { path = "crates/hir_ty" }
 mir = { path = "crates/mir" }
 codegen_llvm = { path = "crates/codegen_llvm" }
+base_db = { path = "crates/base_db" }
 lsp = { path = "crates/lsp" }
 
 [profile.dev]

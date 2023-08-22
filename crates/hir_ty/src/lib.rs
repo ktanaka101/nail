@@ -67,7 +67,7 @@ mod tests {
         let mut fixture = fixture.to_string();
         fixture.insert_str(0, "//- /main.nail\n");
 
-        let salsa_db = hir::SalsaDatabase::default();
+        let salsa_db = hir::TestingDatabase::default();
         let source_db = hir::FixtureDatabase::new(&salsa_db, &fixture);
         let source_root_file = source_db.source_root();
 

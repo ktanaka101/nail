@@ -170,6 +170,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "base_db"
+version = "0.1.0"
+dependencies = [
+ "hir",
+ "salsa-2022",
+]
+
+[[package]]
 name = "beef"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -865,6 +873,7 @@ name = "nail"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base_db",
  "clap",
  "codegen_llvm",
  "hir",

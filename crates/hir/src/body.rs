@@ -556,7 +556,9 @@ mod tests {
         db::UseItemId,
         input::FixtureDatabase,
         item_tree::{ItemDefId, Type},
-        parse_pod, FunctionId, LowerError, LowerResult, ModuleId, ModuleKind, Pod, SalsaDatabase,
+        parse_pod,
+        testing::TestingDatabase,
+        FunctionId, LowerError, LowerResult, ModuleId, ModuleKind, Pod,
     };
 
     fn indent(nesting: usize) -> String {
@@ -945,7 +947,7 @@ mod tests {
 
     /// ルートファイルからパースして、Podの期待結果をテストする
     fn check_pod_start_with_root_file(fixture: &str, expected: Expect) {
-        let salsa_db = SalsaDatabase::default();
+        let salsa_db = TestingDatabase::default();
         let mut source_db = FixtureDatabase::new(&salsa_db, fixture);
 
         let modules = parse_pod(&salsa_db, "/main.nail", &mut source_db);

@@ -4,6 +4,7 @@ use std::ffi::{c_char, CString};
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use codegen_llvm::CodegenContext;
 use hir::SourceDatabaseTrait;
 use inkwell::{context::Context, OptimizationLevel};
 
@@ -72,13 +73,15 @@ fn execute(filepath: &str) -> Result<String> {
     let (salsa_db, hir_result, _ty_hir_result, mir_result) = lower(filepath);
 
     let codegen_result = codegen_llvm::codegen(
-        &salsa_db,
-        &hir_result,
-        &mir_result,
-        &context,
-        &module,
-        &builder,
-        &execution_engine,
+        &CodegenContext {
+            salsa_db: &salsa_db,
+            hir_result: &hir_result,
+            mir_result: &mir_result,
+            context: &context,
+            module: &module,
+            builder: &builder,
+            execution_engine: &execution_engine,
+        },
         true,
     );
 

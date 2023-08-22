@@ -14,6 +14,7 @@ pub struct AstSourceFile {
     pub source: ast::SourceFile,
 }
 
+/// SalsaのDB
 #[derive(Default)]
 #[salsa::db(crate::Jar)]
 pub struct SalsaDatabase {

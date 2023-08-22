@@ -17,25 +17,32 @@ use inkwell::{
 const FN_ENTRY_BLOCK_NAME: &str = "start";
 const INTERNAL_ENTRY_POINT: &str = "__main__";
 
+/// LLVM IR生成用のコンテキストです。
+pub struct CodegenContext<'a, 'ctx> {
+    pub salsa_db: &'a dyn hir::Db,
+    pub hir_result: &'a hir::LowerResult,
+    pub mir_result: &'a mir::LowerResult,
+
+    pub context: &'ctx Context,
+    pub module: &'a Module<'ctx>,
+    pub builder: &'a Builder<'ctx>,
+    pub execution_engine: &'a ExecutionEngine<'ctx>,
+}
+
+/// LLVM IRを生成します。
 pub fn codegen<'a, 'ctx>(
-    salsa_db: &'a dyn hir::Db,
-    hir_result: &'a hir::LowerResult,
-    mir_result: &'a mir::LowerResult,
-    context: &'ctx Context,
-    module: &'a Module<'ctx>,
-    builder: &'a Builder<'ctx>,
-    execution_engine: &'a ExecutionEngine<'ctx>,
+    codegen_context: &'a CodegenContext<'a, 'ctx>,
     should_return_string: bool,
 ) -> CodegenResult<'ctx> {
     let codegen = Codegen::new(
-        hir_result,
-        mir_result,
-        context,
-        module,
-        builder,
-        execution_engine,
+        codegen_context.hir_result,
+        codegen_context.mir_result,
+        codegen_context.context,
+        codegen_context.module,
+        codegen_context.builder,
+        codegen_context.execution_engine,
     );
-    codegen.gen(salsa_db, should_return_string)
+    codegen.gen(codegen_context.salsa_db, should_return_string)
 }
 
 type MainFunc = unsafe extern "C" fn() -> *mut i8;
@@ -539,13 +546,15 @@ mod tests {
             .create_jit_execution_engine(OptimizationLevel::None)
             .unwrap();
         let result = codegen(
-            &salsa_db,
-            &hir_result,
-            &mir_result,
-            &context,
-            &module,
-            &builder,
-            &execution_engine,
+            &CodegenContext {
+                salsa_db: &salsa_db,
+                hir_result: &hir_result,
+                mir_result: &mir_result,
+                context: &context,
+                module: &module,
+                builder: &builder,
+                execution_engine: &execution_engine,
+            },
             true,
         );
         module.print_to_stderr();
@@ -571,13 +580,15 @@ mod tests {
             .create_jit_execution_engine(OptimizationLevel::None)
             .unwrap();
         codegen(
-            &salsa_db,
-            &hir_result,
-            &mir_result,
-            &context,
-            &module,
-            &builder,
-            &execution_engine,
+            &CodegenContext {
+                salsa_db: &salsa_db,
+                hir_result: &hir_result,
+                mir_result: &mir_result,
+                context: &context,
+                module: &module,
+                builder: &builder,
+                execution_engine: &execution_engine,
+            },
             false,
         );
         module.print_to_stderr();

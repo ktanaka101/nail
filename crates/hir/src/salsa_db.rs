@@ -10,7 +10,7 @@ pub struct AstSourceFile {
     pub file: NailFile,
 
     /** AST */
-    #[salsa::return_ref]
+    #[return_ref]
     pub source: ast::SourceFile,
 }
 

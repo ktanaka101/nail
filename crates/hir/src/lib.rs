@@ -188,7 +188,7 @@ pub fn build_hir(salsa_db: &dyn crate::Db, ast_source: AstSourceFile) -> crate::
 
     let mut db = Database::new();
     let item_tree_builder = ItemTreeBuilderContext::new(file);
-    let item_tree = item_tree_builder.build(salsa_db, &source_file, &mut db);
+    let item_tree = item_tree_builder.build(salsa_db, source_file, &mut db);
 
     let mut shared_ctx = SharedBodyLowerContext::new();
 

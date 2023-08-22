@@ -28,7 +28,6 @@ mod body;
 mod db;
 mod input;
 mod item_tree;
-mod salsa_db;
 mod testing;
 
 use std::{collections::HashMap, marker::PhantomData};
@@ -40,7 +39,6 @@ pub use input::{FixtureDatabase, NailFile, SourceDatabase, SourceDatabaseTrait};
 use item_tree::ItemTreeBuilderContext;
 pub use item_tree::{Function, ItemDefId, ItemTree, Module, ModuleKind, Param, Type, UseItem};
 use la_arena::Idx;
-pub use salsa_db::AstSourceFile;
 use syntax::SyntaxNodePtr;
 pub use testing::TestingDatabase;
 
@@ -172,6 +170,16 @@ impl LowerResult {
         let body_block = self.item_tree.block_id_by_function(&function)?;
         self.shared_ctx.function_body_by_block(body_block)
     }
+}
+
+#[salsa::tracked]
+pub struct AstSourceFile {
+    /** Nailファイル */
+    pub file: NailFile,
+
+    /** AST */
+    #[return_ref]
+    pub source: ast::SourceFile,
 }
 
 /// ファイルを元にASTを構築します。

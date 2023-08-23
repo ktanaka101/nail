@@ -75,6 +75,7 @@ pub enum TypeCheckError {
 }
 
 /// 型チェックの結果
+#[derive(Debug, Clone, PartialEq, Eq,)]
 pub struct TypeCheckResult {
     /// 型チェックのエラー一覧
     pub errors: Vec<TypeCheckError>,

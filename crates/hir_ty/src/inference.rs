@@ -2,13 +2,16 @@ use std::collections;
 
 use la_arena::{Arena, Idx};
 
-pub fn infer(db: &dyn hir::Db, hir_result: &hir::LowerResult) -> InferenceResult {
-    let inferencer = TypeInferencer::new(hir_result);
+use crate::Db;
+
+#[salsa::tracked]
+pub fn infer(db: &dyn Db, hir_result: hir::LowerResult) -> InferenceResult {
+    let inferencer = TypeInferencer::new(&hir_result);
     inferencer.infer(db)
 }
 
 /// 型推論の結果
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InferenceResult {
     /// 式に対応する型
     pub type_by_expr: collections::HashMap<hir::ExprId, ResolvedType>,
@@ -22,7 +25,7 @@ pub struct InferenceResult {
     pub errors: Vec<InferenceError>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct InferenceContext {
     type_by_expr: collections::HashMap<hir::ExprId, ResolvedType>,
     type_by_param: collections::HashMap<hir::ParamId, ResolvedType>,
@@ -44,7 +47,7 @@ impl InferenceContext {
 }
 
 /// 型推論中に発生したエラー
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InferenceError {}
 
 /// 解決後の型
@@ -95,7 +98,7 @@ impl<'a> TypeInferencer<'a> {
         }
     }
 
-    fn infer(mut self, db: &dyn hir::Db) -> InferenceResult {
+    fn infer(mut self, db: &dyn Db) -> InferenceResult {
         for (function_id, function) in self.hir_result.db(db).functions() {
             let mut params = vec![];
             for param in &function.params {

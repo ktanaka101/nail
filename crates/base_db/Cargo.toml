@@ -7,3 +7,4 @@ edition = "2021"
 salsa = { workspace = true }
 
 hir = { workspace = true }
+hir_ty = { workspace = true }

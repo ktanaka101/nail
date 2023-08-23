@@ -11,19 +11,26 @@
 //!
 //! 現時点の型推論は簡易なもので、Hindley-Milner型推論ベースに変更する予定です。
 
-#![warn(missing_docs)]
+#![feature(trait_upcasting)]
+// #[salsa::tracked]で生成される関数にドキュメントコメントが作成されないため警告が出てしまうため許可します。
+// #![warn(missing_docs)]
 
 mod checker;
+mod db;
 mod inference;
+mod testing;
 
 pub use checker::{TypeCheckError, TypeCheckResult};
+pub use db::{Db, Jar};
 use hir::LowerResult;
 pub use inference::{InferenceError, InferenceResult, ResolvedType, Signature};
+pub use testing::TestingDatabase;
 
 /// HIRを元にTypedHIRを構築します。
-pub fn lower(db: &dyn hir::Db, lower_result: &LowerResult) -> TyLowerResult {
+#[salsa::tracked]
+pub fn lower(db: &dyn Db, lower_result: LowerResult) -> TyLowerResult {
     let inference_result = inference::infer(db, lower_result);
-    let type_check_result = checker::check_type(db, lower_result, &inference_result);
+    let type_check_result = checker::check_type(db, &lower_result, &inference_result);
 
     TyLowerResult {
         inference_result,
@@ -32,6 +39,7 @@ pub fn lower(db: &dyn hir::Db, lower_result: &LowerResult) -> TyLowerResult {
 }
 
 /// TypedHIRの構築結果です。
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TyLowerResult {
     /// 型推論の結果
     pub inference_result: InferenceResult,
@@ -62,18 +70,19 @@ mod tests {
     use hir::{Name, Path, SourceDatabaseTrait, Symbol};
 
     use super::*;
+    use crate::testing::TestingDatabase;
 
     fn check_in_root_file(fixture: &str, expect: Expect) {
         let mut fixture = fixture.to_string();
         fixture.insert_str(0, "//- /main.nail\n");
 
-        let salsa_db = hir::TestingDatabase::default();
+        let salsa_db = TestingDatabase::default();
         let source_db = hir::FixtureDatabase::new(&salsa_db, &fixture);
         let source_root_file = source_db.source_root();
 
         let ast = hir::parse_to_ast(&salsa_db, source_root_file);
         let lower_result = hir::build_hir(&salsa_db, ast);
-        let result = lower(&salsa_db, &lower_result);
+        let result = lower(&salsa_db, lower_result);
         expect.assert_eq(&debug(
             &salsa_db,
             &result.inference_result,
@@ -83,7 +92,7 @@ mod tests {
     }
 
     fn debug(
-        salsa_db: &dyn hir::Db,
+        salsa_db: &dyn Db,
         inference_result: &InferenceResult,
         check_result: &TypeCheckResult,
         lower_result: &hir::LowerResult,
@@ -200,7 +209,7 @@ mod tests {
     }
 
     fn debug_hir_expr(
-        salsa_db: &dyn hir::Db,
+        salsa_db: &dyn Db,
         expr_id: &hir::ExprId,
         lower_result: &hir::LowerResult,
     ) -> String {
@@ -296,7 +305,7 @@ mod tests {
         }
     }
 
-    fn debug_symbol(salsa_db: &dyn hir::Db, symbol: &Symbol) -> String {
+    fn debug_symbol(salsa_db: &dyn Db, symbol: &Symbol) -> String {
         match symbol {
             hir::Symbol::Param { name, .. } => debug_name(salsa_db, *name),
             hir::Symbol::Local { name, .. } => debug_name(salsa_db, *name),
@@ -305,11 +314,11 @@ mod tests {
         }
     }
 
-    fn debug_name(salsa_db: &dyn hir::Db, name: Name) -> String {
+    fn debug_name(salsa_db: &dyn Db, name: Name) -> String {
         name.text(salsa_db).to_string()
     }
 
-    fn debug_path(salsa_db: &dyn hir::Db, path: &Path) -> String {
+    fn debug_path(salsa_db: &dyn Db, path: &Path) -> String {
         path.segments()
             .iter()
             .map(|segment| segment.text(salsa_db).to_string())

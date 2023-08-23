@@ -1026,12 +1026,12 @@ mod tests {
         let mut fixture = fixture.to_string();
         fixture.insert_str(0, "//- /main.nail\n");
 
-        let salsa_db = hir::TestingDatabase::default();
+        let salsa_db = hir_ty::TestingDatabase::default();
         let source_db = hir::FixtureDatabase::new(&salsa_db, &fixture);
 
         let ast = hir::parse_to_ast(&salsa_db, source_db.source_root());
         let hir_result = hir::build_hir(&salsa_db, ast);
-        let ty_hir_result = hir_ty::lower(&salsa_db, &hir_result);
+        let ty_hir_result = hir_ty::lower(&salsa_db, hir_result);
 
         let mir_result = crate::lower(&salsa_db, &hir_result, &ty_hir_result);
 

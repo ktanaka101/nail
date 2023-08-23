@@ -519,16 +519,16 @@ mod tests {
     fn lower(
         fixture: &str,
     ) -> (
-        hir::TestingDatabase,
+        hir_ty::TestingDatabase,
         hir::LowerResult,
         hir_ty::TyLowerResult,
         mir::LowerResult,
     ) {
-        let salsa_db = hir::TestingDatabase::default();
+        let salsa_db = hir_ty::TestingDatabase::default();
         let source_db = FixtureDatabase::new(&salsa_db, fixture);
         let ast = hir::parse_to_ast(&salsa_db, source_db.source_root());
         let hir_result = hir::build_hir(&salsa_db, ast);
-        let ty_result = hir_ty::lower(&salsa_db, &hir_result);
+        let ty_result = hir_ty::lower(&salsa_db, hir_result);
         let mir_result = mir::lower(&salsa_db, &hir_result, &ty_result);
         (salsa_db, hir_result, ty_result, mir_result)
     }

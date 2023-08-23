@@ -2,11 +2,12 @@ use std::collections::HashMap;
 
 use crate::{
     db::{ModuleId, UseItemId},
-    AstId, ItemScopeId, Name, ParamId, Path,
+    AstId, ItemScopeId, Name, Path,
 };
 
 /// 関数のパラメータを表す
 /// 例: `fn f(x: int, y: int) -> int { x + y }` であれば `x: int` と `y: int` のそれぞれがパラメータ
+#[salsa::interned]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Param {
     /// パラメータ名
@@ -21,7 +22,7 @@ pub struct Param {
 }
 
 /// 型を表す
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Type {
     /// 数値型
     ///
@@ -67,10 +68,10 @@ pub struct Function {
     pub name: Option<Name>,
     /// 関数のパラメータ
     #[return_ref]
-    pub params: Vec<ParamId>,
+    pub params: Vec<Param>,
     /// 関数のパラメータ名をキーとしたパラメータIDのマップ
     #[return_ref]
-    pub param_by_name: HashMap<Name, ParamId>,
+    pub param_by_name: HashMap<Name, Param>,
     /// 関数の戻り値の型
     ///
     /// 例: `fn f(x: int, y: int) -> int { x + y }` であれば `int`

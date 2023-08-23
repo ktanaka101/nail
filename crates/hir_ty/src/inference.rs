@@ -16,7 +16,7 @@ pub struct InferenceResult {
     /// 式に対応する型
     pub type_by_expr: collections::HashMap<hir::ExprId, ResolvedType>,
     /// パラメータに対応する型
-    pub type_by_param: collections::HashMap<hir::ParamId, ResolvedType>,
+    pub type_by_param: collections::HashMap<hir::Param, ResolvedType>,
     /// 関数シグネチャ一覧
     pub signatures: Arena<Signature>,
     /// 関数に対応するシグネチャ
@@ -28,7 +28,7 @@ pub struct InferenceResult {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct InferenceContext {
     type_by_expr: collections::HashMap<hir::ExprId, ResolvedType>,
-    type_by_param: collections::HashMap<hir::ParamId, ResolvedType>,
+    type_by_param: collections::HashMap<hir::Param, ResolvedType>,
     signatures: Arena<Signature>,
     signature_by_function: collections::HashMap<hir::Function, Idx<Signature>>,
     errors: Vec<InferenceError>,
@@ -102,7 +102,7 @@ impl<'a> TypeInferencer<'a> {
         for function in self.hir_result.item_tree(db).functions() {
             let mut params = vec![];
             for param in function.params(db) {
-                let ty = self.infer_ty(&param.lookup(self.hir_result.db(db)).ty);
+                let ty = self.infer_ty(&param.ty(db));
                 params.push(ty);
                 self.ctx.type_by_param.insert(*param, ty);
             }
@@ -174,10 +174,7 @@ impl<'a> TypeInferencer<'a> {
         match expr {
             hir::Expr::Symbol(symbol) => match symbol {
                 hir::Symbol::Local { expr, .. } => self.infer_expr_id(db, *expr),
-                hir::Symbol::Param { param, .. } => {
-                    let param = &param.lookup(self.hir_result.db(db));
-                    self.infer_ty(&param.ty)
-                }
+                hir::Symbol::Param { param, .. } => self.infer_ty(&param.ty(db)),
                 hir::Symbol::Missing { .. } => ResolvedType::Unknown,
                 hir::Symbol::Function { .. } => unimplemented!(),
             },
@@ -251,7 +248,7 @@ impl<'a> TypeInferencer<'a> {
                         let param = function.params(db)[i];
 
                         let arg_ty = self.infer_expr_id(db, *arg);
-                        let param_ty = self.infer_ty(&param.lookup(self.hir_result.db(db)).ty);
+                        let param_ty = self.infer_ty(&param.ty(db));
 
                         if arg_ty == param_ty {
                             continue;

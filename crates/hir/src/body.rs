@@ -7,7 +7,7 @@ use la_arena::{Arena, Idx};
 use self::scopes::ScopeType;
 use crate::{
     body::scopes::ExprScopes, db::Database, item_tree::ItemTree, AstId, Block, Expr, Function,
-    ItemDefId, Literal, ModuleKind, NailFile, Name, ParamId, Path, Stmt, Symbol,
+    ItemDefId, Literal, ModuleKind, NailFile, Name, Param, Path, Stmt, Symbol,
 };
 
 /// 式を一意に識別するためのID
@@ -90,12 +90,12 @@ impl SharedBodyLowerContext {
 pub struct BodyLower {
     file: NailFile,
     scopes: ExprScopes,
-    params: HashMap<Name, ParamId>,
+    params: HashMap<Name, Param>,
 }
 
 impl BodyLower {
     /// 空のコンテキストを作成する
-    pub(super) fn new(file: NailFile, params: HashMap<Name, ParamId>) -> Self {
+    pub(super) fn new(file: NailFile, params: HashMap<Name, Param>) -> Self {
         Self {
             file,
             scopes: ExprScopes::new(),
@@ -420,7 +420,7 @@ impl BodyLower {
         item_scope.lookup(module_paths, function_name, db, item_tree)
     }
 
-    fn lookup_param(&self, name: Name) -> Option<ParamId> {
+    fn lookup_param(&self, name: Name) -> Option<Param> {
         self.params.get(&name).copied()
     }
 
@@ -621,13 +621,12 @@ mod tests {
             .params(salsa_db)
             .iter()
             .map(|param| {
-                let param = param.lookup(lower_result.db(salsa_db));
-                let name = if let Some(name) = param.name {
+                let name = if let Some(name) = param.name(salsa_db) {
                     name.text(salsa_db)
                 } else {
                     "<missing>"
                 };
-                let ty = match param.ty {
+                let ty = match param.ty(salsa_db) {
                     Type::Integer => "int",
                     Type::String => "string",
                     Type::Char => "char",

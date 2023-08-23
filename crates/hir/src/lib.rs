@@ -35,7 +35,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 use ast::{Ast, AstNode};
 pub use body::{BodyLower, ExprId, FunctionBodyId, SharedBodyLowerContext};
-pub use db::{Database, ItemScopeId, ModuleId, ParamId, UseItemId};
+pub use db::{Database, ItemScopeId, ModuleId, UseItemId};
 pub use input::{FixtureDatabase, NailFile, SourceDatabase, SourceDatabaseTrait};
 use item_tree::ItemTreeBuilderContext;
 pub use item_tree::{Function, ItemDefId, ItemTree, Module, ModuleKind, Param, Type, UseItem};
@@ -53,6 +53,7 @@ pub struct Jar(
     build_hir,
     LowerResult,
     Function,
+    Param,
 );
 
 /// [Jar]用のDBトレイトです。
@@ -455,7 +456,7 @@ pub enum Symbol {
         /// パラメータ名
         name: Name,
         /// パラメータ
-        param: ParamId,
+        param: Param,
     },
     /// ローカル変数
     Local {

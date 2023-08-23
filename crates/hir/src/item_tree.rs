@@ -235,17 +235,12 @@ impl ItemTreeBuilderContext {
                             .name()
                             .map(|name| Name::new(salsa_db, name.name().to_string()));
                         let ty = self.lower_ty(param.ty());
-                        let param = Param { name, ty, pos };
-                        db.alloc_param(param)
+                        Param::new(salsa_db, name, ty, pos)
                     })
                     .collect::<Vec<_>>();
                 let param_by_name = params
                     .iter()
-                    .enumerate()
-                    .filter_map(|param| {
-                        let p = param.1.lookup(db);
-                        p.name.map(|name| (name, *param.1))
-                    })
+                    .filter_map(|param| param.name(salsa_db).map(|name| (name, *param)))
                     .collect::<HashMap<_, _>>();
                 let return_type = if let Some(return_type) = def.return_type() {
                     self.lower_ty(return_type.ty())

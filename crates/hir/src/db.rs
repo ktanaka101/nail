@@ -4,20 +4,9 @@ use la_arena::{Arena, Idx};
 use syntax::SyntaxNodePtr;
 
 use crate::{
-    item_tree::{ItemScope, Module, Param, UseItem},
+    item_tree::{ItemScope, Module, UseItem},
     AstId, AstPtr, InFile, NailFile,
 };
-
-/// 関数が持つ引数を一意に特定するためのIDです。
-/// 元データは`Database`に格納されています。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ParamId(Idx<Param>);
-impl ParamId {
-    /// DBから関数の引数を取得します。
-    pub fn lookup(self, db: &Database) -> &Param {
-        &db.params[self.0]
-    }
-}
 
 /// アイテムスコープを一意に特定するためのIDです。
 /// 元データは`Database`に格納されています。
@@ -61,7 +50,6 @@ impl UseItemId {
 /// HIRのさまざまな値を保持するデータベースです。
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Database {
-    params: Arena<Param>,
     item_scopes: Arena<ItemScope>,
     modules: Arena<Module>,
     use_items: Arena<UseItem>,
@@ -72,18 +60,12 @@ impl Database {
     /// データベースを作成します。
     pub fn new() -> Self {
         Self {
-            params: Arena::default(),
             item_scopes: Arena::default(),
             modules: Arena::default(),
             use_items: Arena::default(),
             syntax_node_ptrs: Arena::default(),
             idx_by_syntax_node_ptr: HashMap::default(),
         }
-    }
-
-    /// データベースに格納されている関数の引数一覧を返します。
-    pub fn params(&self) -> impl Iterator<Item = (ParamId, &Param)> {
-        self.params.iter().map(|(idx, param)| (ParamId(idx), param))
     }
 
     /// データベースに格納されているアイテムスコープ一覧を返します。
@@ -105,12 +87,6 @@ impl Database {
         self.use_items
             .iter()
             .map(|(idx, use_item)| (UseItemId(idx), use_item))
-    }
-
-    /// データベースに引数を保存します。
-    /// 保存時にデータを取得するためのIDを生成し返します。
-    pub(crate) fn alloc_param(&mut self, param: Param) -> ParamId {
-        ParamId(self.params.alloc(param))
     }
 
     /// データベースにモジュールを保存します。

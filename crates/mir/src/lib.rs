@@ -41,7 +41,7 @@ struct FunctionLower<'a> {
 
     return_local: Idx<Local>,
     params: Arena<Param>,
-    param_by_hir: HashMap<hir::ParamId, Idx<Param>>,
+    param_by_hir: HashMap<hir::Param, Idx<Param>>,
     locals: Arena<Local>,
     local_idx: u64,
     blocks: Arena<BasicBlock>,
@@ -124,7 +124,7 @@ impl<'a> FunctionLower<'a> {
         *self.local_by_hir.get(&expr).unwrap()
     }
 
-    fn get_param_by_expr(&self, param: hir::ParamId) -> Idx<Param> {
+    fn get_param_by_expr(&self, param: hir::Param) -> Idx<Param> {
         self.param_by_hir[&param]
     }
 
@@ -529,7 +529,7 @@ impl<'a> FunctionLower<'a> {
             let param_idx = self.params.alloc(Param {
                 ty: param_ty,
                 idx: self.local_idx,
-                pos: param.lookup(self.hir_result.db(db)).pos.try_into().unwrap(),
+                pos: param.pos(db).try_into().unwrap(),
             });
             self.param_by_hir.insert(*param, param_idx);
 

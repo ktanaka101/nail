@@ -54,7 +54,7 @@ impl TyLowerResult {
     }
 
     /// 指定したパラメータの型を取得します。
-    pub fn type_by_param(&self, param_id: hir::ParamId) -> ResolvedType {
+    pub fn type_by_param(&self, param_id: hir::Param) -> ResolvedType {
         self.inference_result.type_by_param[&param_id]
     }
 

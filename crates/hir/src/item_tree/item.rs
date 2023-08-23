@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    db::{FunctionId, ModuleId, UseItemId},
+    db::{ModuleId, UseItemId},
     AstId, ItemScopeId, Name, ParamId, Path,
 };
 
@@ -54,9 +54,11 @@ pub enum Type {
 /// 関数定義を表す
 ///
 /// 例: `fn f(x: int, y: int) -> int { x + y }`
+#[salsa::tracked]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Function {
     /// 関数のモジュールパス
+    #[return_ref]
     pub path: Path,
     /// 関数名
     ///
@@ -64,8 +66,10 @@ pub struct Function {
     /// エラー耐性のために、関数名が存在しない場合は`None`となります。
     pub name: Option<Name>,
     /// 関数のパラメータ
+    #[return_ref]
     pub params: Vec<ParamId>,
     /// 関数のパラメータ名をキーとしたパラメータIDのマップ
+    #[return_ref]
     pub param_by_name: HashMap<Name, ParamId>,
     /// 関数の戻り値の型
     ///
@@ -146,7 +150,7 @@ pub struct UseItem {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ItemDefId {
     /// 関数定義
-    Function(FunctionId),
+    Function(Function),
     /// モジュール定義
     Module(ModuleId),
     /// アイテム使用宣言

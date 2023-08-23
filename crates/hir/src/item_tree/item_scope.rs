@@ -31,13 +31,13 @@ use std::collections::HashMap;
 
 use super::ItemTree;
 use crate::{
-    db::{Database, FunctionId, ItemScopeId, ModuleId, UseItemId},
-    Name, Path,
+    db::{Database, ItemScopeId, ModuleId, UseItemId},
+    Function, Name, Path,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemScope {
-    function_by_name: HashMap<Name, FunctionId>,
+    function_by_name: HashMap<Name, Function>,
     module_by_name: HashMap<Name, ModuleId>,
     use_item_by_name: HashMap<Name, UseItemId>,
     parent: Option<ParentScope>,
@@ -90,7 +90,7 @@ impl ItemScope {
         function_name: Name,
         db: &Database,
         item_tree: &ItemTree,
-    ) -> Option<FunctionId> {
+    ) -> Option<Function> {
         match module_paths {
             [] => self.lookup_function(function_name, db),
             [module_path, rest @ ..] => {
@@ -106,7 +106,7 @@ impl ItemScope {
         function_name: Name,
         db: &Database,
         item_tree: &ItemTree,
-    ) -> Option<FunctionId> {
+    ) -> Option<Function> {
         match module_paths {
             [] => self.function_by_name.get(&function_name).copied(),
             [module_path, rest @ ..] => {
@@ -127,7 +127,7 @@ impl ItemScope {
             .map(|module_id| item_tree.scope_by_module(db, module_id).unwrap())
     }
 
-    fn lookup_function(&self, function_name: Name, db: &Database) -> Option<FunctionId> {
+    fn lookup_function(&self, function_name: Name, db: &Database) -> Option<Function> {
         if let Some(function_id) = self.function_by_name.get(&function_name) {
             Some(*function_id)
         } else {
@@ -162,8 +162,8 @@ impl ItemScope {
         }
     }
 
-    pub(crate) fn insert_function(&mut self, name: Name, function_id: FunctionId) {
-        self.function_by_name.insert(name, function_id);
+    pub(crate) fn insert_function(&mut self, name: Name, function: Function) {
+        self.function_by_name.insert(name, function);
     }
 
     pub(crate) fn insert_module(&mut self, name: Name, module_id: ModuleId) {

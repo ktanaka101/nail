@@ -35,7 +35,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 use ast::{Ast, AstNode};
 pub use body::{BodyLower, ExprId, FunctionBodyId, SharedBodyLowerContext};
-pub use db::{Database, FunctionId, ItemScopeId, ModuleId, ParamId, UseItemId};
+pub use db::{Database, ItemScopeId, ModuleId, ParamId, UseItemId};
 pub use input::{FixtureDatabase, NailFile, SourceDatabase, SourceDatabaseTrait};
 use item_tree::ItemTreeBuilderContext;
 pub use item_tree::{Function, ItemDefId, ItemTree, Module, ModuleKind, Param, Type, UseItem};
@@ -52,6 +52,7 @@ pub struct Jar(
     AstSourceFile,
     build_hir,
     LowerResult,
+    Function,
 );
 
 /// [Jar]用のDBトレイトです。
@@ -168,7 +169,7 @@ pub struct LowerResult {
     #[return_ref]
     pub top_level_items: Vec<ItemDefId>,
     /// エントリーポイントの関数
-    pub entry_point: Option<FunctionId>,
+    pub entry_point: Option<Function>,
     /// データベース
     #[return_ref]
     pub db: Database,
@@ -188,7 +189,7 @@ impl LowerResult {
     pub fn function_body_by_function<'a>(
         &self,
         db: &'a dyn Db,
-        function: FunctionId,
+        function: Function,
     ) -> Option<&'a Expr> {
         let body_block = self.item_tree(db).block_id_by_function(&function)?;
         self.shared_ctx(db).function_body_by_block(body_block)
@@ -235,7 +236,7 @@ pub fn build_hir(salsa_db: &dyn crate::Db, ast_source: AstSourceFile) -> crate::
 
     let (errors, entry_point) = if ast_source.file(salsa_db).root(salsa_db) {
         let mut errors = vec![];
-        let entry_point = get_entry_point(salsa_db, &top_level_items, &db);
+        let entry_point = get_entry_point(salsa_db, &top_level_items);
         if entry_point.is_none() {
             errors.push(LowerError::UndefinedEntryPoint);
         }
@@ -259,18 +260,13 @@ pub fn build_hir(salsa_db: &dyn crate::Db, ast_source: AstSourceFile) -> crate::
 ///
 /// エントリポイントが見つからない場合は`None`を返します。
 /// エントリポイントが複数存在する場合は、最初に見つかったものを返します。
-fn get_entry_point(
-    salsa_db: &dyn Db,
-    top_level_items: &[ItemDefId],
-    db: &Database,
-) -> Option<FunctionId> {
+fn get_entry_point(salsa_db: &dyn Db, top_level_items: &[ItemDefId]) -> Option<Function> {
     for item in top_level_items {
         match item {
-            ItemDefId::Function(function_id) => {
-                let function = function_id.lookup(db);
-                if let Some(name) = function.name {
+            ItemDefId::Function(function) => {
+                if let Some(name) = function.name(salsa_db) {
                     if name.text(salsa_db) == "main" {
-                        return Some(*function_id);
+                        return Some(*function);
                     }
                 }
             }
@@ -473,7 +469,7 @@ pub enum Symbol {
         /// 関数名
         path: Path,
         /// 関数
-        function: FunctionId,
+        function: Function,
     },
     /// 解決できないシンボル
     Missing {

@@ -20,7 +20,7 @@ pub struct InferenceResult {
     /// 関数シグネチャ一覧
     pub signatures: Arena<Signature>,
     /// 関数に対応するシグネチャ
-    pub signature_by_function: collections::HashMap<hir::FunctionId, Idx<Signature>>,
+    pub signature_by_function: collections::HashMap<hir::Function, Idx<Signature>>,
     /// 型推論中に発生したエラー
     pub errors: Vec<InferenceError>,
 }
@@ -30,7 +30,7 @@ struct InferenceContext {
     type_by_expr: collections::HashMap<hir::ExprId, ResolvedType>,
     type_by_param: collections::HashMap<hir::ParamId, ResolvedType>,
     signatures: Arena<Signature>,
-    signature_by_function: collections::HashMap<hir::FunctionId, Idx<Signature>>,
+    signature_by_function: collections::HashMap<hir::Function, Idx<Signature>>,
     errors: Vec<InferenceError>,
 }
 
@@ -99,9 +99,9 @@ impl<'a> TypeInferencer<'a> {
     }
 
     fn infer(mut self, db: &dyn Db) -> InferenceResult {
-        for (function_id, function) in self.hir_result.db(db).functions() {
+        for function in self.hir_result.item_tree(db).functions() {
             let mut params = vec![];
-            for param in &function.params {
+            for param in function.params(db) {
                 let ty = self.infer_ty(&param.lookup(self.hir_result.db(db)).ty);
                 params.push(ty);
                 self.ctx.type_by_param.insert(*param, ty);
@@ -109,19 +109,19 @@ impl<'a> TypeInferencer<'a> {
 
             let signature = Signature {
                 params,
-                return_type: self.infer_ty(&function.return_type),
+                return_type: self.infer_ty(&function.return_type(db)),
             };
             let signature_idx = self.ctx.signatures.alloc(signature);
             self.ctx
                 .signature_by_function
-                .insert(function_id, signature_idx);
+                .insert(*function, signature_idx);
         }
 
-        for (function_id, _) in self.hir_result.db(db).functions() {
+        for function in self.hir_result.item_tree(db).functions() {
             let body_ast_id = self
                 .hir_result
                 .item_tree(db)
-                .block_id_by_function(&function_id)
+                .block_id_by_function(function)
                 .unwrap();
             let body = self
                 .hir_result
@@ -247,10 +247,8 @@ impl<'a> TypeInferencer<'a> {
             hir::Expr::Call { callee, args } => match callee {
                 hir::Symbol::Missing { .. } => ResolvedType::Unknown,
                 hir::Symbol::Function { function, .. } => {
-                    let signature = function.lookup(self.hir_result.db(db));
-
                     for (i, arg) in args.iter().enumerate() {
-                        let param = signature.params[i];
+                        let param = function.params(db)[i];
 
                         let arg_ty = self.infer_expr_id(db, *arg);
                         let param_ty = self.infer_ty(&param.lookup(self.hir_result.db(db)).ty);
@@ -268,7 +266,7 @@ impl<'a> TypeInferencer<'a> {
                         }
                     }
 
-                    self.infer_ty(&signature.return_type)
+                    self.infer_ty(&function.return_type(db))
                 }
                 hir::Symbol::Local { .. } | hir::Symbol::Param { .. } => unimplemented!(),
             },

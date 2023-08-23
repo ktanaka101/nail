@@ -48,7 +48,7 @@ pub struct TyLowerResult {
 }
 impl TyLowerResult {
     /// 指定した関数の型を取得します。
-    pub fn signature_by_function(&self, function_id: hir::FunctionId) -> &Signature {
+    pub fn signature_by_function(&self, function_id: hir::Function) -> &Signature {
         let signature_idx = self.inference_result.signature_by_function[&function_id];
         &self.inference_result.signatures[signature_idx]
     }

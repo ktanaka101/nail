@@ -7,7 +7,7 @@ pub use item::{Function, ItemDefId, Module, ModuleKind, Param, Type, UseItem};
 pub use item_scope::{ItemScope, ParentScope};
 
 use crate::{
-    db::{Database, FunctionId, ItemScopeId, ModuleId, UseItemId},
+    db::{Database, ItemScopeId, ModuleId, UseItemId},
     AstId, NailFile, Name, Path,
 };
 
@@ -31,6 +31,8 @@ pub struct ItemTree {
     pub file: NailFile,
     /// ファイル内のトップレベルのアイテムスコープID
     pub top_level_scope: ItemScopeId,
+    /// ItemTree内の関数一覧
+    functions: Vec<Function>,
     /// ブロック(AST)に対応するアイテムスコープID
     /// トップレベルのアイテムスコープは含まれません。
     scope_by_block: HashMap<BlockAstId, ItemScopeId>,
@@ -38,9 +40,9 @@ pub struct ItemTree {
     /// トップレベルのアイテムスコープは含まれません。
     block_by_scope: HashMap<ItemScopeId, BlockAstId>,
     /// ブロック(AST)に対応する関数ID
-    function_by_block: HashMap<BlockAstId, FunctionId>,
+    function_by_block: HashMap<BlockAstId, Function>,
     /// 関数に対応するブロックID
-    block_by_function: HashMap<FunctionId, BlockAstId>,
+    block_by_function: HashMap<Function, BlockAstId>,
 
     /// モジュール(AST)に対応するアイテムスコープID
     scope_by_module_ast: HashMap<ModuleAstId, ItemScopeId>,
@@ -57,6 +59,11 @@ impl ItemTree {
     /// トップレベルのアイテムスコープは1ファイルに必ず存在します。
     pub fn top_level_scope<'a>(&self, db: &'a Database) -> &'a ItemScope {
         self.top_level_scope.lookup(db)
+    }
+
+    /// ItemTree内の関数一覧を返す
+    pub fn functions(&self) -> &[Function] {
+        &self.functions
     }
 
     /// ブロック(AST)に対応するアイテムスコープIDを取得します。
@@ -90,27 +97,16 @@ impl ItemTree {
         scope_id.map(|scope_id| scope_id.lookup(db))
     }
 
-    /// ブロック(AST)に対応する関数IDを取得します。
-    /// 存在しない場合は`None`を返します。
-    pub fn function_id_by_block(&self, block_ast_id: &BlockAstId) -> Option<FunctionId> {
-        self.function_by_block.get(block_ast_id).copied()
-    }
-
     /// ブロック(AST)に対応する関数を取得します。
     /// 存在しない場合は`None`を返します。
-    pub fn function_by_block<'a>(
-        &self,
-        db: &'a Database,
-        block_ast_id: &BlockAstId,
-    ) -> Option<&'a Function> {
-        self.function_id_by_block(block_ast_id)
-            .map(|fn_id| fn_id.lookup(db))
+    pub fn function_by_block(&self, block_ast_id: &BlockAstId) -> Option<Function> {
+        self.function_by_block.get(block_ast_id).copied()
     }
 
     /// 関数に対応するブロック(AST)IDを取得します。
     /// 存在しない場合は`None`を返します。
-    pub fn block_id_by_function(&self, function_id: &FunctionId) -> Option<BlockAstId> {
-        Some(self.block_by_function.get(function_id)?.clone())
+    pub fn block_id_by_function(&self, function: &Function) -> Option<BlockAstId> {
+        Some(self.block_by_function.get(function)?.clone())
     }
 
     /// モジュール(AST)に対応するモジュールIDを取得します。
@@ -151,10 +147,13 @@ impl ItemTree {
 /// アイテムツリー構築用コンテキスト
 pub(crate) struct ItemTreeBuilderContext {
     file: NailFile,
+
+    functions: Vec<Function>,
+
     scope_by_block: HashMap<BlockAstId, ItemScopeId>,
     block_by_scope: HashMap<ItemScopeId, BlockAstId>,
-    function_by_block: HashMap<BlockAstId, FunctionId>,
-    block_by_function: HashMap<FunctionId, BlockAstId>,
+    function_by_block: HashMap<BlockAstId, Function>,
+    block_by_function: HashMap<Function, BlockAstId>,
 
     scope_by_module_ast: HashMap<ModuleAstId, ItemScopeId>,
     scope_by_module: HashMap<ModuleId, ItemScopeId>,
@@ -167,6 +166,7 @@ impl ItemTreeBuilderContext {
     pub(crate) fn new(file: NailFile) -> Self {
         Self {
             file,
+            functions: vec![],
             scope_by_block: HashMap::new(),
             block_by_scope: HashMap::new(),
             function_by_block: HashMap::new(),
@@ -201,6 +201,7 @@ impl ItemTreeBuilderContext {
         ItemTree {
             file: self.file,
             top_level_scope: top_level_scope_id,
+            functions: self.functions,
             scope_by_block: self.scope_by_block,
             block_by_scope: self.block_by_scope,
             function_by_block: self.function_by_block,
@@ -257,15 +258,17 @@ impl ItemTreeBuilderContext {
                     .map(|name| Name::new(salsa_db, name.name().to_string()));
 
                 let ast_id = db.alloc_node(&def, self.file);
-                let function = Function {
-                    path: current_scope.lookup(db).path(db),
+                let function = Function::new(
+                    salsa_db,
+                    current_scope.lookup(db).path(db),
                     name,
                     params,
                     param_by_name,
                     return_type,
-                    ast: ast_id,
-                };
-                let function = db.alloc_function(function);
+                    ast_id,
+                );
+                self.functions.push(function);
+
                 if let Some(name) = name {
                     current_scope.lookup_mut(db).insert_function(name, function);
                 }

@@ -6,7 +6,7 @@ use la_arena::{Arena, Idx};
 
 use self::scopes::ScopeType;
 use crate::{
-    body::scopes::ExprScopes, db::Database, item_tree::ItemTree, AstId, Block, Expr, FunctionId,
+    body::scopes::ExprScopes, db::Database, item_tree::ItemTree, AstId, Block, Expr, Function,
     ItemDefId, Literal, ModuleKind, NailFile, Name, ParamId, Path, Stmt, Symbol,
 };
 
@@ -129,15 +129,14 @@ impl BodyLower {
     ) -> Option<ItemDefId> {
         let body = def.body()?;
         let body_ast_id = db.lookup_ast_id(&body, self.file).unwrap();
-        let function = item_tree.function_by_block(db, &body_ast_id).unwrap();
-        let function_id = item_tree.function_id_by_block(&body_ast_id).unwrap();
+        let function = item_tree.function_by_block(&body_ast_id).unwrap();
 
-        let mut body_lower = BodyLower::new(self.file, function.param_by_name.clone());
+        let mut body_lower = BodyLower::new(self.file, function.param_by_name(salsa_db).clone());
         let body_expr = body_lower.lower_block(salsa_db, body, ctx, db, item_tree);
         let body_id = ctx.alloc_function_body(body_expr);
         ctx.function_body_by_block.insert(body_ast_id, body_id);
 
-        Some(ItemDefId::Function(function_id))
+        Some(ItemDefId::Function(function))
     }
 
     /// モジュールのHIRを構築します。
@@ -411,7 +410,7 @@ impl BodyLower {
         function_name: Name,
         db: &Database,
         item_tree: &ItemTree,
-    ) -> Option<FunctionId> {
+    ) -> Option<Function> {
         let item_scope = match self.scopes.current_scope() {
             ScopeType::TopLevel => item_tree.top_level_scope(db),
             ScopeType::SubLevel(block_ast_id) => {
@@ -558,7 +557,7 @@ mod tests {
         item_tree::{ItemDefId, Type},
         parse_pod,
         testing::TestingDatabase,
-        FunctionId, LowerError, LowerResult, ModuleId, ModuleKind, Pod,
+        Function, LowerError, LowerResult, ModuleId, ModuleKind, Pod,
     };
 
     fn indent(nesting: usize) -> String {
@@ -601,26 +600,25 @@ mod tests {
     fn debug_function(
         salsa_db: &dyn crate::Db,
         lower_result: &LowerResult,
-        function_id: FunctionId,
+        function: Function,
         nesting: usize,
     ) -> String {
-        let function = function_id.lookup(lower_result.db(salsa_db));
         let block_ast_id = lower_result
             .item_tree(salsa_db)
-            .block_id_by_function(&function_id)
+            .block_id_by_function(&function)
             .unwrap();
         let body_expr = lower_result
             .shared_ctx(salsa_db)
             .function_body_by_block(block_ast_id)
             .unwrap();
 
-        let name = if let Some(name) = function.name {
+        let name = if let Some(name) = function.name(salsa_db) {
             name.text(salsa_db)
         } else {
             "<missing>"
         };
         let params = function
-            .params
+            .params(salsa_db)
             .iter()
             .map(|param| {
                 let param = param.lookup(lower_result.db(salsa_db));
@@ -641,7 +639,7 @@ mod tests {
             })
             .collect::<Vec<_>>()
             .join(", ");
-        let return_type = match &function.return_type {
+        let return_type = match &function.return_type(salsa_db) {
             Type::Integer => "int",
             Type::String => "string",
             Type::Char => "char",
@@ -651,7 +649,7 @@ mod tests {
         };
 
         let body = debug_expr(salsa_db, lower_result, body_expr, nesting);
-        let is_entry_point = lower_result.entry_point(salsa_db) == Some(function_id);
+        let is_entry_point = lower_result.entry_point(salsa_db) == Some(function);
         format!(
             "{}fn {}{name}({params}) -> {return_type} {body}\n",
             indent(nesting),

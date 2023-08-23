@@ -35,9 +35,9 @@ pub fn lower(
 struct FunctionLower<'a> {
     hir_result: &'a hir::LowerResult,
     hir_ty_result: &'a hir_ty::TyLowerResult,
-    function_id_by_hir_function: &'a HashMap<hir::FunctionId, FunctionId>,
+    function_by_hir_function: &'a HashMap<hir::Function, FunctionId>,
     path: hir::Path,
-    function_id: hir::FunctionId,
+    function: hir::Function,
 
     return_local: Idx<Local>,
     params: Arena<Param>,
@@ -56,12 +56,12 @@ impl<'a> FunctionLower<'a> {
     fn new(
         hir_result: &'a hir::LowerResult,
         hir_ty_result: &'a hir_ty::TyLowerResult,
-        function_id_by_hir_function: &'a HashMap<hir::FunctionId, FunctionId>,
+        function_by_hir_function: &'a HashMap<hir::Function, FunctionId>,
         path: hir::Path,
-        function_id: hir::FunctionId,
+        function: hir::Function,
     ) -> Self {
         let mut locals = Arena::new();
-        let signature = &hir_ty_result.signature_by_function(function_id);
+        let signature = &hir_ty_result.signature_by_function(function);
         let return_local = locals.alloc(Local {
             ty: signature.return_type,
             idx: 0,
@@ -70,9 +70,9 @@ impl<'a> FunctionLower<'a> {
         FunctionLower {
             hir_result,
             hir_ty_result,
-            function_id_by_hir_function,
+            function_by_hir_function,
             path,
-            function_id,
+            function,
             local_idx: 1,
             return_local,
             params: Arena::new(),
@@ -464,7 +464,7 @@ impl<'a> FunctionLower<'a> {
                     hir::Symbol::Param { .. } => unimplemented!(),
                     hir::Symbol::Local { .. } => unimplemented!(),
                     hir::Symbol::Function { path: _, function } => {
-                        let function_id = self.function_id_by_hir_function[function];
+                        let function_id = self.function_by_hir_function[function];
 
                         let signature = self.hir_ty_result.signature_by_function(*function);
                         let called_local = self.alloc_local_by_ty(signature.return_type);
@@ -524,9 +524,7 @@ impl<'a> FunctionLower<'a> {
     }
 
     fn lower(mut self, db: &dyn hir::Db) -> Body {
-        let function = self.function_id.lookup(self.hir_result.db(db));
-
-        for param in &function.params {
+        for param in self.function.params(db) {
             let param_ty = self.hir_ty_result.type_by_param(*param);
             let param_idx = self.params.alloc(Param {
                 ty: param_ty,
@@ -540,7 +538,7 @@ impl<'a> FunctionLower<'a> {
 
         let body_block = self
             .hir_result
-            .function_body_by_function(db, self.function_id)
+            .function_body_by_function(db, self.function)
             .unwrap();
         let body_block = match body_block {
             hir::Expr::Block(block) => block,
@@ -584,7 +582,7 @@ impl<'a> FunctionLower<'a> {
 
         Body {
             path: self.path,
-            name: function.name.unwrap(),
+            name: self.function.name(db).unwrap(),
             params: self.params,
             return_local: self.return_local,
             locals: self.locals,
@@ -628,9 +626,9 @@ impl<'a> MirLower<'a> {
 
         let function_id_by_hir_function = {
             let mut function_id_resolver = FunctionIdGenerator::new();
-            let mut function_id_by_hir_function = HashMap::<hir::FunctionId, FunctionId>::new();
-            for (function_id, _function) in self.hir_result.db(db).functions() {
-                function_id_by_hir_function.insert(function_id, function_id_resolver.gen());
+            let mut function_id_by_hir_function = HashMap::<hir::Function, FunctionId>::new();
+            for function in self.hir_result.item_tree(db).functions() {
+                function_id_by_hir_function.insert(*function, function_id_resolver.gen());
             }
 
             function_id_by_hir_function
@@ -638,27 +636,27 @@ impl<'a> MirLower<'a> {
 
         let mut body_by_function = HashMap::<FunctionId, Idx<Body>>::new();
         let mut function_by_body = HashMap::<Idx<Body>, FunctionId>::new();
-        for (function_id, function) in self.hir_result.db(db).functions() {
+        for function in self.hir_result.item_tree(db).functions() {
             let lower = FunctionLower::new(
                 self.hir_result,
                 self.hir_ty_result,
                 &function_id_by_hir_function,
-                function.path.clone(),
-                function_id,
+                function.path(db).clone(),
+                *function,
             );
             let body = lower.lower(db);
             let body_idx = bodies.alloc(body);
 
             body_by_function.insert(
-                *function_id_by_hir_function.get(&function_id).unwrap(),
+                *function_id_by_hir_function.get(function).unwrap(),
                 body_idx,
             );
             function_by_body.insert(
                 body_idx,
-                *function_id_by_hir_function.get(&function_id).unwrap(),
+                *function_id_by_hir_function.get(function).unwrap(),
             );
 
-            let name = function.name.unwrap().text(db);
+            let name = function.name(db).unwrap().text(db);
             if name == "main" {
                 assert_eq!(entry_point, None);
                 entry_point = Some(body_idx);

@@ -75,7 +75,7 @@ pub enum TypeCheckError {
 }
 
 /// 型チェックの結果
-#[derive(Debug, Clone, PartialEq, Eq,)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TypeCheckResult {
     /// 型チェックのエラー一覧
     pub errors: Vec<TypeCheckError>,
@@ -85,7 +85,7 @@ struct TypeChecker<'a> {
     lower_result: &'a LowerResult,
     infer_result: &'a InferenceResult,
     errors: Vec<TypeCheckError>,
-    current_function: Option<hir::FunctionId>,
+    current_function: Option<hir::Function>,
 }
 
 impl<'a> TypeChecker<'a> {
@@ -99,8 +99,8 @@ impl<'a> TypeChecker<'a> {
     }
 
     fn check(mut self, db: &dyn hir::Db) -> TypeCheckResult {
-        for (id, _) in self.lower_result.db(db).functions() {
-            self.check_function(db, id);
+        for function in self.lower_result.item_tree(db).functions() {
+            self.check_function(db, *function);
         }
 
         TypeCheckResult {
@@ -108,11 +108,11 @@ impl<'a> TypeChecker<'a> {
         }
     }
 
-    fn set_function(&mut self, function_id: hir::FunctionId) {
+    fn set_function(&mut self, function_id: hir::Function) {
         self.current_function = Some(function_id);
     }
 
-    fn check_function(&mut self, db: &dyn hir::Db, function_id: hir::FunctionId) {
+    fn check_function(&mut self, db: &dyn hir::Db, function_id: hir::Function) {
         self.set_function(function_id);
 
         let block_ast_id = self

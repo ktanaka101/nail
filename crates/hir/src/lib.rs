@@ -159,8 +159,6 @@ pub enum LowerError {
 #[salsa::tracked]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LowerResult {
-    /// ファイル
-    pub file: NailFile,
     /// ボディ構築時に共有されるコンテキスト
     ///
     /// 1ファイル内のコンテキストです。
@@ -182,6 +180,10 @@ pub struct LowerResult {
     pub errors: Vec<LowerError>,
 }
 impl LowerResult {
+    pub fn file(&self, db: &dyn Db) -> NailFile {
+        self.item_tree(db).file
+    }
+
     /// 関数IDから関数ボディを取得します。
     pub fn function_body_by_function<'a>(
         &self,
@@ -244,7 +246,6 @@ pub fn build_hir(salsa_db: &dyn crate::Db, ast_source: AstSourceFile) -> crate::
 
     LowerResult::new(
         salsa_db,
-        file,
         shared_ctx,
         top_level_items,
         entry_point,

@@ -28,7 +28,7 @@ type UseAstId = AstId<ast::Use>;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemTree {
     /// ファイル
-    file: NailFile,
+    pub file: NailFile,
     /// ファイル内のトップレベルのアイテムスコープID
     pub top_level_scope: ItemScopeId,
     /// ブロック(AST)に対応するアイテムスコープID

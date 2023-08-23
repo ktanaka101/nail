@@ -57,7 +57,7 @@ fn lower(
 
     let ast_source = hir::parse_to_ast(&salsa_db, source_db.source_root());
     let hir_result = hir::build_hir(&salsa_db, ast_source);
-    let ty_result = hir_ty::lower(&hir_result);
+    let ty_result = hir_ty::lower(&salsa_db, &hir_result);
     let mir_result = mir::lower(&salsa_db, &hir_result, &ty_result);
     (salsa_db, hir_result, ty_result, mir_result)
 }

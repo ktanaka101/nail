@@ -603,6 +603,7 @@ dependencies = [
  "hir",
  "la-arena",
  "parser",
+ "salsa-2022",
 ]
 
 [[package]]

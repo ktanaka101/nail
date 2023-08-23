@@ -583,11 +583,11 @@ mod tests {
     fn debug_lower_result(salsa_db: &dyn crate::Db, lower_result: &LowerResult) -> String {
         let mut msg = "".to_string();
 
-        for item in &lower_result.top_level_items {
+        for item in lower_result.top_level_items(salsa_db) {
             msg.push_str(&debug_item(salsa_db, lower_result, item, 0));
         }
 
-        for error in &lower_result.errors {
+        for error in lower_result.errors(salsa_db) {
             match error {
                 LowerError::UndefinedEntryPoint => {
                     msg.push_str("error: Undefined entry point.(help: fn main() { ... })\n");
@@ -604,13 +604,13 @@ mod tests {
         function_id: FunctionId,
         nesting: usize,
     ) -> String {
-        let function = function_id.lookup(&lower_result.db);
+        let function = function_id.lookup(lower_result.db(salsa_db));
         let block_ast_id = lower_result
-            .item_tree
+            .item_tree(salsa_db)
             .block_id_by_function(&function_id)
             .unwrap();
         let body_expr = lower_result
-            .shared_ctx
+            .shared_ctx(salsa_db)
             .function_body_by_block(block_ast_id)
             .unwrap();
 
@@ -623,7 +623,7 @@ mod tests {
             .params
             .iter()
             .map(|param| {
-                let param = param.lookup(&lower_result.db);
+                let param = param.lookup(lower_result.db(salsa_db));
                 let name = if let Some(name) = param.name {
                     name.text(salsa_db)
                 } else {
@@ -651,7 +651,7 @@ mod tests {
         };
 
         let body = debug_expr(salsa_db, lower_result, body_expr, nesting);
-        let is_entry_point = lower_result.entry_point == Some(function_id);
+        let is_entry_point = lower_result.entry_point(salsa_db) == Some(function_id);
         format!(
             "{}fn {}{name}({params}) -> {return_type} {body}\n",
             indent(nesting),
@@ -667,7 +667,7 @@ mod tests {
     ) -> String {
         let curr_indent = indent(nesting);
 
-        let module = module_id.lookup(&lower_result.db);
+        let module = module_id.lookup(lower_result.db(salsa_db));
         let module_name = module.name.text(salsa_db);
 
         match &module.kind {
@@ -696,7 +696,7 @@ mod tests {
         lower_result: &LowerResult,
         use_item_id: UseItemId,
     ) -> String {
-        let use_item = use_item_id.lookup(&lower_result.db);
+        let use_item = use_item_id.lookup(lower_result.db(salsa_db));
         let path_name = debug_path(salsa_db, &use_item.path);
         let item_name = use_item.name.text(salsa_db);
 
@@ -730,7 +730,7 @@ mod tests {
                 let expr_str = debug_expr(
                     salsa_db,
                     lower_result,
-                    value.lookup(&lower_result.shared_ctx),
+                    value.lookup(lower_result.shared_ctx(salsa_db)),
                     nesting,
                 );
                 format!("{}let {name} = {expr_str}\n", indent(nesting))
@@ -744,7 +744,7 @@ mod tests {
                 debug_expr(
                     salsa_db,
                     lower_result,
-                    expr.lookup(&lower_result.shared_ctx),
+                    expr.lookup(lower_result.shared_ctx(salsa_db)),
                     nesting
                 ),
                 if *has_semicolon { ";" } else { "" }
@@ -780,13 +780,13 @@ mod tests {
                 let lhs_str = debug_expr(
                     salsa_db,
                     lower_result,
-                    lhs.lookup(&lower_result.shared_ctx),
+                    lhs.lookup(lower_result.shared_ctx(salsa_db)),
                     nesting,
                 );
                 let rhs_str = debug_expr(
                     salsa_db,
                     lower_result,
-                    rhs.lookup(&lower_result.shared_ctx),
+                    rhs.lookup(lower_result.shared_ctx(salsa_db)),
                     nesting,
                 );
                 format!("{lhs_str} {op} {rhs_str}")
@@ -799,7 +799,7 @@ mod tests {
                 let expr_str = debug_expr(
                     salsa_db,
                     lower_result,
-                    expr.lookup(&lower_result.shared_ctx),
+                    expr.lookup(lower_result.shared_ctx(salsa_db)),
                     nesting,
                 );
                 format!("{op}{expr_str}")
@@ -812,7 +812,7 @@ mod tests {
                         debug_expr(
                             salsa_db,
                             lower_result,
-                            arg.lookup(&lower_result.shared_ctx),
+                            arg.lookup(lower_result.shared_ctx(salsa_db)),
                             nesting,
                         )
                     })
@@ -833,7 +833,7 @@ mod tests {
                         debug_expr(
                             salsa_db,
                             lower_result,
-                            tail.lookup(&lower_result.shared_ctx),
+                            tail.lookup(lower_result.shared_ctx(salsa_db)),
                             nesting + 1
                         )
                     ));
@@ -851,14 +851,14 @@ mod tests {
                 msg.push_str(&debug_expr(
                     salsa_db,
                     lower_result,
-                    condition.lookup(&lower_result.shared_ctx),
+                    condition.lookup(lower_result.shared_ctx(salsa_db)),
                     nesting,
                 ));
                 msg.push(' ');
                 msg.push_str(&debug_expr(
                     salsa_db,
                     lower_result,
-                    then_branch.lookup(&lower_result.shared_ctx),
+                    then_branch.lookup(lower_result.shared_ctx(salsa_db)),
                     nesting,
                 ));
 
@@ -867,7 +867,7 @@ mod tests {
                     msg.push_str(&debug_expr(
                         salsa_db,
                         lower_result,
-                        else_branch.lookup(&lower_result.shared_ctx),
+                        else_branch.lookup(lower_result.shared_ctx(salsa_db)),
                         nesting,
                     ));
                 }
@@ -882,7 +882,7 @@ mod tests {
                         &debug_expr(
                             salsa_db,
                             lower_result,
-                            value.lookup(&lower_result.shared_ctx),
+                            value.lookup(lower_result.shared_ctx(salsa_db)),
                             nesting,
                         )
                     ));
@@ -901,7 +901,7 @@ mod tests {
         nesting: usize,
     ) -> String {
         match symbol {
-            Symbol::Local { name, expr } => match expr.lookup(&lower_result.shared_ctx) {
+            Symbol::Local { name, expr } => match expr.lookup(lower_result.shared_ctx(salsa_db)) {
                 Expr::Symbol { .. }
                 | Expr::Binary { .. }
                 | Expr::Missing
@@ -912,7 +912,7 @@ mod tests {
                 | Expr::Return { .. } => debug_expr(
                     salsa_db,
                     lower_result,
-                    expr.lookup(&lower_result.shared_ctx),
+                    expr.lookup(lower_result.shared_ctx(salsa_db)),
                     nesting,
                 ),
                 Expr::Block { .. } => name.text(salsa_db).to_string(),

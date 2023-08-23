@@ -21,9 +21,9 @@ use hir::LowerResult;
 pub use inference::{InferenceError, InferenceResult, ResolvedType, Signature};
 
 /// HIRを元にTypedHIRを構築します。
-pub fn lower(lower_result: &LowerResult) -> TyLowerResult {
-    let inference_result = inference::infer(lower_result);
-    let type_check_result = checker::check_type(lower_result, &inference_result);
+pub fn lower(db: &dyn hir::Db, lower_result: &LowerResult) -> TyLowerResult {
+    let inference_result = inference::infer(db, lower_result);
+    let type_check_result = checker::check_type(db, lower_result, &inference_result);
 
     TyLowerResult {
         inference_result,
@@ -73,7 +73,7 @@ mod tests {
 
         let ast = hir::parse_to_ast(&salsa_db, source_root_file);
         let lower_result = hir::build_hir(&salsa_db, ast);
-        let result = lower(&lower_result);
+        let result = lower(&salsa_db, &lower_result);
         expect.assert_eq(&debug(
             &salsa_db,
             &result.inference_result,
@@ -204,7 +204,7 @@ mod tests {
         expr_id: &hir::ExprId,
         lower_result: &hir::LowerResult,
     ) -> String {
-        let expr = expr_id.lookup(&lower_result.shared_ctx);
+        let expr = expr_id.lookup(lower_result.shared_ctx(salsa_db));
         match expr {
             hir::Expr::Symbol(symbol) => match symbol {
                 hir::Symbol::Param { name, .. } => debug_name(salsa_db, *name),

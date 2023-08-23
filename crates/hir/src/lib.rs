@@ -44,7 +44,14 @@ pub use testing::TestingDatabase;
 
 /// ここに`salsa`データを定義します。
 #[salsa::jar(db = Db)]
-pub struct Jar(Name, NailFile, parse_to_ast, AstSourceFile, build_hir);
+pub struct Jar(
+    Name,
+    NailFile,
+    parse_to_ast,
+    AstSourceFile,
+    build_hir,
+    LowerResult,
+);
 
 /// [Jar]用のDBトレイトです。
 pub trait Db: salsa::DbWithJar<Jar> {}
@@ -100,7 +107,7 @@ pub fn parse_pod(salsa_db: &dyn Db, path: &str, source_db: &mut dyn SourceDataba
     let ast_source = parse_to_ast(salsa_db, nail_file);
     let root_result = build_hir(salsa_db, ast_source);
 
-    for (_, module) in root_result.db.modules() {
+    for (_, module) in root_result.db(salsa_db).modules() {
         if matches!(module.kind, ModuleKind::Inline { .. }) {
             continue;
         }
@@ -109,8 +116,11 @@ pub fn parse_pod(salsa_db: &dyn Db, path: &str, source_db: &mut dyn SourceDataba
         let sub_module_lower_result =
             parse_sub_module(salsa_db, sub_module_name, &root_file_path, source_db);
 
-        registration_order.push(sub_module_lower_result.file);
-        lower_result_by_file.insert(sub_module_lower_result.file, sub_module_lower_result);
+        registration_order.push(sub_module_lower_result.file(salsa_db));
+        lower_result_by_file.insert(
+            sub_module_lower_result.file(salsa_db),
+            sub_module_lower_result,
+        );
     }
 
     Pod {
@@ -145,6 +155,7 @@ pub enum LowerError {
 }
 
 /// HIR構築結果
+#[salsa::tracked]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LowerResult {
     /// ファイル
@@ -152,23 +163,32 @@ pub struct LowerResult {
     /// ボディ構築時に共有されるコンテキスト
     ///
     /// 1ファイル内のコンテキストです。
+    #[return_ref]
     pub shared_ctx: SharedBodyLowerContext,
     /// トップレベルのアイテム一覧
+    #[return_ref]
     pub top_level_items: Vec<ItemDefId>,
     /// エントリーポイントの関数
     pub entry_point: Option<FunctionId>,
     /// データベース
+    #[return_ref]
     pub db: Database,
     /// アイテムツリー
+    #[return_ref]
     pub item_tree: ItemTree,
     /// エラー一覧
+    #[return_ref]
     pub errors: Vec<LowerError>,
 }
 impl LowerResult {
     /// 関数IDから関数ボディを取得します。
-    pub fn function_body_by_function(&self, function: FunctionId) -> Option<&Expr> {
-        let body_block = self.item_tree.block_id_by_function(&function)?;
-        self.shared_ctx.function_body_by_block(body_block)
+    pub fn function_body_by_function<'a>(
+        &self,
+        db: &'a dyn Db,
+        function: FunctionId,
+    ) -> Option<&'a Expr> {
+        let body_block = self.item_tree(db).block_id_by_function(&function)?;
+        self.shared_ctx(db).function_body_by_block(body_block)
     }
 }
 
@@ -221,7 +241,8 @@ pub fn build_hir(salsa_db: &dyn crate::Db, ast_source: AstSourceFile) -> crate::
         (vec![], None)
     };
 
-    LowerResult {
+    LowerResult::new(
+        salsa_db,
         file,
         shared_ctx,
         top_level_items,
@@ -229,7 +250,7 @@ pub fn build_hir(salsa_db: &dyn crate::Db, ast_source: AstSourceFile) -> crate::
         db,
         item_tree,
         errors,
-    }
+    )
 }
 
 /// トップレベルのアイテムからエントリポイントを取得します。

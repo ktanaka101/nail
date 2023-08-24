@@ -174,7 +174,7 @@ impl BodyLower {
         item_tree: &ItemTree,
     ) -> Option<ItemDefId> {
         let use_ast_id = db.lookup_ast_id(&r#use, self.file).unwrap();
-        let use_item_id = item_tree.use_item_id_by_ast_use(use_ast_id).unwrap();
+        let use_item_id = item_tree.use_item_by_ast_use(use_ast_id).unwrap();
 
         Some(ItemDefId::UseItem(use_item_id))
     }
@@ -547,12 +547,11 @@ mod tests {
 
     use super::*;
     use crate::{
-        db::UseItemId,
         input::FixtureDatabase,
         item_tree::{ItemDefId, Type},
         parse_pod,
         testing::TestingDatabase,
-        Function, LowerError, LowerResult, Module, ModuleKind, Pod,
+        Function, LowerError, LowerResult, Module, ModuleKind, Pod, UseItem,
     };
 
     fn indent(nesting: usize) -> String {
@@ -682,14 +681,9 @@ mod tests {
         }
     }
 
-    fn debug_use_item(
-        salsa_db: &dyn crate::Db,
-        lower_result: &LowerResult,
-        use_item_id: UseItemId,
-    ) -> String {
-        let use_item = use_item_id.lookup(lower_result.db(salsa_db));
-        let path_name = debug_path(salsa_db, &use_item.path);
-        let item_name = use_item.name.text(salsa_db);
+    fn debug_use_item(salsa_db: &dyn crate::Db, use_item: UseItem) -> String {
+        let path_name = debug_path(salsa_db, use_item.path(salsa_db));
+        let item_name = use_item.name(salsa_db).text(salsa_db);
 
         format!("{path_name}::{item_name}")
     }
@@ -705,7 +699,7 @@ mod tests {
                 debug_function(salsa_db, lower_result, *function, nesting)
             }
             ItemDefId::Module(module) => debug_module(salsa_db, lower_result, *module, nesting),
-            ItemDefId::UseItem(use_item) => debug_use_item(salsa_db, lower_result, *use_item),
+            ItemDefId::UseItem(use_item) => debug_use_item(salsa_db, *use_item),
         }
     }
 

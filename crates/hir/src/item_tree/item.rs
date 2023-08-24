@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{db::UseItemId, AstId, ItemScopeId, Name, Path};
+use crate::{AstId, ItemScopeId, Name, Path};
 
 /// 関数のパラメータを表す
 /// 例: `fn f(x: int, y: int) -> int { x + y }` であれば `x: int` と `y: int` のそれぞれがパラメータ
@@ -131,6 +131,7 @@ pub enum ModuleKind {
 /// アイテムの使用宣言を表す
 ///
 /// 例: `use std::io::println;`
+#[salsa::interned]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UseItem {
     /// 使用宣言の名前
@@ -140,6 +141,7 @@ pub struct UseItem {
     /// 使用宣言対象のパス
     ///
     /// 例: `use std::io::println;` であれば `std::io`
+    #[return_ref]
     pub path: Path,
 
     /// 宣言したアイテムスコープ
@@ -154,5 +156,5 @@ pub enum ItemDefId {
     /// モジュール定義
     Module(Module),
     /// アイテム使用宣言
-    UseItem(UseItemId),
+    UseItem(UseItem),
 }

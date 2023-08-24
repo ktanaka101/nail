@@ -3,10 +3,7 @@ use std::collections::HashMap;
 use la_arena::{Arena, Idx};
 use syntax::SyntaxNodePtr;
 
-use crate::{
-    item_tree::{ItemScope, UseItem},
-    AstId, AstPtr, InFile, NailFile,
-};
+use crate::{item_tree::ItemScope, AstId, AstPtr, InFile, NailFile};
 
 /// アイテムスコープを一意に特定するためのIDです。
 /// 元データは`Database`に格納されています。
@@ -24,23 +21,10 @@ impl ItemScopeId {
     }
 }
 
-/// 別モジュールを参照するUseアイテムアイテムを一意に特定するためのIDです。
-/// 元データは`Database`に格納されています。
-/// `use math::max;`
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct UseItemId(Idx<UseItem>);
-impl UseItemId {
-    /// DBから使用宣言を取得します。
-    pub fn lookup(self, db: &Database) -> &UseItem {
-        &db.use_items[self.0]
-    }
-}
-
 /// HIRのさまざまな値を保持するデータベースです。
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Database {
     item_scopes: Arena<ItemScope>,
-    use_items: Arena<UseItem>,
     syntax_node_ptrs: Arena<SyntaxNodePtr>,
     idx_by_syntax_node_ptr: HashMap<SyntaxNodePtr, Idx<SyntaxNodePtr>>,
 }
@@ -49,7 +33,6 @@ impl Database {
     pub fn new() -> Self {
         Self {
             item_scopes: Arena::default(),
-            use_items: Arena::default(),
             syntax_node_ptrs: Arena::default(),
             idx_by_syntax_node_ptr: HashMap::default(),
         }
@@ -60,19 +43,6 @@ impl Database {
         self.item_scopes
             .iter()
             .map(|(idx, item_scope)| (ItemScopeId(idx), item_scope))
-    }
-
-    /// データベースに格納されているUseアイテム一覧を返します。
-    pub fn use_items(&self) -> impl Iterator<Item = (UseItemId, &UseItem)> {
-        self.use_items
-            .iter()
-            .map(|(idx, use_item)| (UseItemId(idx), use_item))
-    }
-
-    /// データベースにUseアイテムを保存します。
-    /// 保存時にデータを取得するためのIDを生成し返します。
-    pub(crate) fn alloc_use_item(&mut self, use_item: UseItem) -> UseItemId {
-        UseItemId(self.use_items.alloc(use_item))
     }
 
     /// データベースにアイテムスコープを保存します。

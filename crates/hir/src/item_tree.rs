@@ -7,7 +7,7 @@ pub use item::{Function, ItemDefId, Module, ModuleKind, Param, Type, UseItem};
 pub use item_scope::{ItemScope, ParentScope};
 
 use crate::{
-    db::{Database, ItemScopeId, UseItemId},
+    db::{Database, ItemScopeId},
     AstId, NailFile, Name, Path,
 };
 
@@ -35,6 +35,8 @@ pub struct ItemTree {
     functions: Vec<Function>,
     /// ItemTree内のモジュール一覧
     modules: Vec<Module>,
+    /// ItemTree内の使用宣言一覧
+    use_items: Vec<UseItem>,
     /// ブロック(AST)に対応するアイテムスコープID
     /// トップレベルのアイテムスコープは含まれません。
     scope_by_block: HashMap<BlockAstId, ItemScopeId>,
@@ -54,7 +56,7 @@ pub struct ItemTree {
     module_by_ast_module: HashMap<ModuleAstId, Module>,
 
     /// 使用宣言(AST)に対応する使用宣言ID
-    use_item_by_ast_use: HashMap<UseAstId, UseItemId>,
+    use_item_by_ast_use: HashMap<UseAstId, UseItem>,
 }
 impl ItemTree {
     /// トップレベルのアイテムスコープを取得します。
@@ -124,19 +126,8 @@ impl ItemTree {
 
     /// 使用宣言(AST)に対応する使用宣言IDを取得します。
     /// 存在しない場合は`None`を返します。
-    pub fn use_item_id_by_ast_use(&self, use_ast_id: UseAstId) -> Option<UseItemId> {
+    pub fn use_item_by_ast_use(&self, use_ast_id: UseAstId) -> Option<UseItem> {
         self.use_item_by_ast_use.get(&use_ast_id).copied()
-    }
-
-    /// 使用宣言(AST)に対応する使用宣言を取得します。
-    /// 存在しない場合は`None`を返します。
-    pub fn use_item_by_ast_use<'a>(
-        &self,
-        db: &'a Database,
-        use_ast_id: UseAstId,
-    ) -> Option<&'a UseItem> {
-        self.use_item_id_by_ast_use(use_ast_id)
-            .map(|use_item_id| use_item_id.lookup(db))
     }
 }
 
@@ -146,6 +137,7 @@ pub(crate) struct ItemTreeBuilderContext {
 
     functions: Vec<Function>,
     modules: Vec<Module>,
+    use_items: Vec<UseItem>,
 
     scope_by_block: HashMap<BlockAstId, ItemScopeId>,
     block_by_scope: HashMap<ItemScopeId, BlockAstId>,
@@ -156,7 +148,7 @@ pub(crate) struct ItemTreeBuilderContext {
     scope_by_module: HashMap<Module, ItemScopeId>,
     module_by_ast_module: HashMap<ModuleAstId, Module>,
 
-    use_item_by_ast_use: HashMap<UseAstId, UseItemId>,
+    use_item_by_ast_use: HashMap<UseAstId, UseItem>,
 }
 impl ItemTreeBuilderContext {
     /// コンテキストを作成します。
@@ -165,6 +157,7 @@ impl ItemTreeBuilderContext {
             file,
             functions: vec![],
             modules: vec![],
+            use_items: vec![],
             scope_by_block: HashMap::new(),
             block_by_scope: HashMap::new(),
             function_by_block: HashMap::new(),
@@ -201,6 +194,7 @@ impl ItemTreeBuilderContext {
             top_level_scope: top_level_scope_id,
             functions: self.functions,
             modules: self.modules,
+            use_items: self.use_items,
             scope_by_block: self.scope_by_block,
             block_by_scope: self.block_by_scope,
             function_by_block: self.function_by_block,
@@ -464,7 +458,7 @@ impl ItemTreeBuilderContext {
         current_scope: ItemScopeId,
         _parent: ParentScope,
         db: &mut Database,
-    ) -> Option<UseItemId> {
+    ) -> Option<UseItem> {
         let use_path = r#use.path()?.segments().collect::<Vec<_>>();
         match use_path.as_slice() {
             [] => unreachable!("use path should not be empty"),
@@ -475,21 +469,14 @@ impl ItemTreeBuilderContext {
                     .map(|segment| Name::new(salsa_db, segment.name().unwrap().name().to_string()))
                     .collect::<Vec<_>>();
                 let path = Path { segments };
-                let use_item = UseItem {
-                    path,
-                    name,
-                    item_scope: current_scope,
-                };
-                let use_item_id = db.alloc_use_item(use_item);
-                current_scope
-                    .lookup_mut(db)
-                    .insert_use_item(name, use_item_id);
+                let use_item = UseItem::new(salsa_db, name, path, current_scope);
 
+                self.use_items.push(use_item);
+                current_scope.lookup_mut(db).insert_use_item(name, use_item);
                 let use_item_ast_id = db.alloc_node(r#use, self.file);
-                self.use_item_by_ast_use
-                    .insert(use_item_ast_id, use_item_id);
+                self.use_item_by_ast_use.insert(use_item_ast_id, use_item);
 
-                Some(use_item_id)
+                Some(use_item)
             }
         }
     }

@@ -35,7 +35,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 use ast::{Ast, AstNode};
 pub use body::{BodyLower, ExprId, FunctionBodyId, SharedBodyLowerContext};
-pub use db::{Database, ItemScopeId, UseItemId};
+pub use db::{Database, ItemScopeId};
 pub use input::{FixtureDatabase, NailFile, SourceDatabase, SourceDatabaseTrait};
 use item_tree::ItemTreeBuilderContext;
 pub use item_tree::{Function, ItemDefId, ItemTree, Module, ModuleKind, Param, Type, UseItem};
@@ -55,6 +55,7 @@ pub struct Jar(
     Function,
     Param,
     Module,
+    UseItem,
 );
 
 /// [Jar]用のDBトレイトです。
@@ -432,7 +433,7 @@ pub enum Expr {
 /// パスを表します
 ///
 /// 例: `aaa::bbb`
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Path {
     segments: Vec<Name>,
 }

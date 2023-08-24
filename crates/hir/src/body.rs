@@ -155,7 +155,7 @@ impl BodyLower {
         let module_ast_id = db.lookup_ast_id(&module, self.file).unwrap();
         let hir_module = item_tree.module_by_ast_module(module_ast_id).unwrap();
 
-        match &hir_module.kind(salsa_db) {
+        match hir_module.kind(salsa_db) {
             ModuleKind::Inline { .. } => {
                 for item in module.items().expect("Already parsed ").items() {
                     self.lower_item(salsa_db, item, ctx, db, item_tree);
@@ -661,7 +661,7 @@ mod tests {
 
         let module_name = module.name(salsa_db).text(salsa_db);
 
-        match &module.kind(salsa_db) {
+        match module.kind(salsa_db) {
             ModuleKind::Inline { items } => {
                 let mut module_str = "".to_string();
                 module_str.push_str(&format!("{curr_indent}mod {module_name} {{\n"));

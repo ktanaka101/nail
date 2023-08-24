@@ -85,6 +85,7 @@ pub struct Module {
     pub name: Name,
 
     /// モジュール種別
+    #[return_ref]
     pub kind: ModuleKind,
 }
 

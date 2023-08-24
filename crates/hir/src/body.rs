@@ -153,22 +153,17 @@ impl BodyLower {
         item_tree: &ItemTree,
     ) -> Option<ItemDefId> {
         let module_ast_id = db.lookup_ast_id(&module, self.file).unwrap();
-        let module_id = item_tree
-            .module_id_by_ast_module(module_ast_id.clone())
-            .unwrap();
+        let hir_module = item_tree.module_by_ast_module(module_ast_id).unwrap();
 
-        let hir_module = item_tree
-            .module_by_ast_module_id(db, module_ast_id)
-            .unwrap();
-        match &hir_module.kind {
+        match &hir_module.kind(salsa_db) {
             ModuleKind::Inline { .. } => {
                 for item in module.items().expect("Already parsed ").items() {
                     self.lower_item(salsa_db, item, ctx, db, item_tree);
                 }
 
-                Some(ItemDefId::Module(module_id))
+                Some(ItemDefId::Module(hir_module))
             }
-            ModuleKind::Outline => Some(ItemDefId::Module(module_id)),
+            ModuleKind::Outline => Some(ItemDefId::Module(hir_module)),
         }
     }
 
@@ -557,7 +552,7 @@ mod tests {
         item_tree::{ItemDefId, Type},
         parse_pod,
         testing::TestingDatabase,
-        Function, LowerError, LowerResult, ModuleId, ModuleKind, Pod,
+        Function, LowerError, LowerResult, Module, ModuleKind, Pod,
     };
 
     fn indent(nesting: usize) -> String {
@@ -659,15 +654,14 @@ mod tests {
     fn debug_module(
         salsa_db: &dyn crate::Db,
         lower_result: &LowerResult,
-        module_id: ModuleId,
+        module: Module,
         nesting: usize,
     ) -> String {
         let curr_indent = indent(nesting);
 
-        let module = module_id.lookup(lower_result.db(salsa_db));
-        let module_name = module.name.text(salsa_db);
+        let module_name = module.name(salsa_db).text(salsa_db);
 
-        match &module.kind {
+        match &module.kind(salsa_db) {
             ModuleKind::Inline { items } => {
                 let mut module_str = "".to_string();
                 module_str.push_str(&format!("{curr_indent}mod {module_name} {{\n"));

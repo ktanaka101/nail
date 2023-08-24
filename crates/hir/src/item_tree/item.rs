@@ -1,9 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{
-    db::{ModuleId, UseItemId},
-    AstId, ItemScopeId, Name, Path,
-};
+use crate::{db::UseItemId, AstId, ItemScopeId, Name, Path};
 
 /// 関数のパラメータを表す
 /// 例: `fn f(x: int, y: int) -> int { x + y }` であれば `x: int` と `y: int` のそれぞれがパラメータ
@@ -81,6 +78,7 @@ pub struct Function {
 }
 
 /// モジュール定義を表す
+#[salsa::interned]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Module {
     /// モジュール名
@@ -95,7 +93,7 @@ pub struct Module {
 /// モジュール定義には以下の2種類があります。
 /// - 別ファイルにモジュールがあることを表す`mod outline;`
 /// - 1ファイル中にインラインで記述可能な`mod inline { /** モジュール内 */ }`
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ModuleKind {
     /// インラインモジュール
     ///
@@ -153,7 +151,7 @@ pub enum ItemDefId {
     /// 関数定義
     Function(Function),
     /// モジュール定義
-    Module(ModuleId),
+    Module(Module),
     /// アイテム使用宣言
     UseItem(UseItemId),
 }

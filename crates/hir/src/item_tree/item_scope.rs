@@ -31,14 +31,14 @@ use std::collections::HashMap;
 
 use super::ItemTree;
 use crate::{
-    db::{Database, ItemScopeId, ModuleId, UseItemId},
-    Function, Name, Path,
+    db::{Database, ItemScopeId, UseItemId},
+    Function, Module, Name, Path,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemScope {
     function_by_name: HashMap<Name, Function>,
-    module_by_name: HashMap<Name, ModuleId>,
+    module_by_name: HashMap<Name, Module>,
     use_item_by_name: HashMap<Name, UseItemId>,
     parent: Option<ParentScope>,
     name: Option<Name>,
@@ -166,7 +166,7 @@ impl ItemScope {
         self.function_by_name.insert(name, function);
     }
 
-    pub(crate) fn insert_module(&mut self, name: Name, module_id: ModuleId) {
+    pub(crate) fn insert_module(&mut self, name: Name, module_id: Module) {
         self.module_by_name.insert(name, module_id);
     }
 

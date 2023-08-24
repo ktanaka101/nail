@@ -35,7 +35,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 use ast::{Ast, AstNode};
 pub use body::{BodyLower, ExprId, FunctionBodyId, SharedBodyLowerContext};
-pub use db::{Database, ItemScopeId, ModuleId, UseItemId};
+pub use db::{Database, ItemScopeId, UseItemId};
 pub use input::{FixtureDatabase, NailFile, SourceDatabase, SourceDatabaseTrait};
 use item_tree::ItemTreeBuilderContext;
 pub use item_tree::{Function, ItemDefId, ItemTree, Module, ModuleKind, Param, Type, UseItem};
@@ -54,6 +54,7 @@ pub struct Jar(
     LowerResult,
     Function,
     Param,
+    Module,
 );
 
 /// [Jar]用のDBトレイトです。
@@ -110,12 +111,12 @@ pub fn parse_pod(salsa_db: &dyn Db, path: &str, source_db: &mut dyn SourceDataba
     let ast_source = parse_to_ast(salsa_db, nail_file);
     let root_result = build_hir(salsa_db, ast_source);
 
-    for (_, module) in root_result.db(salsa_db).modules() {
-        if matches!(module.kind, ModuleKind::Inline { .. }) {
+    for module in root_result.item_tree(salsa_db).modules() {
+        if matches!(module.kind(salsa_db), ModuleKind::Inline { .. }) {
             continue;
         }
 
-        let sub_module_name = module.name.text(salsa_db);
+        let sub_module_name = module.name(salsa_db).text(salsa_db);
         let sub_module_lower_result =
             parse_sub_module(salsa_db, sub_module_name, &root_file_path, source_db);
 

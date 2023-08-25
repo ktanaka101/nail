@@ -64,7 +64,7 @@ impl ItemScope {
         }
     }
 
-    pub fn path(&self, arena: &Arena<ItemScope>) -> Path {
+    pub(super) fn path(&self, arena: &Arena<ItemScope>) -> Path {
         match &self.parent {
             Some(ParentScope(parent)) => {
                 let mut path = parent.lookup_from_arena(arena).path(arena);

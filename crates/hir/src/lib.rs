@@ -26,23 +26,19 @@
 // #![warn(missing_docs)]
 
 mod body;
-mod db;
 mod input;
 mod item_tree;
 mod testing;
 
-use std::{collections::HashMap, marker::PhantomData};
+use std::collections::HashMap;
 
-use ast::{Ast, AstNode};
+use ast::AstNode;
 pub use body::{BodyLower, ExprId, FunctionBodyId, SharedBodyLowerContext};
-pub use db::Database;
 pub use input::{FixtureDatabase, NailFile, SourceDatabase, SourceDatabaseTrait};
 use item_tree::ItemTreeBuilderContext;
 pub use item_tree::{
     Function, Item, ItemScopeId, ItemTree, Module, ModuleKind, Param, Type, UseItem,
 };
-use la_arena::Idx;
-use syntax::SyntaxNodePtr;
 pub use testing::TestingDatabase;
 
 /// ここに`salsa`データを定義します。
@@ -175,9 +171,6 @@ pub struct LowerResult {
     pub top_level_items: Vec<Item>,
     /// エントリーポイントの関数
     pub entry_point: Option<Function>,
-    /// データベース
-    #[return_ref]
-    pub db: Database,
     /// アイテムツリー
     #[return_ref]
     pub item_tree: ItemTree,
@@ -197,7 +190,7 @@ impl LowerResult {
         function: Function,
     ) -> Option<&'a Expr> {
         let body_block = self.item_tree(db).block_id_by_function(&function)?;
-        self.shared_ctx(db).function_body_by_block(body_block)
+        self.shared_ctx(db).function_body_by_ast_block(body_block)
     }
 }
 
@@ -225,9 +218,8 @@ pub fn build_hir(salsa_db: &dyn crate::Db, ast_source: AstSourceFile) -> crate::
     let file = ast_source.file(salsa_db);
     let source_file = ast_source.source(salsa_db);
 
-    let mut db = Database::new();
     let item_tree_builder = ItemTreeBuilderContext::new(file);
-    let item_tree = item_tree_builder.build(salsa_db, source_file, &mut db);
+    let item_tree = item_tree_builder.build(salsa_db, source_file);
 
     let mut shared_ctx = SharedBodyLowerContext::new();
 
@@ -235,7 +227,7 @@ pub fn build_hir(salsa_db: &dyn crate::Db, ast_source: AstSourceFile) -> crate::
     let top_level_items = source_file
         .items()
         .filter_map(|item| {
-            top_level_ctx.lower_toplevel(salsa_db, item, &mut shared_ctx, &db, &item_tree)
+            top_level_ctx.lower_toplevel(salsa_db, item, &mut shared_ctx, &item_tree)
         })
         .collect::<Vec<_>>();
 
@@ -255,7 +247,6 @@ pub fn build_hir(salsa_db: &dyn crate::Db, ast_source: AstSourceFile) -> crate::
         shared_ctx,
         top_level_items,
         entry_point,
-        db,
         item_tree,
         errors,
     )
@@ -281,32 +272,6 @@ fn get_entry_point(salsa_db: &dyn Db, top_level_items: &[Item]) -> Option<Functi
     }
 
     None
-}
-
-/// ファイル内のASTノードを一意に表します
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct AstId<T: Ast>(InFile<AstPtr<T>>);
-
-/// 単一のASTノード上の特定のノードを一意に識別するための値です。
-/// ジェネリクスにより異なるノード種類を型レベルで区別します。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct AstPtr<T: Ast> {
-    raw: AstIdx,
-    _ty: PhantomData<fn() -> T>,
-}
-
-/// 単一のASTノード上で一意に識別するための値です。
-pub type AstIdx = Idx<SyntaxNodePtr>;
-
-/// ファイル内の任意の値を保持します。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct InFile<T> {
-    /// ファイル
-    pub file: NailFile,
-    /// 値
-    ///
-    /// ファイルIDとの組み合わせで一意に識別されるものを使用することを推奨します。
-    pub value: T,
 }
 
 /// HIR中に現れるシンボルを表します
@@ -500,7 +465,7 @@ pub struct Block {
     /// 例えば、`{ let a = 10; }`のようなブロックは最後のステートメントが`;`なので、式を持たないため、Noneが入ります。
     pub tail: Option<ExprId>,
     /// ブロックAST
-    pub ast: AstId<ast::BlockExpr>,
+    pub ast: ast::BlockExpr,
 }
 impl Block {
     /// ブロックの最後の式を返します

@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use crate::{AstId, ExprId, Name};
+use crate::{ExprId, Name};
 
 /// スコープ種別
 ///
@@ -18,7 +18,7 @@ use crate::{AstId, ExprId, Name};
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum ScopeType {
     TopLevel,
-    SubLevel(AstId<ast::BlockExpr>),
+    SubLevel(ast::BlockExpr),
 }
 
 #[derive(Debug)]
@@ -64,7 +64,7 @@ impl ExprScopes {
         &self.inner.last().unwrap().scope_type
     }
 
-    pub(crate) fn enter(&mut self, block: AstId<ast::BlockExpr>) {
+    pub(crate) fn enter(&mut self, block: ast::BlockExpr) {
         self.inner.push(ExprScope::sub_level(block));
     }
 
@@ -90,7 +90,7 @@ impl ExprScope {
     }
 
     #[must_use]
-    fn sub_level(block: AstId<ast::BlockExpr>) -> Self {
+    fn sub_level(block: ast::BlockExpr) -> Self {
         Self {
             table: HashMap::new(),
             scope_type: ScopeType::SubLevel(block),

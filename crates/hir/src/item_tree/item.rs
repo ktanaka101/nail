@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{AstId, ItemScopeId, Name, Path};
+use crate::{ItemScopeId, Name, Path};
 
 /// 関数のパラメータを表す
 /// 例: `fn f(x: int, y: int) -> int { x + y }` であれば `x: int` と `y: int` のそれぞれがパラメータ
@@ -73,8 +73,8 @@ pub struct Function {
     ///
     /// 例: `fn f(x: int, y: int) -> int { x + y }` であれば `int`
     pub return_type: Type,
-    /// 関数のAST上のID
-    pub ast: AstId<ast::FunctionDef>,
+    /// AST上の位置
+    pub ast: ast::FunctionDef,
 }
 
 /// モジュール定義を表す

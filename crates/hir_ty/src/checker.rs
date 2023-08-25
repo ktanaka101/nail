@@ -123,7 +123,7 @@ impl<'a> TypeChecker<'a> {
         let body = self
             .lower_result
             .shared_ctx(db)
-            .function_body_by_block(block_ast_id)
+            .function_body_by_ast_block(block_ast_id)
             .unwrap();
 
         let signature =

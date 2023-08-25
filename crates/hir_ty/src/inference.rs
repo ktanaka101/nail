@@ -126,7 +126,7 @@ impl<'a> TypeInferencer<'a> {
             let body = self
                 .hir_result
                 .shared_ctx(db)
-                .function_body_by_block(body_ast_id)
+                .function_body_by_ast_block(body_ast_id)
                 .unwrap();
             match body {
                 hir::Expr::Block(block) => self.infer_block(db, block),

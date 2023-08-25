@@ -35,10 +35,12 @@ use std::{collections::HashMap, marker::PhantomData};
 
 use ast::{Ast, AstNode};
 pub use body::{BodyLower, ExprId, FunctionBodyId, SharedBodyLowerContext};
-pub use db::{Database, ItemScopeId};
+pub use db::Database;
 pub use input::{FixtureDatabase, NailFile, SourceDatabase, SourceDatabaseTrait};
 use item_tree::ItemTreeBuilderContext;
-pub use item_tree::{Function, Item, ItemTree, Module, ModuleKind, Param, Type, UseItem};
+pub use item_tree::{
+    Function, Item, ItemScopeId, ItemTree, Module, ModuleKind, Param, Type, UseItem,
+};
 use la_arena::Idx;
 use syntax::SyntaxNodePtr;
 pub use testing::TestingDatabase;

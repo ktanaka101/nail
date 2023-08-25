@@ -237,7 +237,7 @@ impl BodyLower {
                     self.lower_expr(salsa_db, ast.expr(), ctx, db, item_tree)
                 }
                 ast::Expr::UnaryExpr(ast) => self.lower_unary(salsa_db, ast, ctx, db, item_tree),
-                ast::Expr::PathExpr(ast) => self.lower_path_expr(salsa_db, ast, ctx, db, item_tree),
+                ast::Expr::PathExpr(ast) => self.lower_path_expr(salsa_db, ast, ctx, item_tree),
                 ast::Expr::CallExpr(ast) => self.lower_call(salsa_db, ast, ctx, db, item_tree),
                 ast::Expr::BlockExpr(ast) => self.lower_block(salsa_db, ast, ctx, db, item_tree),
                 ast::Expr::IfExpr(ast) => self.lower_if(salsa_db, ast, ctx, db, item_tree),
@@ -324,7 +324,6 @@ impl BodyLower {
         salsa_db: &dyn crate::Db,
         ast: ast::PathExpr,
         _ctx: &mut SharedBodyLowerContext,
-        db: &Database,
         item_tree: &ItemTree,
     ) -> Expr {
         let path = Path {
@@ -335,7 +334,7 @@ impl BodyLower {
                 .map(|segment| Name::new(salsa_db, segment.name().unwrap().name().to_string()))
                 .collect(),
         };
-        let symbol = self.lookup_path(path, _ctx, db, item_tree);
+        let symbol = self.lookup_path(path, _ctx, item_tree);
         Expr::Symbol(symbol)
     }
 
@@ -343,7 +342,6 @@ impl BodyLower {
         &mut self,
         path: Path,
         _ctx: &mut SharedBodyLowerContext,
-        db: &Database,
         item_tree: &ItemTree,
     ) -> Symbol {
         match path.segments() {
@@ -356,7 +354,7 @@ impl BodyLower {
                         name,
                         param: param_id,
                     }
-                } else if let Some(function) = self.lookup_function(&[], name, db, item_tree) {
+                } else if let Some(function) = self.lookup_function(&[], name, item_tree) {
                     Symbol::Function {
                         path: Path {
                             segments: vec![name],
@@ -374,8 +372,7 @@ impl BodyLower {
                 }
             }
             [segments @ .., item_segment] => {
-                if let Some(function) = self.lookup_function(segments, *item_segment, db, item_tree)
-                {
+                if let Some(function) = self.lookup_function(segments, *item_segment, item_tree) {
                     Symbol::Function {
                         path: Path {
                             segments: path.segments().to_vec(),
@@ -398,16 +395,13 @@ impl BodyLower {
         &self,
         module_paths: &[Name],
         function_name: Name,
-        db: &Database,
         item_tree: &ItemTree,
     ) -> Option<Function> {
         let item_scope = match self.scopes.current_scope() {
-            ScopeType::TopLevel => item_tree.top_level_scope(db),
-            ScopeType::SubLevel(block_ast_id) => {
-                item_tree.scope_by_block(db, block_ast_id).unwrap()
-            }
+            ScopeType::TopLevel => item_tree.top_level_scope(),
+            ScopeType::SubLevel(block_ast_id) => item_tree.scope_by_block(block_ast_id).unwrap(),
         };
-        item_scope.lookup(module_paths, function_name, db, item_tree)
+        item_scope.lookup(module_paths, function_name, item_tree)
     }
 
     fn lookup_param(&self, name: Name) -> Option<Param> {

@@ -170,7 +170,7 @@ impl ItemScope {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ParentScope(ItemScopeId);
 impl ParentScope {
     pub fn new(scope_id: ItemScopeId) -> Self {

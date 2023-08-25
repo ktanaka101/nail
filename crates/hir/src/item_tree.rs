@@ -349,7 +349,7 @@ impl ItemTreeBuilderContext {
     ) -> Option<()> {
         match expr {
             ast::Expr::BinaryExpr(binary) => {
-                self.build_expr(salsa_db, binary.lhs()?, _current_scope, parent.clone())?;
+                self.build_expr(salsa_db, binary.lhs()?, _current_scope, parent)?;
                 self.build_expr(salsa_db, binary.rhs()?, _current_scope, parent)?;
             }
             ast::Expr::ParenExpr(paren) => {
@@ -362,13 +362,8 @@ impl ItemTreeBuilderContext {
                 self.build_block(salsa_db, block, parent, None);
             }
             ast::Expr::IfExpr(if_expr) => {
-                self.build_expr(
-                    salsa_db,
-                    if_expr.condition()?,
-                    _current_scope,
-                    parent.clone(),
-                )?;
-                self.build_block(salsa_db, if_expr.then_branch()?, parent.clone(), None);
+                self.build_expr(salsa_db, if_expr.condition()?, _current_scope, parent)?;
+                self.build_block(salsa_db, if_expr.then_branch()?, parent, None);
                 self.build_block(salsa_db, if_expr.else_branch()?, parent, None);
             }
             _ => (),
@@ -393,7 +388,7 @@ impl ItemTreeBuilderContext {
         let scope_id = self.alloc_item_scope(scope);
         let current = ParentScope::new(scope_id);
         for stmt in ast_block.stmts() {
-            self.build_stmt(salsa_db, stmt, scope_id, current.clone());
+            self.build_stmt(salsa_db, stmt, scope_id, current);
         }
 
         self.scope_by_block.insert(ast_block.clone(), scope_id);
@@ -422,7 +417,7 @@ impl ItemTreeBuilderContext {
                 let current = ParentScope::new(scope_id);
                 let mut items = vec![];
                 for item in item_list.items() {
-                    if let Some(item) = self.build_item(salsa_db, item, scope_id, current.clone()) {
+                    if let Some(item) = self.build_item(salsa_db, item, scope_id, current) {
                         items.push(item);
                     }
                 }

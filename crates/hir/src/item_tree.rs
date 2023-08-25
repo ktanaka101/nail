@@ -3,7 +3,7 @@ mod item_scope;
 
 use std::collections::HashMap;
 
-pub use item::{Function, ItemDefId, Module, ModuleKind, Param, Type, UseItem};
+pub use item::{Function, Item, Module, ModuleKind, Param, Type, UseItem};
 pub use item_scope::{ItemScope, ParentScope};
 
 use crate::{
@@ -215,7 +215,7 @@ impl ItemTreeBuilderContext {
         current_scope: ItemScopeId,
         parent: ParentScope,
         db: &mut Database,
-    ) -> Option<ItemDefId> {
+    ) -> Option<Item> {
         match item {
             ast::Item::FunctionDef(def) => {
                 let block = def.body()?;
@@ -265,15 +265,15 @@ impl ItemTreeBuilderContext {
                 self.function_by_block.insert(block.clone(), function);
                 self.block_by_function.insert(function, block);
 
-                Some(ItemDefId::Function(function))
+                Some(Item::Function(function))
             }
-            ast::Item::Module(module) => {
-                let module_id = self.build_module(salsa_db, &module, current_scope, parent, db)?;
-                Some(ItemDefId::Module(module_id))
+            ast::Item::Module(ast_module) => {
+                let module = self.build_module(salsa_db, &ast_module, current_scope, parent, db)?;
+                Some(Item::Module(module))
             }
             ast::Item::Use(r#use) => {
-                let use_item_id = self.build_use(salsa_db, &r#use, current_scope, parent, db)?;
-                Some(ItemDefId::UseItem(use_item_id))
+                let use_item = self.build_use(salsa_db, &r#use, current_scope, parent, db)?;
+                Some(Item::UseItem(use_item))
             }
         }
     }

@@ -7,7 +7,7 @@ use la_arena::{Arena, Idx};
 use self::scopes::ScopeType;
 use crate::{
     body::scopes::ExprScopes, db::Database, item_tree::ItemTree, AstId, Block, Expr, Function,
-    ItemDefId, Literal, ModuleKind, NailFile, Name, Param, Path, Stmt, Symbol,
+    Item, Literal, ModuleKind, NailFile, Name, Param, Path, Stmt, Symbol,
 };
 
 /// 式を一意に識別するためのID
@@ -111,7 +111,7 @@ impl BodyLower {
         ctx: &mut SharedBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
-    ) -> Option<ItemDefId> {
+    ) -> Option<Item> {
         match ast {
             ast::Item::FunctionDef(def) => self.lower_function(salsa_db, def, ctx, db, item_tree),
             ast::Item::Module(module) => self.lower_module(salsa_db, module, ctx, db, item_tree),
@@ -126,7 +126,7 @@ impl BodyLower {
         ctx: &mut SharedBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
-    ) -> Option<ItemDefId> {
+    ) -> Option<Item> {
         let body = def.body()?;
         let body_ast_id = db.lookup_ast_id(&body, self.file).unwrap();
         let function = item_tree.function_by_block(&body_ast_id).unwrap();
@@ -136,7 +136,7 @@ impl BodyLower {
         let body_id = ctx.alloc_function_body(body_expr);
         ctx.function_body_by_block.insert(body_ast_id, body_id);
 
-        Some(ItemDefId::Function(function))
+        Some(Item::Function(function))
     }
 
     /// モジュールのHIRを構築します。
@@ -151,7 +151,7 @@ impl BodyLower {
         ctx: &mut SharedBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
-    ) -> Option<ItemDefId> {
+    ) -> Option<Item> {
         let module_ast_id = db.lookup_ast_id(&module, self.file).unwrap();
         let hir_module = item_tree.module_by_ast_module(module_ast_id).unwrap();
 
@@ -161,22 +161,17 @@ impl BodyLower {
                     self.lower_item(salsa_db, item, ctx, db, item_tree);
                 }
 
-                Some(ItemDefId::Module(hir_module))
+                Some(Item::Module(hir_module))
             }
-            ModuleKind::Outline => Some(ItemDefId::Module(hir_module)),
+            ModuleKind::Outline => Some(Item::Module(hir_module)),
         }
     }
 
-    fn lower_use(
-        &mut self,
-        r#use: ast::Use,
-        db: &Database,
-        item_tree: &ItemTree,
-    ) -> Option<ItemDefId> {
+    fn lower_use(&mut self, r#use: ast::Use, db: &Database, item_tree: &ItemTree) -> Option<Item> {
         let use_ast_id = db.lookup_ast_id(&r#use, self.file).unwrap();
         let use_item_id = item_tree.use_item_by_ast_use(use_ast_id).unwrap();
 
-        Some(ItemDefId::UseItem(use_item_id))
+        Some(Item::UseItem(use_item_id))
     }
 
     fn lower_stmt(
@@ -218,7 +213,7 @@ impl BodyLower {
         ctx: &mut SharedBodyLowerContext,
         db: &Database,
         item_tree: &ItemTree,
-    ) -> Option<ItemDefId> {
+    ) -> Option<Item> {
         match item {
             ast::Item::FunctionDef(def) => self.lower_function(salsa_db, def, ctx, db, item_tree),
             ast::Item::Module(module) => self.lower_module(salsa_db, module, ctx, db, item_tree),
@@ -548,7 +543,7 @@ mod tests {
     use super::*;
     use crate::{
         input::FixtureDatabase,
-        item_tree::{ItemDefId, Type},
+        item_tree::{Item, Type},
         parse_pod,
         testing::TestingDatabase,
         Function, LowerError, LowerResult, Module, ModuleKind, Pod, UseItem,
@@ -691,15 +686,13 @@ mod tests {
     fn debug_item(
         salsa_db: &dyn crate::Db,
         lower_result: &LowerResult,
-        item: &ItemDefId,
+        item: &Item,
         nesting: usize,
     ) -> String {
         match item {
-            ItemDefId::Function(function) => {
-                debug_function(salsa_db, lower_result, *function, nesting)
-            }
-            ItemDefId::Module(module) => debug_module(salsa_db, lower_result, *module, nesting),
-            ItemDefId::UseItem(use_item) => debug_use_item(salsa_db, *use_item),
+            Item::Function(function) => debug_function(salsa_db, lower_result, *function, nesting),
+            Item::Module(module) => debug_module(salsa_db, lower_result, *module, nesting),
+            Item::UseItem(use_item) => debug_use_item(salsa_db, *use_item),
         }
     }
 

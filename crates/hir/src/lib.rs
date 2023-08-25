@@ -38,7 +38,7 @@ pub use body::{BodyLower, ExprId, FunctionBodyId, SharedBodyLowerContext};
 pub use db::{Database, ItemScopeId};
 pub use input::{FixtureDatabase, NailFile, SourceDatabase, SourceDatabaseTrait};
 use item_tree::ItemTreeBuilderContext;
-pub use item_tree::{Function, ItemDefId, ItemTree, Module, ModuleKind, Param, Type, UseItem};
+pub use item_tree::{Function, Item, ItemTree, Module, ModuleKind, Param, Type, UseItem};
 use la_arena::Idx;
 use syntax::SyntaxNodePtr;
 pub use testing::TestingDatabase;
@@ -170,7 +170,7 @@ pub struct LowerResult {
     pub shared_ctx: SharedBodyLowerContext,
     /// トップレベルのアイテム一覧
     #[return_ref]
-    pub top_level_items: Vec<ItemDefId>,
+    pub top_level_items: Vec<Item>,
     /// エントリーポイントの関数
     pub entry_point: Option<Function>,
     /// データベース
@@ -263,18 +263,18 @@ pub fn build_hir(salsa_db: &dyn crate::Db, ast_source: AstSourceFile) -> crate::
 ///
 /// エントリポイントが見つからない場合は`None`を返します。
 /// エントリポイントが複数存在する場合は、最初に見つかったものを返します。
-fn get_entry_point(salsa_db: &dyn Db, top_level_items: &[ItemDefId]) -> Option<Function> {
+fn get_entry_point(salsa_db: &dyn Db, top_level_items: &[Item]) -> Option<Function> {
     for item in top_level_items {
         match item {
-            ItemDefId::Function(function) => {
+            Item::Function(function) => {
                 if let Some(name) = function.name(salsa_db) {
                     if name.text(salsa_db) == "main" {
                         return Some(*function);
                     }
                 }
             }
-            ItemDefId::Module(_) => (),
-            ItemDefId::UseItem(_) => (),
+            Item::Module(_) => (),
+            Item::UseItem(_) => (),
         }
     }
 
@@ -341,7 +341,7 @@ pub enum Stmt {
     /// アイテムを表します。
     Item {
         /// アイテム
-        item: ItemDefId,
+        item: Item,
     },
 }
 

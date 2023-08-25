@@ -111,7 +111,7 @@ pub enum ModuleKind {
     /// ```
     Inline {
         /// アイテム一覧
-        items: Vec<ItemDefId>,
+        items: Vec<Item>,
     },
 
     /// アウトラインモジュール
@@ -150,7 +150,7 @@ pub struct UseItem {
 
 /// ファイルルート及びモジュール内のアイテムを表す
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum ItemDefId {
+pub enum Item {
     /// 関数定義
     Function(Function),
     /// モジュール定義

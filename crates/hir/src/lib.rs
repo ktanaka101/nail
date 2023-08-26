@@ -26,6 +26,7 @@
 // #![warn(missing_docs)]
 
 mod body;
+mod db;
 mod input;
 mod item_tree;
 mod testing;
@@ -34,32 +35,13 @@ use std::collections::HashMap;
 
 use ast::AstNode;
 pub use body::{BodyLower, ExprId, FunctionBodyId, SharedBodyLowerContext};
+pub use db::{Db, Jar};
 pub use input::{FixtureDatabase, NailFile, SourceDatabase, SourceDatabaseTrait};
 use item_tree::ItemTreeBuilderContext;
 pub use item_tree::{
     Function, Item, ItemScopeId, ItemTree, Module, ModuleKind, Param, Type, UseItem,
 };
 pub use testing::TestingDatabase;
-
-/// ここに`salsa`データを定義します。
-#[salsa::jar(db = Db)]
-pub struct Jar(
-    Name,
-    NailFile,
-    parse_to_ast,
-    AstSourceFile,
-    build_hir,
-    LowerResult,
-    Function,
-    Param,
-    Module,
-    UseItem,
-);
-
-/// [Jar]用のDBトレイトです。
-pub trait Db: salsa::DbWithJar<Jar> {}
-
-impl<DB> Db for DB where DB: ?Sized + salsa::DbWithJar<Jar> {}
 
 /// PodはNailにおけるパッケージの単位です。
 #[derive(Debug)]

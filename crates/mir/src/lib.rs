@@ -19,25 +19,29 @@ use hir_ty::ResolvedType;
 use la_arena::{Arena, Idx};
 
 /// HIRとTyped HIRからMIRを構築する
-pub fn lower(hir_result: &hir::LowerResult, hir_ty_result: &hir_ty::TyLowerResult) -> LowerResult {
+pub fn lower(
+    salsa_db: &dyn hir::Db,
+    hir_result: &hir::LowerResult,
+    hir_ty_result: &hir_ty::TyLowerResult,
+) -> LowerResult {
     let mir_lower = MirLower {
         hir_result,
         hir_ty_result,
     };
 
-    mir_lower.lower()
+    mir_lower.lower(salsa_db)
 }
 
 struct FunctionLower<'a> {
     hir_result: &'a hir::LowerResult,
     hir_ty_result: &'a hir_ty::TyLowerResult,
-    function_id_by_hir_function: &'a HashMap<hir::FunctionId, FunctionId>,
+    function_by_hir_function: &'a HashMap<hir::Function, FunctionId>,
     path: hir::Path,
-    function_id: hir::FunctionId,
+    function: hir::Function,
 
     return_local: Idx<Local>,
     params: Arena<Param>,
-    param_by_hir: HashMap<hir::ParamId, Idx<Param>>,
+    param_by_hir: HashMap<hir::Param, Idx<Param>>,
     locals: Arena<Local>,
     local_idx: u64,
     blocks: Arena<BasicBlock>,
@@ -52,12 +56,12 @@ impl<'a> FunctionLower<'a> {
     fn new(
         hir_result: &'a hir::LowerResult,
         hir_ty_result: &'a hir_ty::TyLowerResult,
-        function_id_by_hir_function: &'a HashMap<hir::FunctionId, FunctionId>,
+        function_by_hir_function: &'a HashMap<hir::Function, FunctionId>,
         path: hir::Path,
-        function_id: hir::FunctionId,
+        function: hir::Function,
     ) -> Self {
         let mut locals = Arena::new();
-        let signature = &hir_ty_result.signature_by_function(function_id);
+        let signature = &hir_ty_result.signature_by_function(function);
         let return_local = locals.alloc(Local {
             ty: signature.return_type,
             idx: 0,
@@ -66,9 +70,9 @@ impl<'a> FunctionLower<'a> {
         FunctionLower {
             hir_result,
             hir_ty_result,
-            function_id_by_hir_function,
+            function_by_hir_function,
             path,
-            function_id,
+            function,
             local_idx: 1,
             return_local,
             params: Arena::new(),
@@ -120,7 +124,7 @@ impl<'a> FunctionLower<'a> {
         *self.local_by_hir.get(&expr).unwrap()
     }
 
-    fn get_param_by_expr(&self, param: hir::ParamId) -> Idx<Param> {
+    fn get_param_by_expr(&self, param: hir::Param) -> Idx<Param> {
         self.param_by_hir[&param]
     }
 
@@ -177,8 +181,8 @@ impl<'a> FunctionLower<'a> {
         self.blocks.alloc(dest_bb)
     }
 
-    fn lower_expr(&mut self, expr_id: hir::ExprId) -> LoweredExpr {
-        let expr = expr_id.lookup(&self.hir_result.shared_ctx);
+    fn lower_expr(&mut self, db: &dyn hir::Db, expr_id: hir::ExprId) -> LoweredExpr {
+        let expr = expr_id.lookup(self.hir_result.shared_ctx(db));
         match expr {
             hir::Expr::Symbol(symbol) => match symbol {
                 hir::Symbol::Param { name: _, param } => LoweredExpr::Operand(Operand::Place(
@@ -204,7 +208,7 @@ impl<'a> FunctionLower<'a> {
             },
             hir::Expr::Return { value } => {
                 if let Some(value) = value {
-                    let operand = match self.lower_expr(*value) {
+                    let operand = match self.lower_expr(db, *value) {
                         LoweredExpr::Operand(operand) => operand,
                         LoweredExpr::Return => return LoweredExpr::Return,
                     };
@@ -227,7 +231,7 @@ impl<'a> FunctionLower<'a> {
             } => {
                 let cond_local_idx = {
                     let cond_local_idx = self.alloc_local(*condition);
-                    let cond_operand = match self.lower_expr(*condition) {
+                    let cond_operand = match self.lower_expr(db, *condition) {
                         LoweredExpr::Operand(operand) => operand,
                         LoweredExpr::Return => return LoweredExpr::Return,
                     };
@@ -252,14 +256,14 @@ impl<'a> FunctionLower<'a> {
                 {
                     self.current_bb = Some(switch_bb.then_bb_idx);
 
-                    let then_block = match then_branch.lookup(&self.hir_result.shared_ctx) {
+                    let then_block = match then_branch.lookup(self.hir_result.shared_ctx(db)) {
                         hir::Expr::Block(block) => block,
                         _ => unreachable!(),
                     };
 
                     let mut has_return = false;
                     for stmt in &then_block.stmts {
-                        match self.lower_stmt(stmt) {
+                        match self.lower_stmt(db, stmt) {
                             LoweredStmt::Return => {
                                 has_return = true;
                                 break;
@@ -269,7 +273,7 @@ impl<'a> FunctionLower<'a> {
                     }
                     if !has_return {
                         if let Some(tail) = then_block.tail {
-                            match self.lower_expr(tail) {
+                            match self.lower_expr(db, tail) {
                                 LoweredExpr::Operand(operand) => {
                                     let (dest_bb_idx, result_local_idx) =
                                         match dest_bb_and_result_local_idx {
@@ -302,14 +306,15 @@ impl<'a> FunctionLower<'a> {
 
                     match else_branch {
                         Some(else_block) => {
-                            let else_block = match else_block.lookup(&self.hir_result.shared_ctx) {
+                            let else_block = match else_block.lookup(self.hir_result.shared_ctx(db))
+                            {
                                 hir::Expr::Block(block) => block,
                                 _ => unreachable!(),
                             };
 
                             let mut has_return = false;
                             for stmt in &else_block.stmts {
-                                match self.lower_stmt(stmt) {
+                                match self.lower_stmt(db, stmt) {
                                     LoweredStmt::Return => {
                                         has_return = true;
                                         break;
@@ -320,7 +325,7 @@ impl<'a> FunctionLower<'a> {
 
                             if !has_return {
                                 if let Some(tail) = else_block.tail {
-                                    match self.lower_expr(tail) {
+                                    match self.lower_expr(db, tail) {
                                         LoweredExpr::Operand(operand) => {
                                             let (dest_bb_idx, result_local_idx) =
                                                 match dest_bb_and_result_local_idx {
@@ -383,12 +388,12 @@ impl<'a> FunctionLower<'a> {
                 }
             }
             hir::Expr::Binary { op, lhs, rhs } => {
-                let lhs = match self.lower_expr(*lhs) {
+                let lhs = match self.lower_expr(db, *lhs) {
                     LoweredExpr::Return => return LoweredExpr::Return,
                     LoweredExpr::Operand(operand) => operand,
                 };
 
-                let rhs = match self.lower_expr(*rhs) {
+                let rhs = match self.lower_expr(db, *rhs) {
                     LoweredExpr::Return => return LoweredExpr::Return,
                     LoweredExpr::Operand(operand) => operand,
                 };
@@ -415,7 +420,7 @@ impl<'a> FunctionLower<'a> {
                 LoweredExpr::Operand(Operand::Place(place))
             }
             hir::Expr::Unary { op, expr } => {
-                let expr = match self.lower_expr(*expr) {
+                let expr = match self.lower_expr(db, *expr) {
                     LoweredExpr::Return => return LoweredExpr::Return,
                     LoweredExpr::Operand(operand) => operand,
                 };
@@ -432,14 +437,14 @@ impl<'a> FunctionLower<'a> {
             }
             hir::Expr::Block(block) => {
                 for stmt in &block.stmts {
-                    match self.lower_stmt(stmt) {
+                    match self.lower_stmt(db, stmt) {
                         LoweredStmt::Return => return LoweredExpr::Return,
                         LoweredStmt::Unit => (),
                     }
                 }
 
                 if let Some(tail) = block.tail {
-                    self.lower_expr(tail)
+                    self.lower_expr(db, tail)
                 } else {
                     LoweredExpr::Operand(Operand::Constant(Constant::Unit))
                 }
@@ -447,7 +452,7 @@ impl<'a> FunctionLower<'a> {
             hir::Expr::Call { callee, args } => {
                 let mut arg_operands = vec![];
                 for arg in args {
-                    match self.lower_expr(*arg) {
+                    match self.lower_expr(db, *arg) {
                         LoweredExpr::Return => return LoweredExpr::Return,
                         LoweredExpr::Operand(operand) => {
                             arg_operands.push(operand);
@@ -459,7 +464,7 @@ impl<'a> FunctionLower<'a> {
                     hir::Symbol::Param { .. } => unimplemented!(),
                     hir::Symbol::Local { .. } => unimplemented!(),
                     hir::Symbol::Function { path: _, function } => {
-                        let function_id = self.function_id_by_hir_function[function];
+                        let function_id = self.function_by_hir_function[function];
 
                         let signature = self.hir_ty_result.signature_by_function(*function);
                         let called_local = self.alloc_local_by_ty(signature.return_type);
@@ -484,11 +489,11 @@ impl<'a> FunctionLower<'a> {
         }
     }
 
-    fn lower_stmt(&mut self, stmt: &hir::Stmt) -> LoweredStmt {
+    fn lower_stmt(&mut self, db: &dyn hir::Db, stmt: &hir::Stmt) -> LoweredStmt {
         match stmt {
             hir::Stmt::VariableDef { name: _, value } => {
                 let local_idx = self.alloc_local(*value);
-                let operand = match self.lower_expr(*value) {
+                let operand = match self.lower_expr(db, *value) {
                     LoweredExpr::Operand(operand) => operand,
                     LoweredExpr::Return => {
                         return LoweredStmt::Return;
@@ -500,7 +505,7 @@ impl<'a> FunctionLower<'a> {
                 });
             }
             hir::Stmt::ExprStmt { expr, .. } => {
-                match self.lower_expr(*expr) {
+                match self.lower_expr(db, *expr) {
                     LoweredExpr::Operand(operand) => operand,
                     LoweredExpr::Return => {
                         return LoweredStmt::Return;
@@ -508,8 +513,8 @@ impl<'a> FunctionLower<'a> {
                 };
             }
             hir::Stmt::Item { item } => match item {
-                hir::ItemDefId::Function(_) => unreachable!(),
-                hir::ItemDefId::Module(_) | hir::ItemDefId::UseItem(_) => {
+                hir::Item::Function(_) => unreachable!(),
+                hir::Item::Module(_) | hir::Item::UseItem(_) => {
                     return LoweredStmt::Unit;
                 }
             },
@@ -518,15 +523,13 @@ impl<'a> FunctionLower<'a> {
         LoweredStmt::Unit
     }
 
-    fn lower(mut self) -> Body {
-        let function = self.function_id.lookup(&self.hir_result.db);
-
-        for param in &function.params {
+    fn lower(mut self, db: &dyn hir::Db) -> Body {
+        for param in self.function.params(db) {
             let param_ty = self.hir_ty_result.type_by_param(*param);
             let param_idx = self.params.alloc(Param {
                 ty: param_ty,
                 idx: self.local_idx,
-                pos: param.lookup(&self.hir_result.db).pos.try_into().unwrap(),
+                pos: param.pos(db).try_into().unwrap(),
             });
             self.param_by_hir.insert(*param, param_idx);
 
@@ -535,7 +538,7 @@ impl<'a> FunctionLower<'a> {
 
         let body_block = self
             .hir_result
-            .function_body_by_function(self.function_id)
+            .function_body_by_function(db, self.function)
             .unwrap();
         let body_block = match body_block {
             hir::Expr::Block(block) => block,
@@ -549,7 +552,7 @@ impl<'a> FunctionLower<'a> {
 
         let mut has_return = false;
         for stmt in &body_block.stmts {
-            match self.lower_stmt(stmt) {
+            match self.lower_stmt(db, stmt) {
                 LoweredStmt::Return => {
                     has_return = true;
                     break;
@@ -560,7 +563,7 @@ impl<'a> FunctionLower<'a> {
 
         if !has_return {
             if let Some(tail) = body_block.tail {
-                match self.lower_expr(tail) {
+                match self.lower_expr(db, tail) {
                     LoweredExpr::Operand(operand) => {
                         self.add_statement_to_current_bb(Statement::Assign {
                             place: Place::Local(self.return_local),
@@ -579,7 +582,7 @@ impl<'a> FunctionLower<'a> {
 
         Body {
             path: self.path,
-            name: function.name.unwrap(),
+            name: self.function.name(db).unwrap(),
             params: self.params,
             return_local: self.return_local,
             locals: self.locals,
@@ -617,15 +620,15 @@ struct MirLower<'a> {
 }
 
 impl<'a> MirLower<'a> {
-    fn lower(self) -> LowerResult {
+    fn lower(self, db: &dyn hir::Db) -> LowerResult {
         let mut entry_point: Option<Idx<Body>> = None;
         let mut bodies = Arena::new();
 
         let function_id_by_hir_function = {
             let mut function_id_resolver = FunctionIdGenerator::new();
-            let mut function_id_by_hir_function = HashMap::<hir::FunctionId, FunctionId>::new();
-            for (function_id, _function) in self.hir_result.db.functions() {
-                function_id_by_hir_function.insert(function_id, function_id_resolver.gen());
+            let mut function_id_by_hir_function = HashMap::<hir::Function, FunctionId>::new();
+            for function in self.hir_result.item_tree(db).functions() {
+                function_id_by_hir_function.insert(*function, function_id_resolver.gen());
             }
 
             function_id_by_hir_function
@@ -633,30 +636,27 @@ impl<'a> MirLower<'a> {
 
         let mut body_by_function = HashMap::<FunctionId, Idx<Body>>::new();
         let mut function_by_body = HashMap::<Idx<Body>, FunctionId>::new();
-        for (function_id, function) in self.hir_result.db.functions() {
+        for function in self.hir_result.item_tree(db).functions() {
             let lower = FunctionLower::new(
                 self.hir_result,
                 self.hir_ty_result,
                 &function_id_by_hir_function,
-                function.path.clone(),
-                function_id,
+                function.path(db).clone(),
+                *function,
             );
-            let body = lower.lower();
+            let body = lower.lower(db);
             let body_idx = bodies.alloc(body);
 
             body_by_function.insert(
-                *function_id_by_hir_function.get(&function_id).unwrap(),
+                *function_id_by_hir_function.get(function).unwrap(),
                 body_idx,
             );
             function_by_body.insert(
                 body_idx,
-                *function_id_by_hir_function.get(&function_id).unwrap(),
+                *function_id_by_hir_function.get(function).unwrap(),
             );
 
-            let name = self
-                .hir_result
-                .interner
-                .lookup(function.name.unwrap().key());
+            let name = function.name(db).unwrap().text(db);
             if name == "main" {
                 assert_eq!(entry_point, None);
                 entry_point = Some(body_idx);
@@ -1016,7 +1016,6 @@ pub enum BasicBlockKind {
 
 #[cfg(test)]
 mod tests {
-    use ast::AstNode;
     use expect_test::{expect, Expect};
     use hir::SourceDatabaseTrait;
     use hir_ty::ResolvedType;
@@ -1025,45 +1024,44 @@ mod tests {
         let mut fixture = fixture.to_string();
         fixture.insert_str(0, "//- /main.nail\n");
 
-        let source_db = hir::FixtureDatabase::new(&fixture);
-        let source_root_file_id = source_db.source_root();
-        let source_root_file_content = source_db.content(source_root_file_id).unwrap();
+        let salsa_db = hir_ty::TestingDatabase::default();
+        let source_db = hir::FixtureDatabase::new(&salsa_db, &fixture);
 
-        let parsed = parser::parse(source_root_file_content);
-        let ast = ast::SourceFile::cast(parsed.syntax()).unwrap();
-        let hir_result = hir::lower_root(source_root_file_id, ast);
-        let ty_hir_result = hir_ty::lower(&hir_result);
+        let ast = hir::parse_to_ast(&salsa_db, source_db.source_root());
+        let hir_result = hir::build_hir(&salsa_db, ast);
+        let ty_hir_result = hir_ty::lower(&salsa_db, hir_result);
 
-        let mir_result = crate::lower(&hir_result, &ty_hir_result);
+        let mir_result = crate::lower(&salsa_db, &hir_result, &ty_hir_result);
 
-        expect.assert_eq(&debug(&hir_result, &ty_hir_result, &mir_result));
+        expect.assert_eq(&debug(&salsa_db, &hir_result, &ty_hir_result, &mir_result));
     }
 
     fn indent(nesting: usize) -> String {
         "    ".repeat(nesting)
     }
 
-    fn debug_path(path: &hir::Path, hir_result: &hir::LowerResult) -> String {
+    fn debug_path(salsa_db: &dyn hir::Db, path: &hir::Path) -> String {
         let mut msg = "".to_string();
         for (idx, segment) in path.segments().iter().enumerate() {
             if idx > 0 {
                 msg.push_str("::");
             }
-            msg.push_str(hir_result.interner.lookup(segment.key()));
+            msg.push_str(segment.text(salsa_db));
         }
         msg
     }
 
     fn debug(
-        hir_result: &hir::LowerResult,
+        salsa_db: &dyn hir::Db,
+        _hir_result: &hir::LowerResult,
         _hir_ty_result: &hir_ty::TyLowerResult,
         mir_result: &crate::LowerResult,
     ) -> String {
         let mut msg = "".to_string();
 
         for (_body_idx, body) in mir_result.bodies.iter() {
-            let path = debug_path(&body.path, hir_result);
-            let name = hir_result.interner.lookup(body.name.key());
+            let path = debug_path(salsa_db, &body.path);
+            let name = body.name.text(salsa_db);
             if path.is_empty() {
                 msg.push_str(&format!("fn {name}("));
             } else {
@@ -1110,7 +1108,7 @@ mod tests {
                     msg.push_str(&format!(
                         "{}{}\n",
                         indent(2),
-                        debug_termination(termination, body, hir_result, mir_result)
+                        debug_termination(salsa_db, termination, body, mir_result)
                     ));
                 }
 
@@ -1209,9 +1207,9 @@ mod tests {
     }
 
     fn debug_termination(
+        salsa_db: &dyn hir::Db,
         termination: &crate::Termination,
         body: &crate::Body,
-        hir_result: &hir::LowerResult,
         mir_result: &crate::LowerResult,
     ) -> String {
         match termination {
@@ -1241,7 +1239,7 @@ mod tests {
             } => {
                 let function = mir_result.body_by_function[function];
                 let function_name = mir_result.bodies[function].name;
-                let function_name = hir_result.interner.lookup(function_name.key());
+                let function_name = function_name.text(salsa_db);
                 let args = debug_args(args, body);
                 let dest = debug_place(destination, body);
                 let target_bb_name = debug_bb_name_by_idx(*target, body);

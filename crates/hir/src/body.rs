@@ -6,9 +6,8 @@ use la_arena::{Arena, Idx};
 
 use self::scopes::ScopeType;
 use crate::{
-    body::scopes::ExprScopes, db::Database, item_tree::ItemTree, string_interner::Interner, AstId,
-    Block, Expr, FileId, FunctionId, ItemDefId, Literal, ModuleKind, Name, ParamId, Path, Stmt,
-    Symbol,
+    body::scopes::ExprScopes, item_tree::ItemTree, Block, Expr, Function, Item, Literal,
+    ModuleKind, NailFile, Name, Param, Path, Stmt, Symbol,
 };
 
 /// 式を一意に識別するためのID
@@ -38,11 +37,11 @@ impl Ord for ExprId {
 pub struct FunctionBodyId(Idx<Expr>);
 
 /// 1ファイル内における式と関数本体を保持する
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SharedBodyLowerContext {
     function_bodies: Arena<Expr>,
     exprs: Arena<Expr>,
-    function_body_by_block: HashMap<AstId<ast::BlockExpr>, FunctionBodyId>,
+    function_body_by_ast_block: HashMap<ast::BlockExpr, FunctionBodyId>,
 }
 impl SharedBodyLowerContext {
     /// 空のコンテキストを作成する
@@ -50,23 +49,23 @@ impl SharedBodyLowerContext {
         Self {
             function_bodies: Arena::new(),
             exprs: Arena::new(),
-            function_body_by_block: HashMap::new(),
+            function_body_by_ast_block: HashMap::new(),
         }
     }
 
     /// ASTブロックIDを元に関数本体IDを取得する
-    pub fn function_body_id_by_block(
+    pub fn function_body_id_by_ast_block(
         &self,
-        block_ast_id: AstId<ast::BlockExpr>,
+        ast_block: ast::BlockExpr,
     ) -> Option<FunctionBodyId> {
-        self.function_body_by_block.get(&block_ast_id).copied()
+        self.function_body_by_ast_block.get(&ast_block).copied()
     }
 
     /// ASTブロックIDを元に関数本体を取得する
     ///
     /// 現状、関数本体は[Expr::Block]として表現されているため、[Expr]を返す
-    pub fn function_body_by_block(&self, block_ast_id: AstId<ast::BlockExpr>) -> Option<&Expr> {
-        self.function_body_id_by_block(block_ast_id)
+    pub fn function_body_by_ast_block(&self, ast_block: ast::BlockExpr) -> Option<&Expr> {
+        self.function_body_id_by_ast_block(ast_block)
             .map(|body_id| &self.function_bodies[body_id.0])
     }
 
@@ -89,16 +88,16 @@ impl SharedBodyLowerContext {
 /// `params`は、名前解決に使用されます。
 #[derive(Debug)]
 pub struct BodyLower {
-    file_id: FileId,
+    file: NailFile,
     scopes: ExprScopes,
-    params: HashMap<Name, ParamId>,
+    params: HashMap<Name, Param>,
 }
 
 impl BodyLower {
     /// 空のコンテキストを作成する
-    pub(super) fn new(file_id: FileId, params: HashMap<Name, ParamId>) -> Self {
+    pub(super) fn new(file: NailFile, params: HashMap<Name, Param>) -> Self {
         Self {
-            file_id,
+            file,
             scopes: ExprScopes::new(),
             params,
         }
@@ -107,38 +106,34 @@ impl BodyLower {
     /// トップレベルに定義された[ast::Item]を元に、トップレベルのHIRを構築する
     pub(super) fn lower_toplevel(
         &mut self,
+        salsa_db: &dyn crate::Db,
         ast: ast::Item,
         ctx: &mut SharedBodyLowerContext,
-        db: &Database,
         item_tree: &ItemTree,
-        interner: &mut Interner,
-    ) -> Option<ItemDefId> {
+    ) -> Option<Item> {
         match ast {
-            ast::Item::FunctionDef(def) => self.lower_function(def, ctx, db, item_tree, interner),
-            ast::Item::Module(module) => self.lower_module(module, ctx, db, item_tree, interner),
-            ast::Item::Use(r#use) => self.lower_use(r#use, db, item_tree),
+            ast::Item::FunctionDef(def) => self.lower_function(salsa_db, def, ctx, item_tree),
+            ast::Item::Module(module) => self.lower_module(salsa_db, module, ctx, item_tree),
+            ast::Item::Use(r#use) => self.lower_use(r#use, item_tree),
         }
     }
 
     fn lower_function(
         &mut self,
+        salsa_db: &dyn crate::Db,
         def: ast::FunctionDef,
         ctx: &mut SharedBodyLowerContext,
-        db: &Database,
         item_tree: &ItemTree,
-        interner: &mut Interner,
-    ) -> Option<ItemDefId> {
-        let body = def.body()?;
-        let body_ast_id = db.lookup_ast_id(&body, self.file_id).unwrap();
-        let function = item_tree.function_by_block(db, &body_ast_id).unwrap();
-        let function_id = item_tree.function_id_by_block(&body_ast_id).unwrap();
+    ) -> Option<Item> {
+        let ast_body = def.body()?;
+        let function = item_tree.function_by_ast_block(&ast_body).unwrap();
 
-        let mut body_lower = BodyLower::new(self.file_id, function.param_by_name.clone());
-        let body_expr = body_lower.lower_block(body, ctx, db, item_tree, interner);
+        let mut body_lower = BodyLower::new(self.file, function.param_by_name(salsa_db).clone());
+        let body_expr = body_lower.lower_block(salsa_db, ast_body.clone(), ctx, item_tree);
         let body_id = ctx.alloc_function_body(body_expr);
-        ctx.function_body_by_block.insert(body_ast_id, body_id);
+        ctx.function_body_by_ast_block.insert(ast_body, body_id);
 
-        Some(ItemDefId::Function(function_id))
+        Some(Item::Function(function))
     }
 
     /// モジュールのHIRを構築します。
@@ -148,69 +143,55 @@ impl BodyLower {
     /// また、[ItemDefId]を返すために、アウトラインモジュールも返します。
     fn lower_module(
         &mut self,
-        module: ast::Module,
+        salsa_db: &dyn crate::Db,
+        ast_module: ast::Module,
         ctx: &mut SharedBodyLowerContext,
-        db: &Database,
         item_tree: &ItemTree,
-        interner: &mut Interner,
-    ) -> Option<ItemDefId> {
-        let module_ast_id = db.lookup_ast_id(&module, self.file_id).unwrap();
-        let module_id = item_tree
-            .module_id_by_ast_module(module_ast_id.clone())
-            .unwrap();
+    ) -> Option<Item> {
+        let module = item_tree.module_by_ast_module(ast_module.clone()).unwrap();
 
-        let hir_module = item_tree
-            .module_by_ast_module_id(db, module_ast_id)
-            .unwrap();
-        match &hir_module.kind {
+        match module.kind(salsa_db) {
             ModuleKind::Inline { .. } => {
-                for item in module.items().expect("Already parsed ").items() {
-                    self.lower_item(item, ctx, db, item_tree, interner);
+                for item in ast_module.items().expect("Already parsed ").items() {
+                    self.lower_item(salsa_db, item, ctx, item_tree);
                 }
 
-                Some(ItemDefId::Module(module_id))
+                Some(Item::Module(module))
             }
-            ModuleKind::Outline => Some(ItemDefId::Module(module_id)),
+            ModuleKind::Outline => Some(Item::Module(module)),
         }
     }
 
-    fn lower_use(
-        &mut self,
-        r#use: ast::Use,
-        db: &Database,
-        item_tree: &ItemTree,
-    ) -> Option<ItemDefId> {
-        let use_ast_id = db.lookup_ast_id(&r#use, self.file_id).unwrap();
-        let use_item_id = item_tree.use_item_id_by_ast_use(use_ast_id).unwrap();
+    fn lower_use(&mut self, ast_use: ast::Use, item_tree: &ItemTree) -> Option<Item> {
+        let use_item_id = item_tree.use_item_by_ast_use(ast_use).unwrap();
 
-        Some(ItemDefId::UseItem(use_item_id))
+        Some(Item::UseItem(use_item_id))
     }
 
     fn lower_stmt(
         &mut self,
-        ast: ast::Stmt,
+        salsa_db: &dyn crate::Db,
+        ast_stmt: ast::Stmt,
         ctx: &mut SharedBodyLowerContext,
-        db: &Database,
         item_tree: &ItemTree,
-        interner: &mut Interner,
     ) -> Option<Stmt> {
-        let result = match ast {
+        let result = match ast_stmt {
             ast::Stmt::VariableDef(def) => {
-                let expr = self.lower_expr(def.value(), ctx, db, item_tree, interner);
+                let expr = self.lower_expr(salsa_db, def.value(), ctx, item_tree);
                 let id = ctx.alloc_expr(expr);
-                let name = Name::from_key(interner.intern(def.name()?.name()));
+                let name = Name::new(salsa_db, def.name()?.name().to_owned());
                 self.scopes.define(name, id);
                 Stmt::VariableDef { name, value: id }
             }
             ast::Stmt::ExprStmt(ast) => {
-                let expr = self.lower_expr(ast.expr(), ctx, db, item_tree, interner);
+                let expr = self.lower_expr(salsa_db, ast.expr(), ctx, item_tree);
                 Stmt::ExprStmt {
                     expr: ctx.alloc_expr(expr),
                     has_semicolon: ast.semicolon().is_some(),
                 }
             }
             ast::Stmt::Item(item) => {
-                let item = self.lower_item(item, ctx, db, item_tree, interner)?;
+                let item = self.lower_item(salsa_db, item, ctx, item_tree)?;
                 Stmt::Item { item }
             }
         };
@@ -220,48 +201,44 @@ impl BodyLower {
 
     fn lower_item(
         &mut self,
-        item: ast::Item,
+        salsa_db: &dyn crate::Db,
+        ast_item: ast::Item,
         ctx: &mut SharedBodyLowerContext,
-        db: &Database,
         item_tree: &ItemTree,
-        interner: &mut Interner,
-    ) -> Option<ItemDefId> {
-        match item {
-            ast::Item::FunctionDef(def) => self.lower_function(def, ctx, db, item_tree, interner),
-            ast::Item::Module(module) => self.lower_module(module, ctx, db, item_tree, interner),
-            ast::Item::Use(r#use) => self.lower_use(r#use, db, item_tree),
+    ) -> Option<Item> {
+        match ast_item {
+            ast::Item::FunctionDef(def) => self.lower_function(salsa_db, def, ctx, item_tree),
+            ast::Item::Module(module) => self.lower_module(salsa_db, module, ctx, item_tree),
+            ast::Item::Use(r#use) => self.lower_use(r#use, item_tree),
         }
     }
 
     fn lower_expr(
         &mut self,
-        ast: Option<ast::Expr>,
+        salsa_db: &dyn crate::Db,
+        ast_expr: Option<ast::Expr>,
         ctx: &mut SharedBodyLowerContext,
-        db: &Database,
         item_tree: &ItemTree,
-        interner: &mut Interner,
     ) -> Expr {
-        if let Some(ast) = ast {
+        if let Some(ast) = ast_expr {
             match ast {
-                ast::Expr::BinaryExpr(ast) => self.lower_binary(ast, ctx, db, item_tree, interner),
+                ast::Expr::BinaryExpr(ast) => self.lower_binary(salsa_db, ast, ctx, item_tree),
                 ast::Expr::Literal(ast) => self.lower_literal(ast),
-                ast::Expr::ParenExpr(ast) => {
-                    self.lower_expr(ast.expr(), ctx, db, item_tree, interner)
-                }
-                ast::Expr::UnaryExpr(ast) => self.lower_unary(ast, ctx, db, item_tree, interner),
-                ast::Expr::PathExpr(ast) => self.lower_path_expr(ast, ctx, db, item_tree, interner),
-                ast::Expr::CallExpr(ast) => self.lower_call(ast, ctx, db, item_tree, interner),
-                ast::Expr::BlockExpr(ast) => self.lower_block(ast, ctx, db, item_tree, interner),
-                ast::Expr::IfExpr(ast) => self.lower_if(ast, ctx, db, item_tree, interner),
-                ast::Expr::ReturnExpr(ast) => self.lower_return(ast, ctx, db, item_tree, interner),
+                ast::Expr::ParenExpr(ast) => self.lower_expr(salsa_db, ast.expr(), ctx, item_tree),
+                ast::Expr::UnaryExpr(ast) => self.lower_unary(salsa_db, ast, ctx, item_tree),
+                ast::Expr::PathExpr(ast) => self.lower_path_expr(salsa_db, ast, ctx, item_tree),
+                ast::Expr::CallExpr(ast) => self.lower_call(salsa_db, ast, ctx, item_tree),
+                ast::Expr::BlockExpr(ast) => self.lower_block(salsa_db, ast, ctx, item_tree),
+                ast::Expr::IfExpr(ast) => self.lower_if(salsa_db, ast, ctx, item_tree),
+                ast::Expr::ReturnExpr(ast) => self.lower_return(salsa_db, ast, ctx, item_tree),
             }
         } else {
             Expr::Missing
         }
     }
 
-    fn lower_literal(&self, ast: ast::Literal) -> Expr {
-        match ast.kind() {
+    fn lower_literal(&self, ast_literal: ast::Literal) -> Expr {
+        match ast_literal.kind() {
             ast::LiteralKind::Integer(int) => {
                 if let Some(value) = int.value() {
                     Expr::Literal(Literal::Integer(value))
@@ -295,16 +272,15 @@ impl BodyLower {
 
     fn lower_binary(
         &mut self,
-        ast: ast::BinaryExpr,
+        salsa_db: &dyn crate::Db,
+        ast_binary_expr: ast::BinaryExpr,
         ctx: &mut SharedBodyLowerContext,
-        db: &Database,
         item_tree: &ItemTree,
-        interner: &mut Interner,
     ) -> Expr {
-        let op = ast.op().unwrap();
+        let op = ast_binary_expr.op().unwrap();
 
-        let lhs = self.lower_expr(ast.lhs(), ctx, db, item_tree, interner);
-        let rhs = self.lower_expr(ast.rhs(), ctx, db, item_tree, interner);
+        let lhs = self.lower_expr(salsa_db, ast_binary_expr.lhs(), ctx, item_tree);
+        let rhs = self.lower_expr(salsa_db, ast_binary_expr.rhs(), ctx, item_tree);
 
         Expr::Binary {
             op,
@@ -315,15 +291,14 @@ impl BodyLower {
 
     fn lower_unary(
         &mut self,
-        ast: ast::UnaryExpr,
+        salsa_db: &dyn crate::Db,
+        ast_unary_expr: ast::UnaryExpr,
         ctx: &mut SharedBodyLowerContext,
-        db: &Database,
         item_tree: &ItemTree,
-        interner: &mut Interner,
     ) -> Expr {
-        let op = ast.op().unwrap();
+        let op = ast_unary_expr.op().unwrap();
 
-        let expr = self.lower_expr(ast.expr(), ctx, db, item_tree, interner);
+        let expr = self.lower_expr(salsa_db, ast_unary_expr.expr(), ctx, item_tree);
 
         Expr::Unary {
             op,
@@ -333,21 +308,20 @@ impl BodyLower {
 
     fn lower_path_expr(
         &mut self,
-        ast: ast::PathExpr,
+        salsa_db: &dyn crate::Db,
+        ast_path: ast::PathExpr,
         _ctx: &mut SharedBodyLowerContext,
-        db: &Database,
         item_tree: &ItemTree,
-        interner: &mut Interner,
     ) -> Expr {
         let path = Path {
-            segments: ast
+            segments: ast_path
                 .path()
                 .unwrap()
                 .segments()
-                .map(|segment| Name::from_key(interner.intern(segment.name().unwrap().name())))
+                .map(|segment| Name::new(salsa_db, segment.name().unwrap().name().to_string()))
                 .collect(),
         };
-        let symbol = self.lookup_path(path, _ctx, db, item_tree);
+        let symbol = self.lookup_path(path, _ctx, item_tree);
         Expr::Symbol(symbol)
     }
 
@@ -355,7 +329,6 @@ impl BodyLower {
         &mut self,
         path: Path,
         _ctx: &mut SharedBodyLowerContext,
-        db: &Database,
         item_tree: &ItemTree,
     ) -> Symbol {
         match path.segments() {
@@ -368,7 +341,7 @@ impl BodyLower {
                         name,
                         param: param_id,
                     }
-                } else if let Some(function) = self.lookup_function(&[], name, db, item_tree) {
+                } else if let Some(function) = self.lookup_function(&[], name, item_tree) {
                     Symbol::Function {
                         path: Path {
                             segments: vec![name],
@@ -386,8 +359,7 @@ impl BodyLower {
                 }
             }
             [segments @ .., item_segment] => {
-                if let Some(function) = self.lookup_function(segments, *item_segment, db, item_tree)
-                {
+                if let Some(function) = self.lookup_function(segments, *item_segment, item_tree) {
                     Symbol::Function {
                         path: Path {
                             segments: path.segments().to_vec(),
@@ -410,39 +382,35 @@ impl BodyLower {
         &self,
         module_paths: &[Name],
         function_name: Name,
-        db: &Database,
         item_tree: &ItemTree,
-    ) -> Option<FunctionId> {
+    ) -> Option<Function> {
         let item_scope = match self.scopes.current_scope() {
-            ScopeType::TopLevel => item_tree.top_level_scope(db),
-            ScopeType::SubLevel(block_ast_id) => {
-                item_tree.scope_by_block(db, block_ast_id).unwrap()
-            }
+            ScopeType::TopLevel => item_tree.top_level_scope(),
+            ScopeType::SubLevel(block_ast_id) => item_tree.scope_by_block(block_ast_id).unwrap(),
         };
-        item_scope.lookup(module_paths, function_name, db, item_tree)
+        item_scope.lookup(module_paths, function_name, item_tree)
     }
 
-    fn lookup_param(&self, name: Name) -> Option<ParamId> {
+    fn lookup_param(&self, name: Name) -> Option<Param> {
         self.params.get(&name).copied()
     }
 
     fn lower_call(
         &mut self,
-        ast: ast::CallExpr,
+        salsa_db: &dyn crate::Db,
+        ast_call: ast::CallExpr,
         ctx: &mut SharedBodyLowerContext,
-        db: &Database,
         item_tree: &ItemTree,
-        interner: &mut Interner,
     ) -> Expr {
-        let args = ast.args().unwrap();
+        let args = ast_call.args().unwrap();
         let args = args
             .args()
             .map(|arg| {
-                let expr = self.lower_expr(arg.expr(), ctx, db, item_tree, interner);
+                let expr = self.lower_expr(salsa_db, arg.expr(), ctx, item_tree);
                 ctx.alloc_expr(expr)
             })
             .collect();
-        let callee = match self.lower_expr(ast.callee(), ctx, db, item_tree, interner) {
+        let callee = match self.lower_expr(salsa_db, ast_call.callee(), ctx, item_tree) {
             Expr::Symbol(symbol) => symbol,
             Expr::Binary { .. } => todo!(),
             Expr::Literal(_) => todo!(),
@@ -459,22 +427,16 @@ impl BodyLower {
 
     fn lower_block(
         &mut self,
-        ast: ast::BlockExpr,
+        salsa_db: &dyn crate::Db,
+        ast_block: ast::BlockExpr,
         ctx: &mut SharedBodyLowerContext,
-        db: &Database,
         item_tree: &ItemTree,
-        interner: &mut Interner,
     ) -> Expr {
-        let block_ast_id = if let Some(ast_id) = db.lookup_ast_id(&ast, self.file_id) {
-            ast_id
-        } else {
-            return Expr::Missing;
-        };
-        self.scopes.enter(block_ast_id.clone());
+        self.scopes.enter(ast_block.clone());
 
         let mut stmts = vec![];
-        for stmt in ast.stmts() {
-            if let Some(stmt) = self.lower_stmt(stmt, ctx, db, item_tree, interner) {
+        for stmt in ast_block.stmts() {
+            if let Some(stmt) = self.lower_stmt(salsa_db, stmt, ctx, item_tree) {
                 stmts.push(stmt);
             }
         }
@@ -496,27 +458,25 @@ impl BodyLower {
         Expr::Block(Block {
             stmts,
             tail,
-            ast: block_ast_id,
+            ast: ast_block,
         })
     }
 
     fn lower_if(
         &mut self,
-        ast: ast::IfExpr,
+        salsa_db: &dyn crate::Db,
+        ast_if: ast::IfExpr,
         ctx: &mut SharedBodyLowerContext,
-        db: &Database,
         item_tree: &ItemTree,
-        interner: &mut Interner,
     ) -> Expr {
-        let condition = self.lower_expr(ast.condition(), ctx, db, item_tree, interner);
+        let condition = self.lower_expr(salsa_db, ast_if.condition(), ctx, item_tree);
         let condition = ctx.alloc_expr(condition);
 
-        let then_branch =
-            self.lower_block(ast.then_branch().unwrap(), ctx, db, item_tree, interner);
+        let then_branch = self.lower_block(salsa_db, ast_if.then_branch().unwrap(), ctx, item_tree);
         let then_branch = ctx.alloc_expr(then_branch);
 
-        let else_branch = if let Some(else_branch) = ast.else_branch() {
-            let else_branch = self.lower_block(else_branch, ctx, db, item_tree, interner);
+        let else_branch = if let Some(else_branch) = ast_if.else_branch() {
+            let else_branch = self.lower_block(salsa_db, else_branch, ctx, item_tree);
             Some(ctx.alloc_expr(else_branch))
         } else {
             None
@@ -531,14 +491,13 @@ impl BodyLower {
 
     fn lower_return(
         &mut self,
-        ast: ast::ReturnExpr,
+        salsa_db: &dyn crate::Db,
+        ast_return: ast::ReturnExpr,
         ctx: &mut SharedBodyLowerContext,
-        db: &Database,
         item_tree: &ItemTree,
-        interner: &mut Interner,
     ) -> Expr {
-        let value = if let Some(value) = ast.value() {
-            let value = self.lower_expr(Some(value), ctx, db, item_tree, interner);
+        let value = if let Some(value) = ast_return.value() {
+            let value = self.lower_expr(salsa_db, Some(value), ctx, item_tree);
             Some(ctx.alloc_expr(value))
         } else {
             None
@@ -550,44 +509,44 @@ impl BodyLower {
 
 #[cfg(test)]
 mod tests {
-    use ast::AstNode;
     use expect_test::{expect, Expect};
 
     use super::*;
     use crate::{
-        db::UseItemId,
-        input::{FixtureDatabase, SourceDatabaseTrait},
-        item_tree::{ItemDefId, Type},
-        lower_root, parse_pod, FunctionId, LowerError, LowerResult, ModuleId, ModuleKind, Pod,
+        input::FixtureDatabase,
+        item_tree::{Item, Type},
+        parse_pod,
+        testing::TestingDatabase,
+        Function, LowerError, LowerResult, Module, ModuleKind, Pod, UseItem,
     };
 
     fn indent(nesting: usize) -> String {
         "    ".repeat(nesting)
     }
 
-    fn debug_modules(modules: &Pod, source_db: &FixtureDatabase) -> String {
+    fn debug_pod(salsa_db: &dyn crate::Db, modules: &Pod) -> String {
         let mut msg = "".to_string();
 
         msg.push_str("//- /main.nail\n");
-        msg.push_str(&debug_lower_result(&modules.root_lower_result));
+        msg.push_str(&debug_lower_result(salsa_db, &modules.root_lower_result));
 
-        for (file_id, lower_result) in modules.lower_results_order_registration_asc() {
-            let file_path = source_db.file_path(file_id);
-            msg.push_str(&format!("//- {file_path}\n"));
-            msg.push_str(&debug_lower_result(lower_result));
+        for (file, lower_result) in modules.lower_results_order_registration_asc() {
+            let file_path = file.file_path(salsa_db);
+            msg.push_str(&format!("//- {}\n", file_path.to_string_lossy()));
+            msg.push_str(&debug_lower_result(salsa_db, lower_result));
         }
 
         msg
     }
 
-    fn debug_lower_result(lower_result: &LowerResult) -> String {
+    fn debug_lower_result(salsa_db: &dyn crate::Db, lower_result: &LowerResult) -> String {
         let mut msg = "".to_string();
 
-        for item in &lower_result.top_level_items {
-            msg.push_str(&debug_item(lower_result, item, 0));
+        for item in lower_result.top_level_items(salsa_db) {
+            msg.push_str(&debug_item(salsa_db, lower_result, item, 0));
         }
 
-        for error in &lower_result.errors {
+        for error in lower_result.errors(salsa_db) {
             match error {
                 LowerError::UndefinedEntryPoint => {
                     msg.push_str("error: Undefined entry point.(help: fn main() { ... })\n");
@@ -599,36 +558,35 @@ mod tests {
     }
 
     fn debug_function(
+        salsa_db: &dyn crate::Db,
         lower_result: &LowerResult,
-        function_id: FunctionId,
+        function: Function,
         nesting: usize,
     ) -> String {
-        let function = function_id.lookup(&lower_result.db);
         let block_ast_id = lower_result
-            .item_tree
-            .block_id_by_function(&function_id)
+            .item_tree(salsa_db)
+            .block_id_by_function(&function)
             .unwrap();
         let body_expr = lower_result
-            .shared_ctx
-            .function_body_by_block(block_ast_id)
+            .shared_ctx(salsa_db)
+            .function_body_by_ast_block(block_ast_id)
             .unwrap();
 
-        let name = if let Some(name) = function.name {
-            lower_result.interner.lookup(name.key())
+        let name = if let Some(name) = function.name(salsa_db) {
+            name.text(salsa_db)
         } else {
             "<missing>"
         };
         let params = function
-            .params
+            .params(salsa_db)
             .iter()
             .map(|param| {
-                let param = param.lookup(&lower_result.db);
-                let name = if let Some(name) = param.name {
-                    lower_result.interner.lookup(name.key())
+                let name = if let Some(name) = param.name(salsa_db) {
+                    name.text(salsa_db)
                 } else {
                     "<missing>"
                 };
-                let ty = match param.ty {
+                let ty = match param.ty(salsa_db) {
                     Type::Integer => "int",
                     Type::String => "string",
                     Type::Char => "char",
@@ -640,7 +598,7 @@ mod tests {
             })
             .collect::<Vec<_>>()
             .join(", ");
-        let return_type = match &function.return_type {
+        let return_type = match &function.return_type(salsa_db) {
             Type::Integer => "int",
             Type::String => "string",
             Type::Char => "char",
@@ -649,8 +607,8 @@ mod tests {
             Type::Unknown => "<unknown>",
         };
 
-        let body = debug_expr(lower_result, body_expr, nesting);
-        let is_entry_point = lower_result.entry_point == Some(function_id);
+        let body = debug_expr(salsa_db, lower_result, body_expr, nesting);
+        let is_entry_point = lower_result.entry_point(salsa_db) == Some(function);
         format!(
             "{}fn {}{name}({params}) -> {return_type} {body}\n",
             indent(nesting),
@@ -658,18 +616,22 @@ mod tests {
         )
     }
 
-    fn debug_module(lower_result: &LowerResult, module_id: ModuleId, nesting: usize) -> String {
+    fn debug_module(
+        salsa_db: &dyn crate::Db,
+        lower_result: &LowerResult,
+        module: Module,
+        nesting: usize,
+    ) -> String {
         let curr_indent = indent(nesting);
 
-        let module = module_id.lookup(&lower_result.db);
-        let module_name = lower_result.interner.lookup(module.name.key());
+        let module_name = module.name(salsa_db).text(salsa_db);
 
-        match &module.kind {
+        match module.kind(salsa_db) {
             ModuleKind::Inline { items } => {
                 let mut module_str = "".to_string();
                 module_str.push_str(&format!("{curr_indent}mod {module_name} {{\n"));
                 for (i, item) in items.iter().enumerate() {
-                    module_str.push_str(&debug_item(lower_result, item, nesting + 1));
+                    module_str.push_str(&debug_item(salsa_db, lower_result, item, nesting + 1));
                     if i == items.len() - 1 {
                         continue;
                     }
@@ -685,29 +647,39 @@ mod tests {
         }
     }
 
-    fn debug_use_item(lower_result: &LowerResult, use_item_id: UseItemId) -> String {
-        let use_item = use_item_id.lookup(&lower_result.db);
-        let path_name = debug_path(lower_result, &use_item.path);
-        let item_name = lower_result.interner.lookup(use_item.name.key());
+    fn debug_use_item(salsa_db: &dyn crate::Db, use_item: UseItem) -> String {
+        let path_name = debug_path(salsa_db, use_item.path(salsa_db));
+        let item_name = use_item.name(salsa_db).text(salsa_db);
 
         format!("{path_name}::{item_name}")
     }
 
-    fn debug_item(lower_result: &LowerResult, item: &ItemDefId, nesting: usize) -> String {
+    fn debug_item(
+        salsa_db: &dyn crate::Db,
+        lower_result: &LowerResult,
+        item: &Item,
+        nesting: usize,
+    ) -> String {
         match item {
-            ItemDefId::Function(function) => debug_function(lower_result, *function, nesting),
-            ItemDefId::Module(module) => debug_module(lower_result, *module, nesting),
-            ItemDefId::UseItem(use_item) => debug_use_item(lower_result, *use_item),
+            Item::Function(function) => debug_function(salsa_db, lower_result, *function, nesting),
+            Item::Module(module) => debug_module(salsa_db, lower_result, *module, nesting),
+            Item::UseItem(use_item) => debug_use_item(salsa_db, *use_item),
         }
     }
 
-    fn debug_stmt(lower_result: &LowerResult, stmt: &Stmt, nesting: usize) -> String {
+    fn debug_stmt(
+        salsa_db: &dyn crate::Db,
+        lower_result: &LowerResult,
+        stmt: &Stmt,
+        nesting: usize,
+    ) -> String {
         match stmt {
             Stmt::VariableDef { name, value } => {
-                let name = lower_result.interner.lookup(name.key());
+                let name = name.text(salsa_db);
                 let expr_str = debug_expr(
+                    salsa_db,
                     lower_result,
-                    value.lookup(&lower_result.shared_ctx),
+                    value.lookup(lower_result.shared_ctx(salsa_db)),
                     nesting,
                 );
                 format!("{}let {name} = {expr_str}\n", indent(nesting))
@@ -718,16 +690,26 @@ mod tests {
             } => format!(
                 "{}{}{}\n",
                 indent(nesting),
-                debug_expr(lower_result, expr.lookup(&lower_result.shared_ctx), nesting),
+                debug_expr(
+                    salsa_db,
+                    lower_result,
+                    expr.lookup(lower_result.shared_ctx(salsa_db)),
+                    nesting
+                ),
                 if *has_semicolon { ";" } else { "" }
             ),
-            Stmt::Item { item } => debug_item(lower_result, item, nesting),
+            Stmt::Item { item } => debug_item(salsa_db, lower_result, item, nesting),
         }
     }
 
-    fn debug_expr(lower_result: &LowerResult, expr: &Expr, nesting: usize) -> String {
+    fn debug_expr(
+        salsa_db: &dyn crate::Db,
+        lower_result: &LowerResult,
+        expr: &Expr,
+        nesting: usize,
+    ) -> String {
         match expr {
-            Expr::Symbol(symbol) => debug_symbol(lower_result, symbol, nesting),
+            Expr::Symbol(symbol) => debug_symbol(salsa_db, lower_result, symbol, nesting),
             Expr::Literal(literal) => match literal {
                 Literal::Bool(b) => b.to_string(),
                 Literal::Char(c) => format!("'{c}'"),
@@ -744,10 +726,18 @@ mod tests {
                     ast::BinaryOp::GreaterThan(_) => ">",
                     ast::BinaryOp::LessThan(_) => "<",
                 };
-                let lhs_str =
-                    debug_expr(lower_result, lhs.lookup(&lower_result.shared_ctx), nesting);
-                let rhs_str =
-                    debug_expr(lower_result, rhs.lookup(&lower_result.shared_ctx), nesting);
+                let lhs_str = debug_expr(
+                    salsa_db,
+                    lower_result,
+                    lhs.lookup(lower_result.shared_ctx(salsa_db)),
+                    nesting,
+                );
+                let rhs_str = debug_expr(
+                    salsa_db,
+                    lower_result,
+                    rhs.lookup(lower_result.shared_ctx(salsa_db)),
+                    nesting,
+                );
                 format!("{lhs_str} {op} {rhs_str}")
             }
             Expr::Unary { op, expr } => {
@@ -755,16 +745,25 @@ mod tests {
                     ast::UnaryOp::Neg(_) => "-",
                     ast::UnaryOp::Not(_) => "!",
                 };
-                let expr_str =
-                    debug_expr(lower_result, expr.lookup(&lower_result.shared_ctx), nesting);
+                let expr_str = debug_expr(
+                    salsa_db,
+                    lower_result,
+                    expr.lookup(lower_result.shared_ctx(salsa_db)),
+                    nesting,
+                );
                 format!("{op}{expr_str}")
             }
             Expr::Call { callee, args } => {
-                let callee = debug_symbol(lower_result, callee, nesting);
+                let callee = debug_symbol(salsa_db, lower_result, callee, nesting);
                 let args = args
                     .iter()
                     .map(|arg| {
-                        debug_expr(lower_result, arg.lookup(&lower_result.shared_ctx), nesting)
+                        debug_expr(
+                            salsa_db,
+                            lower_result,
+                            arg.lookup(lower_result.shared_ctx(salsa_db)),
+                            nesting,
+                        )
                     })
                     .collect::<Vec<_>>()
                     .join(", ");
@@ -774,15 +773,16 @@ mod tests {
             Expr::Block(block) => {
                 let mut msg = "{\n".to_string();
                 for stmt in &block.stmts {
-                    msg.push_str(&debug_stmt(lower_result, stmt, nesting + 1));
+                    msg.push_str(&debug_stmt(salsa_db, lower_result, stmt, nesting + 1));
                 }
                 if let Some(tail) = block.tail {
                     msg.push_str(&format!(
                         "{}expr:{}\n",
                         indent(nesting + 1),
                         debug_expr(
+                            salsa_db,
                             lower_result,
-                            tail.lookup(&lower_result.shared_ctx),
+                            tail.lookup(lower_result.shared_ctx(salsa_db)),
                             nesting + 1
                         )
                     ));
@@ -798,22 +798,25 @@ mod tests {
             } => {
                 let mut msg = "if ".to_string();
                 msg.push_str(&debug_expr(
+                    salsa_db,
                     lower_result,
-                    condition.lookup(&lower_result.shared_ctx),
+                    condition.lookup(lower_result.shared_ctx(salsa_db)),
                     nesting,
                 ));
                 msg.push(' ');
                 msg.push_str(&debug_expr(
+                    salsa_db,
                     lower_result,
-                    then_branch.lookup(&lower_result.shared_ctx),
+                    then_branch.lookup(lower_result.shared_ctx(salsa_db)),
                     nesting,
                 ));
 
                 if let Some(else_branch) = else_branch {
                     msg.push_str(" else ");
                     msg.push_str(&debug_expr(
+                        salsa_db,
                         lower_result,
-                        else_branch.lookup(&lower_result.shared_ctx),
+                        else_branch.lookup(lower_result.shared_ctx(salsa_db)),
                         nesting,
                     ));
                 }
@@ -826,8 +829,9 @@ mod tests {
                     msg.push_str(&format!(
                         " {}",
                         &debug_expr(
+                            salsa_db,
                             lower_result,
-                            value.lookup(&lower_result.shared_ctx),
+                            value.lookup(lower_result.shared_ctx(salsa_db)),
                             nesting,
                         )
                     ));
@@ -839,9 +843,14 @@ mod tests {
         }
     }
 
-    fn debug_symbol(lower_result: &LowerResult, symbol: &Symbol, nesting: usize) -> String {
+    fn debug_symbol(
+        salsa_db: &dyn crate::Db,
+        lower_result: &LowerResult,
+        symbol: &Symbol,
+        nesting: usize,
+    ) -> String {
         match symbol {
-            Symbol::Local { name, expr } => match expr.lookup(&lower_result.shared_ctx) {
+            Symbol::Local { name, expr } => match expr.lookup(lower_result.shared_ctx(salsa_db)) {
                 Expr::Symbol { .. }
                 | Expr::Binary { .. }
                 | Expr::Missing
@@ -849,56 +858,50 @@ mod tests {
                 | Expr::Unary { .. }
                 | Expr::Call { .. }
                 | Expr::If { .. }
-                | Expr::Return { .. } => {
-                    debug_expr(lower_result, expr.lookup(&lower_result.shared_ctx), nesting)
-                }
-                Expr::Block { .. } => lower_result.interner.lookup(name.key()).to_string(),
+                | Expr::Return { .. } => debug_expr(
+                    salsa_db,
+                    lower_result,
+                    expr.lookup(lower_result.shared_ctx(salsa_db)),
+                    nesting,
+                ),
+                Expr::Block { .. } => name.text(salsa_db).to_string(),
             },
             Symbol::Param { name, .. } => {
-                let name = lower_result.interner.lookup(name.key());
+                let name = name.text(salsa_db);
                 format!("param:{name}")
             }
             Symbol::Function { path, .. } => {
-                let name = debug_path(lower_result, path);
+                let name = debug_path(salsa_db, path);
                 format!("fn:{name}")
             }
             Symbol::Missing { .. } => "<missing>".to_string(),
         }
     }
 
-    fn debug_path(lower_result: &LowerResult, path: &Path) -> String {
+    fn debug_path(salsa_db: &dyn crate::Db, path: &Path) -> String {
         path.segments
             .iter()
-            .map(|segment| lower_result.interner.lookup(segment.key()))
+            .map(|segment| segment.text(salsa_db).to_string())
             .collect::<Vec<_>>()
             .join("::")
     }
 
-    fn parse(input: &str) -> ast::SourceFile {
-        ast::SourceFile::cast(parser::parse(input).syntax()).unwrap()
-    }
-
+    /// ルートファイル前提としてパースして、Podの期待結果をテストする
     fn check_in_root_file(fixture: &str, expected: Expect) {
         let mut fixture = fixture.to_string();
         fixture.insert_str(0, "//- /main.nail\n");
 
-        let source_db = FixtureDatabase::new(&fixture);
-        let source_root_file_id = source_db.source_root();
-        let source_root_file_content = source_db.content(source_root_file_id).unwrap();
-
-        let source_file = parse(source_root_file_content);
-        let result = lower_root(source_root_file_id, source_file);
-
-        expected.assert_eq(&debug_lower_result(&result));
+        check_pod_start_with_root_file(&fixture, expected);
     }
 
-    /// ルートファイルからパースして、すべてのモジュールの期待結果をテストする
-    fn check_modules_start_with_root_file(fixture: &str, expected: Expect) {
-        let mut source_db = FixtureDatabase::new(fixture);
+    /// ルートファイルからパースして、Podの期待結果をテストする
+    fn check_pod_start_with_root_file(fixture: &str, expected: Expect) {
+        let salsa_db = TestingDatabase::default();
+        let mut source_db = FixtureDatabase::new(&salsa_db, fixture);
 
-        let modules = parse_pod("/main.nail", &mut source_db);
+        let modules = parse_pod(&salsa_db, "/main.nail", &mut source_db);
 
-        expected.assert_eq(&debug_modules(&modules, &source_db));
+        expected.assert_eq(&debug_pod(&salsa_db, &modules));
     }
 
     #[test]
@@ -921,6 +924,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn fibonacci(x: int) -> int {
                     expr:if param:x == 0 {
                         expr:0
@@ -946,6 +950,7 @@ mod tests {
                 fn no_main() { }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn no_main() -> () {
                 }
                 error: Undefined entry point.(help: fn main() { ... })
@@ -956,6 +961,7 @@ mod tests {
                 fn main() { }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                 }
             "#]],
@@ -971,6 +977,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     let foo = <missing>
                 }
@@ -987,6 +994,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                 }
             "#]],
@@ -1002,6 +1010,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     let foo = <missing>
                 }
@@ -1018,6 +1027,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     let a = <missing>
                 }
@@ -1045,6 +1055,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:123
                 }
@@ -1078,6 +1089,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     1 + 2;
                     1 - 2;
@@ -1100,6 +1112,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:10 - <missing>
                 }
@@ -1116,6 +1129,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:999
                 }
@@ -1132,6 +1146,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:"aaa"
                 }
@@ -1148,6 +1163,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:'a'
                 }
@@ -1164,6 +1180,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:true
                 }
@@ -1180,6 +1197,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:false
                 }
@@ -1196,6 +1214,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:<missing>
                 }
@@ -1213,6 +1232,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     -10;
                     !20;
@@ -1230,6 +1250,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:-<missing>
                 }
@@ -1246,6 +1267,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:<missing>
                 }
@@ -1263,6 +1285,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     let foo = 10
                     expr:10
@@ -1282,6 +1305,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:{
                         let foo = 10
@@ -1307,6 +1331,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:{
                         let a = 10
@@ -1333,6 +1358,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     {
                         let a = 10
@@ -1360,6 +1386,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     let a = 10
                     {
@@ -1387,6 +1414,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     let a = 10
                     10
@@ -1419,6 +1447,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     <missing>
                     let a = 10
@@ -1458,6 +1487,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     let a = {
                         <missing>
@@ -1489,6 +1519,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:{
                         let a = 10
@@ -1522,6 +1553,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:{
                         let a = 10
@@ -1548,6 +1580,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:-{
                         let a = 10
@@ -1570,6 +1603,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn foo() -> () {
                     let a = 10
                     expr:10
@@ -1588,6 +1622,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn foo(a: int, b: string) -> () {
                     expr:1
                 }
@@ -1606,6 +1641,7 @@ mod tests {
                 fn bar() -> bool {}
             "#,
             expect![[r#"
+                //- /main.nail
                 fn foo() -> int {
                 }
                 fn bar() -> string {
@@ -1628,6 +1664,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn foo(a: char, b: bool) -> () {
                     expr:param:a + param:b
                 }
@@ -1658,6 +1695,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     fn foo(a: <unknown>, b: <unknown>) -> () {
                         let a = 0
@@ -1692,6 +1730,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     let a = 10
                     fn foo() -> () {
@@ -1727,6 +1766,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:{
                         fn foo() -> () {
@@ -1777,6 +1817,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     <missing>
                     let a = 10
@@ -1830,6 +1871,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     fn foo() -> () {
                         fn:foo
@@ -1859,8 +1901,10 @@ mod tests {
         check_in_root_file(
             "fn main() { ($10/{ }",
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
-                    expr:<missing> / <missing>
+                    expr:<missing> / {
+                    }
                 }
             "#]],
         );
@@ -1871,6 +1915,7 @@ mod tests {
         check_in_root_file(
             "fn a(a, ) {}",
             expect![[r#"
+                //- /main.nail
                 fn a(a: <unknown>, <missing>: <unknown>) -> () {
                 }
                 error: Undefined entry point.(help: fn main() { ... })
@@ -1883,6 +1928,7 @@ mod tests {
         check_in_root_file(
             "fn a() -> {}",
             expect![[r#"
+                //- /main.nail
                 fn a() -> <unknown> {
                 }
                 error: Undefined entry point.(help: fn main() { ... })
@@ -1895,6 +1941,7 @@ mod tests {
         check_in_root_file(
             "fn a(a, )",
             expect![[r#"
+                //- /main.nail
                 error: Undefined entry point.(help: fn main() { ... })
             "#]],
         );
@@ -1905,6 +1952,7 @@ mod tests {
         check_in_root_file(
             "fn (a, ) {}",
             expect![[r#"
+                //- /main.nail
                 fn <missing>(a: <unknown>, <missing>: <unknown>) -> () {
                 }
                 error: Undefined entry point.(help: fn main() { ... })
@@ -1917,6 +1965,7 @@ mod tests {
         check_in_root_file(
             "fn main() { a() }",
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:<missing>()
                 }
@@ -1931,6 +1980,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     fn a() -> () {
                         expr:10
@@ -1946,6 +1996,7 @@ mod tests {
         check_in_root_file(
             "fn main() { a(10, 20) }",
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:<missing>(10, 20)
                 }
@@ -1961,6 +2012,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     fn a() -> () {
                         expr:10
@@ -1981,6 +2033,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     fn aaa(x: bool, y: string) -> int {
                         expr:10 + 20
@@ -2004,6 +2057,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:if true {
                         expr:10
@@ -2023,6 +2077,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:if true {
                         expr:10
@@ -2045,6 +2100,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:if {
                         expr:true
@@ -2066,6 +2122,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:if {
                         expr:true
@@ -2089,6 +2146,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:return
                 }
@@ -2125,6 +2183,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     expr:return
                 }
@@ -2166,6 +2225,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     fn:mod_aaa::fn_aaa();
                     fn:bbb();
@@ -2199,6 +2259,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
+                //- /main.nail
                 fn entry:main() -> () {
                     fn:mod_aaa::fn_aaa();
                 }
@@ -2218,9 +2279,37 @@ mod tests {
     }
 
     #[test]
+    fn outline_module_unimplements_resolving_name() {
+        check_pod_start_with_root_file(
+            r#"
+                //- /main.nail
+                mod mod_aaa;
+
+                fn main() {
+                    mod_aaa::fn_aaa();
+                }
+
+                //- /mod_aaa.nail
+                fn fn_aaa() {
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                mod mod_aaa;
+                fn entry:main() -> () {
+                    <missing>();
+                }
+                //- /mod_aaa.nail
+                fn fn_aaa() -> () {
+                }
+            "#]],
+        );
+    }
+
+    #[test]
     #[should_panic]
-    fn inline_module() {
-        check_modules_start_with_root_file(
+    fn outline_module() {
+        check_pod_start_with_root_file(
             r#"
                 //- /main.nail
                 mod mod_aaa;
@@ -2239,7 +2328,6 @@ mod tests {
                 fn entry:main() -> () {
                     mod_aaa::fn_aaa();
                 }
-
                 //- /mod_aaa.nail
                 fn fn_aaa() -> () {
                 }

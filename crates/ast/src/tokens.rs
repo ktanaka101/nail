@@ -6,6 +6,36 @@ use crate::ast_node::{Ast, AstToken};
 
 type StdString = std::string::String;
 
+/// ASTトークンを定義します。
+///
+/// # Example
+///
+/// このマクロは、`def_ast_token(BinaryOp);`と呼び出すと以下のように展開されます。
+/// ```ignore
+/// #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+/// pub struct Integer {
+///     syntax: SyntaxToken,
+/// }
+///
+/// impl Ast for Integer {}
+/// impl AstToken for Integer {
+///     fn can_cast(kind: SyntaxKind) -> bool {
+///         kind == SyntaxKind::Integer
+///     }
+///
+///     fn cast(syntax: SyntaxToken) -> Option<Self> {
+///         if Self::can_cast(syntax.kind()) {
+///             Some(Self { syntax })
+///         } else {
+///             None
+///         }
+///     }
+///
+///     fn syntax(&self) -> &SyntaxToken {
+///         &self.syntax
+///     }
+/// }
+/// ```
 macro_rules! def_ast_token {
     ($kind:ident) => {
         #[derive(Debug, Clone, PartialEq, Eq, Hash)]

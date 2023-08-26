@@ -29,17 +29,16 @@
 
 use std::collections::HashMap;
 
-use super::ItemTree;
-use crate::{
-    db::{Database, FunctionId, ItemScopeId, ModuleId, UseItemId},
-    Name, Path,
-};
+use la_arena::Arena;
+
+use super::{ItemScopeId, ItemTree};
+use crate::{Function, Module, Name, Path, UseItem};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemScope {
-    function_by_name: HashMap<Name, FunctionId>,
-    module_by_name: HashMap<Name, ModuleId>,
-    use_item_by_name: HashMap<Name, UseItemId>,
+    function_by_name: HashMap<Name, Function>,
+    module_by_name: HashMap<Name, Module>,
+    use_item_by_name: HashMap<Name, UseItem>,
     parent: Option<ParentScope>,
     name: Option<Name>,
 }
@@ -65,10 +64,10 @@ impl ItemScope {
         }
     }
 
-    pub fn path(&self, db: &Database) -> Path {
+    pub(super) fn path(&self, arena: &Arena<ItemScope>) -> Path {
         match &self.parent {
             Some(ParentScope(parent)) => {
-                let mut path = parent.lookup(db).path(db);
+                let mut path = parent.lookup_from_arena(arena).path(arena);
                 if let Some(name) = self.name {
                     path.segments.push(name);
                 }
@@ -88,14 +87,13 @@ impl ItemScope {
         &self,
         module_paths: &[Name],
         function_name: Name,
-        db: &Database,
         item_tree: &ItemTree,
-    ) -> Option<FunctionId> {
+    ) -> Option<Function> {
         match module_paths {
-            [] => self.lookup_function(function_name, db),
+            [] => self.lookup_function(function_name, item_tree),
             [module_path, rest @ ..] => {
-                let scope = self.lookup_scope_by_module(*module_path, db, item_tree)?;
-                scope.resolve_function(rest, function_name, db, item_tree)
+                let scope = self.lookup_scope_by_module(*module_path, item_tree)?;
+                scope.resolve_function(rest, function_name, item_tree)
             }
         }
     }
@@ -104,14 +102,13 @@ impl ItemScope {
         &self,
         module_paths: &[Name],
         function_name: Name,
-        db: &Database,
         item_tree: &ItemTree,
-    ) -> Option<FunctionId> {
+    ) -> Option<Function> {
         match module_paths {
             [] => self.function_by_name.get(&function_name).copied(),
             [module_path, rest @ ..] => {
-                let scope = self.find_scope_by_module(*module_path, db, item_tree)?;
-                scope.resolve_function(rest, function_name, db, item_tree)
+                let scope = self.find_scope_by_module(*module_path, item_tree)?;
+                scope.resolve_function(rest, function_name, item_tree)
             }
         }
     }
@@ -119,22 +116,21 @@ impl ItemScope {
     fn find_scope_by_module<'a>(
         &self,
         module_path: Name,
-        db: &'a Database,
-        item_tree: &ItemTree,
+        item_tree: &'a ItemTree,
     ) -> Option<&'a ItemScope> {
         self.module_by_name
             .get(&module_path)
-            .map(|module_id| item_tree.scope_by_module(db, module_id).unwrap())
+            .map(|module_id| item_tree.scope_by_module(module_id).unwrap())
     }
 
-    fn lookup_function(&self, function_name: Name, db: &Database) -> Option<FunctionId> {
+    fn lookup_function(&self, function_name: Name, item_tree: &ItemTree) -> Option<Function> {
         if let Some(function_id) = self.function_by_name.get(&function_name) {
             Some(*function_id)
         } else {
             match &self.parent {
                 Some(ParentScope(scope_id)) => {
-                    let item_scope = scope_id.lookup(db);
-                    item_scope.lookup_function(function_name, db)
+                    let item_scope = scope_id.lookup(item_tree);
+                    item_scope.lookup_function(function_name, item_tree)
                 }
                 None => None,
             }
@@ -144,17 +140,16 @@ impl ItemScope {
     fn lookup_scope_by_module<'a>(
         &self,
         module_path: Name,
-        db: &'a Database,
-        item_tree: &ItemTree,
+        item_tree: &'a ItemTree,
     ) -> Option<&'a ItemScope> {
-        if let Some(scope) = self.find_scope_by_module(module_path, db, item_tree) {
+        if let Some(scope) = self.find_scope_by_module(module_path, item_tree) {
             Some(scope)
         } else {
             match &self.parent {
                 Some(parent) => match parent {
                     ParentScope(scope_id) => {
-                        let item_scope = scope_id.lookup(db);
-                        item_scope.lookup_scope_by_module(module_path, db, item_tree)
+                        let item_scope = scope_id.lookup(item_tree);
+                        item_scope.lookup_scope_by_module(module_path, item_tree)
                     }
                 },
                 None => None,
@@ -162,27 +157,27 @@ impl ItemScope {
         }
     }
 
-    pub(crate) fn insert_function(&mut self, name: Name, function_id: FunctionId) {
-        self.function_by_name.insert(name, function_id);
+    pub(crate) fn insert_function(&mut self, name: Name, function: Function) {
+        self.function_by_name.insert(name, function);
     }
 
-    pub(crate) fn insert_module(&mut self, name: Name, module_id: ModuleId) {
+    pub(crate) fn insert_module(&mut self, name: Name, module_id: Module) {
         self.module_by_name.insert(name, module_id);
     }
 
-    pub(crate) fn insert_use_item(&mut self, name: Name, use_item_id: UseItemId) {
+    pub(crate) fn insert_use_item(&mut self, name: Name, use_item_id: UseItem) {
         self.use_item_by_name.insert(name, use_item_id);
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ParentScope(ItemScopeId);
 impl ParentScope {
     pub fn new(scope_id: ItemScopeId) -> Self {
         Self(scope_id)
     }
 
-    pub fn lookup<'a>(&self, db: &'a Database) -> &'a ItemScope {
-        self.0.lookup(db)
+    pub fn lookup<'a>(&self, item_tree: &'a ItemTree) -> &'a ItemScope {
+        self.0.lookup(item_tree)
     }
 }

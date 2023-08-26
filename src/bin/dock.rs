@@ -4,6 +4,8 @@ use std::ffi::{c_char, CString};
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use codegen_llvm::CodegenContext;
+use hir::SourceDatabaseTrait;
 use inkwell::{context::Context, OptimizationLevel};
 
 #[derive(Debug, Parser)]
@@ -42,13 +44,22 @@ fn main() {
     }
 }
 
-fn lower(filepath: &str) -> (hir::LowerResult, hir_ty::TyLowerResult, mir::LowerResult) {
-    let mut source_db = hir::SourceDatabase::new(filepath);
+fn lower(
+    filepath: &str,
+) -> (
+    base_db::SalsaDatabase,
+    hir::LowerResult,
+    hir_ty::TyLowerResult,
+    mir::LowerResult,
+) {
+    let salsa_db = base_db::SalsaDatabase::default();
+    let source_db = hir::SourceDatabase::new(&salsa_db, filepath.into());
 
-    let hir_result = hir::parse_root(filepath, &mut source_db);
-    let ty_result = hir_ty::lower(&hir_result);
-    let mir_result = mir::lower(&hir_result, &ty_result);
-    (hir_result, ty_result, mir_result)
+    let ast_source = hir::parse_to_ast(&salsa_db, source_db.source_root());
+    let hir_result = hir::build_hir(&salsa_db, ast_source);
+    let ty_result = hir_ty::lower(&salsa_db, hir_result);
+    let mir_result = mir::lower(&salsa_db, &hir_result, &ty_result);
+    (salsa_db, hir_result, ty_result, mir_result)
 }
 
 fn execute(filepath: &str) -> Result<String> {
@@ -59,15 +70,18 @@ fn execute(filepath: &str) -> Result<String> {
         .create_jit_execution_engine(OptimizationLevel::None)
         .unwrap();
 
-    let (hir_result, _ty_hir_result, mir_result) = lower(filepath);
+    let (salsa_db, hir_result, _ty_hir_result, mir_result) = lower(filepath);
 
     let codegen_result = codegen_llvm::codegen(
-        &hir_result,
-        &mir_result,
-        &context,
-        &module,
-        &builder,
-        &execution_engine,
+        &CodegenContext {
+            salsa_db: &salsa_db,
+            hir_result: &hir_result,
+            mir_result: &mir_result,
+            context: &context,
+            module: &module,
+            builder: &builder,
+            execution_engine: &execution_engine,
+        },
         true,
     );
 

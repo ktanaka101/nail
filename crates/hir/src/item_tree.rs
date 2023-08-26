@@ -3,173 +3,174 @@ mod item_scope;
 
 use std::collections::HashMap;
 
-pub use item::{Function, ItemDefId, Module, ModuleKind, Param, Type, UseItem};
+pub use item::{Function, Item, Module, ModuleKind, Param, Type, UseItem};
 pub use item_scope::{ItemScope, ParentScope};
+use la_arena::{Arena, Idx};
 
-use crate::{
-    db::{Database, FunctionId, ItemScopeId, ModuleId, UseItemId},
-    string_interner::Interner,
-    AstId, FileId, Name, Path,
-};
+use crate::{NailFile, Name, Path};
 
-/// `BlockAstId`は`ast::BlockExpr`（ブロック式）ノードを一意に識別するためのAST IDです。
-/// この型は、ファイル内の特定のブロック式ノードを一意に参照するために使用されます。
-/// `AstId`構造体のジェネリクスとして`ast::BlockExpr`を指定することで、型レベルでブロック式ノードのIDとして機能します。
-type BlockAstId = AstId<ast::BlockExpr>;
-
-/// `ModuleAstId`は`ast::Module`（モジュール）ノードを一意に識別するためのAST IDです。
-/// この型は、ファイル内の特定のモジュールノードを一意に参照するために使用されます。
-type ModuleAstId = AstId<ast::Module>;
-
-/// `UseAstId`は`ast::Use`（使用宣言）ノードを一意に識別するためのAST IDです。
-/// この型は、ファイル内の特定の使用宣言ノードを一意に参照するために使用されます。
-type UseAstId = AstId<ast::Use>;
+/// アイテムスコープを一意に特定するためのIDです。
+/// 元データは`Database`に格納されています。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ItemScopeId(Idx<ItemScope>);
+impl ItemScopeId {
+    /// DBからアイテムスコープを取得します。
+    pub fn lookup(self, item_tree: &ItemTree) -> &ItemScope {
+        &item_tree.item_scopes[self.0]
+    }
+}
 
 /// `ItemTree`は、ファイル内のすべてのアイテムをツリー構造で保持するデータ構造です。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemTree {
-    /// ファイルID
-    file_id: FileId,
+    /// ファイル
+    pub file: NailFile,
     /// ファイル内のトップレベルのアイテムスコープID
     pub top_level_scope: ItemScopeId,
+    /// ItemTree内のアイテムスコープ一覧
+    item_scopes: Arena<ItemScope>,
+    /// ItemTree内の関数一覧
+    functions: Vec<Function>,
+    /// ItemTree内のモジュール一覧
+    modules: Vec<Module>,
+    /// ItemTree内の使用宣言一覧
+    use_items: Vec<UseItem>,
+
     /// ブロック(AST)に対応するアイテムスコープID
     /// トップレベルのアイテムスコープは含まれません。
-    scope_by_block: HashMap<BlockAstId, ItemScopeId>,
-    /// アイテムスコープに対応するブロックID
+    scope_by_block: HashMap<ast::BlockExpr, ItemScopeId>,
+    /// アイテムスコープに対応するブロック(AST)
     /// トップレベルのアイテムスコープは含まれません。
-    block_by_scope: HashMap<ItemScopeId, BlockAstId>,
-    /// ブロック(AST)に対応する関数ID
-    function_by_block: HashMap<BlockAstId, FunctionId>,
-    /// 関数に対応するブロックID
-    block_by_function: HashMap<FunctionId, BlockAstId>,
+    block_by_scope: HashMap<ItemScopeId, ast::BlockExpr>,
+
+    /// ブロック(AST)に対応する関数
+    function_by_block: HashMap<ast::BlockExpr, Function>,
+    /// 関数に対応するブロック(AST)
+    block_by_function: HashMap<Function, ast::BlockExpr>,
 
     /// モジュール(AST)に対応するアイテムスコープID
-    scope_by_module_ast: HashMap<ModuleAstId, ItemScopeId>,
+    scope_by_module_ast: HashMap<ast::Module, ItemScopeId>,
     /// モジュールに対応するアイテムスコープID
-    scope_by_module: HashMap<ModuleId, ItemScopeId>,
+    scope_by_module: HashMap<Module, ItemScopeId>,
+
     /// モジュール(AST)に対応するモジュールID
-    module_by_ast_module: HashMap<ModuleAstId, ModuleId>,
+    module_by_ast_module: HashMap<ast::Module, Module>,
 
     /// 使用宣言(AST)に対応する使用宣言ID
-    use_item_by_ast_use: HashMap<UseAstId, UseItemId>,
+    use_item_by_ast_use: HashMap<ast::Use, UseItem>,
 }
 impl ItemTree {
     /// トップレベルのアイテムスコープを取得します。
     /// トップレベルのアイテムスコープは1ファイルに必ず存在します。
-    pub fn top_level_scope<'a>(&self, db: &'a Database) -> &'a ItemScope {
-        self.top_level_scope.lookup(db)
+    pub fn top_level_scope(&self) -> &ItemScope {
+        self.top_level_scope.lookup(self)
+    }
+
+    /// データベースに格納されているアイテムスコープ一覧を返します。
+    pub fn item_scopes(&self) -> impl Iterator<Item = (ItemScopeId, &ItemScope)> {
+        self.item_scopes
+            .iter()
+            .map(|(idx, item_scope)| (ItemScopeId(idx), item_scope))
+    }
+
+    /// ItemTree内の関数一覧を返す
+    pub fn functions(&self) -> &[Function] {
+        &self.functions
+    }
+
+    /// ItemTree内の関数一覧を返す
+    pub fn modules(&self) -> &[Module] {
+        &self.modules
     }
 
     /// ブロック(AST)に対応するアイテムスコープIDを取得します。
     /// 存在しない場合は`None`を返します。
-    pub fn scope_id_by_block(&self, ast: &BlockAstId) -> Option<ItemScopeId> {
+    pub fn scope_id_by_block(&self, ast: &ast::BlockExpr) -> Option<ItemScopeId> {
         self.scope_by_block.get(ast).copied()
     }
 
     /// ブロック(AST)に対応するアイテムスコープを取得します。
     /// 存在しない場合は`None`を返します。
-    pub fn scope_by_block<'a>(&self, db: &'a Database, ast: &BlockAstId) -> Option<&'a ItemScope> {
+    pub fn scope_by_block<'a>(&'a self, ast: &ast::BlockExpr) -> Option<&'a ItemScope> {
         self.scope_id_by_block(ast)
-            .map(|scope_id| scope_id.lookup(db))
+            .map(|scope_id| scope_id.lookup(self))
     }
 
     /// モジュール(AST)に対応するアイテムスコープを取得します。
     /// 存在しない場合は`None`を返します。
-    pub fn scope_by_ast_module<'a>(
-        &self,
-        db: &'a Database,
-        ast_id: &ModuleAstId,
-    ) -> Option<&'a ItemScope> {
+    pub fn scope_by_ast_module<'a>(&'a self, ast_id: &ast::Module) -> Option<&'a ItemScope> {
         let scope_id = self.scope_by_module_ast.get(ast_id);
-        scope_id.map(|scope_id| scope_id.lookup(db))
+        scope_id.map(|scope_id| scope_id.lookup(self))
     }
 
     /// モジュールに対応するアイテムスコープを取得します。
     /// 存在しない場合は`None`を返します。
-    pub fn scope_by_module<'a>(&self, db: &'a Database, id: &ModuleId) -> Option<&'a ItemScope> {
+    pub fn scope_by_module<'a>(&'a self, id: &Module) -> Option<&'a ItemScope> {
         let scope_id = self.scope_by_module.get(id);
-        scope_id.map(|scope_id| scope_id.lookup(db))
-    }
-
-    /// ブロック(AST)に対応する関数IDを取得します。
-    /// 存在しない場合は`None`を返します。
-    pub fn function_id_by_block(&self, block_ast_id: &BlockAstId) -> Option<FunctionId> {
-        self.function_by_block.get(block_ast_id).copied()
+        scope_id.map(|scope_id| scope_id.lookup(self))
     }
 
     /// ブロック(AST)に対応する関数を取得します。
     /// 存在しない場合は`None`を返します。
-    pub fn function_by_block<'a>(
-        &self,
-        db: &'a Database,
-        block_ast_id: &BlockAstId,
-    ) -> Option<&'a Function> {
-        self.function_id_by_block(block_ast_id)
-            .map(|fn_id| fn_id.lookup(db))
+    pub fn function_by_ast_block(&self, ast_block: &ast::BlockExpr) -> Option<Function> {
+        self.function_by_block.get(ast_block).copied()
     }
 
     /// 関数に対応するブロック(AST)IDを取得します。
     /// 存在しない場合は`None`を返します。
-    pub fn block_id_by_function(&self, function_id: &FunctionId) -> Option<BlockAstId> {
-        Some(self.block_by_function.get(function_id)?.clone())
-    }
-
-    /// モジュール(AST)に対応するモジュールIDを取得します。
-    /// 存在しない場合は`None`を返します。
-    pub fn module_id_by_ast_module(&self, module_ast_id: ModuleAstId) -> Option<ModuleId> {
-        self.module_by_ast_module.get(&module_ast_id).copied()
+    pub fn block_id_by_function(&self, function: &Function) -> Option<ast::BlockExpr> {
+        Some(self.block_by_function.get(function)?.clone())
     }
 
     /// モジュール(AST)に対応するモジュールを取得します。
     /// 存在しない場合は`None`を返します。
-    pub fn module_by_ast_module_id<'a>(
-        &self,
-        db: &'a Database,
-        module_ast_id: ModuleAstId,
-    ) -> Option<&'a Module> {
-        self.module_id_by_ast_module(module_ast_id)
-            .map(|module_id| module_id.lookup(db))
+    pub fn module_by_ast_module(&self, ast_module: ast::Module) -> Option<Module> {
+        self.module_by_ast_module.get(&ast_module).copied()
     }
 
     /// 使用宣言(AST)に対応する使用宣言IDを取得します。
     /// 存在しない場合は`None`を返します。
-    pub fn use_item_id_by_ast_use(&self, use_ast_id: UseAstId) -> Option<UseItemId> {
+    pub fn use_item_by_ast_use(&self, use_ast_id: ast::Use) -> Option<UseItem> {
         self.use_item_by_ast_use.get(&use_ast_id).copied()
     }
+}
 
-    /// 使用宣言(AST)に対応する使用宣言を取得します。
-    /// 存在しない場合は`None`を返します。
-    pub fn use_item_by_ast_use<'a>(
-        &self,
-        db: &'a Database,
-        use_ast_id: UseAstId,
-    ) -> Option<&'a UseItem> {
-        self.use_item_id_by_ast_use(use_ast_id)
-            .map(|use_item_id| use_item_id.lookup(db))
+impl ItemScopeId {
+    fn lookup_from_arena<'a>(&self, arena: &'a Arena<ItemScope>) -> &'a ItemScope {
+        &arena[self.0]
     }
 }
 
 /// アイテムツリー構築用コンテキスト
-pub(crate) struct ItemTreeBuilderContext<'a> {
-    file_id: FileId,
-    scope_by_block: HashMap<BlockAstId, ItemScopeId>,
-    block_by_scope: HashMap<ItemScopeId, BlockAstId>,
-    function_by_block: HashMap<BlockAstId, FunctionId>,
-    block_by_function: HashMap<FunctionId, BlockAstId>,
+pub(crate) struct ItemTreeBuilderContext {
+    file: NailFile,
 
-    scope_by_module_ast: HashMap<ModuleAstId, ItemScopeId>,
-    scope_by_module: HashMap<ModuleId, ItemScopeId>,
-    module_by_ast_module: HashMap<ModuleAstId, ModuleId>,
+    item_scopes: Arena<ItemScope>,
 
-    use_item_by_ast_use: HashMap<UseAstId, UseItemId>,
+    functions: Vec<Function>,
+    modules: Vec<Module>,
+    use_items: Vec<UseItem>,
 
-    interner: &'a mut Interner,
+    scope_by_block: HashMap<ast::BlockExpr, ItemScopeId>,
+    block_by_scope: HashMap<ItemScopeId, ast::BlockExpr>,
+    function_by_block: HashMap<ast::BlockExpr, Function>,
+    block_by_function: HashMap<Function, ast::BlockExpr>,
+
+    scope_by_module_ast: HashMap<ast::Module, ItemScopeId>,
+    scope_by_module: HashMap<Module, ItemScopeId>,
+    module_by_ast_module: HashMap<ast::Module, Module>,
+
+    use_item_by_ast_use: HashMap<ast::Use, UseItem>,
 }
-impl<'a> ItemTreeBuilderContext<'a> {
+impl ItemTreeBuilderContext {
     /// コンテキストを作成します。
-    pub(crate) fn new(file_id: FileId, interner: &'a mut Interner) -> Self {
+    pub(crate) fn new(file: NailFile) -> Self {
         Self {
-            file_id,
+            file,
+            item_scopes: Arena::new(),
+            functions: vec![],
+            modules: vec![],
+            use_items: vec![],
             scope_by_block: HashMap::new(),
             block_by_scope: HashMap::new(),
             function_by_block: HashMap::new(),
@@ -178,32 +179,30 @@ impl<'a> ItemTreeBuilderContext<'a> {
             scope_by_module: HashMap::new(),
             module_by_ast_module: HashMap::new(),
             use_item_by_ast_use: HashMap::new(),
-            interner,
         }
     }
 
     /// アイテムツリーを構築します。
-    pub(crate) fn build(
-        mut self,
-        file_id: FileId,
-        ast: &ast::SourceFile,
-        db: &mut Database,
-    ) -> ItemTree {
+    pub(crate) fn build(mut self, salsa_db: &dyn crate::Db, ast: &ast::SourceFile) -> ItemTree {
         let top_level_scope = ItemScope::new_with_nameless(None);
-        let top_level_scope_id = db.alloc_item_scope(top_level_scope);
+        let top_level_scope_id = self.alloc_item_scope(top_level_scope);
 
         for item in ast.items() {
             self.build_item(
+                salsa_db,
                 item,
                 top_level_scope_id,
                 ParentScope::new(top_level_scope_id),
-                db,
             );
         }
 
         ItemTree {
-            file_id,
+            file: self.file,
             top_level_scope: top_level_scope_id,
+            item_scopes: self.item_scopes,
+            functions: self.functions,
+            modules: self.modules,
+            use_items: self.use_items,
             scope_by_block: self.scope_by_block,
             block_by_scope: self.block_by_scope,
             function_by_block: self.function_by_block,
@@ -219,36 +218,29 @@ impl<'a> ItemTreeBuilderContext<'a> {
     /// アイテムが構築できなかった場合は`None`を返します。
     fn build_item(
         &mut self,
+        salsa_db: &dyn crate::Db,
         item: ast::Item,
         current_scope: ItemScopeId,
         parent: ParentScope,
-        db: &mut Database,
-    ) -> Option<ItemDefId> {
+    ) -> Option<Item> {
         match item {
             ast::Item::FunctionDef(def) => {
-                let block = def.body()?;
+                let ast_block = def.body()?;
                 let params = def
                     .params()?
                     .params()
                     .enumerate()
                     .map(|(pos, param)| {
-                        let name = if let Some(name) = param.name() {
-                            Some(Name::from_key(self.interner.intern(name.name())))
-                        } else {
-                            None
-                        };
+                        let name = param
+                            .name()
+                            .map(|name| Name::new(salsa_db, name.name().to_string()));
                         let ty = self.lower_ty(param.ty());
-                        let param = Param { name, ty, pos };
-                        db.alloc_param(param)
+                        Param::new(salsa_db, name, ty, pos)
                     })
                     .collect::<Vec<_>>();
                 let param_by_name = params
                     .iter()
-                    .enumerate()
-                    .filter_map(|param| {
-                        let p = param.1.lookup(db);
-                        p.name.map(|name| (name, *param.1))
-                    })
+                    .filter_map(|param| param.name(salsa_db).map(|name| (name, *param)))
                     .collect::<HashMap<_, _>>();
                 let return_type = if let Some(return_type) = def.return_type() {
                     self.lower_ty(return_type.ty())
@@ -256,39 +248,40 @@ impl<'a> ItemTreeBuilderContext<'a> {
                     Type::Unit
                 };
 
-                let name = if let Some(name) = def.name() {
-                    Some(Name::from_key(self.interner.intern(name.name())))
-                } else {
-                    None
-                };
+                let name = def
+                    .name()
+                    .map(|name| Name::new(salsa_db, name.name().to_string()));
 
-                let ast_id = db.alloc_node(&def, self.file_id);
-                let function = Function {
-                    path: current_scope.lookup(db).path(db),
+                let function = Function::new(
+                    salsa_db,
+                    self.lookup_item_scope(current_scope)
+                        .path(&self.item_scopes),
                     name,
                     params,
                     param_by_name,
                     return_type,
-                    ast: ast_id,
-                };
-                let function = db.alloc_function(function);
+                    def,
+                );
+                self.functions.push(function);
+
                 if let Some(name) = name {
-                    current_scope.lookup_mut(db).insert_function(name, function);
+                    self.lookup_mut_item_scope(current_scope)
+                        .insert_function(name, function);
                 }
 
-                let block = self.build_block(block, parent, db, name);
-                self.function_by_block.insert(block.clone(), function);
-                self.block_by_function.insert(function, block);
+                self.build_block(salsa_db, ast_block.clone(), parent, name);
+                self.function_by_block.insert(ast_block.clone(), function);
+                self.block_by_function.insert(function, ast_block);
 
-                Some(ItemDefId::Function(function))
+                Some(Item::Function(function))
             }
-            ast::Item::Module(module) => {
-                let module_id = self.build_module(&module, current_scope, parent, db)?;
-                Some(ItemDefId::Module(module_id))
+            ast::Item::Module(ast_module) => {
+                let module = self.build_module(salsa_db, ast_module, current_scope, parent)?;
+                Some(Item::Module(module))
             }
-            ast::Item::Use(r#use) => {
-                let use_item_id = self.build_use(&r#use, current_scope, parent, db)?;
-                Some(ItemDefId::UseItem(use_item_id))
+            ast::Item::Use(ast_use) => {
+                let use_item = self.build_use(salsa_db, ast_use, current_scope, parent)?;
+                Some(Item::UseItem(use_item))
             }
         }
     }
@@ -297,20 +290,20 @@ impl<'a> ItemTreeBuilderContext<'a> {
     /// ステートメントが構築できなかった場合は`None`を返します。
     fn build_stmt(
         &mut self,
+        salsa_db: &dyn crate::Db,
         stmt: ast::Stmt,
         current_scope: ItemScopeId,
         parent: ParentScope,
-        db: &mut Database,
     ) -> Option<()> {
         match stmt {
             ast::Stmt::ExprStmt(expr_stmt) => {
-                self.build_expr(expr_stmt.expr()?, current_scope, parent, db)?
+                self.build_expr(salsa_db, expr_stmt.expr()?, current_scope, parent)?
             }
             ast::Stmt::VariableDef(def) => {
-                self.build_expr(def.value()?, current_scope, parent, db)?
+                self.build_expr(salsa_db, def.value()?, current_scope, parent)?
             }
             ast::Stmt::Item(item) => {
-                self.build_item(item, current_scope, parent, db)?;
+                self.build_item(salsa_db, item, current_scope, parent)?;
             }
         }
 
@@ -349,29 +342,29 @@ impl<'a> ItemTreeBuilderContext<'a> {
     /// ```
     fn build_expr(
         &mut self,
+        salsa_db: &dyn crate::Db,
         expr: ast::Expr,
         _current_scope: ItemScopeId,
         parent: ParentScope,
-        db: &mut Database,
     ) -> Option<()> {
         match expr {
             ast::Expr::BinaryExpr(binary) => {
-                self.build_expr(binary.lhs()?, _current_scope, parent.clone(), db)?;
-                self.build_expr(binary.rhs()?, _current_scope, parent, db)?;
+                self.build_expr(salsa_db, binary.lhs()?, _current_scope, parent)?;
+                self.build_expr(salsa_db, binary.rhs()?, _current_scope, parent)?;
             }
             ast::Expr::ParenExpr(paren) => {
-                self.build_expr(paren.expr()?, _current_scope, parent, db)?;
+                self.build_expr(salsa_db, paren.expr()?, _current_scope, parent)?;
             }
             ast::Expr::UnaryExpr(unary) => {
-                self.build_expr(unary.expr()?, _current_scope, parent, db)?;
+                self.build_expr(salsa_db, unary.expr()?, _current_scope, parent)?;
             }
             ast::Expr::BlockExpr(block) => {
-                self.build_block(block, parent, db, None);
+                self.build_block(salsa_db, block, parent, None);
             }
             ast::Expr::IfExpr(if_expr) => {
-                self.build_expr(if_expr.condition()?, _current_scope, parent.clone(), db)?;
-                self.build_block(if_expr.then_branch()?, parent.clone(), db, None);
-                self.build_block(if_expr.else_branch()?, parent, db, None);
+                self.build_expr(salsa_db, if_expr.condition()?, _current_scope, parent)?;
+                self.build_block(salsa_db, if_expr.then_branch()?, parent, None);
+                self.build_block(salsa_db, if_expr.else_branch()?, parent, None);
             }
             _ => (),
         };
@@ -382,76 +375,65 @@ impl<'a> ItemTreeBuilderContext<'a> {
     /// ブロックを構築します。
     fn build_block(
         &mut self,
-        block: ast::BlockExpr,
+        salsa_db: &dyn crate::Db,
+        ast_block: ast::BlockExpr,
         parent: ParentScope,
-        db: &mut Database,
         name: Option<Name>,
-    ) -> AstId<ast::BlockExpr> {
+    ) {
         let scope = if let Some(name) = name {
             ItemScope::new_with_name(Some(parent), name)
         } else {
             ItemScope::new_with_nameless(Some(parent))
         };
-        let scope_id = db.alloc_item_scope(scope);
-        let block_ast_id = db.alloc_node(&block, self.file_id);
+        let scope_id = self.alloc_item_scope(scope);
         let current = ParentScope::new(scope_id);
-        for stmt in block.stmts() {
-            self.build_stmt(stmt, scope_id, current.clone(), db);
+        for stmt in ast_block.stmts() {
+            self.build_stmt(salsa_db, stmt, scope_id, current);
         }
 
-        self.scope_by_block.insert(block_ast_id.clone(), scope_id);
-        self.block_by_scope.insert(scope_id, block_ast_id.clone());
-
-        block_ast_id
+        self.scope_by_block.insert(ast_block.clone(), scope_id);
+        self.block_by_scope.insert(scope_id, ast_block);
     }
 
     /// モジュールを構築します。
     /// モジュールを構築できなかった場合は`None`を返します。
     fn build_module(
         &mut self,
-        module: &ast::Module,
+        salsa_db: &dyn crate::Db,
+        ast_module: ast::Module,
         current_scope: ItemScopeId,
         parent: ParentScope,
-        db: &mut Database,
-    ) -> Option<ModuleId> {
-        if let Some(name) = module.name() {
-            let module_name = Name::from_key(self.interner.intern(name.name()));
+    ) -> Option<Module> {
+        if let Some(name) = ast_module.name() {
+            let module_name = Name::new(salsa_db, name.name().to_string());
 
             let scope = ItemScope::new_with_name(Some(parent), module_name);
-            let scope_id = db.alloc_item_scope(scope);
+            let scope_id = self.alloc_item_scope(scope);
 
-            let current = ParentScope::new(scope_id);
-
-            let module_ast_id = db.alloc_node(module, self.file_id);
             self.scope_by_module_ast
-                .insert(module_ast_id.clone(), scope_id);
+                .insert(ast_module.clone(), scope_id);
 
-            let hir_module = if let Some(item_list) = module.items() {
+            let module_kind = if let Some(item_list) = ast_module.items() {
+                let current = ParentScope::new(scope_id);
                 let mut items = vec![];
                 for item in item_list.items() {
-                    if let Some(item) = self.build_item(item, scope_id, current.clone(), db) {
+                    if let Some(item) = self.build_item(salsa_db, item, scope_id, current) {
                         items.push(item);
                     }
                 }
-                Module {
-                    name: module_name,
-                    kind: ModuleKind::Inline { items },
-                }
+                ModuleKind::Inline { items }
             } else {
-                Module {
-                    name: module_name,
-                    kind: ModuleKind::Outline,
-                }
+                ModuleKind::Outline
             };
+            let module = Module::new(salsa_db, module_name, module_kind);
 
-            let module_id = db.alloc_module(hir_module);
-            current_scope
-                .lookup_mut(db)
-                .insert_module(module_name, module_id);
-            self.module_by_ast_module.insert(module_ast_id, module_id);
-            self.scope_by_module.insert(module_id, scope_id);
+            self.modules.push(module);
+            self.lookup_mut_item_scope(current_scope)
+                .insert_module(module_name, module);
+            self.module_by_ast_module.insert(ast_module, module);
+            self.scope_by_module.insert(module, scope_id);
 
-            Some(module_id)
+            Some(module)
         } else {
             None
         }
@@ -461,40 +443,46 @@ impl<'a> ItemTreeBuilderContext<'a> {
     /// アイテムを構築できなかった場合は`None`を返します。
     fn build_use(
         &mut self,
-        r#use: &ast::Use,
+        salsa_db: &dyn crate::Db,
+        ast_use: ast::Use,
         current_scope: ItemScopeId,
         _parent: ParentScope,
-        db: &mut Database,
-    ) -> Option<UseItemId> {
-        let use_path = r#use.path()?.segments().collect::<Vec<_>>();
+    ) -> Option<UseItem> {
+        let use_path = ast_use.path()?.segments().collect::<Vec<_>>();
         match use_path.as_slice() {
             [] => unreachable!("use path should not be empty"),
             [path @ .., name] => {
-                let name = Name::from_key(self.interner.intern(name.name().unwrap().name()));
+                let name = Name::new(salsa_db, name.name().unwrap().name().to_string());
                 let segments = path
                     .iter()
-                    .map(|segment| {
-                        let key = self.interner.intern(segment.name().unwrap().name());
-                        Name::from_key(key)
-                    })
+                    .map(|segment| Name::new(salsa_db, segment.name().unwrap().name().to_string()))
                     .collect::<Vec<_>>();
                 let path = Path { segments };
-                let use_item = UseItem {
-                    path,
-                    name,
-                    item_scope: current_scope,
-                };
-                let use_item_id = db.alloc_use_item(use_item);
-                current_scope
-                    .lookup_mut(db)
-                    .insert_use_item(name, use_item_id);
+                let use_item = UseItem::new(salsa_db, name, path, current_scope);
 
-                let use_item_ast_id = db.alloc_node(r#use, self.file_id);
-                self.use_item_by_ast_use
-                    .insert(use_item_ast_id, use_item_id);
+                self.use_items.push(use_item);
+                self.lookup_mut_item_scope(current_scope)
+                    .insert_use_item(name, use_item);
+                self.use_item_by_ast_use.insert(ast_use, use_item);
 
-                Some(use_item_id)
+                Some(use_item)
             }
         }
+    }
+
+    /// アイテムスコープの共有参照を取得します。
+    fn lookup_item_scope(&self, item_scope_id: ItemScopeId) -> &ItemScope {
+        &self.item_scopes[item_scope_id.0]
+    }
+
+    /// アイテムスコープの排他参照を取得します。
+    fn lookup_mut_item_scope(&mut self, item_scope_id: ItemScopeId) -> &mut ItemScope {
+        &mut self.item_scopes[item_scope_id.0]
+    }
+
+    /// アイテムスコープを保存します。
+    /// 保存時にデータを取得するためのIDを生成し返します。
+    fn alloc_item_scope(&mut self, item_scope: ItemScope) -> ItemScopeId {
+        ItemScopeId(self.item_scopes.alloc(item_scope))
     }
 }

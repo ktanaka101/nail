@@ -5,6 +5,36 @@ use crate::{
     tokens,
 };
 
+/// ASTノードを定義します。
+///
+/// # Example
+///
+/// このマクロは、`def_ast_node(VariableDef);`と呼び出すと以下のように展開されます。
+/// ```ignore
+/// #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+/// pub struct VariableDef {
+///     syntax: SyntaxNode,
+/// }
+///
+/// impl Ast for VariableDef {}
+/// impl AstNode for VariableDef {
+///     fn can_cast(kind: SyntaxKind) -> bool {
+///         kind == SyntaxKind::VariableDef
+///     }
+///
+///     fn cast(syntax: SyntaxNode) -> Option<Self> {
+///         if Self::can_cast(syntax.kind()) {
+///             Some(Self { syntax })
+///         } else {
+///             None
+///         }
+///     }
+///
+///     fn syntax(&self) -> &SyntaxNode {
+///         &self.syntax
+///     }
+/// }
+/// ```
 macro_rules! def_ast_node {
     ($kind:ident) => {
         #[derive(Debug, Clone, PartialEq, Eq, Hash)]

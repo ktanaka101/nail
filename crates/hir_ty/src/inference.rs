@@ -2,32 +2,35 @@ use std::collections;
 
 use la_arena::{Arena, Idx};
 
-pub fn infer(hir_result: &hir::LowerResult) -> InferenceResult {
-    let inferencer = TypeInferencer::new(hir_result);
-    inferencer.infer()
+use crate::Db;
+
+#[salsa::tracked]
+pub fn infer(db: &dyn Db, hir_result: hir::LowerResult) -> InferenceResult {
+    let inferencer = TypeInferencer::new(&hir_result);
+    inferencer.infer(db)
 }
 
 /// 型推論の結果
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InferenceResult {
     /// 式に対応する型
     pub type_by_expr: collections::HashMap<hir::ExprId, ResolvedType>,
     /// パラメータに対応する型
-    pub type_by_param: collections::HashMap<hir::ParamId, ResolvedType>,
+    pub type_by_param: collections::HashMap<hir::Param, ResolvedType>,
     /// 関数シグネチャ一覧
     pub signatures: Arena<Signature>,
     /// 関数に対応するシグネチャ
-    pub signature_by_function: collections::HashMap<hir::FunctionId, Idx<Signature>>,
+    pub signature_by_function: collections::HashMap<hir::Function, Idx<Signature>>,
     /// 型推論中に発生したエラー
     pub errors: Vec<InferenceError>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct InferenceContext {
     type_by_expr: collections::HashMap<hir::ExprId, ResolvedType>,
-    type_by_param: collections::HashMap<hir::ParamId, ResolvedType>,
+    type_by_param: collections::HashMap<hir::Param, ResolvedType>,
     signatures: Arena<Signature>,
-    signature_by_function: collections::HashMap<hir::FunctionId, Idx<Signature>>,
+    signature_by_function: collections::HashMap<hir::Function, Idx<Signature>>,
     errors: Vec<InferenceError>,
 }
 
@@ -44,7 +47,7 @@ impl InferenceContext {
 }
 
 /// 型推論中に発生したエラー
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InferenceError {}
 
 /// 解決後の型
@@ -95,38 +98,38 @@ impl<'a> TypeInferencer<'a> {
         }
     }
 
-    fn infer(mut self) -> InferenceResult {
-        for (function_id, function) in self.hir_result.db.functions() {
+    fn infer(mut self, db: &dyn Db) -> InferenceResult {
+        for function in self.hir_result.item_tree(db).functions() {
             let mut params = vec![];
-            for param in &function.params {
-                let ty = self.infer_ty(&param.lookup(&self.hir_result.db).ty);
+            for param in function.params(db) {
+                let ty = self.infer_ty(&param.ty(db));
                 params.push(ty);
                 self.ctx.type_by_param.insert(*param, ty);
             }
 
             let signature = Signature {
                 params,
-                return_type: self.infer_ty(&function.return_type),
+                return_type: self.infer_ty(&function.return_type(db)),
             };
             let signature_idx = self.ctx.signatures.alloc(signature);
             self.ctx
                 .signature_by_function
-                .insert(function_id, signature_idx);
+                .insert(*function, signature_idx);
         }
 
-        for (function_id, _) in self.hir_result.db.functions() {
+        for function in self.hir_result.item_tree(db).functions() {
             let body_ast_id = self
                 .hir_result
-                .item_tree
-                .block_id_by_function(&function_id)
+                .item_tree(db)
+                .block_id_by_function(function)
                 .unwrap();
             let body = self
                 .hir_result
-                .shared_ctx
-                .function_body_by_block(body_ast_id)
+                .shared_ctx(db)
+                .function_body_by_ast_block(body_ast_id)
                 .unwrap();
             match body {
-                hir::Expr::Block(block) => self.infer_block(block),
+                hir::Expr::Block(block) => self.infer_block(db, block),
                 _ => unreachable!(),
             };
         }
@@ -151,15 +154,15 @@ impl<'a> TypeInferencer<'a> {
         }
     }
 
-    fn infer_stmts(&mut self, stmts: &[hir::Stmt]) {
+    fn infer_stmts(&mut self, db: &dyn hir::Db, stmts: &[hir::Stmt]) {
         for stmt in stmts {
             match stmt {
                 hir::Stmt::ExprStmt { expr, .. } => {
-                    let ty = self.infer_expr_id(*expr);
+                    let ty = self.infer_expr_id(db, *expr);
                     self.ctx.type_by_expr.insert(*expr, ty);
                 }
                 hir::Stmt::VariableDef { value, .. } => {
-                    let ty = self.infer_expr_id(*value);
+                    let ty = self.infer_expr_id(db, *value);
                     self.ctx.type_by_expr.insert(*value, ty);
                 }
                 hir::Stmt::Item { .. } => (),
@@ -167,14 +170,11 @@ impl<'a> TypeInferencer<'a> {
         }
     }
 
-    fn infer_expr(&mut self, expr: &hir::Expr) -> ResolvedType {
+    fn infer_expr(&mut self, db: &dyn hir::Db, expr: &hir::Expr) -> ResolvedType {
         match expr {
             hir::Expr::Symbol(symbol) => match symbol {
-                hir::Symbol::Local { expr, .. } => self.infer_expr_id(*expr),
-                hir::Symbol::Param { param, .. } => {
-                    let param = &param.lookup(&self.hir_result.db);
-                    self.infer_ty(&param.ty)
-                }
+                hir::Symbol::Local { expr, .. } => self.infer_expr_id(db, *expr),
+                hir::Symbol::Param { param, .. } => self.infer_ty(&param.ty(db)),
                 hir::Symbol::Missing { .. } => ResolvedType::Unknown,
                 hir::Symbol::Function { .. } => unimplemented!(),
             },
@@ -186,8 +186,8 @@ impl<'a> TypeInferencer<'a> {
             },
             hir::Expr::Binary { op, lhs, rhs } => {
                 // TODO: supports string equal
-                let lhs_ty = self.infer_expr_id(*lhs);
-                let rhs_ty = self.infer_expr_id(*rhs);
+                let lhs_ty = self.infer_expr_id(db, *lhs);
+                let rhs_ty = self.infer_expr_id(db, *rhs);
 
                 match op {
                     ast::BinaryOp::Add(_)
@@ -225,7 +225,7 @@ impl<'a> TypeInferencer<'a> {
                 }
             }
             hir::Expr::Unary { op, expr } => {
-                let expr_ty = self.infer_expr_id(*expr);
+                let expr_ty = self.infer_expr_id(db, *expr);
                 match op {
                     ast::UnaryOp::Neg(_) => {
                         if expr_ty == ResolvedType::Integer {
@@ -244,13 +244,11 @@ impl<'a> TypeInferencer<'a> {
             hir::Expr::Call { callee, args } => match callee {
                 hir::Symbol::Missing { .. } => ResolvedType::Unknown,
                 hir::Symbol::Function { function, .. } => {
-                    let signature = function.lookup(&self.hir_result.db);
-
                     for (i, arg) in args.iter().enumerate() {
-                        let param = signature.params[i];
+                        let param = function.params(db)[i];
 
-                        let arg_ty = self.infer_expr_id(*arg);
-                        let param_ty = self.infer_ty(&param.lookup(&self.hir_result.db).ty);
+                        let arg_ty = self.infer_expr_id(db, *arg);
+                        let param_ty = self.infer_ty(&param.ty(db));
 
                         if arg_ty == param_ty {
                             continue;
@@ -265,20 +263,20 @@ impl<'a> TypeInferencer<'a> {
                         }
                     }
 
-                    self.infer_ty(&signature.return_type)
+                    self.infer_ty(&function.return_type(db))
                 }
                 hir::Symbol::Local { .. } | hir::Symbol::Param { .. } => unimplemented!(),
             },
-            hir::Expr::Block(block) => self.infer_block(block),
+            hir::Expr::Block(block) => self.infer_block(db, block),
             hir::Expr::If {
                 condition,
                 then_branch,
                 else_branch,
             } => {
-                self.infer_expr_id(*condition);
-                let then_branch_ty = self.infer_expr_id(*then_branch);
+                self.infer_expr_id(db, *condition);
+                let then_branch_ty = self.infer_expr_id(db, *then_branch);
                 let else_branch_ty = if let Some(else_branch) = else_branch {
-                    self.infer_expr_id(*else_branch)
+                    self.infer_expr_id(db, *else_branch)
                 } else {
                     ResolvedType::Unit
                 };
@@ -299,7 +297,7 @@ impl<'a> TypeInferencer<'a> {
             }
             hir::Expr::Return { value } => {
                 if let Some(value) = value {
-                    self.infer_expr_id(*value);
+                    self.infer_expr_id(db, *value);
                 }
                 ResolvedType::Never
             }
@@ -307,21 +305,21 @@ impl<'a> TypeInferencer<'a> {
         }
     }
 
-    fn infer_block(&mut self, block: &hir::Block) -> ResolvedType {
-        self.infer_stmts(&block.stmts);
+    fn infer_block(&mut self, db: &dyn hir::Db, block: &hir::Block) -> ResolvedType {
+        self.infer_stmts(db, &block.stmts);
         if let Some(tail) = block.tail {
-            self.infer_expr_id(tail)
+            self.infer_expr_id(db, tail)
         } else {
             ResolvedType::Unit
         }
     }
 
-    fn infer_expr_id(&mut self, expr_id: hir::ExprId) -> ResolvedType {
+    fn infer_expr_id(&mut self, db: &dyn hir::Db, expr_id: hir::ExprId) -> ResolvedType {
         if let Some(ty) = self.lookup_type(expr_id) {
             return ty;
         }
 
-        let ty = self.infer_expr(expr_id.lookup(&self.hir_result.shared_ctx));
+        let ty = self.infer_expr(db, expr_id.lookup(self.hir_result.shared_ctx(db)));
         self.ctx.type_by_expr.insert(expr_id, ty);
 
         ty

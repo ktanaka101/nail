@@ -1,12 +1,10 @@
 use std::collections::HashMap;
 
-use crate::{
-    db::{FunctionId, ModuleId, UseItemId},
-    AstId, ItemScopeId, Name, ParamId, Path,
-};
+use crate::{ItemScopeId, Name, Path};
 
 /// 関数のパラメータを表す
 /// 例: `fn f(x: int, y: int) -> int { x + y }` であれば `x: int` と `y: int` のそれぞれがパラメータ
+#[salsa::interned]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Param {
     /// パラメータ名
@@ -21,7 +19,7 @@ pub struct Param {
 }
 
 /// 型を表す
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Type {
     /// 数値型
     ///
@@ -54,9 +52,11 @@ pub enum Type {
 /// 関数定義を表す
 ///
 /// 例: `fn f(x: int, y: int) -> int { x + y }`
+#[salsa::tracked]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Function {
     /// 関数のモジュールパス
+    #[return_ref]
     pub path: Path,
     /// 関数名
     ///
@@ -64,24 +64,28 @@ pub struct Function {
     /// エラー耐性のために、関数名が存在しない場合は`None`となります。
     pub name: Option<Name>,
     /// 関数のパラメータ
-    pub params: Vec<ParamId>,
+    #[return_ref]
+    pub params: Vec<Param>,
     /// 関数のパラメータ名をキーとしたパラメータIDのマップ
-    pub param_by_name: HashMap<Name, ParamId>,
+    #[return_ref]
+    pub param_by_name: HashMap<Name, Param>,
     /// 関数の戻り値の型
     ///
     /// 例: `fn f(x: int, y: int) -> int { x + y }` であれば `int`
     pub return_type: Type,
-    /// 関数のAST上のID
-    pub ast: AstId<ast::FunctionDef>,
+    /// AST上の位置
+    pub ast: ast::FunctionDef,
 }
 
 /// モジュール定義を表す
-#[derive(Debug, PartialEq, Eq)]
+#[salsa::interned]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Module {
     /// モジュール名
     pub name: Name,
 
     /// モジュール種別
+    #[return_ref]
     pub kind: ModuleKind,
 }
 
@@ -90,7 +94,7 @@ pub struct Module {
 /// モジュール定義には以下の2種類があります。
 /// - 別ファイルにモジュールがあることを表す`mod outline;`
 /// - 1ファイル中にインラインで記述可能な`mod inline { /** モジュール内 */ }`
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ModuleKind {
     /// インラインモジュール
     ///
@@ -107,7 +111,7 @@ pub enum ModuleKind {
     /// ```
     Inline {
         /// アイテム一覧
-        items: Vec<ItemDefId>,
+        items: Vec<Item>,
     },
 
     /// アウトラインモジュール
@@ -127,7 +131,8 @@ pub enum ModuleKind {
 /// アイテムの使用宣言を表す
 ///
 /// 例: `use std::io::println;`
-#[derive(Debug, PartialEq, Eq)]
+#[salsa::interned]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UseItem {
     /// 使用宣言の名前
     ///
@@ -136,6 +141,7 @@ pub struct UseItem {
     /// 使用宣言対象のパス
     ///
     /// 例: `use std::io::println;` であれば `std::io`
+    #[return_ref]
     pub path: Path,
 
     /// 宣言したアイテムスコープ
@@ -144,11 +150,11 @@ pub struct UseItem {
 
 /// ファイルルート及びモジュール内のアイテムを表す
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum ItemDefId {
+pub enum Item {
     /// 関数定義
-    Function(FunctionId),
+    Function(Function),
     /// モジュール定義
-    Module(ModuleId),
+    Module(Module),
     /// アイテム使用宣言
-    UseItem(UseItemId),
+    UseItem(UseItem),
 }

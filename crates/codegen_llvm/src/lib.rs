@@ -17,24 +17,32 @@ use inkwell::{
 const FN_ENTRY_BLOCK_NAME: &str = "start";
 const INTERNAL_ENTRY_POINT: &str = "__main__";
 
+/// LLVM IR生成用のコンテキストです。
+pub struct CodegenContext<'a, 'ctx> {
+    pub salsa_db: &'a dyn hir::Db,
+    pub hir_result: &'a hir::LowerResult,
+    pub mir_result: &'a mir::LowerResult,
+
+    pub context: &'ctx Context,
+    pub module: &'a Module<'ctx>,
+    pub builder: &'a Builder<'ctx>,
+    pub execution_engine: &'a ExecutionEngine<'ctx>,
+}
+
+/// LLVM IRを生成します。
 pub fn codegen<'a, 'ctx>(
-    hir_result: &'a hir::LowerResult,
-    mir_result: &'a mir::LowerResult,
-    context: &'ctx Context,
-    module: &'a Module<'ctx>,
-    builder: &'a Builder<'ctx>,
-    execution_engine: &'a ExecutionEngine<'ctx>,
+    codegen_context: &'a CodegenContext<'a, 'ctx>,
     should_return_string: bool,
 ) -> CodegenResult<'ctx> {
     let codegen = Codegen::new(
-        hir_result,
-        mir_result,
-        context,
-        module,
-        builder,
-        execution_engine,
+        codegen_context.hir_result,
+        codegen_context.mir_result,
+        codegen_context.context,
+        codegen_context.module,
+        codegen_context.builder,
+        codegen_context.execution_engine,
     );
-    codegen.gen(should_return_string)
+    codegen.gen(codegen_context.salsa_db, should_return_string)
 }
 
 type MainFunc = unsafe extern "C" fn() -> *mut i8;
@@ -309,7 +317,7 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
 }
 
 struct Codegen<'a, 'ctx> {
-    hir_result: &'a hir::LowerResult,
+    _hir_result: &'a hir::LowerResult,
     mir_result: &'a mir::LowerResult,
 
     context: &'ctx Context,
@@ -333,7 +341,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         execution_engine: &'a ExecutionEngine<'ctx>,
     ) -> Self {
         let mut codegen = Self {
-            hir_result,
+            _hir_result: hir_result,
             mir_result,
             context,
             module,
@@ -353,12 +361,12 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         self.builder.position_at_end(*entry_block);
     }
 
-    fn gen(mut self, should_return_string: bool) -> CodegenResult<'ctx> {
+    fn gen(mut self, db: &dyn hir::Db, should_return_string: bool) -> CodegenResult<'ctx> {
         if self.mir_result.entry_point().is_none() {
             unimplemented!();
         }
 
-        self.gen_function_signatures();
+        self.gen_function_signatures(db);
         self.gen_functions();
 
         let result = {
@@ -423,8 +431,8 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             .collect::<Vec<_>>()
     }
 
-    fn lookup_name(&self, name: &hir::Name) -> &str {
-        self.hir_result.interner.lookup(name.key())
+    fn lookup_name(&self, db: &'a dyn hir::Db, name: &hir::Name) -> &'a str {
+        name.text(db)
     }
 
     fn unit_type(&self) -> StructType<'ctx> {
@@ -449,7 +457,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             .as_pointer_value()
     }
 
-    fn gen_function_signatures(&mut self) {
+    fn gen_function_signatures(&mut self, db: &dyn hir::Db) {
         for (idx, body) in self.mir_result.ref_bodies() {
             let params = self.body_to_params(body);
             let return_type = body.locals[body.return_local].ty;
@@ -474,7 +482,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 _ => unimplemented!(),
             };
 
-            let function_name = self.lookup_name(&body.name);
+            let function_name = self.lookup_name(db, &body.name);
             let function = self.module.add_function(function_name, fn_ty, None);
             let function_id = self.mir_result.function_id_by_body_idx(idx);
             self.defined_functions.insert(function_id, function);
@@ -502,28 +510,34 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
 mod tests {
     use std::ffi::{c_char, CString};
 
-    use ast::AstNode;
     use expect_test::{expect, Expect};
     use hir::{FixtureDatabase, SourceDatabaseTrait};
     use inkwell::OptimizationLevel;
 
     use super::*;
 
-    fn lower(fixture: &str) -> (hir::LowerResult, hir_ty::TyLowerResult, mir::LowerResult) {
-        let source_db = FixtureDatabase::new(fixture);
-        let parsed = parser::parse(fixture);
-        let ast = ast::SourceFile::cast(parsed.syntax()).unwrap();
-        let hir_result = hir::lower_root(source_db.source_root(), ast);
-        let ty_result = hir_ty::lower(&hir_result);
-        let mir_result = mir::lower(&hir_result, &ty_result);
-        (hir_result, ty_result, mir_result)
+    fn lower(
+        fixture: &str,
+    ) -> (
+        hir_ty::TestingDatabase,
+        hir::LowerResult,
+        hir_ty::TyLowerResult,
+        mir::LowerResult,
+    ) {
+        let salsa_db = hir_ty::TestingDatabase::default();
+        let source_db = FixtureDatabase::new(&salsa_db, fixture);
+        let ast = hir::parse_to_ast(&salsa_db, source_db.source_root());
+        let hir_result = hir::build_hir(&salsa_db, ast);
+        let ty_result = hir_ty::lower(&salsa_db, hir_result);
+        let mir_result = mir::lower(&salsa_db, &hir_result, &ty_result);
+        (salsa_db, hir_result, ty_result, mir_result)
     }
 
     fn execute_in_root_file(fixture: &str) -> String {
         let mut fixture = fixture.to_string();
         fixture.insert_str(0, "//- /main.nail\n");
 
-        let (hir_result, _ty_result, mir_result) = lower(&fixture);
+        let (salsa_db, hir_result, _ty_result, mir_result) = lower(&fixture);
 
         let context = Context::create();
         let module = context.create_module("top");
@@ -532,12 +546,15 @@ mod tests {
             .create_jit_execution_engine(OptimizationLevel::None)
             .unwrap();
         let result = codegen(
-            &hir_result,
-            &mir_result,
-            &context,
-            &module,
-            &builder,
-            &execution_engine,
+            &CodegenContext {
+                salsa_db: &salsa_db,
+                hir_result: &hir_result,
+                mir_result: &mir_result,
+                context: &context,
+                module: &module,
+                builder: &builder,
+                execution_engine: &execution_engine,
+            },
             true,
         );
         module.print_to_stderr();
@@ -554,7 +571,7 @@ mod tests {
         let mut fixture = fixture.to_string();
         fixture.insert_str(0, "//- /main.nail\n");
 
-        let (hir_result, _ty_result, mir_result) = lower(&fixture);
+        let (salsa_db, hir_result, _ty_result, mir_result) = lower(&fixture);
 
         let context = Context::create();
         let module = context.create_module("top");
@@ -563,12 +580,15 @@ mod tests {
             .create_jit_execution_engine(OptimizationLevel::None)
             .unwrap();
         codegen(
-            &hir_result,
-            &mir_result,
-            &context,
-            &module,
-            &builder,
-            &execution_engine,
+            &CodegenContext {
+                salsa_db: &salsa_db,
+                hir_result: &hir_result,
+                mir_result: &mir_result,
+                context: &context,
+                module: &module,
+                builder: &builder,
+                execution_engine: &execution_engine,
+            },
             false,
         );
         module.print_to_stderr();

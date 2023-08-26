@@ -1,0 +1,10 @@
+[package]
+name = "base_db"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+salsa = { workspace = true }
+
+hir = { workspace = true }
+hir_ty = { workspace = true }

@@ -8,6 +8,7 @@ la-arena = { workspace = true }
 
 ast = { workspace = true }
 hir = { workspace = true }
+salsa = { workspace = true }
 
 [dev-dependencies]
 expect-test = { workspace = true }

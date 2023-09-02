@@ -39,9 +39,7 @@ pub use body::{BodyLower, ExprId, FunctionBodyId, SharedBodyLowerContext};
 pub use db::{Db, Jar};
 pub use input::{FixtureDatabase, NailFile, SourceDatabase, SourceDatabaseTrait};
 use item_tree::ItemTreeBuilderContext;
-pub use item_tree::{
-    Function, Item, ItemScopeId, ItemTree, Module, ModuleKind, Param, Type, UseItem,
-};
+pub use item_tree::{Function, Item, ItemTree, Module, ModuleKind, Param, Type, UseItem};
 use name_resolver::resolve_symbols;
 pub use name_resolver::{ResolutionStatus, SymbolTable};
 pub use testing::TestingDatabase;

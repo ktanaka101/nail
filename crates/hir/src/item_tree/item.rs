@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{ItemScopeId, Name, Path};
+use crate::{Name, Path};
 
 /// 関数のパラメータを表す
 /// 例: `fn f(x: int, y: int) -> int { x + y }` であれば `x: int` と `y: int` のそれぞれがパラメータ
@@ -55,9 +55,6 @@ pub enum Type {
 #[salsa::tracked]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Function {
-    /// 関数のモジュールパス
-    #[return_ref]
-    pub path: Path,
     /// 関数名
     ///
     /// 言語仕様上は`None`になることはありませんが、
@@ -143,9 +140,6 @@ pub struct UseItem {
     /// 例: `use std::io::println;` であれば `std::io`
     #[return_ref]
     pub path: Path,
-
-    /// 宣言したアイテムスコープ
-    pub item_scope: ItemScopeId,
 }
 
 /// ファイルルート及びモジュール内のアイテムを表す

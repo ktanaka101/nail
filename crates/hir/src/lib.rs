@@ -28,7 +28,7 @@
 mod body;
 mod db;
 mod input;
-mod item_tree;
+mod item;
 mod name_resolver;
 mod testing;
 
@@ -38,8 +38,7 @@ use ast::AstNode;
 pub use body::{BodyLower, ExprId, FunctionBodyId, SharedBodyLowerContext};
 pub use db::{Db, Jar};
 pub use input::{FixtureDatabase, NailFile, SourceDatabase, SourceDatabaseTrait};
-use item_tree::ItemTreeBuilderContext;
-pub use item_tree::{Function, Item, ItemTree, Module, ModuleKind, Param, Type, UseItem};
+pub use item::{Function, Item, Module, ModuleKind, Param, Type, UseItem};
 use name_resolver::resolve_symbols;
 pub use name_resolver::{ResolutionStatus, SymbolTable};
 pub use testing::TestingDatabase;
@@ -127,7 +126,7 @@ fn parse_pod(salsa_db: &dyn Db, path: &str, source_db: &mut dyn SourceDatabaseTr
     let ast_source = parse_to_ast(salsa_db, nail_file);
     let root_result = build_hir(salsa_db, ast_source);
 
-    for sub_module in root_result.item_tree(salsa_db).modules() {
+    for sub_module in root_result.modules(salsa_db) {
         if matches!(sub_module.kind(salsa_db), ModuleKind::Inline { .. }) {
             continue;
         }
@@ -181,6 +180,11 @@ pub enum LowerError {
 #[salsa::tracked]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LowerResult {
+    /// ファイル
+    ///
+    /// 1ファイルにつき1つの[LowerResult]が生成されます。
+    pub file: NailFile,
+
     /// ボディ構築時に共有されるコンテキスト
     ///
     /// 1ファイル内のコンテキストです。
@@ -191,26 +195,29 @@ pub struct LowerResult {
     pub top_level_items: Vec<Item>,
     /// エントリーポイントの関数
     pub entry_point: Option<Function>,
-    /// アイテムツリー
-    #[return_ref]
-    pub item_tree: ItemTree,
     /// エラー一覧
     #[return_ref]
     pub errors: Vec<LowerError>,
 }
 impl LowerResult {
-    pub fn file(&self, db: &dyn Db) -> NailFile {
-        self.item_tree(db).file
-    }
-
     /// 関数IDから関数ボディを取得します。
     pub fn function_body_by_function<'a>(
         &self,
         db: &'a dyn Db,
         function: Function,
     ) -> Option<&'a Expr> {
-        let body_block = self.item_tree(db).block_id_by_function(&function)?;
-        self.shared_ctx(db).function_body_by_ast_block(body_block)
+        self.shared_ctx(db)
+            .function_body_by_ast_block(function.ast(db).body()?)
+    }
+
+    /// ファイル内の関数一覧を返します。
+    pub fn functions<'a>(&self, db: &'a dyn Db) -> &'a [Function] {
+        self.shared_ctx(db).functions()
+    }
+
+    /// ファイル内のモジュール一覧を返します。
+    pub fn modules<'a>(&self, db: &'a dyn Db) -> &'a [Module] {
+        self.shared_ctx(db).modules()
     }
 }
 
@@ -238,17 +245,12 @@ pub fn build_hir(salsa_db: &dyn crate::Db, ast_source: AstSourceFile) -> crate::
     let file = ast_source.file(salsa_db);
     let source_file = ast_source.source(salsa_db);
 
-    let item_tree_builder = ItemTreeBuilderContext::new(file);
-    let item_tree = item_tree_builder.build(salsa_db, source_file);
-
     let mut shared_ctx = SharedBodyLowerContext::new();
 
     let mut top_level_ctx = BodyLower::new(file, HashMap::new());
     let top_level_items = source_file
         .items()
-        .filter_map(|item| {
-            top_level_ctx.lower_toplevel(salsa_db, item, &mut shared_ctx, &item_tree)
-        })
+        .filter_map(|item| top_level_ctx.lower_toplevel(salsa_db, item, &mut shared_ctx))
         .collect::<Vec<_>>();
 
     let (errors, entry_point) = if ast_source.file(salsa_db).root(salsa_db) {
@@ -264,10 +266,10 @@ pub fn build_hir(salsa_db: &dyn crate::Db, ast_source: AstSourceFile) -> crate::
 
     LowerResult::new(
         salsa_db,
+        file,
         shared_ctx,
         top_level_items,
         entry_point,
-        item_tree,
         errors,
     )
 }

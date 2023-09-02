@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use la_arena::{Arena, Idx};
 
 use crate::{
-    body::scopes::ExprScopes, item_tree::ItemTree, Block, Expr, Item, Literal, ModuleKind,
-    NailFile, Name, Param, Path, Stmt, Symbol,
+    body::scopes::ExprScopes, Block, Expr, Function, Item, Literal, Module, ModuleKind, NailFile,
+    Name, Param, Path, Stmt, Symbol, Type, UseItem,
 };
 
 /// 式を一意に識別するためのID
@@ -38,6 +38,9 @@ pub struct FunctionBodyId(Idx<Expr>);
 /// 1ファイル内における式と関数本体を保持する
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SharedBodyLowerContext {
+    functions: Vec<Function>,
+    modules: Vec<Module>,
+
     function_bodies: Arena<Expr>,
     exprs: Arena<Expr>,
     function_body_by_ast_block: HashMap<ast::BlockExpr, FunctionBodyId>,
@@ -46,10 +49,22 @@ impl SharedBodyLowerContext {
     /// 空のコンテキストを作成する
     pub fn new() -> Self {
         Self {
+            functions: vec![],
+            modules: vec![],
             function_bodies: Arena::new(),
             exprs: Arena::new(),
             function_body_by_ast_block: HashMap::new(),
         }
+    }
+
+    /// 1ファイル中のHIR化で現れた関数一覧を返します。
+    pub fn functions(&self) -> &[Function] {
+        &self.functions
+    }
+
+    /// 1ファイル中のHIR化で現れたモジュール一覧を返します。
+    pub fn modules(&self) -> &[Module] {
+        &self.modules
     }
 
     /// ASTブロックIDを元に関数本体IDを取得する
@@ -108,31 +123,61 @@ impl BodyLower {
         salsa_db: &dyn crate::Db,
         ast: ast::Item,
         ctx: &mut SharedBodyLowerContext,
-        item_tree: &ItemTree,
     ) -> Option<Item> {
         match ast {
-            ast::Item::FunctionDef(def) => self.lower_function(salsa_db, def, ctx, item_tree),
-            ast::Item::Module(module) => self.lower_module(salsa_db, module, ctx, item_tree),
-            ast::Item::Use(r#use) => self.lower_use(r#use, item_tree),
+            ast::Item::FunctionDef(def) => {
+                Some(Item::Function(self.lower_function(salsa_db, def, ctx)?))
+            }
+            ast::Item::Module(module) => {
+                Some(Item::Module(self.lower_module(salsa_db, module, ctx)?))
+            }
+            ast::Item::Use(r#use) => Some(Item::UseItem(self.lower_use(salsa_db, r#use)?)),
         }
     }
 
+    /// 関数のHIRを構築します。
     fn lower_function(
         &mut self,
         salsa_db: &dyn crate::Db,
         def: ast::FunctionDef,
         ctx: &mut SharedBodyLowerContext,
-        item_tree: &ItemTree,
-    ) -> Option<Item> {
-        let ast_body = def.body()?;
-        let function = item_tree.function_by_ast_block(&ast_body).unwrap();
+    ) -> Option<Function> {
+        let ast_block = def.body()?;
+        let params = def
+            .params()?
+            .params()
+            .enumerate()
+            .map(|(pos, param)| {
+                let name = param
+                    .name()
+                    .map(|name| Name::new(salsa_db, name.name().to_string()));
+                let ty = self.lower_ty(param.ty());
+                Param::new(salsa_db, name, ty, pos)
+            })
+            .collect::<Vec<_>>();
+        let param_by_name = params
+            .iter()
+            .filter_map(|param| param.name(salsa_db).map(|name| (name, *param)))
+            .collect::<HashMap<_, _>>();
+        let return_type = if let Some(return_type) = def.return_type() {
+            self.lower_ty(return_type.ty())
+        } else {
+            Type::Unit
+        };
+
+        let name = def
+            .name()
+            .map(|name| Name::new(salsa_db, name.name().to_string()));
+
+        let function = Function::new(salsa_db, name, params, param_by_name, return_type, def);
+        ctx.functions.push(function);
 
         let mut body_lower = BodyLower::new(self.file, function.param_by_name(salsa_db).clone());
-        let body_expr = body_lower.lower_block(salsa_db, ast_body.clone(), ctx, item_tree);
+        let body_expr = body_lower.lower_block(salsa_db, ast_block.clone(), ctx);
         let body_id = ctx.alloc_function_body(body_expr);
-        ctx.function_body_by_ast_block.insert(ast_body, body_id);
+        ctx.function_body_by_ast_block.insert(ast_block, body_id);
 
-        Some(Item::Function(function))
+        Some(function)
     }
 
     /// モジュールのHIRを構築します。
@@ -145,26 +190,64 @@ impl BodyLower {
         salsa_db: &dyn crate::Db,
         ast_module: ast::Module,
         ctx: &mut SharedBodyLowerContext,
-        item_tree: &ItemTree,
-    ) -> Option<Item> {
-        let module = item_tree.module_by_ast_module(ast_module.clone()).unwrap();
+    ) -> Option<Module> {
+        if let Some(name) = ast_module.name() {
+            let module_name = Name::new(salsa_db, name.name().to_string());
 
-        match module.kind(salsa_db) {
-            ModuleKind::Inline { .. } => {
-                for item in ast_module.items().expect("Already parsed ").items() {
-                    self.lower_item(salsa_db, item, ctx, item_tree);
+            let module_kind = if let Some(item_list) = ast_module.items() {
+                let mut items = vec![];
+                for item in item_list.items() {
+                    if let Some(item) = self.lower_item(salsa_db, item, ctx) {
+                        items.push(item);
+                    }
                 }
+                ModuleKind::Inline { items }
+            } else {
+                ModuleKind::Outline
+            };
+            let module = Module::new(salsa_db, module_name, module_kind);
+            ctx.modules.push(module);
 
-                Some(Item::Module(module))
-            }
-            ModuleKind::Outline => Some(Item::Module(module)),
+            Some(module)
+        } else {
+            None
         }
     }
 
-    fn lower_use(&mut self, ast_use: ast::Use, item_tree: &ItemTree) -> Option<Item> {
-        let use_item_id = item_tree.use_item_by_ast_use(ast_use).unwrap();
+    fn lower_use(&mut self, salsa_db: &dyn crate::Db, ast_use: ast::Use) -> Option<UseItem> {
+        let use_path = ast_use.path()?.segments().collect::<Vec<_>>();
+        match use_path.as_slice() {
+            [] => unreachable!("use path should not be empty"),
+            [path @ .., name] => {
+                let name = Name::new(salsa_db, name.name().unwrap().name().to_string());
+                let segments = path
+                    .iter()
+                    .map(|segment| Name::new(salsa_db, segment.name().unwrap().name().to_string()))
+                    .collect::<Vec<_>>();
+                let path = Path { segments };
+                let use_item = UseItem::new(salsa_db, name, path);
 
-        Some(Item::UseItem(use_item_id))
+                Some(use_item)
+            }
+        }
+    }
+
+    /// 型を構築します。
+    /// 型を構築できなかった場合は`Type::Unknown`を返します。
+    fn lower_ty(&mut self, ty: Option<ast::Type>) -> Type {
+        let ident = match ty.and_then(|ty| ty.ty()) {
+            Some(ident) => ident,
+            None => return Type::Unknown,
+        };
+
+        let type_name = ident.name();
+        match type_name {
+            "int" => Type::Integer,
+            "string" => Type::String,
+            "char" => Type::Char,
+            "bool" => Type::Boolean,
+            _ => Type::Unknown,
+        }
     }
 
     fn lower_stmt(
@@ -172,25 +255,24 @@ impl BodyLower {
         salsa_db: &dyn crate::Db,
         ast_stmt: ast::Stmt,
         ctx: &mut SharedBodyLowerContext,
-        item_tree: &ItemTree,
     ) -> Option<Stmt> {
         let result = match ast_stmt {
             ast::Stmt::VariableDef(def) => {
-                let expr = self.lower_expr(salsa_db, def.value(), ctx, item_tree);
+                let expr = self.lower_expr(salsa_db, def.value(), ctx);
                 let id = ctx.alloc_expr(expr);
                 let name = Name::new(salsa_db, def.name()?.name().to_owned());
                 self.scopes.define(name, id);
                 Stmt::VariableDef { name, value: id }
             }
             ast::Stmt::ExprStmt(ast) => {
-                let expr = self.lower_expr(salsa_db, ast.expr(), ctx, item_tree);
+                let expr = self.lower_expr(salsa_db, ast.expr(), ctx);
                 Stmt::ExprStmt {
                     expr: ctx.alloc_expr(expr),
                     has_semicolon: ast.semicolon().is_some(),
                 }
             }
             ast::Stmt::Item(item) => {
-                let item = self.lower_item(salsa_db, item, ctx, item_tree)?;
+                let item = self.lower_item(salsa_db, item, ctx)?;
                 Stmt::Item { item }
             }
         };
@@ -203,12 +285,15 @@ impl BodyLower {
         salsa_db: &dyn crate::Db,
         ast_item: ast::Item,
         ctx: &mut SharedBodyLowerContext,
-        item_tree: &ItemTree,
     ) -> Option<Item> {
         match ast_item {
-            ast::Item::FunctionDef(def) => self.lower_function(salsa_db, def, ctx, item_tree),
-            ast::Item::Module(module) => self.lower_module(salsa_db, module, ctx, item_tree),
-            ast::Item::Use(r#use) => self.lower_use(r#use, item_tree),
+            ast::Item::FunctionDef(def) => {
+                Some(Item::Function(self.lower_function(salsa_db, def, ctx)?))
+            }
+            ast::Item::Module(module) => {
+                Some(Item::Module(self.lower_module(salsa_db, module, ctx)?))
+            }
+            ast::Item::Use(r#use) => Some(Item::UseItem(self.lower_use(salsa_db, r#use)?)),
         }
     }
 
@@ -217,19 +302,18 @@ impl BodyLower {
         salsa_db: &dyn crate::Db,
         ast_expr: Option<ast::Expr>,
         ctx: &mut SharedBodyLowerContext,
-        item_tree: &ItemTree,
     ) -> Expr {
         if let Some(ast) = ast_expr {
             match ast {
-                ast::Expr::BinaryExpr(ast) => self.lower_binary(salsa_db, ast, ctx, item_tree),
+                ast::Expr::BinaryExpr(ast) => self.lower_binary(salsa_db, ast, ctx),
                 ast::Expr::Literal(ast) => self.lower_literal(ast),
-                ast::Expr::ParenExpr(ast) => self.lower_expr(salsa_db, ast.expr(), ctx, item_tree),
-                ast::Expr::UnaryExpr(ast) => self.lower_unary(salsa_db, ast, ctx, item_tree),
+                ast::Expr::ParenExpr(ast) => self.lower_expr(salsa_db, ast.expr(), ctx),
+                ast::Expr::UnaryExpr(ast) => self.lower_unary(salsa_db, ast, ctx),
                 ast::Expr::PathExpr(ast) => self.lower_path_expr(salsa_db, ast, ctx),
-                ast::Expr::CallExpr(ast) => self.lower_call(salsa_db, ast, ctx, item_tree),
-                ast::Expr::BlockExpr(ast) => self.lower_block(salsa_db, ast, ctx, item_tree),
-                ast::Expr::IfExpr(ast) => self.lower_if(salsa_db, ast, ctx, item_tree),
-                ast::Expr::ReturnExpr(ast) => self.lower_return(salsa_db, ast, ctx, item_tree),
+                ast::Expr::CallExpr(ast) => self.lower_call(salsa_db, ast, ctx),
+                ast::Expr::BlockExpr(ast) => self.lower_block(salsa_db, ast, ctx),
+                ast::Expr::IfExpr(ast) => self.lower_if(salsa_db, ast, ctx),
+                ast::Expr::ReturnExpr(ast) => self.lower_return(salsa_db, ast, ctx),
             }
         } else {
             Expr::Missing
@@ -274,12 +358,11 @@ impl BodyLower {
         salsa_db: &dyn crate::Db,
         ast_binary_expr: ast::BinaryExpr,
         ctx: &mut SharedBodyLowerContext,
-        item_tree: &ItemTree,
     ) -> Expr {
         let op = ast_binary_expr.op().unwrap();
 
-        let lhs = self.lower_expr(salsa_db, ast_binary_expr.lhs(), ctx, item_tree);
-        let rhs = self.lower_expr(salsa_db, ast_binary_expr.rhs(), ctx, item_tree);
+        let lhs = self.lower_expr(salsa_db, ast_binary_expr.lhs(), ctx);
+        let rhs = self.lower_expr(salsa_db, ast_binary_expr.rhs(), ctx);
 
         Expr::Binary {
             op,
@@ -293,11 +376,10 @@ impl BodyLower {
         salsa_db: &dyn crate::Db,
         ast_unary_expr: ast::UnaryExpr,
         ctx: &mut SharedBodyLowerContext,
-        item_tree: &ItemTree,
     ) -> Expr {
         let op = ast_unary_expr.op().unwrap();
 
-        let expr = self.lower_expr(salsa_db, ast_unary_expr.expr(), ctx, item_tree);
+        let expr = self.lower_expr(salsa_db, ast_unary_expr.expr(), ctx);
 
         Expr::Unary {
             op,
@@ -362,17 +444,16 @@ impl BodyLower {
         salsa_db: &dyn crate::Db,
         ast_call: ast::CallExpr,
         ctx: &mut SharedBodyLowerContext,
-        item_tree: &ItemTree,
     ) -> Expr {
         let args = ast_call.args().unwrap();
         let args = args
             .args()
             .map(|arg| {
-                let expr = self.lower_expr(salsa_db, arg.expr(), ctx, item_tree);
+                let expr = self.lower_expr(salsa_db, arg.expr(), ctx);
                 ctx.alloc_expr(expr)
             })
             .collect();
-        let callee = match self.lower_expr(salsa_db, ast_call.callee(), ctx, item_tree) {
+        let callee = match self.lower_expr(salsa_db, ast_call.callee(), ctx) {
             Expr::Symbol(symbol) => symbol,
             Expr::Binary { .. } => todo!(),
             Expr::Literal(_) => todo!(),
@@ -392,13 +473,12 @@ impl BodyLower {
         salsa_db: &dyn crate::Db,
         ast_block: ast::BlockExpr,
         ctx: &mut SharedBodyLowerContext,
-        item_tree: &ItemTree,
     ) -> Expr {
         self.scopes.enter(ast_block.clone());
 
         let mut stmts = vec![];
         for stmt in ast_block.stmts() {
-            if let Some(stmt) = self.lower_stmt(salsa_db, stmt, ctx, item_tree) {
+            if let Some(stmt) = self.lower_stmt(salsa_db, stmt, ctx) {
                 stmts.push(stmt);
             }
         }
@@ -429,16 +509,15 @@ impl BodyLower {
         salsa_db: &dyn crate::Db,
         ast_if: ast::IfExpr,
         ctx: &mut SharedBodyLowerContext,
-        item_tree: &ItemTree,
     ) -> Expr {
-        let condition = self.lower_expr(salsa_db, ast_if.condition(), ctx, item_tree);
+        let condition = self.lower_expr(salsa_db, ast_if.condition(), ctx);
         let condition = ctx.alloc_expr(condition);
 
-        let then_branch = self.lower_block(salsa_db, ast_if.then_branch().unwrap(), ctx, item_tree);
+        let then_branch = self.lower_block(salsa_db, ast_if.then_branch().unwrap(), ctx);
         let then_branch = ctx.alloc_expr(then_branch);
 
         let else_branch = if let Some(else_branch) = ast_if.else_branch() {
-            let else_branch = self.lower_block(salsa_db, else_branch, ctx, item_tree);
+            let else_branch = self.lower_block(salsa_db, else_branch, ctx);
             Some(ctx.alloc_expr(else_branch))
         } else {
             None
@@ -456,10 +535,9 @@ impl BodyLower {
         salsa_db: &dyn crate::Db,
         ast_return: ast::ReturnExpr,
         ctx: &mut SharedBodyLowerContext,
-        item_tree: &ItemTree,
     ) -> Expr {
         let value = if let Some(value) = ast_return.value() {
-            let value = self.lower_expr(salsa_db, Some(value), ctx, item_tree);
+            let value = self.lower_expr(salsa_db, Some(value), ctx);
             Some(ctx.alloc_expr(value))
         } else {
             None
@@ -476,7 +554,6 @@ mod tests {
     use super::*;
     use crate::{
         input::FixtureDatabase,
-        item_tree::{Item, Type},
         name_resolver::{ModuleScopeOrigin, ResolutionStatus, SymbolInScopeOrigin, SymbolTable},
         parse_pods,
         testing::TestingDatabase,
@@ -539,13 +616,9 @@ mod tests {
         function: Function,
         nesting: usize,
     ) -> String {
-        let block_ast_id = lower_result
-            .item_tree(salsa_db)
-            .block_id_by_function(&function)
-            .unwrap();
         let body_expr = lower_result
             .shared_ctx(salsa_db)
-            .function_body_by_ast_block(block_ast_id)
+            .function_body_by_ast_block(function.ast(salsa_db).body().unwrap())
             .unwrap();
 
         let name = if let Some(name) = function.name(salsa_db) {

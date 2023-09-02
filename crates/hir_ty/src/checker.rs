@@ -3,7 +3,7 @@ use hir::LowerResult;
 use crate::inference::{InferenceResult, ResolvedType, Signature};
 
 pub fn check_type(
-    db: &dyn hir::Db,
+    db: &dyn hir::HirDatabase,
     lower_result: &LowerResult,
     infer_result: &InferenceResult,
 ) -> TypeCheckResult {
@@ -98,7 +98,7 @@ impl<'a> TypeChecker<'a> {
         }
     }
 
-    fn check(mut self, db: &dyn hir::Db) -> TypeCheckResult {
+    fn check(mut self, db: &dyn hir::HirDatabase) -> TypeCheckResult {
         for function in self.lower_result.item_tree(db).functions() {
             self.check_function(db, *function);
         }
@@ -112,7 +112,7 @@ impl<'a> TypeChecker<'a> {
         self.current_function = Some(function_id);
     }
 
-    fn check_function(&mut self, db: &dyn hir::Db, function_id: hir::Function) {
+    fn check_function(&mut self, db: &dyn hir::HirDatabase, function_id: hir::Function) {
         self.set_function(function_id);
 
         let block_ast_id = self
@@ -151,7 +151,7 @@ impl<'a> TypeChecker<'a> {
         }
     }
 
-    fn check_stmt(&mut self, db: &dyn hir::Db, stmt: &hir::Stmt) {
+    fn check_stmt(&mut self, db: &dyn hir::HirDatabase, stmt: &hir::Stmt) {
         match stmt {
             hir::Stmt::ExprStmt { expr, .. } => self.check_expr(db, *expr),
             hir::Stmt::VariableDef { value, .. } => self.check_expr(db, *value),
@@ -159,7 +159,7 @@ impl<'a> TypeChecker<'a> {
         }
     }
 
-    fn check_expr(&mut self, db: &dyn hir::Db, expr: hir::ExprId) {
+    fn check_expr(&mut self, db: &dyn hir::HirDatabase, expr: hir::ExprId) {
         let expr = expr.lookup(self.lower_result.shared_ctx(db));
         match expr {
             hir::Expr::Symbol(_) => (),

@@ -20,7 +20,7 @@ use la_arena::{Arena, Idx};
 
 /// HIRとTyped HIRからMIRを構築する
 pub fn lower(
-    salsa_db: &dyn hir::Db,
+    salsa_db: &dyn hir::HirDatabase,
     hir_result: &hir::LowerResult,
     hir_ty_result: &hir_ty::TyLowerResult,
 ) -> LowerResult {
@@ -181,7 +181,7 @@ impl<'a> FunctionLower<'a> {
         self.blocks.alloc(dest_bb)
     }
 
-    fn lower_expr(&mut self, db: &dyn hir::Db, expr_id: hir::ExprId) -> LoweredExpr {
+    fn lower_expr(&mut self, db: &dyn hir::HirDatabase, expr_id: hir::ExprId) -> LoweredExpr {
         let expr = expr_id.lookup(self.hir_result.shared_ctx(db));
         match expr {
             hir::Expr::Symbol(symbol) => match symbol {
@@ -489,7 +489,7 @@ impl<'a> FunctionLower<'a> {
         }
     }
 
-    fn lower_stmt(&mut self, db: &dyn hir::Db, stmt: &hir::Stmt) -> LoweredStmt {
+    fn lower_stmt(&mut self, db: &dyn hir::HirDatabase, stmt: &hir::Stmt) -> LoweredStmt {
         match stmt {
             hir::Stmt::VariableDef { name: _, value } => {
                 let local_idx = self.alloc_local(*value);
@@ -523,7 +523,7 @@ impl<'a> FunctionLower<'a> {
         LoweredStmt::Unit
     }
 
-    fn lower(mut self, db: &dyn hir::Db) -> Body {
+    fn lower(mut self, db: &dyn hir::HirDatabase) -> Body {
         for param in self.function.params(db) {
             let param_ty = self.hir_ty_result.type_by_param(*param);
             let param_idx = self.params.alloc(Param {
@@ -620,7 +620,7 @@ struct MirLower<'a> {
 }
 
 impl<'a> MirLower<'a> {
-    fn lower(self, db: &dyn hir::Db) -> LowerResult {
+    fn lower(self, db: &dyn hir::HirDatabase) -> LowerResult {
         let mut entry_point: Option<Idx<Body>> = None;
         let mut bodies = Arena::new();
 
@@ -1040,7 +1040,7 @@ mod tests {
         "    ".repeat(nesting)
     }
 
-    fn debug_path(salsa_db: &dyn hir::Db, path: &hir::Path) -> String {
+    fn debug_path(salsa_db: &dyn hir::HirDatabase, path: &hir::Path) -> String {
         let mut msg = "".to_string();
         for (idx, segment) in path.segments().iter().enumerate() {
             if idx > 0 {
@@ -1052,7 +1052,7 @@ mod tests {
     }
 
     fn debug(
-        salsa_db: &dyn hir::Db,
+        salsa_db: &dyn hir::HirDatabase,
         _hir_result: &hir::LowerResult,
         _hir_ty_result: &hir_ty::TyLowerResult,
         mir_result: &crate::LowerResult,
@@ -1207,7 +1207,7 @@ mod tests {
     }
 
     fn debug_termination(
-        salsa_db: &dyn hir::Db,
+        salsa_db: &dyn hir::HirDatabase,
         termination: &crate::Termination,
         body: &crate::Body,
         mir_result: &crate::LowerResult,

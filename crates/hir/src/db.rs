@@ -1,5 +1,5 @@
 /// ここに`salsa`データを定義します。
-#[salsa::jar(db = Db)]
+#[salsa::jar(db = HirDatabase)]
 pub struct Jar(
     crate::Name,
     crate::NailFile,
@@ -14,6 +14,6 @@ pub struct Jar(
 );
 
 /// [Jar]用のDBトレイトです。
-pub trait Db: salsa::DbWithJar<Jar> {}
+pub trait HirDatabase: salsa::DbWithJar<Jar> {}
 
-impl<DB> Db for DB where DB: ?Sized + salsa::DbWithJar<Jar> {}
+impl<DB> HirDatabase for DB where DB: ?Sized + salsa::DbWithJar<Jar> {}

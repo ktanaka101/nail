@@ -21,14 +21,14 @@ mod inference;
 mod testing;
 
 pub use checker::{TypeCheckError, TypeCheckResult};
-pub use db::{Db, Jar};
+pub use db::{Jar, TyHirDatabase};
 use hir::LowerResult;
 pub use inference::{InferenceError, InferenceResult, ResolvedType, Signature};
 pub use testing::TestingDatabase;
 
 /// HIRを元にTypedHIRを構築します。
 #[salsa::tracked]
-pub fn lower(db: &dyn Db, lower_result: LowerResult) -> TyLowerResult {
+pub fn lower(db: &dyn TyHirDatabase, lower_result: LowerResult) -> TyLowerResult {
     let inference_result = inference::infer(db, lower_result);
     let type_check_result = checker::check_type(db, &lower_result, &inference_result);
 
@@ -92,7 +92,7 @@ mod tests {
     }
 
     fn debug(
-        salsa_db: &dyn Db,
+        salsa_db: &dyn TyHirDatabase,
         inference_result: &InferenceResult,
         check_result: &TypeCheckResult,
         lower_result: &hir::LowerResult,
@@ -209,7 +209,7 @@ mod tests {
     }
 
     fn debug_hir_expr(
-        salsa_db: &dyn Db,
+        salsa_db: &dyn TyHirDatabase,
         expr_id: &hir::ExprId,
         lower_result: &hir::LowerResult,
     ) -> String {
@@ -305,7 +305,7 @@ mod tests {
         }
     }
 
-    fn debug_symbol(salsa_db: &dyn Db, symbol: &Symbol) -> String {
+    fn debug_symbol(salsa_db: &dyn TyHirDatabase, symbol: &Symbol) -> String {
         match symbol {
             hir::Symbol::Param { name, .. } => debug_name(salsa_db, *name),
             hir::Symbol::Local { name, .. } => debug_name(salsa_db, *name),
@@ -314,11 +314,11 @@ mod tests {
         }
     }
 
-    fn debug_name(salsa_db: &dyn Db, name: Name) -> String {
+    fn debug_name(salsa_db: &dyn TyHirDatabase, name: Name) -> String {
         name.text(salsa_db).to_string()
     }
 
-    fn debug_path(salsa_db: &dyn Db, path: &Path) -> String {
+    fn debug_path(salsa_db: &dyn TyHirDatabase, path: &Path) -> String {
         path.segments()
             .iter()
             .map(|segment| segment.text(salsa_db).to_string())

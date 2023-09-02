@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use la_arena::{Arena, Idx};
 
 use crate::{
-    Db, Expr, ExprId, Function, Item, LowerResult, Module, Name, Pod, Stmt, Symbol, UseItem,
+    Expr, ExprId, Function, HirDatabase, Item, LowerResult, Module, Name, Pod, Stmt, Symbol,
+    UseItem,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -271,11 +272,11 @@ pub(crate) struct ModuleScopesBuilder<'a> {
     ref_map: RefMap,
     name_resolution_collection: NameResolutionCollection,
 
-    db: &'a dyn Db,
+    db: &'a dyn HirDatabase,
     pod: &'a Pod,
 }
 impl<'a> ModuleScopesBuilder<'a> {
-    pub(crate) fn new(db: &'a dyn Db, pod: &'a Pod) -> Self {
+    pub(crate) fn new(db: &'a dyn HirDatabase, pod: &'a Pod) -> Self {
         Self {
             storage: ModuleScopeStorage::new(),
             ref_map: RefMap::new(),
@@ -461,7 +462,7 @@ impl<'a> ModuleScopesBuilder<'a> {
     /// モジュールには名前があるため、現在のスコープに子スコープとしても参照を保存します。
     fn crete_scope_on_module(
         &mut self,
-        db: &dyn Db,
+        db: &dyn HirDatabase,
         current_scope_idx: ModuleScopeIdx,
         module: Module,
     ) -> ModuleScopeIdx {
@@ -489,7 +490,7 @@ impl<'a> ModuleScopesBuilder<'a> {
     /// 関数には名前があるため、現在のスコープに子スコープとしても参照を保存します。
     fn create_scope_on_function(
         &mut self,
-        db: &dyn Db,
+        db: &dyn HirDatabase,
         current_scope_idx: ModuleScopeIdx,
         function: Function,
     ) -> ModuleScopeIdx {

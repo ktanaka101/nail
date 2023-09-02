@@ -2,10 +2,10 @@ use std::collections;
 
 use la_arena::{Arena, Idx};
 
-use crate::Db;
+use crate::TyHirDatabase;
 
 #[salsa::tracked]
-pub fn infer(db: &dyn Db, hir_result: hir::LowerResult) -> InferenceResult {
+pub fn infer(db: &dyn TyHirDatabase, hir_result: hir::LowerResult) -> InferenceResult {
     let inferencer = TypeInferencer::new(&hir_result);
     inferencer.infer(db)
 }
@@ -98,7 +98,7 @@ impl<'a> TypeInferencer<'a> {
         }
     }
 
-    fn infer(mut self, db: &dyn Db) -> InferenceResult {
+    fn infer(mut self, db: &dyn TyHirDatabase) -> InferenceResult {
         for function in self.hir_result.item_tree(db).functions() {
             let mut params = vec![];
             for param in function.params(db) {
@@ -154,7 +154,7 @@ impl<'a> TypeInferencer<'a> {
         }
     }
 
-    fn infer_stmts(&mut self, db: &dyn hir::Db, stmts: &[hir::Stmt]) {
+    fn infer_stmts(&mut self, db: &dyn hir::HirDatabase, stmts: &[hir::Stmt]) {
         for stmt in stmts {
             match stmt {
                 hir::Stmt::ExprStmt { expr, .. } => {
@@ -170,7 +170,7 @@ impl<'a> TypeInferencer<'a> {
         }
     }
 
-    fn infer_expr(&mut self, db: &dyn hir::Db, expr: &hir::Expr) -> ResolvedType {
+    fn infer_expr(&mut self, db: &dyn hir::HirDatabase, expr: &hir::Expr) -> ResolvedType {
         match expr {
             hir::Expr::Symbol(symbol) => match symbol {
                 hir::Symbol::Local { expr, .. } => self.infer_expr_id(db, *expr),
@@ -305,7 +305,7 @@ impl<'a> TypeInferencer<'a> {
         }
     }
 
-    fn infer_block(&mut self, db: &dyn hir::Db, block: &hir::Block) -> ResolvedType {
+    fn infer_block(&mut self, db: &dyn hir::HirDatabase, block: &hir::Block) -> ResolvedType {
         self.infer_stmts(db, &block.stmts);
         if let Some(tail) = block.tail {
             self.infer_expr_id(db, tail)
@@ -314,7 +314,7 @@ impl<'a> TypeInferencer<'a> {
         }
     }
 
-    fn infer_expr_id(&mut self, db: &dyn hir::Db, expr_id: hir::ExprId) -> ResolvedType {
+    fn infer_expr_id(&mut self, db: &dyn hir::HirDatabase, expr_id: hir::ExprId) -> ResolvedType {
         if let Some(ty) = self.lookup_type(expr_id) {
             return ty;
         }

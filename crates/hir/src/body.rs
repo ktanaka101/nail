@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use la_arena::{Arena, Idx};
 
 use crate::{
-    body::scopes::ExprScopes, Block, Expr, Function, Item, Literal, Module, ModuleKind, NailFile,
-    Name, Param, Path, Stmt, Symbol, Type, UseItem,
+    body::scopes::ExprScopes, Block, Expr, Function, HirDatabase, Item, Literal, Module,
+    ModuleKind, NailFile, Name, Param, Path, Stmt, Symbol, Type, UseItem,
 };
 
 /// 式を一意に識別するためのID
@@ -120,25 +120,21 @@ impl BodyLower {
     /// トップレベルに定義された[ast::Item]を元に、トップレベルのHIRを構築する
     pub(super) fn lower_toplevel(
         &mut self,
-        salsa_db: &dyn crate::Db,
+        db: &dyn HirDatabase,
         ast: ast::Item,
         ctx: &mut SharedBodyLowerContext,
     ) -> Option<Item> {
         match ast {
-            ast::Item::FunctionDef(def) => {
-                Some(Item::Function(self.lower_function(salsa_db, def, ctx)?))
-            }
-            ast::Item::Module(module) => {
-                Some(Item::Module(self.lower_module(salsa_db, module, ctx)?))
-            }
-            ast::Item::Use(r#use) => Some(Item::UseItem(self.lower_use(salsa_db, r#use)?)),
+            ast::Item::FunctionDef(def) => Some(Item::Function(self.lower_function(db, def, ctx)?)),
+            ast::Item::Module(module) => Some(Item::Module(self.lower_module(db, module, ctx)?)),
+            ast::Item::Use(r#use) => Some(Item::UseItem(self.lower_use(db, r#use)?)),
         }
     }
 
     /// 関数のHIRを構築します。
     fn lower_function(
         &mut self,
-        salsa_db: &dyn crate::Db,
+        db: &dyn HirDatabase,
         def: ast::FunctionDef,
         ctx: &mut SharedBodyLowerContext,
     ) -> Option<Function> {
@@ -150,14 +146,14 @@ impl BodyLower {
             .map(|(pos, param)| {
                 let name = param
                     .name()
-                    .map(|name| Name::new(salsa_db, name.name().to_string()));
+                    .map(|name| Name::new(db, name.name().to_string()));
                 let ty = self.lower_ty(param.ty());
-                Param::new(salsa_db, name, ty, pos)
+                Param::new(db, name, ty, pos)
             })
             .collect::<Vec<_>>();
         let param_by_name = params
             .iter()
-            .filter_map(|param| param.name(salsa_db).map(|name| (name, *param)))
+            .filter_map(|param| param.name(db).map(|name| (name, *param)))
             .collect::<HashMap<_, _>>();
         let return_type = if let Some(return_type) = def.return_type() {
             self.lower_ty(return_type.ty())
@@ -167,13 +163,13 @@ impl BodyLower {
 
         let name = def
             .name()
-            .map(|name| Name::new(salsa_db, name.name().to_string()));
+            .map(|name| Name::new(db, name.name().to_string()));
 
-        let function = Function::new(salsa_db, name, params, param_by_name, return_type, def);
+        let function = Function::new(db, name, params, param_by_name, return_type, def);
         ctx.functions.push(function);
 
-        let mut body_lower = BodyLower::new(self.file, function.param_by_name(salsa_db).clone());
-        let body_expr = body_lower.lower_block(salsa_db, ast_block.clone(), ctx);
+        let mut body_lower = BodyLower::new(self.file, function.param_by_name(db).clone());
+        let body_expr = body_lower.lower_block(db, ast_block.clone(), ctx);
         let body_id = ctx.alloc_function_body(body_expr);
         ctx.function_body_by_ast_block.insert(ast_block, body_id);
 
@@ -187,17 +183,17 @@ impl BodyLower {
     /// また、[ItemDefId]を返すために、アウトラインモジュールも返します。
     fn lower_module(
         &mut self,
-        salsa_db: &dyn crate::Db,
+        db: &dyn HirDatabase,
         ast_module: ast::Module,
         ctx: &mut SharedBodyLowerContext,
     ) -> Option<Module> {
         if let Some(name) = ast_module.name() {
-            let module_name = Name::new(salsa_db, name.name().to_string());
+            let module_name = Name::new(db, name.name().to_string());
 
             let module_kind = if let Some(item_list) = ast_module.items() {
                 let mut items = vec![];
                 for item in item_list.items() {
-                    if let Some(item) = self.lower_item(salsa_db, item, ctx) {
+                    if let Some(item) = self.lower_item(db, item, ctx) {
                         items.push(item);
                     }
                 }
@@ -205,7 +201,7 @@ impl BodyLower {
             } else {
                 ModuleKind::Outline
             };
-            let module = Module::new(salsa_db, module_name, module_kind);
+            let module = Module::new(db, module_name, module_kind);
             ctx.modules.push(module);
 
             Some(module)
@@ -214,18 +210,18 @@ impl BodyLower {
         }
     }
 
-    fn lower_use(&mut self, salsa_db: &dyn crate::Db, ast_use: ast::Use) -> Option<UseItem> {
+    fn lower_use(&mut self, db: &dyn HirDatabase, ast_use: ast::Use) -> Option<UseItem> {
         let use_path = ast_use.path()?.segments().collect::<Vec<_>>();
         match use_path.as_slice() {
             [] => unreachable!("use path should not be empty"),
             [path @ .., name] => {
-                let name = Name::new(salsa_db, name.name().unwrap().name().to_string());
+                let name = Name::new(db, name.name().unwrap().name().to_string());
                 let segments = path
                     .iter()
-                    .map(|segment| Name::new(salsa_db, segment.name().unwrap().name().to_string()))
+                    .map(|segment| Name::new(db, segment.name().unwrap().name().to_string()))
                     .collect::<Vec<_>>();
                 let path = Path { segments };
-                let use_item = UseItem::new(salsa_db, name, path);
+                let use_item = UseItem::new(db, name, path);
 
                 Some(use_item)
             }
@@ -252,27 +248,27 @@ impl BodyLower {
 
     fn lower_stmt(
         &mut self,
-        salsa_db: &dyn crate::Db,
+        db: &dyn HirDatabase,
         ast_stmt: ast::Stmt,
         ctx: &mut SharedBodyLowerContext,
     ) -> Option<Stmt> {
         let result = match ast_stmt {
             ast::Stmt::VariableDef(def) => {
-                let expr = self.lower_expr(salsa_db, def.value(), ctx);
+                let expr = self.lower_expr(db, def.value(), ctx);
                 let id = ctx.alloc_expr(expr);
-                let name = Name::new(salsa_db, def.name()?.name().to_owned());
+                let name = Name::new(db, def.name()?.name().to_owned());
                 self.scopes.define(name, id);
                 Stmt::VariableDef { name, value: id }
             }
             ast::Stmt::ExprStmt(ast) => {
-                let expr = self.lower_expr(salsa_db, ast.expr(), ctx);
+                let expr = self.lower_expr(db, ast.expr(), ctx);
                 Stmt::ExprStmt {
                     expr: ctx.alloc_expr(expr),
                     has_semicolon: ast.semicolon().is_some(),
                 }
             }
             ast::Stmt::Item(item) => {
-                let item = self.lower_item(salsa_db, item, ctx)?;
+                let item = self.lower_item(db, item, ctx)?;
                 Stmt::Item { item }
             }
         };
@@ -282,38 +278,34 @@ impl BodyLower {
 
     fn lower_item(
         &mut self,
-        salsa_db: &dyn crate::Db,
+        db: &dyn HirDatabase,
         ast_item: ast::Item,
         ctx: &mut SharedBodyLowerContext,
     ) -> Option<Item> {
         match ast_item {
-            ast::Item::FunctionDef(def) => {
-                Some(Item::Function(self.lower_function(salsa_db, def, ctx)?))
-            }
-            ast::Item::Module(module) => {
-                Some(Item::Module(self.lower_module(salsa_db, module, ctx)?))
-            }
-            ast::Item::Use(r#use) => Some(Item::UseItem(self.lower_use(salsa_db, r#use)?)),
+            ast::Item::FunctionDef(def) => Some(Item::Function(self.lower_function(db, def, ctx)?)),
+            ast::Item::Module(module) => Some(Item::Module(self.lower_module(db, module, ctx)?)),
+            ast::Item::Use(r#use) => Some(Item::UseItem(self.lower_use(db, r#use)?)),
         }
     }
 
     fn lower_expr(
         &mut self,
-        salsa_db: &dyn crate::Db,
+        db: &dyn HirDatabase,
         ast_expr: Option<ast::Expr>,
         ctx: &mut SharedBodyLowerContext,
     ) -> Expr {
         if let Some(ast) = ast_expr {
             match ast {
-                ast::Expr::BinaryExpr(ast) => self.lower_binary(salsa_db, ast, ctx),
+                ast::Expr::BinaryExpr(ast) => self.lower_binary(db, ast, ctx),
                 ast::Expr::Literal(ast) => self.lower_literal(ast),
-                ast::Expr::ParenExpr(ast) => self.lower_expr(salsa_db, ast.expr(), ctx),
-                ast::Expr::UnaryExpr(ast) => self.lower_unary(salsa_db, ast, ctx),
-                ast::Expr::PathExpr(ast) => self.lower_path_expr(salsa_db, ast, ctx),
-                ast::Expr::CallExpr(ast) => self.lower_call(salsa_db, ast, ctx),
-                ast::Expr::BlockExpr(ast) => self.lower_block(salsa_db, ast, ctx),
-                ast::Expr::IfExpr(ast) => self.lower_if(salsa_db, ast, ctx),
-                ast::Expr::ReturnExpr(ast) => self.lower_return(salsa_db, ast, ctx),
+                ast::Expr::ParenExpr(ast) => self.lower_expr(db, ast.expr(), ctx),
+                ast::Expr::UnaryExpr(ast) => self.lower_unary(db, ast, ctx),
+                ast::Expr::PathExpr(ast) => self.lower_path_expr(db, ast, ctx),
+                ast::Expr::CallExpr(ast) => self.lower_call(db, ast, ctx),
+                ast::Expr::BlockExpr(ast) => self.lower_block(db, ast, ctx),
+                ast::Expr::IfExpr(ast) => self.lower_if(db, ast, ctx),
+                ast::Expr::ReturnExpr(ast) => self.lower_return(db, ast, ctx),
             }
         } else {
             Expr::Missing
@@ -355,14 +347,14 @@ impl BodyLower {
 
     fn lower_binary(
         &mut self,
-        salsa_db: &dyn crate::Db,
+        db: &dyn HirDatabase,
         ast_binary_expr: ast::BinaryExpr,
         ctx: &mut SharedBodyLowerContext,
     ) -> Expr {
         let op = ast_binary_expr.op().unwrap();
 
-        let lhs = self.lower_expr(salsa_db, ast_binary_expr.lhs(), ctx);
-        let rhs = self.lower_expr(salsa_db, ast_binary_expr.rhs(), ctx);
+        let lhs = self.lower_expr(db, ast_binary_expr.lhs(), ctx);
+        let rhs = self.lower_expr(db, ast_binary_expr.rhs(), ctx);
 
         Expr::Binary {
             op,
@@ -373,13 +365,13 @@ impl BodyLower {
 
     fn lower_unary(
         &mut self,
-        salsa_db: &dyn crate::Db,
+        db: &dyn HirDatabase,
         ast_unary_expr: ast::UnaryExpr,
         ctx: &mut SharedBodyLowerContext,
     ) -> Expr {
         let op = ast_unary_expr.op().unwrap();
 
-        let expr = self.lower_expr(salsa_db, ast_unary_expr.expr(), ctx);
+        let expr = self.lower_expr(db, ast_unary_expr.expr(), ctx);
 
         Expr::Unary {
             op,
@@ -389,7 +381,7 @@ impl BodyLower {
 
     fn lower_path_expr(
         &mut self,
-        salsa_db: &dyn crate::Db,
+        db: &dyn HirDatabase,
         ast_path: ast::PathExpr,
         _ctx: &mut SharedBodyLowerContext,
     ) -> Expr {
@@ -398,7 +390,7 @@ impl BodyLower {
                 .path()
                 .unwrap()
                 .segments()
-                .map(|segment| Name::new(salsa_db, segment.name().unwrap().name().to_string()))
+                .map(|segment| Name::new(db, segment.name().unwrap().name().to_string()))
                 .collect(),
         };
         let symbol = self.lookup_path(path, _ctx);
@@ -441,7 +433,7 @@ impl BodyLower {
 
     fn lower_call(
         &mut self,
-        salsa_db: &dyn crate::Db,
+        db: &dyn HirDatabase,
         ast_call: ast::CallExpr,
         ctx: &mut SharedBodyLowerContext,
     ) -> Expr {
@@ -449,11 +441,11 @@ impl BodyLower {
         let args = args
             .args()
             .map(|arg| {
-                let expr = self.lower_expr(salsa_db, arg.expr(), ctx);
+                let expr = self.lower_expr(db, arg.expr(), ctx);
                 ctx.alloc_expr(expr)
             })
             .collect();
-        let callee = match self.lower_expr(salsa_db, ast_call.callee(), ctx) {
+        let callee = match self.lower_expr(db, ast_call.callee(), ctx) {
             Expr::Symbol(symbol) => symbol,
             Expr::Binary { .. } => todo!(),
             Expr::Literal(_) => todo!(),
@@ -470,7 +462,7 @@ impl BodyLower {
 
     fn lower_block(
         &mut self,
-        salsa_db: &dyn crate::Db,
+        db: &dyn HirDatabase,
         ast_block: ast::BlockExpr,
         ctx: &mut SharedBodyLowerContext,
     ) -> Expr {
@@ -478,7 +470,7 @@ impl BodyLower {
 
         let mut stmts = vec![];
         for stmt in ast_block.stmts() {
-            if let Some(stmt) = self.lower_stmt(salsa_db, stmt, ctx) {
+            if let Some(stmt) = self.lower_stmt(db, stmt, ctx) {
                 stmts.push(stmt);
             }
         }
@@ -506,18 +498,18 @@ impl BodyLower {
 
     fn lower_if(
         &mut self,
-        salsa_db: &dyn crate::Db,
+        db: &dyn HirDatabase,
         ast_if: ast::IfExpr,
         ctx: &mut SharedBodyLowerContext,
     ) -> Expr {
-        let condition = self.lower_expr(salsa_db, ast_if.condition(), ctx);
+        let condition = self.lower_expr(db, ast_if.condition(), ctx);
         let condition = ctx.alloc_expr(condition);
 
-        let then_branch = self.lower_block(salsa_db, ast_if.then_branch().unwrap(), ctx);
+        let then_branch = self.lower_block(db, ast_if.then_branch().unwrap(), ctx);
         let then_branch = ctx.alloc_expr(then_branch);
 
         let else_branch = if let Some(else_branch) = ast_if.else_branch() {
-            let else_branch = self.lower_block(salsa_db, else_branch, ctx);
+            let else_branch = self.lower_block(db, else_branch, ctx);
             Some(ctx.alloc_expr(else_branch))
         } else {
             None
@@ -532,12 +524,12 @@ impl BodyLower {
 
     fn lower_return(
         &mut self,
-        salsa_db: &dyn crate::Db,
+        db: &dyn HirDatabase,
         ast_return: ast::ReturnExpr,
         ctx: &mut SharedBodyLowerContext,
     ) -> Expr {
         let value = if let Some(value) = ast_return.value() {
-            let value = self.lower_expr(salsa_db, Some(value), ctx);
+            let value = self.lower_expr(db, Some(value), ctx);
             Some(ctx.alloc_expr(value))
         } else {
             None
@@ -564,41 +556,41 @@ mod tests {
         "    ".repeat(nesting)
     }
 
-    fn debug_pods(salsa_db: &dyn crate::Db, pods: &Pods) -> String {
-        debug_pod(salsa_db, &pods.pods[0], &pods.symbol_table)
+    fn debug_pods(db: &dyn HirDatabase, pods: &Pods) -> String {
+        debug_pod(db, &pods.pods[0], &pods.symbol_table)
     }
 
-    fn debug_pod(salsa_db: &dyn crate::Db, pod: &Pod, symbol_table: &SymbolTable) -> String {
+    fn debug_pod(db: &dyn HirDatabase, pod: &Pod, symbol_table: &SymbolTable) -> String {
         let mut msg = "".to_string();
 
         msg.push_str("//- /main.nail\n");
         msg.push_str(&debug_lower_result(
-            salsa_db,
+            db,
             &pod.root_lower_result,
             symbol_table,
         ));
 
         for (file, lower_result) in pod.lower_results_order_registration_asc() {
-            let file_path = file.file_path(salsa_db);
+            let file_path = file.file_path(db);
             msg.push_str(&format!("//- {}\n", file_path.to_string_lossy()));
-            msg.push_str(&debug_lower_result(salsa_db, lower_result, symbol_table));
+            msg.push_str(&debug_lower_result(db, lower_result, symbol_table));
         }
 
         msg
     }
 
     fn debug_lower_result(
-        salsa_db: &dyn crate::Db,
+        db: &dyn HirDatabase,
         lower_result: &LowerResult,
         symbol_table: &SymbolTable,
     ) -> String {
         let mut msg = "".to_string();
 
-        for item in lower_result.top_level_items(salsa_db) {
-            msg.push_str(&debug_item(salsa_db, lower_result, symbol_table, item, 0));
+        for item in lower_result.top_level_items(db) {
+            msg.push_str(&debug_item(db, lower_result, symbol_table, item, 0));
         }
 
-        for error in lower_result.errors(salsa_db) {
+        for error in lower_result.errors(db) {
             match error {
                 LowerError::UndefinedEntryPoint => {
                     msg.push_str("error: Undefined entry point.(help: fn main() { ... })\n");
@@ -610,32 +602,32 @@ mod tests {
     }
 
     fn debug_function(
-        salsa_db: &dyn crate::Db,
+        db: &dyn HirDatabase,
         lower_result: &LowerResult,
         symbol_table: &SymbolTable,
         function: Function,
         nesting: usize,
     ) -> String {
         let body_expr = lower_result
-            .shared_ctx(salsa_db)
-            .function_body_by_ast_block(function.ast(salsa_db).body().unwrap())
+            .shared_ctx(db)
+            .function_body_by_ast_block(function.ast(db).body().unwrap())
             .unwrap();
 
-        let name = if let Some(name) = function.name(salsa_db) {
-            name.text(salsa_db)
+        let name = if let Some(name) = function.name(db) {
+            name.text(db)
         } else {
             "<missing>"
         };
         let params = function
-            .params(salsa_db)
+            .params(db)
             .iter()
             .map(|param| {
-                let name = if let Some(name) = param.name(salsa_db) {
-                    name.text(salsa_db)
+                let name = if let Some(name) = param.name(db) {
+                    name.text(db)
                 } else {
                     "<missing>"
                 };
-                let ty = match param.ty(salsa_db) {
+                let ty = match param.ty(db) {
                     Type::Integer => "int",
                     Type::String => "string",
                     Type::Char => "char",
@@ -647,7 +639,7 @@ mod tests {
             })
             .collect::<Vec<_>>()
             .join(", ");
-        let return_type = match &function.return_type(salsa_db) {
+        let return_type = match &function.return_type(db) {
             Type::Integer => "int",
             Type::String => "string",
             Type::Char => "char",
@@ -657,7 +649,7 @@ mod tests {
         };
 
         let scope_origin = ModuleScopeOrigin::Function {
-            name: function.name(salsa_db).unwrap(),
+            name: function.name(db).unwrap(),
             origin: function,
         };
 
@@ -666,7 +658,7 @@ mod tests {
         let mut body = "{\n".to_string();
         for stmt in &block.stmts {
             body.push_str(&debug_stmt(
-                salsa_db,
+                db,
                 lower_result,
                 symbol_table,
                 scope_origin,
@@ -679,7 +671,7 @@ mod tests {
                 "{}expr:{}\n",
                 indent(nesting + 1),
                 debug_expr(
-                    salsa_db,
+                    db,
                     lower_result,
                     symbol_table,
                     scope_origin,
@@ -690,7 +682,7 @@ mod tests {
         }
         body.push_str(&format!("{}}}", indent(nesting)));
 
-        let is_entry_point = lower_result.entry_point(salsa_db) == Some(function);
+        let is_entry_point = lower_result.entry_point(db) == Some(function);
         format!(
             "{}fn {}{name}({params}) -> {return_type} {body}\n",
             indent(nesting),
@@ -699,28 +691,28 @@ mod tests {
     }
 
     fn debug_module(
-        salsa_db: &dyn crate::Db,
+        db: &dyn HirDatabase,
         lower_result: &LowerResult,
         symbol_table: &SymbolTable,
         module: Module,
         nesting: usize,
     ) -> String {
         let _scope_origin = ModuleScopeOrigin::Module {
-            name: module.name(salsa_db),
+            name: module.name(db),
             origin: module,
         };
 
         let curr_indent = indent(nesting);
 
-        let module_name = module.name(salsa_db).text(salsa_db);
+        let module_name = module.name(db).text(db);
 
-        match module.kind(salsa_db) {
+        match module.kind(db) {
             ModuleKind::Inline { items } => {
                 let mut module_str = "".to_string();
                 module_str.push_str(&format!("{curr_indent}mod {module_name} {{\n"));
                 for (i, item) in items.iter().enumerate() {
                     module_str.push_str(&debug_item(
-                        salsa_db,
+                        db,
                         lower_result,
                         symbol_table,
                         item,
@@ -741,15 +733,15 @@ mod tests {
         }
     }
 
-    fn debug_use_item(salsa_db: &dyn crate::Db, use_item: UseItem) -> String {
-        let path_name = debug_path(salsa_db, use_item.path(salsa_db));
-        let item_name = use_item.name(salsa_db).text(salsa_db);
+    fn debug_use_item(db: &dyn HirDatabase, use_item: UseItem) -> String {
+        let path_name = debug_path(db, use_item.path(db));
+        let item_name = use_item.name(db).text(db);
 
         format!("{path_name}::{item_name}")
     }
 
     fn debug_item(
-        salsa_db: &dyn crate::Db,
+        db: &dyn HirDatabase,
         lower_result: &LowerResult,
         symbol_table: &SymbolTable,
         item: &Item,
@@ -757,17 +749,15 @@ mod tests {
     ) -> String {
         match item {
             Item::Function(function) => {
-                debug_function(salsa_db, lower_result, symbol_table, *function, nesting)
+                debug_function(db, lower_result, symbol_table, *function, nesting)
             }
-            Item::Module(module) => {
-                debug_module(salsa_db, lower_result, symbol_table, *module, nesting)
-            }
-            Item::UseItem(use_item) => debug_use_item(salsa_db, *use_item),
+            Item::Module(module) => debug_module(db, lower_result, symbol_table, *module, nesting),
+            Item::UseItem(use_item) => debug_use_item(db, *use_item),
         }
     }
 
     fn debug_stmt(
-        salsa_db: &dyn crate::Db,
+        db: &dyn HirDatabase,
         lower_result: &LowerResult,
         symbol_table: &SymbolTable,
         scope_origin: ModuleScopeOrigin,
@@ -776,9 +766,9 @@ mod tests {
     ) -> String {
         match stmt {
             Stmt::VariableDef { name, value } => {
-                let name = name.text(salsa_db);
+                let name = name.text(db);
                 let expr_str = debug_expr(
-                    salsa_db,
+                    db,
                     lower_result,
                     symbol_table,
                     scope_origin,
@@ -793,31 +783,24 @@ mod tests {
             } => format!(
                 "{}{}{}\n",
                 indent(nesting),
-                debug_expr(
-                    salsa_db,
-                    lower_result,
-                    symbol_table,
-                    scope_origin,
-                    *expr,
-                    nesting
-                ),
+                debug_expr(db, lower_result, symbol_table, scope_origin, *expr, nesting),
                 if *has_semicolon { ";" } else { "" }
             ),
-            Stmt::Item { item } => debug_item(salsa_db, lower_result, symbol_table, item, nesting),
+            Stmt::Item { item } => debug_item(db, lower_result, symbol_table, item, nesting),
         }
     }
 
     fn debug_expr(
-        salsa_db: &dyn crate::Db,
+        db: &dyn HirDatabase,
         lower_result: &LowerResult,
         symbol_table: &SymbolTable,
         scope_origin: ModuleScopeOrigin,
         expr_id: ExprId,
         nesting: usize,
     ) -> String {
-        match expr_id.lookup(lower_result.shared_ctx(salsa_db)) {
+        match expr_id.lookup(lower_result.shared_ctx(db)) {
             Expr::Symbol(symbol) => debug_symbol(
-                salsa_db,
+                db,
                 lower_result,
                 symbol_table,
                 &SymbolInScopeOrigin {
@@ -842,22 +825,10 @@ mod tests {
                     ast::BinaryOp::GreaterThan(_) => ">",
                     ast::BinaryOp::LessThan(_) => "<",
                 };
-                let lhs_str = debug_expr(
-                    salsa_db,
-                    lower_result,
-                    symbol_table,
-                    scope_origin,
-                    *lhs,
-                    nesting,
-                );
-                let rhs_str = debug_expr(
-                    salsa_db,
-                    lower_result,
-                    symbol_table,
-                    scope_origin,
-                    *rhs,
-                    nesting,
-                );
+                let lhs_str =
+                    debug_expr(db, lower_result, symbol_table, scope_origin, *lhs, nesting);
+                let rhs_str =
+                    debug_expr(db, lower_result, symbol_table, scope_origin, *rhs, nesting);
                 format!("{lhs_str} {op} {rhs_str}")
             }
             Expr::Unary { op, expr } => {
@@ -865,19 +836,13 @@ mod tests {
                     ast::UnaryOp::Neg(_) => "-",
                     ast::UnaryOp::Not(_) => "!",
                 };
-                let expr_str = debug_expr(
-                    salsa_db,
-                    lower_result,
-                    symbol_table,
-                    scope_origin,
-                    *expr,
-                    nesting,
-                );
+                let expr_str =
+                    debug_expr(db, lower_result, symbol_table, scope_origin, *expr, nesting);
                 format!("{op}{expr_str}")
             }
             Expr::Call { callee, args } => {
                 let callee = debug_symbol(
-                    salsa_db,
+                    db,
                     lower_result,
                     symbol_table,
                     &SymbolInScopeOrigin {
@@ -889,14 +854,7 @@ mod tests {
                 let args = args
                     .iter()
                     .map(|arg| {
-                        debug_expr(
-                            salsa_db,
-                            lower_result,
-                            symbol_table,
-                            scope_origin,
-                            *arg,
-                            nesting,
-                        )
+                        debug_expr(db, lower_result, symbol_table, scope_origin, *arg, nesting)
                     })
                     .collect::<Vec<_>>()
                     .join(", ");
@@ -909,7 +867,7 @@ mod tests {
                 let mut msg = "{\n".to_string();
                 for stmt in &block.stmts {
                     msg.push_str(&debug_stmt(
-                        salsa_db,
+                        db,
                         lower_result,
                         symbol_table,
                         scope_origin,
@@ -922,7 +880,7 @@ mod tests {
                         "{}expr:{}\n",
                         indent(nesting + 1),
                         debug_expr(
-                            salsa_db,
+                            db,
                             lower_result,
                             symbol_table,
                             scope_origin,
@@ -942,7 +900,7 @@ mod tests {
             } => {
                 let mut msg = "if ".to_string();
                 msg.push_str(&debug_expr(
-                    salsa_db,
+                    db,
                     lower_result,
                     symbol_table,
                     scope_origin,
@@ -951,7 +909,7 @@ mod tests {
                 ));
                 msg.push(' ');
                 msg.push_str(&debug_expr(
-                    salsa_db,
+                    db,
                     lower_result,
                     symbol_table,
                     scope_origin,
@@ -962,7 +920,7 @@ mod tests {
                 if let Some(else_branch) = else_branch {
                     msg.push_str(" else ");
                     msg.push_str(&debug_expr(
-                        salsa_db,
+                        db,
                         lower_result,
                         symbol_table,
                         scope_origin,
@@ -979,7 +937,7 @@ mod tests {
                     msg.push_str(&format!(
                         " {}",
                         &debug_expr(
-                            salsa_db,
+                            db,
                             lower_result,
                             symbol_table,
                             scope_origin,
@@ -996,14 +954,14 @@ mod tests {
     }
 
     fn debug_symbol(
-        salsa_db: &dyn crate::Db,
+        db: &dyn HirDatabase,
         lower_result: &LowerResult,
         symbol_table: &SymbolTable,
         symbol: &SymbolInScopeOrigin,
         nesting: usize,
     ) -> String {
         match &symbol.symbol {
-            Symbol::Local { name, expr } => match expr.lookup(lower_result.shared_ctx(salsa_db)) {
+            Symbol::Local { name, expr } => match expr.lookup(lower_result.shared_ctx(db)) {
                 Expr::Symbol { .. }
                 | Expr::Binary { .. }
                 | Expr::Missing
@@ -1012,28 +970,28 @@ mod tests {
                 | Expr::Call { .. }
                 | Expr::If { .. }
                 | Expr::Return { .. } => debug_expr(
-                    salsa_db,
+                    db,
                     lower_result,
                     symbol_table,
                     symbol.scope_origin,
                     *expr,
                     nesting,
                 ),
-                Expr::Block { .. } => name.text(salsa_db).to_string(),
+                Expr::Block { .. } => name.text(db).to_string(),
             },
             Symbol::Param { name, .. } => {
-                let name = name.text(salsa_db);
+                let name = name.text(db);
                 format!("param:{name}")
             }
             Symbol::Missing { .. } => {
                 let resolving_status = symbol_table.item_by_symbol(symbol).unwrap();
-                debug_resolution_status(salsa_db, resolving_status, symbol_table)
+                debug_resolution_status(db, resolving_status, symbol_table)
             }
         }
     }
 
     fn debug_resolution_status(
-        salsa_db: &dyn crate::Db,
+        db: &dyn HirDatabase,
         resolution_status: ResolutionStatus,
         _symbol_table: &SymbolTable,
     ) -> String {
@@ -1041,7 +999,7 @@ mod tests {
             ResolutionStatus::Unresolved => "<unknown>".to_string(),
             ResolutionStatus::Error => "<missing>".to_string(),
             ResolutionStatus::Resolved { path, item } => {
-                let path = debug_path(salsa_db, &path);
+                let path = debug_path(db, &path);
                 match item {
                     Item::Function(_) => {
                         format!("fn:{path}")
@@ -1057,10 +1015,10 @@ mod tests {
         }
     }
 
-    fn debug_path(salsa_db: &dyn crate::Db, path: &Path) -> String {
+    fn debug_path(db: &dyn HirDatabase, path: &Path) -> String {
         path.segments
             .iter()
-            .map(|segment| segment.text(salsa_db).to_string())
+            .map(|segment| segment.text(db).to_string())
             .collect::<Vec<_>>()
             .join("::")
     }
@@ -1075,12 +1033,12 @@ mod tests {
 
     /// ルートファイルからパースして、Podの期待結果をテストする
     fn check_pod_start_with_root_file(fixture: &str, expected: Expect) {
-        let salsa_db = TestingDatabase::default();
-        let mut source_db = FixtureDatabase::new(&salsa_db, fixture);
+        let db = TestingDatabase::default();
+        let mut source_db = FixtureDatabase::new(&db, fixture);
 
-        let pods = parse_pods(&salsa_db, "/main.nail", &mut source_db);
+        let pods = parse_pods(&db, "/main.nail", &mut source_db);
 
-        expected.assert_eq(&debug_pods(&salsa_db, &pods));
+        expected.assert_eq(&debug_pods(&db, &pods));
     }
 
     #[test]

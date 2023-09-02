@@ -20,8 +20,11 @@ pub trait SourceDatabaseTrait {
     /// エントリポイントとなるファイルのIDを返す
     fn source_root(&self) -> NailFile;
     /// 指定したファイルパスからファイル読み込みと登録を行い、登録したファイルを返す
-    fn register_file_with_read(&mut self, db: &dyn crate::Db, path: std::path::PathBuf)
-        -> NailFile;
+    fn register_file_with_read(
+        &mut self,
+        db: &dyn crate::HirDatabase,
+        path: std::path::PathBuf,
+    ) -> NailFile;
 }
 
 /// テスト用のFixture
@@ -31,7 +34,7 @@ struct Fixture {
 }
 impl Fixture {
     /// 入力元のソースコードを構成する文字列をパースします。
-    fn parse(db: &dyn crate::Db, fixture: &str) -> Self {
+    fn parse(db: &dyn crate::HirDatabase, fixture: &str) -> Self {
         let fixture = fixture.trim();
         if !fixture.starts_with("//- ") {
             panic!("fixture must start with `//- `");
@@ -96,7 +99,7 @@ impl Fixture {
     }
 
     fn register_file(
-        db: &dyn crate::Db,
+        db: &dyn crate::HirDatabase,
         file_path: std::path::PathBuf,
         file_contents: String,
         file_by_path: &mut HashMap<std::path::PathBuf, NailFile>,
@@ -158,7 +161,7 @@ impl FixtureDatabase {
     ///      10
     ///    }
     /// "#);
-    pub fn new(db: &dyn crate::Db, fixture: &str) -> Self {
+    pub fn new(db: &dyn crate::HirDatabase, fixture: &str) -> Self {
         let fixture = Fixture::parse(db, fixture);
 
         Self {
@@ -181,7 +184,7 @@ impl SourceDatabaseTrait for FixtureDatabase {
     /// ファイルパスが見つからない場合はpanicします。
     fn register_file_with_read(
         &mut self,
-        _db: &dyn crate::Db,
+        _db: &dyn crate::HirDatabase,
         path: std::path::PathBuf,
     ) -> NailFile {
         let Some(file) = self.file_by_path.get(&path).copied() else { panic!("Not found file. Help: [FixtureDatabase::new] docs comment.") };
@@ -200,7 +203,7 @@ impl SourceDatabase {
     /// # Arguments
     ///
     /// * `root_file_path` - ソースコードのルートファイルのパス
-    pub fn new(db: &dyn crate::Db, root_file_path: std::path::PathBuf) -> Self {
+    pub fn new(db: &dyn crate::HirDatabase, root_file_path: std::path::PathBuf) -> Self {
         let contents = std::fs::read_to_string(&root_file_path).unwrap();
         let root_file = NailFile::new(db, root_file_path.clone(), contents, true);
         let mut file_by_path = HashMap::new();
@@ -219,7 +222,7 @@ impl SourceDatabaseTrait for SourceDatabase {
 
     fn register_file_with_read(
         &mut self,
-        db: &dyn crate::Db,
+        db: &dyn crate::HirDatabase,
         file_path: std::path::PathBuf,
     ) -> NailFile {
         let contents = std::fs::read_to_string(&file_path).unwrap();

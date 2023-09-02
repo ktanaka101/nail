@@ -36,7 +36,7 @@ use std::collections::HashMap;
 
 use ast::AstNode;
 pub use body::{BodyLower, ExprId, FunctionBodyId, SharedBodyLowerContext};
-pub use db::{Db, Jar};
+pub use db::{HirDatabase, Jar};
 pub use input::{FixtureDatabase, NailFile, SourceDatabase, SourceDatabaseTrait};
 pub use item::{Function, Item, Module, ModuleKind, Param, Type, UseItem};
 use name_resolver::resolve_symbols;
@@ -104,9 +104,13 @@ impl Pod {
 }
 
 /// ルートファイルをパースし、Pod全体を構築します。
-pub fn parse_pods(salsa_db: &dyn Db, path: &str, source_db: &mut dyn SourceDatabaseTrait) -> Pods {
-    let pod = parse_pod(salsa_db, path, source_db);
-    let symbol_table = resolve_symbols(salsa_db, &pod);
+pub fn parse_pods(
+    db: &dyn HirDatabase,
+    path: &str,
+    source_db: &mut dyn SourceDatabaseTrait,
+) -> Pods {
+    let pod = parse_pod(db, path, source_db);
+    let symbol_table = resolve_symbols(db, &pod);
 
     Pods {
         pods: vec![pod],
@@ -115,7 +119,7 @@ pub fn parse_pods(salsa_db: &dyn Db, path: &str, source_db: &mut dyn SourceDatab
 }
 
 /// ルートファイル、サブファイルをパースし、Podを構築します。
-fn parse_pod(salsa_db: &dyn Db, path: &str, source_db: &mut dyn SourceDatabaseTrait) -> Pod {
+fn parse_pod(db: &dyn HirDatabase, path: &str, source_db: &mut dyn SourceDatabaseTrait) -> Pod {
     let mut lower_result_by_file = HashMap::new();
     let mut lower_result_by_module = HashMap::new();
     let mut registration_order = vec![];
@@ -123,28 +127,25 @@ fn parse_pod(salsa_db: &dyn Db, path: &str, source_db: &mut dyn SourceDatabaseTr
     let root_file_path = std::path::PathBuf::from(path);
     let nail_file = source_db.source_root();
 
-    let ast_source = parse_to_ast(salsa_db, nail_file);
-    let root_result = build_hir(salsa_db, ast_source);
+    let ast_source = parse_to_ast(db, nail_file);
+    let root_result = build_hir(db, ast_source);
 
-    for sub_module in root_result.modules(salsa_db) {
-        if matches!(sub_module.kind(salsa_db), ModuleKind::Inline { .. }) {
+    for sub_module in root_result.modules(db) {
+        if matches!(sub_module.kind(db), ModuleKind::Inline { .. }) {
             continue;
         }
 
-        let sub_module_name = sub_module.name(salsa_db).text(salsa_db);
+        let sub_module_name = sub_module.name(db).text(db);
         let sub_module_lower_result =
-            parse_sub_module(salsa_db, sub_module_name, &root_file_path, source_db);
+            parse_sub_module(db, sub_module_name, &root_file_path, source_db);
         lower_result_by_module.insert(*sub_module, sub_module_lower_result);
 
-        registration_order.push(sub_module_lower_result.file(salsa_db));
-        lower_result_by_file.insert(
-            sub_module_lower_result.file(salsa_db),
-            sub_module_lower_result,
-        );
+        registration_order.push(sub_module_lower_result.file(db));
+        lower_result_by_file.insert(sub_module_lower_result.file(db), sub_module_lower_result);
     }
 
     Pod {
-        name: Name::new(salsa_db, "dummy_pod_name".to_string()),
+        name: Name::new(db, "dummy_pod_name".to_string()),
         root_file: source_db.source_root(),
         root_lower_result: root_result,
         lower_result_by_file,
@@ -156,17 +157,17 @@ fn parse_pod(salsa_db: &dyn Db, path: &str, source_db: &mut dyn SourceDatabaseTr
 /// サブモジュールをパースします
 /// `root_file_path`はルートファイルのファイルパスまで込みのパスを指定します。(`/main.nail`)
 fn parse_sub_module(
-    salsa_db: &dyn Db,
+    db: &dyn HirDatabase,
     sub_module_name: &str,
     root_file_path: &std::path::Path,
     source_db: &mut dyn SourceDatabaseTrait,
 ) -> LowerResult {
     // todo: サブモジュールのサブモジュールの場合はaaa/bbb.nailのようにする必要がある
     let file_path = root_file_path.with_file_name(format!("{sub_module_name}.nail"));
-    let nail_file = source_db.register_file_with_read(salsa_db, file_path);
+    let nail_file = source_db.register_file_with_read(db, file_path);
 
-    let ast_source = parse_to_ast(salsa_db, nail_file);
-    build_hir(salsa_db, ast_source)
+    let ast_source = parse_to_ast(db, nail_file);
+    build_hir(db, ast_source)
 }
 
 /// HIR構築時のエラー
@@ -203,7 +204,7 @@ impl LowerResult {
     /// 関数IDから関数ボディを取得します。
     pub fn function_body_by_function<'a>(
         &self,
-        db: &'a dyn Db,
+        db: &'a dyn HirDatabase,
         function: Function,
     ) -> Option<&'a Expr> {
         self.shared_ctx(db)
@@ -211,12 +212,12 @@ impl LowerResult {
     }
 
     /// ファイル内の関数一覧を返します。
-    pub fn functions<'a>(&self, db: &'a dyn Db) -> &'a [Function] {
+    pub fn functions<'a>(&self, db: &'a dyn HirDatabase) -> &'a [Function] {
         self.shared_ctx(db).functions()
     }
 
     /// ファイル内のモジュール一覧を返します。
-    pub fn modules<'a>(&self, db: &'a dyn Db) -> &'a [Module] {
+    pub fn modules<'a>(&self, db: &'a dyn HirDatabase) -> &'a [Module] {
         self.shared_ctx(db).modules()
     }
 }
@@ -233,7 +234,7 @@ pub struct AstSourceFile {
 
 /// ファイルを元にASTを構築します。
 #[salsa::tracked]
-pub fn parse_to_ast(db: &dyn crate::Db, nail_file: NailFile) -> AstSourceFile {
+pub fn parse_to_ast(db: &dyn HirDatabase, nail_file: NailFile) -> AstSourceFile {
     let ast = parser::parse(nail_file.contents(db));
     let ast_source_file = ast::SourceFile::cast(ast.syntax()).unwrap();
     AstSourceFile::new(db, nail_file, ast_source_file)
@@ -241,21 +242,21 @@ pub fn parse_to_ast(db: &dyn crate::Db, nail_file: NailFile) -> AstSourceFile {
 
 /// ASTを元に[ItemTree]を構築します。
 #[salsa::tracked]
-pub fn build_hir(salsa_db: &dyn crate::Db, ast_source: AstSourceFile) -> crate::LowerResult {
-    let file = ast_source.file(salsa_db);
-    let source_file = ast_source.source(salsa_db);
+pub fn build_hir(db: &dyn HirDatabase, ast_source: AstSourceFile) -> crate::LowerResult {
+    let file = ast_source.file(db);
+    let source_file = ast_source.source(db);
 
     let mut shared_ctx = SharedBodyLowerContext::new();
 
-    let mut top_level_ctx = BodyLower::new(file, HashMap::new());
+    let mut root_file_body = BodyLower::new(file, HashMap::new());
     let top_level_items = source_file
         .items()
-        .filter_map(|item| top_level_ctx.lower_toplevel(salsa_db, item, &mut shared_ctx))
+        .filter_map(|item| root_file_body.lower_toplevel(db, item, &mut shared_ctx))
         .collect::<Vec<_>>();
 
-    let (errors, entry_point) = if ast_source.file(salsa_db).root(salsa_db) {
+    let (errors, entry_point) = if ast_source.file(db).root(db) {
         let mut errors = vec![];
-        let entry_point = get_entry_point(salsa_db, &top_level_items);
+        let entry_point = get_entry_point(db, &top_level_items);
         if entry_point.is_none() {
             errors.push(LowerError::UndefinedEntryPoint);
         }
@@ -264,26 +265,19 @@ pub fn build_hir(salsa_db: &dyn crate::Db, ast_source: AstSourceFile) -> crate::
         (vec![], None)
     };
 
-    LowerResult::new(
-        salsa_db,
-        file,
-        shared_ctx,
-        top_level_items,
-        entry_point,
-        errors,
-    )
+    LowerResult::new(db, file, shared_ctx, top_level_items, entry_point, errors)
 }
 
 /// トップレベルのアイテムからエントリポイントを取得します。
 ///
 /// エントリポイントが見つからない場合は`None`を返します。
 /// エントリポイントが複数存在する場合は、最初に見つかったものを返します。
-fn get_entry_point(salsa_db: &dyn Db, top_level_items: &[Item]) -> Option<Function> {
+fn get_entry_point(db: &dyn HirDatabase, top_level_items: &[Item]) -> Option<Function> {
     for item in top_level_items {
         match item {
             Item::Function(function) => {
-                if let Some(name) = function.name(salsa_db) {
-                    if name.text(salsa_db) == "main" {
+                if let Some(name) = function.name(db) {
+                    if name.text(db) == "main" {
                         return Some(*function);
                     }
                 }

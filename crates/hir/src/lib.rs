@@ -29,6 +29,7 @@ mod body;
 mod db;
 mod input;
 mod item_tree;
+mod name_resolver;
 mod testing;
 
 use std::collections::HashMap;
@@ -41,11 +42,24 @@ use item_tree::ItemTreeBuilderContext;
 pub use item_tree::{
     Function, Item, ItemScopeId, ItemTree, Module, ModuleKind, Param, Type, UseItem,
 };
+use name_resolver::resolve_symbols;
+pub use name_resolver::{ResolutionStatus, SymbolTable};
 pub use testing::TestingDatabase;
+
+/// ビルド対象全体を表します。
+#[derive(Debug)]
+pub struct Pods {
+    pub pods: Vec<Pod>,
+
+    pub symbol_table: SymbolTable,
+}
 
 /// PodはNailにおけるパッケージの単位です。
 #[derive(Debug)]
 pub struct Pod {
+    /// Pod名
+    pub name: Name,
+
     /// ルートファイルID
     pub root_file: NailFile,
 
@@ -56,6 +70,11 @@ pub struct Pod {
     ///
     /// ルートファイルは含まれません。
     lower_result_by_file: HashMap<NailFile, LowerResult>,
+
+    /// モジュール別のHIR構築結果
+    ///
+    /// ルートファイルのHIR構築結果
+    lower_result_by_module: HashMap<Module, LowerResult>,
 
     /// ファイルの登録順
     ///
@@ -80,26 +99,45 @@ impl Pod {
 
         lower_results
     }
+
+    /// モジュールからHIR構築結果を返します。
+    pub fn lower_result_by_module(&self, module: &Module) -> Option<LowerResult> {
+        self.lower_result_by_module.get(module).copied()
+    }
+}
+
+/// ルートファイルをパースし、Pod全体を構築します。
+pub fn parse_pods(salsa_db: &dyn Db, path: &str, source_db: &mut dyn SourceDatabaseTrait) -> Pods {
+    let pod = parse_pod(salsa_db, path, source_db);
+    let symbol_table = resolve_symbols(salsa_db, &pod);
+
+    Pods {
+        pods: vec![pod],
+        symbol_table,
+    }
 }
 
 /// ルートファイル、サブファイルをパースし、Podを構築します。
-pub fn parse_pod(salsa_db: &dyn Db, path: &str, source_db: &mut dyn SourceDatabaseTrait) -> Pod {
+fn parse_pod(salsa_db: &dyn Db, path: &str, source_db: &mut dyn SourceDatabaseTrait) -> Pod {
     let mut lower_result_by_file = HashMap::new();
+    let mut lower_result_by_module = HashMap::new();
     let mut registration_order = vec![];
 
     let root_file_path = std::path::PathBuf::from(path);
     let nail_file = source_db.source_root();
+
     let ast_source = parse_to_ast(salsa_db, nail_file);
     let root_result = build_hir(salsa_db, ast_source);
 
-    for module in root_result.item_tree(salsa_db).modules() {
-        if matches!(module.kind(salsa_db), ModuleKind::Inline { .. }) {
+    for sub_module in root_result.item_tree(salsa_db).modules() {
+        if matches!(sub_module.kind(salsa_db), ModuleKind::Inline { .. }) {
             continue;
         }
 
-        let sub_module_name = module.name(salsa_db).text(salsa_db);
+        let sub_module_name = sub_module.name(salsa_db).text(salsa_db);
         let sub_module_lower_result =
             parse_sub_module(salsa_db, sub_module_name, &root_file_path, source_db);
+        lower_result_by_module.insert(*sub_module, sub_module_lower_result);
 
         registration_order.push(sub_module_lower_result.file(salsa_db));
         lower_result_by_file.insert(
@@ -109,9 +147,11 @@ pub fn parse_pod(salsa_db: &dyn Db, path: &str, source_db: &mut dyn SourceDataba
     }
 
     Pod {
+        name: Name::new(salsa_db, "dummy_pod_name".to_string()),
         root_file: source_db.source_root(),
         root_lower_result: root_result,
         lower_result_by_file,
+        lower_result_by_module,
         registration_order,
     }
 }
@@ -125,8 +165,8 @@ fn parse_sub_module(
     source_db: &mut dyn SourceDatabaseTrait,
 ) -> LowerResult {
     // todo: サブモジュールのサブモジュールの場合はaaa/bbb.nailのようにする必要がある
-    let file_name = root_file_path.with_file_name(format!("{sub_module_name}.nail"));
-    let nail_file = source_db.register_file_with_read(salsa_db, file_name);
+    let file_path = root_file_path.with_file_name(format!("{sub_module_name}.nail"));
+    let nail_file = source_db.register_file_with_read(salsa_db, file_path);
 
     let ast_source = parse_to_ast(salsa_db, nail_file);
     build_hir(salsa_db, ast_source)
@@ -329,7 +369,6 @@ pub enum Expr {
     ///
     /// 例:
     /// - `123`
-    /// - `abc`
     /// - `true`
     /// - `'a'`
     Literal(Literal),
@@ -394,13 +433,16 @@ impl Path {
 }
 
 /// コード中に現れるシンボルを表します
-/// コード中のを解決した結果として、Param, Localなどに変換されます
+///
+/// 関数パラメータとローカル変数は先に名前解決を行い、アイテムなどは後で行います。
+/// モジュールスコープを構築するには、別Pod, 別ファイルの解析後でないといけないためです。
+/// TODO: ParamとLocalの解決タイミングもアイテムの解決時に行うようにする
 ///
 /// ```nail
 /// let a = 10;
-/// a // Symbol::Local { name: "a", expr: ExprId(0) }
+/// a // Symbol(Path { segments: ["a"] })
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Symbol {
     /// 関数パラメータ
     Param {
@@ -415,13 +457,6 @@ pub enum Symbol {
         name: Name,
         /// 式
         expr: ExprId,
-    },
-    /// 関数
-    Function {
-        /// 関数名
-        path: Path,
-        /// 関数
-        function: Function,
     },
     /// 解決できないシンボル
     Missing {

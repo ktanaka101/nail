@@ -19,7 +19,7 @@ pub struct NailFile {
 pub trait SourceDatabaseTrait {
     /// エントリポイントとなるファイルのIDを返す
     fn source_root(&self) -> NailFile;
-    /// 指定したファイルパスからファイルを返す
+    /// 指定したファイルパスからファイル読み込みと登録を行い、登録したファイルを返す
     fn register_file_with_read(&mut self, db: &dyn crate::Db, path: std::path::PathBuf)
         -> NailFile;
 }

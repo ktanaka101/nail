@@ -4,10 +4,9 @@ use std::collections::HashMap;
 
 use la_arena::{Arena, Idx};
 
-use self::scopes::ScopeType;
 use crate::{
-    body::scopes::ExprScopes, item_tree::ItemTree, Block, Expr, Function, Item, Literal,
-    ModuleKind, NailFile, Name, Param, Path, Stmt, Symbol,
+    body::scopes::ExprScopes, item_tree::ItemTree, Block, Expr, Item, Literal, ModuleKind,
+    NailFile, Name, Param, Path, Stmt, Symbol,
 };
 
 /// 式を一意に識別するためのID
@@ -226,7 +225,7 @@ impl BodyLower {
                 ast::Expr::Literal(ast) => self.lower_literal(ast),
                 ast::Expr::ParenExpr(ast) => self.lower_expr(salsa_db, ast.expr(), ctx, item_tree),
                 ast::Expr::UnaryExpr(ast) => self.lower_unary(salsa_db, ast, ctx, item_tree),
-                ast::Expr::PathExpr(ast) => self.lower_path_expr(salsa_db, ast, ctx, item_tree),
+                ast::Expr::PathExpr(ast) => self.lower_path_expr(salsa_db, ast, ctx),
                 ast::Expr::CallExpr(ast) => self.lower_call(salsa_db, ast, ctx, item_tree),
                 ast::Expr::BlockExpr(ast) => self.lower_block(salsa_db, ast, ctx, item_tree),
                 ast::Expr::IfExpr(ast) => self.lower_if(salsa_db, ast, ctx, item_tree),
@@ -311,7 +310,6 @@ impl BodyLower {
         salsa_db: &dyn crate::Db,
         ast_path: ast::PathExpr,
         _ctx: &mut SharedBodyLowerContext,
-        item_tree: &ItemTree,
     ) -> Expr {
         let path = Path {
             segments: ast_path
@@ -321,16 +319,11 @@ impl BodyLower {
                 .map(|segment| Name::new(salsa_db, segment.name().unwrap().name().to_string()))
                 .collect(),
         };
-        let symbol = self.lookup_path(path, _ctx, item_tree);
+        let symbol = self.lookup_path(path, _ctx);
         Expr::Symbol(symbol)
     }
 
-    fn lookup_path(
-        &mut self,
-        path: Path,
-        _ctx: &mut SharedBodyLowerContext,
-        item_tree: &ItemTree,
-    ) -> Symbol {
+    fn lookup_path(&mut self, path: Path, _ctx: &mut SharedBodyLowerContext) -> Symbol {
         match path.segments() {
             [name] => {
                 let name = *name;
@@ -340,13 +333,6 @@ impl BodyLower {
                     Symbol::Param {
                         name,
                         param: param_id,
-                    }
-                } else if let Some(function) = self.lookup_function(&[], name, item_tree) {
-                    Symbol::Function {
-                        path: Path {
-                            segments: vec![name],
-                        },
-                        function,
                     }
                 } else if let Some(expr) = self.scopes.lookup(name) {
                     Symbol::Local { name, expr }
@@ -358,37 +344,13 @@ impl BodyLower {
                     }
                 }
             }
-            [segments @ .., item_segment] => {
-                if let Some(function) = self.lookup_function(segments, *item_segment, item_tree) {
-                    Symbol::Function {
-                        path: Path {
-                            segments: path.segments().to_vec(),
-                        },
-                        function,
-                    }
-                } else {
-                    Symbol::Missing {
-                        path: Path {
-                            segments: path.segments().to_vec(),
-                        },
-                    }
-                }
-            }
+            [_segments @ .., _item_segment] => Symbol::Missing {
+                path: Path {
+                    segments: path.segments().to_vec(),
+                },
+            },
             [] => unreachable!(),
         }
-    }
-
-    fn lookup_function(
-        &self,
-        module_paths: &[Name],
-        function_name: Name,
-        item_tree: &ItemTree,
-    ) -> Option<Function> {
-        let item_scope = match self.scopes.current_scope() {
-            ScopeType::TopLevel => item_tree.top_level_scope(),
-            ScopeType::SubLevel(block_ast_id) => item_tree.scope_by_block(block_ast_id).unwrap(),
-        };
-        item_scope.lookup(module_paths, function_name, item_tree)
     }
 
     fn lookup_param(&self, name: Name) -> Option<Param> {
@@ -515,35 +477,48 @@ mod tests {
     use crate::{
         input::FixtureDatabase,
         item_tree::{Item, Type},
-        parse_pod,
+        name_resolver::{ModuleScopeOrigin, ResolutionStatus, SymbolInScopeOrigin, SymbolTable},
+        parse_pods,
         testing::TestingDatabase,
-        Function, LowerError, LowerResult, Module, ModuleKind, Pod, UseItem,
+        Function, LowerError, LowerResult, Module, ModuleKind, Pod, Pods, UseItem,
     };
 
     fn indent(nesting: usize) -> String {
         "    ".repeat(nesting)
     }
 
-    fn debug_pod(salsa_db: &dyn crate::Db, modules: &Pod) -> String {
+    fn debug_pods(salsa_db: &dyn crate::Db, pods: &Pods) -> String {
+        debug_pod(salsa_db, &pods.pods[0], &pods.symbol_table)
+    }
+
+    fn debug_pod(salsa_db: &dyn crate::Db, pod: &Pod, symbol_table: &SymbolTable) -> String {
         let mut msg = "".to_string();
 
         msg.push_str("//- /main.nail\n");
-        msg.push_str(&debug_lower_result(salsa_db, &modules.root_lower_result));
+        msg.push_str(&debug_lower_result(
+            salsa_db,
+            &pod.root_lower_result,
+            symbol_table,
+        ));
 
-        for (file, lower_result) in modules.lower_results_order_registration_asc() {
+        for (file, lower_result) in pod.lower_results_order_registration_asc() {
             let file_path = file.file_path(salsa_db);
             msg.push_str(&format!("//- {}\n", file_path.to_string_lossy()));
-            msg.push_str(&debug_lower_result(salsa_db, lower_result));
+            msg.push_str(&debug_lower_result(salsa_db, lower_result, symbol_table));
         }
 
         msg
     }
 
-    fn debug_lower_result(salsa_db: &dyn crate::Db, lower_result: &LowerResult) -> String {
+    fn debug_lower_result(
+        salsa_db: &dyn crate::Db,
+        lower_result: &LowerResult,
+        symbol_table: &SymbolTable,
+    ) -> String {
         let mut msg = "".to_string();
 
         for item in lower_result.top_level_items(salsa_db) {
-            msg.push_str(&debug_item(salsa_db, lower_result, item, 0));
+            msg.push_str(&debug_item(salsa_db, lower_result, symbol_table, item, 0));
         }
 
         for error in lower_result.errors(salsa_db) {
@@ -560,6 +535,7 @@ mod tests {
     fn debug_function(
         salsa_db: &dyn crate::Db,
         lower_result: &LowerResult,
+        symbol_table: &SymbolTable,
         function: Function,
         nesting: usize,
     ) -> String {
@@ -607,7 +583,40 @@ mod tests {
             Type::Unknown => "<unknown>",
         };
 
-        let body = debug_expr(salsa_db, lower_result, body_expr, nesting);
+        let scope_origin = ModuleScopeOrigin::Function {
+            name: function.name(salsa_db).unwrap(),
+            origin: function,
+        };
+
+        let Expr::Block(block) = body_expr else { panic!("Should be Block") };
+
+        let mut body = "{\n".to_string();
+        for stmt in &block.stmts {
+            body.push_str(&debug_stmt(
+                salsa_db,
+                lower_result,
+                symbol_table,
+                scope_origin,
+                stmt,
+                nesting + 1,
+            ));
+        }
+        if let Some(tail) = block.tail {
+            body.push_str(&format!(
+                "{}expr:{}\n",
+                indent(nesting + 1),
+                debug_expr(
+                    salsa_db,
+                    lower_result,
+                    symbol_table,
+                    scope_origin,
+                    tail,
+                    nesting + 1
+                )
+            ));
+        }
+        body.push_str(&format!("{}}}", indent(nesting)));
+
         let is_entry_point = lower_result.entry_point(salsa_db) == Some(function);
         format!(
             "{}fn {}{name}({params}) -> {return_type} {body}\n",
@@ -619,9 +628,15 @@ mod tests {
     fn debug_module(
         salsa_db: &dyn crate::Db,
         lower_result: &LowerResult,
+        symbol_table: &SymbolTable,
         module: Module,
         nesting: usize,
     ) -> String {
+        let _scope_origin = ModuleScopeOrigin::Module {
+            name: module.name(salsa_db),
+            origin: module,
+        };
+
         let curr_indent = indent(nesting);
 
         let module_name = module.name(salsa_db).text(salsa_db);
@@ -631,7 +646,13 @@ mod tests {
                 let mut module_str = "".to_string();
                 module_str.push_str(&format!("{curr_indent}mod {module_name} {{\n"));
                 for (i, item) in items.iter().enumerate() {
-                    module_str.push_str(&debug_item(salsa_db, lower_result, item, nesting + 1));
+                    module_str.push_str(&debug_item(
+                        salsa_db,
+                        lower_result,
+                        symbol_table,
+                        item,
+                        nesting + 1,
+                    ));
                     if i == items.len() - 1 {
                         continue;
                     }
@@ -657,12 +678,17 @@ mod tests {
     fn debug_item(
         salsa_db: &dyn crate::Db,
         lower_result: &LowerResult,
+        symbol_table: &SymbolTable,
         item: &Item,
         nesting: usize,
     ) -> String {
         match item {
-            Item::Function(function) => debug_function(salsa_db, lower_result, *function, nesting),
-            Item::Module(module) => debug_module(salsa_db, lower_result, *module, nesting),
+            Item::Function(function) => {
+                debug_function(salsa_db, lower_result, symbol_table, *function, nesting)
+            }
+            Item::Module(module) => {
+                debug_module(salsa_db, lower_result, symbol_table, *module, nesting)
+            }
             Item::UseItem(use_item) => debug_use_item(salsa_db, *use_item),
         }
     }
@@ -670,6 +696,8 @@ mod tests {
     fn debug_stmt(
         salsa_db: &dyn crate::Db,
         lower_result: &LowerResult,
+        symbol_table: &SymbolTable,
+        scope_origin: ModuleScopeOrigin,
         stmt: &Stmt,
         nesting: usize,
     ) -> String {
@@ -679,7 +707,9 @@ mod tests {
                 let expr_str = debug_expr(
                     salsa_db,
                     lower_result,
-                    value.lookup(lower_result.shared_ctx(salsa_db)),
+                    symbol_table,
+                    scope_origin,
+                    *value,
                     nesting,
                 );
                 format!("{}let {name} = {expr_str}\n", indent(nesting))
@@ -693,23 +723,36 @@ mod tests {
                 debug_expr(
                     salsa_db,
                     lower_result,
-                    expr.lookup(lower_result.shared_ctx(salsa_db)),
+                    symbol_table,
+                    scope_origin,
+                    *expr,
                     nesting
                 ),
                 if *has_semicolon { ";" } else { "" }
             ),
-            Stmt::Item { item } => debug_item(salsa_db, lower_result, item, nesting),
+            Stmt::Item { item } => debug_item(salsa_db, lower_result, symbol_table, item, nesting),
         }
     }
 
     fn debug_expr(
         salsa_db: &dyn crate::Db,
         lower_result: &LowerResult,
-        expr: &Expr,
+        symbol_table: &SymbolTable,
+        scope_origin: ModuleScopeOrigin,
+        expr_id: ExprId,
         nesting: usize,
     ) -> String {
-        match expr {
-            Expr::Symbol(symbol) => debug_symbol(salsa_db, lower_result, symbol, nesting),
+        match expr_id.lookup(lower_result.shared_ctx(salsa_db)) {
+            Expr::Symbol(symbol) => debug_symbol(
+                salsa_db,
+                lower_result,
+                symbol_table,
+                &SymbolInScopeOrigin {
+                    scope_origin,
+                    symbol: symbol.clone(),
+                },
+                nesting,
+            ),
             Expr::Literal(literal) => match literal {
                 Literal::Bool(b) => b.to_string(),
                 Literal::Char(c) => format!("'{c}'"),
@@ -729,13 +772,17 @@ mod tests {
                 let lhs_str = debug_expr(
                     salsa_db,
                     lower_result,
-                    lhs.lookup(lower_result.shared_ctx(salsa_db)),
+                    symbol_table,
+                    scope_origin,
+                    *lhs,
                     nesting,
                 );
                 let rhs_str = debug_expr(
                     salsa_db,
                     lower_result,
-                    rhs.lookup(lower_result.shared_ctx(salsa_db)),
+                    symbol_table,
+                    scope_origin,
+                    *rhs,
                     nesting,
                 );
                 format!("{lhs_str} {op} {rhs_str}")
@@ -748,20 +795,33 @@ mod tests {
                 let expr_str = debug_expr(
                     salsa_db,
                     lower_result,
-                    expr.lookup(lower_result.shared_ctx(salsa_db)),
+                    symbol_table,
+                    scope_origin,
+                    *expr,
                     nesting,
                 );
                 format!("{op}{expr_str}")
             }
             Expr::Call { callee, args } => {
-                let callee = debug_symbol(salsa_db, lower_result, callee, nesting);
+                let callee = debug_symbol(
+                    salsa_db,
+                    lower_result,
+                    symbol_table,
+                    &SymbolInScopeOrigin {
+                        scope_origin,
+                        symbol: callee.clone(),
+                    },
+                    nesting,
+                );
                 let args = args
                     .iter()
                     .map(|arg| {
                         debug_expr(
                             salsa_db,
                             lower_result,
-                            arg.lookup(lower_result.shared_ctx(salsa_db)),
+                            symbol_table,
+                            scope_origin,
+                            *arg,
                             nesting,
                         )
                     })
@@ -771,9 +831,18 @@ mod tests {
                 format!("{callee}({args})")
             }
             Expr::Block(block) => {
+                let scope_origin = ModuleScopeOrigin::Block { origin: expr_id };
+
                 let mut msg = "{\n".to_string();
                 for stmt in &block.stmts {
-                    msg.push_str(&debug_stmt(salsa_db, lower_result, stmt, nesting + 1));
+                    msg.push_str(&debug_stmt(
+                        salsa_db,
+                        lower_result,
+                        symbol_table,
+                        scope_origin,
+                        stmt,
+                        nesting + 1,
+                    ));
                 }
                 if let Some(tail) = block.tail {
                     msg.push_str(&format!(
@@ -782,7 +851,9 @@ mod tests {
                         debug_expr(
                             salsa_db,
                             lower_result,
-                            tail.lookup(lower_result.shared_ctx(salsa_db)),
+                            symbol_table,
+                            scope_origin,
+                            tail,
                             nesting + 1
                         )
                     ));
@@ -800,14 +871,18 @@ mod tests {
                 msg.push_str(&debug_expr(
                     salsa_db,
                     lower_result,
-                    condition.lookup(lower_result.shared_ctx(salsa_db)),
+                    symbol_table,
+                    scope_origin,
+                    *condition,
                     nesting,
                 ));
                 msg.push(' ');
                 msg.push_str(&debug_expr(
                     salsa_db,
                     lower_result,
-                    then_branch.lookup(lower_result.shared_ctx(salsa_db)),
+                    symbol_table,
+                    scope_origin,
+                    *then_branch,
                     nesting,
                 ));
 
@@ -816,7 +891,9 @@ mod tests {
                     msg.push_str(&debug_expr(
                         salsa_db,
                         lower_result,
-                        else_branch.lookup(lower_result.shared_ctx(salsa_db)),
+                        symbol_table,
+                        scope_origin,
+                        *else_branch,
                         nesting,
                     ));
                 }
@@ -831,7 +908,9 @@ mod tests {
                         &debug_expr(
                             salsa_db,
                             lower_result,
-                            value.lookup(lower_result.shared_ctx(salsa_db)),
+                            symbol_table,
+                            scope_origin,
+                            *value,
                             nesting,
                         )
                     ));
@@ -846,10 +925,11 @@ mod tests {
     fn debug_symbol(
         salsa_db: &dyn crate::Db,
         lower_result: &LowerResult,
-        symbol: &Symbol,
+        symbol_table: &SymbolTable,
+        symbol: &SymbolInScopeOrigin,
         nesting: usize,
     ) -> String {
-        match symbol {
+        match &symbol.symbol {
             Symbol::Local { name, expr } => match expr.lookup(lower_result.shared_ctx(salsa_db)) {
                 Expr::Symbol { .. }
                 | Expr::Binary { .. }
@@ -861,7 +941,9 @@ mod tests {
                 | Expr::Return { .. } => debug_expr(
                     salsa_db,
                     lower_result,
-                    expr.lookup(lower_result.shared_ctx(salsa_db)),
+                    symbol_table,
+                    symbol.scope_origin,
+                    *expr,
                     nesting,
                 ),
                 Expr::Block { .. } => name.text(salsa_db).to_string(),
@@ -870,11 +952,35 @@ mod tests {
                 let name = name.text(salsa_db);
                 format!("param:{name}")
             }
-            Symbol::Function { path, .. } => {
-                let name = debug_path(salsa_db, path);
-                format!("fn:{name}")
+            Symbol::Missing { .. } => {
+                let resolving_status = symbol_table.item_by_symbol(symbol).unwrap();
+                debug_resolution_status(salsa_db, resolving_status, symbol_table)
             }
-            Symbol::Missing { .. } => "<missing>".to_string(),
+        }
+    }
+
+    fn debug_resolution_status(
+        salsa_db: &dyn crate::Db,
+        resolution_status: ResolutionStatus,
+        _symbol_table: &SymbolTable,
+    ) -> String {
+        match resolution_status {
+            ResolutionStatus::Unresolved => "<unknown>".to_string(),
+            ResolutionStatus::Error => "<missing>".to_string(),
+            ResolutionStatus::Resolved { path, item } => {
+                let path = debug_path(salsa_db, &path);
+                match item {
+                    Item::Function(_) => {
+                        format!("fn:{path}")
+                    }
+                    Item::Module(_) => {
+                        format!("mod:{path}")
+                    }
+                    Item::UseItem(_) => {
+                        unreachable!()
+                    }
+                }
+            }
         }
     }
 
@@ -899,9 +1005,9 @@ mod tests {
         let salsa_db = TestingDatabase::default();
         let mut source_db = FixtureDatabase::new(&salsa_db, fixture);
 
-        let modules = parse_pod(&salsa_db, "/main.nail", &mut source_db);
+        let pods = parse_pods(&salsa_db, "/main.nail", &mut source_db);
 
-        expected.assert_eq(&debug_pod(&salsa_db, &modules));
+        expected.assert_eq(&debug_pods(&salsa_db, &pods));
     }
 
     #[test]
@@ -2279,35 +2385,6 @@ mod tests {
     }
 
     #[test]
-    fn outline_module_unimplements_resolving_name() {
-        check_pod_start_with_root_file(
-            r#"
-                //- /main.nail
-                mod mod_aaa;
-
-                fn main() {
-                    mod_aaa::fn_aaa();
-                }
-
-                //- /mod_aaa.nail
-                fn fn_aaa() {
-                }
-            "#,
-            expect![[r#"
-                //- /main.nail
-                mod mod_aaa;
-                fn entry:main() -> () {
-                    <missing>();
-                }
-                //- /mod_aaa.nail
-                fn fn_aaa() -> () {
-                }
-            "#]],
-        );
-    }
-
-    #[test]
-    #[should_panic]
     fn outline_module() {
         check_pod_start_with_root_file(
             r#"
@@ -2326,7 +2403,7 @@ mod tests {
                 //- /main.nail
                 mod mod_aaa;
                 fn entry:main() -> () {
-                    mod_aaa::fn_aaa();
+                    fn:mod_aaa::fn_aaa();
                 }
                 //- /mod_aaa.nail
                 fn fn_aaa() -> () {

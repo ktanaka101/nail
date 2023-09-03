@@ -69,13 +69,12 @@ fn execute(filepath: &str) -> Result<String> {
         .create_jit_execution_engine(OptimizationLevel::None)
         .unwrap();
 
-    let (db, pods, _ty_hir_result, mir_result) = lower(filepath);
+    let (db, _pods, _ty_hir_result, mir_result) = lower(filepath);
 
     let codegen_result = codegen_llvm::codegen(
+        &db,
+        &mir_result,
         &CodegenContext {
-            db: &db,
-            hir_file: &pods.root_pod.root_hir_file,
-            mir_result: &mir_result,
             context: &context,
             module: &module,
             builder: &builder,

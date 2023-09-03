@@ -21,10 +21,6 @@ const INTERNAL_ENTRY_POINT: &str = "__main__";
 
 /// LLVM IR生成用のコンテキストです。
 pub struct CodegenContext<'a, 'ctx> {
-    pub db: &'a dyn hir::HirMasterDatabase,
-    pub hir_file: &'a hir::HirFile,
-    pub mir_result: &'a mir::LowerResult,
-
     pub context: &'ctx Context,
     pub module: &'a Module<'ctx>,
     pub builder: &'a Builder<'ctx>,
@@ -33,18 +29,20 @@ pub struct CodegenContext<'a, 'ctx> {
 
 /// LLVM IRを生成します。
 pub fn codegen<'a, 'ctx>(
+    db: &'a dyn hir::HirMasterDatabase,
+    mir_result: &'a mir::LowerResult,
     codegen_context: &'a CodegenContext<'a, 'ctx>,
     should_return_string: bool,
 ) -> CodegenResult<'ctx> {
     let codegen = Codegen::new(
-        codegen_context.hir_file,
-        codegen_context.mir_result,
+        db,
+        mir_result,
         codegen_context.context,
         codegen_context.module,
         codegen_context.builder,
         codegen_context.execution_engine,
     );
-    codegen.gen(codegen_context.db, should_return_string)
+    codegen.gen(should_return_string)
 }
 
 type MainFunc = unsafe extern "C" fn() -> *mut i8;
@@ -53,7 +51,7 @@ pub struct CodegenResult<'ctx> {
 }
 
 struct Codegen<'a, 'ctx> {
-    _hir_file: &'a hir::HirFile,
+    db: &'a dyn hir::HirMasterDatabase,
     mir_result: &'a mir::LowerResult,
 
     context: &'ctx Context,
@@ -69,7 +67,7 @@ struct Codegen<'a, 'ctx> {
 
 impl<'a, 'ctx> Codegen<'a, 'ctx> {
     fn new(
-        hir_file: &'a hir::HirFile,
+        db: &'a dyn hir::HirMasterDatabase,
         mir_result: &'a mir::LowerResult,
         context: &'ctx Context,
         module: &'a Module<'ctx>,
@@ -77,7 +75,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         execution_engine: &'a ExecutionEngine<'ctx>,
     ) -> Self {
         let mut codegen = Self {
-            _hir_file: hir_file,
+            db,
             mir_result,
             context,
             module,
@@ -97,16 +95,12 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         self.builder.position_at_end(*entry_block);
     }
 
-    fn gen(
-        mut self,
-        db: &dyn hir::HirMasterDatabase,
-        should_return_string: bool,
-    ) -> CodegenResult<'ctx> {
+    fn gen(mut self, should_return_string: bool) -> CodegenResult<'ctx> {
         if self.mir_result.entry_point().is_none() {
             unimplemented!();
         }
 
-        self.gen_function_signatures(db);
+        self.gen_function_signatures(self.db);
         self.gen_functions();
 
         let result = {
@@ -278,7 +272,7 @@ mod tests {
         let mut fixture = fixture.to_string();
         fixture.insert_str(0, "//- /main.nail\n");
 
-        let (db, pods, _ty_result, mir_result) = lower(&fixture);
+        let (db, _pods, _ty_result, mir_result) = lower(&fixture);
 
         let context = Context::create();
         let module = context.create_module("top");
@@ -287,10 +281,9 @@ mod tests {
             .create_jit_execution_engine(OptimizationLevel::None)
             .unwrap();
         let result = codegen(
+            &db,
+            &mir_result,
             &CodegenContext {
-                db: &db,
-                hir_file: &pods.root_pod.root_hir_file,
-                mir_result: &mir_result,
                 context: &context,
                 module: &module,
                 builder: &builder,
@@ -312,7 +305,7 @@ mod tests {
         let mut fixture = fixture.to_string();
         fixture.insert_str(0, "//- /main.nail\n");
 
-        let (db, pods, _ty_result, mir_result) = lower(&fixture);
+        let (db, _pods, _ty_result, mir_result) = lower(&fixture);
 
         let context = Context::create();
         let module = context.create_module("top");
@@ -321,10 +314,9 @@ mod tests {
             .create_jit_execution_engine(OptimizationLevel::None)
             .unwrap();
         codegen(
+            &db,
+            &mir_result,
             &CodegenContext {
-                db: &db,
-                hir_file: &pods.root_pod.root_hir_file,
-                mir_result: &mir_result,
                 context: &context,
                 module: &module,
                 builder: &builder,

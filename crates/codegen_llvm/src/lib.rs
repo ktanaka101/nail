@@ -317,7 +317,7 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
 }
 
 struct Codegen<'a, 'ctx> {
-    _hir_result: &'a hir::HirFile,
+    _hir_file: &'a hir::HirFile,
     mir_result: &'a mir::LowerResult,
 
     context: &'ctx Context,
@@ -341,7 +341,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         execution_engine: &'a ExecutionEngine<'ctx>,
     ) -> Self {
         let mut codegen = Self {
-            _hir_result: hir_file,
+            _hir_file: hir_file,
             mir_result,
             context,
             module,

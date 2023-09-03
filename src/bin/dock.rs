@@ -54,7 +54,7 @@ fn lower(
     let db = base_db::SalsaDatabase::default();
     let mut source_db = hir::SourceDatabase::new(&db, filepath.into());
 
-    let pods = hir::parse_pods(&db, "/main.nail", &mut source_db);
+    let pods = hir::parse_pods(&db, filepath, &mut source_db);
     let hir_result = pods.pods[0].root_lower_result;
     let resolution_map = pods.resolution_map;
 

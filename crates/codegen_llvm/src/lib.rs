@@ -45,7 +45,10 @@ pub fn codegen<'a, 'ctx>(
     codegen.gen(should_return_string)
 }
 
+/// エントリポイントの関数の型です。
 type MainFunc = unsafe extern "C" fn() -> *mut i8;
+
+/// LLVM IRの生成結果です。
 pub struct CodegenResult<'ctx> {
     pub function: JitFunction<'ctx, MainFunc>,
 }

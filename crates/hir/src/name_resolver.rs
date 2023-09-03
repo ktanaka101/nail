@@ -168,11 +168,11 @@ impl<'a> NameResolver<'a> {
             }
         }
 
-        for symbol in self.name_resolution_collection.symbols() {
-            if let Symbol::Missing { path } = &symbol.symbol {
+        for symbol_in_scope in self.name_resolution_collection.symbols() {
+            if let Symbol::Missing { path } = &symbol_in_scope.symbol {
                 let module_scope = self
                     .module_scopes
-                    .module_scope_by_origin(symbol.scope_origin)
+                    .module_scope_by_origin(symbol_in_scope.scope_origin)
                     .unwrap();
 
                 let segments = self.resolve_path(&path.path(self.db));

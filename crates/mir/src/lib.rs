@@ -19,20 +19,63 @@ use hir_ty::ResolvedType;
 use la_arena::{Arena, Idx};
 
 /// HIRとTyped HIRからMIRを構築する
-pub fn lower(
+pub fn lower_pods(
     db: &dyn hir::HirMasterDatabase,
-    hir_file: &hir::HirFile,
-    resolution_map: &hir::ResolutionMap,
+    pods: &hir::Pods,
     hir_ty_result: &hir_ty::TyLowerResult,
 ) -> LowerResult {
-    let mir_lower = MirLower {
-        db,
-        hir_file,
-        resolution_map,
-        hir_ty_result,
+    // TODO: 全てのPodをMIRに変換する
+    let pod = &pods.pods[0];
+
+    let mut entry_point: Option<Idx<Body>> = None;
+    let mut bodies = Arena::new();
+
+    let function_id_by_hir_function = {
+        let mut function_id_resolver = FunctionIdGenerator::new();
+        let mut function_id_by_hir_function = HashMap::<hir::Function, FunctionId>::new();
+        for (_, function) in pod.all_functions(db) {
+            function_id_by_hir_function.insert(function, function_id_resolver.gen());
+        }
+
+        function_id_by_hir_function
     };
 
-    mir_lower.lower()
+    let mut body_by_function = HashMap::<FunctionId, Idx<Body>>::new();
+    let mut function_by_body = HashMap::<Idx<Body>, FunctionId>::new();
+    for (hir_file, function) in pod.all_functions(db) {
+        let lower = FunctionLower::new(
+            db,
+            hir_file,
+            &pods.resolution_map,
+            hir_ty_result,
+            &function_id_by_hir_function,
+            function,
+        );
+        let body = lower.lower();
+        let body_idx = bodies.alloc(body);
+
+        body_by_function.insert(
+            *function_id_by_hir_function.get(&function).unwrap(),
+            body_idx,
+        );
+        function_by_body.insert(
+            body_idx,
+            *function_id_by_hir_function.get(&function).unwrap(),
+        );
+
+        let name = function.name(db).text(db);
+        if name == "main" {
+            assert_eq!(entry_point, None);
+            entry_point = Some(body_idx);
+        }
+    }
+
+    LowerResult {
+        entry_point,
+        bodies,
+        body_by_function,
+        function_by_body,
+    }
 }
 
 struct FunctionLower<'a> {
@@ -41,7 +84,7 @@ struct FunctionLower<'a> {
     hir_ty_result: &'a hir_ty::TyLowerResult,
     function_by_hir_function: &'a HashMap<hir::Function, FunctionId>,
 
-    hir_file: &'a hir::HirFile,
+    hir_file: hir::HirFile,
     function: hir::Function,
 
     return_local: Idx<Local>,
@@ -60,7 +103,7 @@ struct FunctionLower<'a> {
 impl<'a> FunctionLower<'a> {
     fn new(
         db: &'a dyn hir::HirMasterDatabase,
-        hir_file: &'a hir::HirFile,
+        hir_file: hir::HirFile,
         resolution_map: &'a hir::ResolutionMap,
         hir_ty_result: &'a hir_ty::TyLowerResult,
         function_by_hir_function: &'a HashMap<hir::Function, FunctionId>,
@@ -647,67 +690,6 @@ impl FunctionIdGenerator {
     }
 }
 
-struct MirLower<'a> {
-    db: &'a dyn hir::HirMasterDatabase,
-    hir_file: &'a hir::HirFile,
-    resolution_map: &'a hir::ResolutionMap,
-    hir_ty_result: &'a hir_ty::TyLowerResult,
-}
-
-impl<'a> MirLower<'a> {
-    fn lower(self) -> LowerResult {
-        let mut entry_point: Option<Idx<Body>> = None;
-        let mut bodies = Arena::new();
-
-        let function_id_by_hir_function = {
-            let mut function_id_resolver = FunctionIdGenerator::new();
-            let mut function_id_by_hir_function = HashMap::<hir::Function, FunctionId>::new();
-            for function in self.hir_file.functions(self.db) {
-                function_id_by_hir_function.insert(*function, function_id_resolver.gen());
-            }
-
-            function_id_by_hir_function
-        };
-
-        let mut body_by_function = HashMap::<FunctionId, Idx<Body>>::new();
-        let mut function_by_body = HashMap::<Idx<Body>, FunctionId>::new();
-        for function in self.hir_file.functions(self.db) {
-            let lower = FunctionLower::new(
-                self.db,
-                self.hir_file,
-                self.resolution_map,
-                self.hir_ty_result,
-                &function_id_by_hir_function,
-                *function,
-            );
-            let body = lower.lower();
-            let body_idx = bodies.alloc(body);
-
-            body_by_function.insert(
-                *function_id_by_hir_function.get(function).unwrap(),
-                body_idx,
-            );
-            function_by_body.insert(
-                body_idx,
-                *function_id_by_hir_function.get(function).unwrap(),
-            );
-
-            let name = function.name(self.db).text(self.db);
-            if name == "main" {
-                assert_eq!(entry_point, None);
-                entry_point = Some(body_idx);
-            }
-        }
-
-        LowerResult {
-            entry_point,
-            bodies,
-            body_by_function,
-            function_by_body,
-        }
-    }
-}
-
 /// MIRの構築結果
 #[derive(Debug)]
 pub struct LowerResult {
@@ -1055,7 +1037,7 @@ mod tests {
     use expect_test::{expect, Expect};
     use hir_ty::ResolvedType;
 
-    use crate::lower;
+    use crate::lower_pods;
 
     fn check_in_root_file(fixture: &str, expect: Expect) {
         let mut fixture = fixture.to_string();
@@ -1067,19 +1049,9 @@ mod tests {
         let pods = hir::parse_pods(&db, "/main.nail", &mut source_db);
         let ty_hir_result = hir_ty::lower_pods(&db, &pods);
 
-        let mir_result = lower(
-            &db,
-            &pods.pods[0].root_hir_file,
-            &pods.resolution_map,
-            &ty_hir_result,
-        );
+        let mir_result = lower_pods(&db, &pods, &ty_hir_result);
 
-        expect.assert_eq(&debug(
-            &db,
-            &pods.pods[0].root_hir_file,
-            &ty_hir_result,
-            &mir_result,
-        ));
+        expect.assert_eq(&debug(&db, &mir_result));
     }
 
     fn indent(nesting: usize) -> String {
@@ -1097,12 +1069,7 @@ mod tests {
         msg
     }
 
-    fn debug(
-        db: &dyn hir::HirMasterDatabase,
-        _hir_result: &hir::HirFile,
-        _hir_ty_result: &hir_ty::TyLowerResult,
-        mir_result: &crate::LowerResult,
-    ) -> String {
+    fn debug(db: &dyn hir::HirMasterDatabase, mir_result: &crate::LowerResult) -> String {
         let mut msg = "".to_string();
 
         for (_body_idx, body) in mir_result.bodies.iter() {

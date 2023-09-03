@@ -47,7 +47,7 @@ fn lower(
     filepath: &str,
 ) -> (
     base_db::SalsaDatabase,
-    hir::HirFile,
+    hir::Pods,
     hir_ty::TyLowerResult,
     mir::LowerResult,
 ) {
@@ -56,12 +56,9 @@ fn lower(
 
     let pods = hir::parse_pods(&db, filepath, &mut source_db);
     let ty_result = hir_ty::lower_pods(&db, &pods);
+    let mir_result = mir::lower_pods(&db, &pods, &ty_result);
 
-    let hir_file = pods.pods[0].root_hir_file;
-    let resolution_map = pods.resolution_map;
-
-    let mir_result = mir::lower(&db, &hir_file, &resolution_map, &ty_result);
-    (db, hir_file, ty_result, mir_result)
+    (db, pods, ty_result, mir_result)
 }
 
 fn execute(filepath: &str) -> Result<String> {
@@ -72,12 +69,12 @@ fn execute(filepath: &str) -> Result<String> {
         .create_jit_execution_engine(OptimizationLevel::None)
         .unwrap();
 
-    let (db, hir_file, _ty_hir_result, mir_result) = lower(filepath);
+    let (db, pods, _ty_hir_result, mir_result) = lower(filepath);
 
     let codegen_result = codegen_llvm::codegen(
         &CodegenContext {
             db: &db,
-            hir_file: &hir_file,
+            hir_file: &pods.pods[0].root_hir_file,
             mir_result: &mir_result,
             context: &context,
             module: &module,

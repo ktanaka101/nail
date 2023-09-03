@@ -524,8 +524,7 @@ mod tests {
         fixture: &str,
     ) -> (
         hir::TestingDatabase,
-        hir::HirFile,
-        hir::ResolutionMap,
+        hir::Pods,
         hir_ty::TyLowerResult,
         mir::LowerResult,
     ) {
@@ -533,29 +532,17 @@ mod tests {
         let mut source_db = FixtureDatabase::new(&db, fixture);
 
         let pods = hir::parse_pods(&db, "/main.nail", &mut source_db);
-
         let ty_result = hir_ty::lower_pods(&db, &pods);
+        let mir_result = mir::lower_pods(&db, &pods, &ty_result);
 
-        let mir_result = mir::lower(
-            &db,
-            &pods.pods[0].root_hir_file,
-            &pods.resolution_map,
-            &ty_result,
-        );
-        (
-            db,
-            pods.pods[0].root_hir_file,
-            pods.resolution_map,
-            ty_result,
-            mir_result,
-        )
+        (db, pods, ty_result, mir_result)
     }
 
     fn execute_in_root_file(fixture: &str) -> String {
         let mut fixture = fixture.to_string();
         fixture.insert_str(0, "//- /main.nail\n");
 
-        let (db, hir_file, _resolution_map, _ty_result, mir_result) = lower(&fixture);
+        let (db, pods, _ty_result, mir_result) = lower(&fixture);
 
         let context = Context::create();
         let module = context.create_module("top");
@@ -566,7 +553,7 @@ mod tests {
         let result = codegen(
             &CodegenContext {
                 db: &db,
-                hir_file: &hir_file,
+                hir_file: &pods.pods[0].root_hir_file,
                 mir_result: &mir_result,
                 context: &context,
                 module: &module,
@@ -589,7 +576,7 @@ mod tests {
         let mut fixture = fixture.to_string();
         fixture.insert_str(0, "//- /main.nail\n");
 
-        let (db, hir_file, _resolution_map, _ty_result, mir_result) = lower(&fixture);
+        let (db, pods, _ty_result, mir_result) = lower(&fixture);
 
         let context = Context::create();
         let module = context.create_module("top");
@@ -600,7 +587,7 @@ mod tests {
         codegen(
             &CodegenContext {
                 db: &db,
-                hir_file: &hir_file,
+                hir_file: &pods.pods[0].root_hir_file,
                 mir_result: &mir_result,
                 context: &context,
                 module: &module,

@@ -105,7 +105,7 @@ impl<'a> TypeInferencer<'a> {
         for function in self.hir_result.functions(db) {
             let mut params = vec![];
             for param in function.params(db) {
-                let ty = self.infer_ty(&param.ty(db));
+                let ty = self.infer_ty(&param.data(self.hir_result.hir_file_ctx(db)).ty);
                 params.push(ty);
                 self.ctx.type_by_param.insert(*param, ty);
             }
@@ -173,7 +173,9 @@ impl<'a> TypeInferencer<'a> {
         match expr {
             hir::Expr::Symbol(symbol) => match symbol {
                 hir::Symbol::Local { expr, .. } => self.infer_expr_id(db, *expr),
-                hir::Symbol::Param { param, .. } => self.infer_ty(&param.ty(db)),
+                hir::Symbol::Param { param, .. } => {
+                    self.infer_ty(&param.data(self.hir_result.hir_file_ctx(db)).ty)
+                }
                 // TODO: supports function, name resolution
                 hir::Symbol::Missing { path: _ } => ResolvedType::Unknown,
             },
@@ -257,7 +259,8 @@ impl<'a> TypeInferencer<'a> {
                                 let param = function.params(db)[i];
 
                                 let arg_ty = self.infer_expr_id(db, *arg);
-                                let param_ty = self.infer_ty(&param.ty(db));
+                                let param_ty =
+                                    self.infer_ty(&param.data(self.hir_result.hir_file_ctx(db)).ty);
 
                                 if arg_ty == param_ty {
                                     continue;

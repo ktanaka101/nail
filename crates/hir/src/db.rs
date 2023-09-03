@@ -8,7 +8,6 @@ pub struct Jar(
     crate::build_hir_file,
     crate::HirFile,
     crate::Function,
-    crate::Param,
     crate::Module,
     crate::UseItem,
     crate::NameSolutionPath,

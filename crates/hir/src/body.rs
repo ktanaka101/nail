@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use la_arena::{Arena, Idx};
 
 use crate::{
-    body::scopes::ExprScopes, Block, Expr, Function, HirDatabase, Item, Literal, Module,
-    ModuleKind, NailFile, Name, NameSolutionPath, Param, Path, Stmt, Symbol, Type, UseItem,
+    body::scopes::ExprScopes, item::ParamData, Block, Expr, Function, HirDatabase, Item, Literal,
+    Module, ModuleKind, NailFile, Name, NameSolutionPath, Param, Path, Stmt, Symbol, Type, UseItem,
 };
 
 /// 式を一意に識別するためのID
@@ -41,6 +41,8 @@ pub struct HirFileContext {
     functions: Vec<Function>,
     modules: Vec<Module>,
 
+    params: Arena<ParamData>,
+
     function_bodies: Arena<Expr>,
     exprs: Arena<Expr>,
     function_body_by_ast_block: HashMap<ast::BlockExpr, FunctionBodyId>,
@@ -51,6 +53,7 @@ impl HirFileContext {
         Self {
             functions: vec![],
             modules: vec![],
+            params: Arena::new(),
             function_bodies: Arena::new(),
             exprs: Arena::new(),
             function_body_by_ast_block: HashMap::new(),
@@ -75,6 +78,11 @@ impl HirFileContext {
         self.function_body_by_ast_block.get(&ast_block).copied()
     }
 
+    /// パラメータIDを元にパラメータを取得する
+    pub fn param_data(&self, param: Param) -> &ParamData {
+        &self.params[param.0]
+    }
+
     /// ASTブロックIDを元に関数本体を取得する
     ///
     /// 現状、関数本体は[Expr::Block]として表現されているため、[Expr]を返す
@@ -91,6 +99,11 @@ impl HirFileContext {
     /// 関数本体を保存し、参照するためのIDを返す
     pub(crate) fn alloc_function_body(&mut self, expr: Expr) -> FunctionBodyId {
         FunctionBodyId(self.function_bodies.alloc(expr))
+    }
+
+    /// パラメータを保存し、参照するためのIDを返す
+    pub(crate) fn alloc_param(&mut self, param: ParamData) -> Param {
+        Param(self.params.alloc(param))
     }
 }
 
@@ -148,12 +161,12 @@ impl<'a> BodyLower<'a> {
                     .name()
                     .map(|name| Name::new(db, name.name().to_string()));
                 let ty = self.lower_ty(param.ty());
-                Param::new(db, name, ty, pos)
+                Param::new(self.ctx, name, ty, pos)
             })
             .collect::<Vec<_>>();
         let param_by_name = params
             .iter()
-            .filter_map(|param| param.name(db).map(|name| (name, *param)))
+            .filter_map(|param| param.data(self.ctx).name.map(|name| (name, *param)))
             .collect::<HashMap<_, _>>();
         let return_type = if let Some(return_type) = def.return_type() {
             self.lower_ty(return_type.ty())
@@ -555,12 +568,12 @@ mod tests {
             .params(db)
             .iter()
             .map(|param| {
-                let name = if let Some(name) = param.name(db) {
+                let name = if let Some(name) = param.data(hir_file.hir_file_ctx(db)).name {
                     name.text(db)
                 } else {
                     "<missing>"
                 };
-                let ty = match param.ty(db) {
+                let ty = match param.data(hir_file.hir_file_ctx(db)).ty {
                     Type::Integer => "int",
                     Type::String => "string",
                     Type::Char => "char",

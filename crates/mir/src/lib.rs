@@ -541,7 +541,11 @@ impl<'a> FunctionLower<'a> {
             let param_idx = self.params.alloc(Param {
                 ty: param_ty,
                 idx: self.local_idx,
-                pos: param.pos(db).try_into().unwrap(),
+                pos: param
+                    .data(self.hir_file.hir_file_ctx(db))
+                    .pos
+                    .try_into()
+                    .unwrap(),
             });
             self.param_by_hir.insert(*param, param_idx);
 

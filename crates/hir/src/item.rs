@@ -1,12 +1,33 @@
 use std::collections::HashMap;
 
-use crate::{Name, Path};
+use la_arena::Idx;
+
+use crate::{HirFileContext, Name, Path};
+
+/// 関数のパラメータのIDを表す
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Param(pub(crate) Idx<ParamData>);
+impl Param {
+    /// パラメータを作成します。
+    pub(crate) fn new(
+        hir_file_ctx: &mut HirFileContext,
+        name: Option<Name>,
+        ty: Type,
+        pos: usize,
+    ) -> Self {
+        hir_file_ctx.alloc_param(ParamData { name, ty, pos })
+    }
+
+    /// パラメータのデータを取得します。
+    pub fn data(self, hir_file_ctx: &HirFileContext) -> &ParamData {
+        hir_file_ctx.param_data(self)
+    }
+}
 
 /// 関数のパラメータを表す
 /// 例: `fn f(x: int, y: int) -> int { x + y }` であれば `x: int` と `y: int` のそれぞれがパラメータ
-#[salsa::interned]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Param {
+pub struct ParamData {
     /// パラメータ名
     /// 例: `fn f(x: int)` であれば `x`
     pub name: Option<Name>,

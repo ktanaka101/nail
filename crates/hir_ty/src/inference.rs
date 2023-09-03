@@ -1,4 +1,4 @@
-use std::collections;
+use std::collections::HashMap;
 
 use la_arena::{Arena, Idx};
 
@@ -15,33 +15,33 @@ pub fn infer(
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InferenceResult {
     /// 式に対応する型
-    pub type_by_expr: collections::HashMap<hir::ExprId, ResolvedType>,
+    pub type_by_expr: HashMap<hir::ExprId, ResolvedType>,
     /// パラメータに対応する型
-    pub type_by_param: collections::HashMap<hir::Param, ResolvedType>,
+    pub type_by_param: HashMap<hir::Param, ResolvedType>,
     /// 関数シグネチャ一覧
     pub signatures: Arena<Signature>,
     /// 関数に対応するシグネチャ
-    pub signature_by_function: collections::HashMap<hir::Function, Idx<Signature>>,
+    pub signature_by_function: HashMap<hir::Function, Idx<Signature>>,
     /// 型推論中に発生したエラー
     pub errors: Vec<InferenceError>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct InferenceContext {
-    type_by_expr: collections::HashMap<hir::ExprId, ResolvedType>,
-    type_by_param: collections::HashMap<hir::Param, ResolvedType>,
+    type_by_expr: HashMap<hir::ExprId, ResolvedType>,
+    type_by_param: HashMap<hir::Param, ResolvedType>,
     signatures: Arena<Signature>,
-    signature_by_function: collections::HashMap<hir::Function, Idx<Signature>>,
+    signature_by_function: HashMap<hir::Function, Idx<Signature>>,
     errors: Vec<InferenceError>,
 }
 
 impl InferenceContext {
     fn new() -> Self {
         Self {
-            type_by_expr: collections::HashMap::new(),
-            type_by_param: collections::HashMap::new(),
+            type_by_expr: HashMap::new(),
+            type_by_param: HashMap::new(),
             signatures: Arena::new(),
-            signature_by_function: collections::HashMap::new(),
+            signature_by_function: HashMap::new(),
             errors: Vec::new(),
         }
     }

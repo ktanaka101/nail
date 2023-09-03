@@ -128,7 +128,7 @@ fn parse_pod(db: &dyn HirDatabase, path: &str, source_db: &mut dyn SourceDatabas
     let nail_file = source_db.source_root();
 
     let ast_source = parse_to_ast(db, nail_file);
-    let root_hir_file = build_hir(db, ast_source);
+    let root_hir_file = build_hir_file(db, ast_source);
 
     for sub_module in root_hir_file.modules(db) {
         if matches!(sub_module.kind(db), ModuleKind::Inline { .. }) {
@@ -167,7 +167,7 @@ fn parse_sub_module(
     let nail_file = source_db.register_file_with_read(db, file_path);
 
     let ast_source = parse_to_ast(db, nail_file);
-    build_hir(db, ast_source)
+    build_hir_file(db, ast_source)
 }
 
 /// HIR構築時のエラー
@@ -240,9 +240,9 @@ pub fn parse_to_ast(db: &dyn HirDatabase, nail_file: NailFile) -> AstSourceFile 
     AstSourceFile::new(db, nail_file, ast_source_file)
 }
 
-/// ASTを元に[ItemTree]を構築します。
+/// ASTを元に[HirFile]を構築します。
 #[salsa::tracked]
-pub fn build_hir(db: &dyn HirDatabase, ast_source: AstSourceFile) -> crate::HirFile {
+fn build_hir_file(db: &dyn HirDatabase, ast_source: AstSourceFile) -> HirFile {
     let file = ast_source.file(db);
     let source_file = ast_source.source(db);
 

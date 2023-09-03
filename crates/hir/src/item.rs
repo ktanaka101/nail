@@ -74,7 +74,6 @@ pub enum Type {
 ///
 /// 例: `fn f(x: int, y: int) -> int { x + y }`
 #[salsa::tracked]
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Function {
     /// 関数名
     pub name: Name,
@@ -94,7 +93,6 @@ pub struct Function {
 
 /// モジュール定義を表す
 #[salsa::tracked]
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Module {
     /// モジュール名
     pub name: Name,

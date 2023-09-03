@@ -37,10 +37,11 @@ pub fn lower(
 
 struct FunctionLower<'a> {
     db: &'a dyn hir::HirMasterDatabase,
-    hir_file: &'a hir::HirFile,
     resolution_map: &'a hir::ResolutionMap,
     hir_ty_result: &'a hir_ty::TyLowerResult,
     function_by_hir_function: &'a HashMap<hir::Function, FunctionId>,
+
+    hir_file: &'a hir::HirFile,
     function: hir::Function,
 
     return_local: Idx<Local>,
@@ -108,8 +109,16 @@ impl<'a> FunctionLower<'a> {
         current_bb.termination = Some(termination);
     }
 
+    fn get_inference_by_function(&self, function: hir::Function) -> &hir_ty::InferenceBodyResult {
+        self.hir_ty_result
+            .inference_result
+            .inference_by_body
+            .get(&function)
+            .unwrap()
+    }
+
     fn alloc_local(&mut self, expr: hir::ExprId) -> Idx<Local> {
-        let ty = self.hir_ty_result.type_by_expr(expr);
+        let ty = self.get_inference_by_function(self.function).type_by_expr[&expr];
         let local_idx = self.alloc_local_by_ty(ty);
         self.local_by_hir.insert(expr, local_idx);
 
@@ -539,10 +548,15 @@ impl<'a> FunctionLower<'a> {
     }
 
     fn lower(mut self) -> Body {
-        for param in self.function.params(self.db) {
-            let param_ty = self.hir_ty_result.type_by_param(*param);
+        let signature = self.hir_ty_result.signature_by_function(self.function);
+        for (param, param_ty) in self
+            .function
+            .params(self.db)
+            .iter()
+            .zip(signature.params.iter())
+        {
             let param_idx = self.params.alloc(Param {
-                ty: param_ty,
+                ty: *param_ty,
                 idx: self.local_idx,
                 pos: param
                     .data(self.hir_file.db(self.db))
@@ -1051,7 +1065,7 @@ mod tests {
         let mut source_db = hir::FixtureDatabase::new(&db, &fixture);
 
         let pods = hir::parse_pods(&db, "/main.nail", &mut source_db);
-        let ty_hir_result = hir_ty::lower(&db, &pods.pods[0].root_hir_file, &pods.resolution_map);
+        let ty_hir_result = hir_ty::lower_pods(&db, &pods);
 
         let mir_result = lower(
             &db,

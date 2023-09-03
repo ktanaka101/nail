@@ -101,6 +101,33 @@ impl Pod {
     pub fn get_hir_file_by_module(&self, module: &Module) -> Option<HirFile> {
         self.hir_file_by_module.get(module).copied()
     }
+
+    /// Pod内の関数を全て返します。
+    pub fn all_functions(&self, db: &dyn HirMasterDatabase) -> Vec<(HirFile, Function)> {
+        let mut functions = vec![];
+
+        functions.append(
+            &mut self
+                .root_hir_file
+                .functions(db)
+                .iter()
+                .map(|function| (self.root_hir_file, *function))
+                .collect::<Vec<_>>(),
+        );
+
+        for nail_file in &self.registration_order {
+            let hir_file = self.get_hir_file_by_file(*nail_file).unwrap();
+            functions.append(
+                &mut hir_file
+                    .functions(db)
+                    .iter()
+                    .map(|function| (*hir_file, *function))
+                    .collect::<Vec<_>>(),
+            );
+        }
+
+        functions
+    }
 }
 
 /// ルートファイルをパースし、Pod全体を構築します。

@@ -1,13 +1,26 @@
-use crate::inference::{InferenceResult, ResolvedType, Signature};
+use std::collections::HashMap;
 
-pub fn check_type(
+use la_arena::Idx;
+
+use crate::inference::{InferenceBodyResult, InferenceResult, ResolvedType, Signature};
+
+pub fn check_type_pods(
     db: &dyn hir::HirMasterDatabase,
-    hir_file: &hir::HirFile,
-    resolution_map: &hir::ResolutionMap,
+    pods: &hir::Pods,
     infer_result: &InferenceResult,
 ) -> TypeCheckResult {
-    let type_checker = TypeChecker::new(db, hir_file, resolution_map, infer_result);
-    type_checker.check()
+    // TODO: 全てのPodをチェックする
+    let pod = &pods.pods[0];
+    let mut errors_by_function = HashMap::new();
+
+    for (hir_file, function) in pod.all_functions(db) {
+        let type_checker =
+            FunctionTypeChecker::new(db, &pods.resolution_map, infer_result, hir_file, function);
+        let type_errors = type_checker.check();
+        errors_by_function.insert(function, type_errors);
+    }
+
+    TypeCheckResult { errors_by_function }
 }
 
 /// 型チェックのエラー
@@ -76,62 +89,52 @@ pub enum TypeCheckError {
 /// 型チェックの結果
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TypeCheckResult {
-    /// 型チェックのエラー一覧
-    pub errors: Vec<TypeCheckError>,
+    /// 関数別の型チェックエラー一覧
+    pub errors_by_function: HashMap<hir::Function, Vec<TypeCheckError>>,
 }
 
-struct TypeChecker<'a> {
+struct FunctionTypeChecker<'a> {
     db: &'a dyn hir::HirMasterDatabase,
-    hir_file: &'a hir::HirFile,
     resolution_map: &'a hir::ResolutionMap,
     infer_result: &'a InferenceResult,
+
+    hir_file: hir::HirFile,
+    function: hir::Function,
+
     errors: Vec<TypeCheckError>,
-    current_function: Option<hir::Function>,
 }
 
-impl<'a> TypeChecker<'a> {
+impl<'a> FunctionTypeChecker<'a> {
     fn new(
         db: &'a dyn hir::HirMasterDatabase,
-        hir_file: &'a hir::HirFile,
         resolution_map: &'a hir::ResolutionMap,
         infer_result: &'a InferenceResult,
+
+        hir_file: hir::HirFile,
+        function: hir::Function,
     ) -> Self {
         Self {
             db,
-            hir_file,
             resolution_map,
             infer_result,
+            hir_file,
+            function,
             errors: vec![],
-            current_function: None,
         }
     }
 
-    fn check(mut self) -> TypeCheckResult {
-        for function in self.hir_file.functions(self.db) {
-            self.check_function(*function);
-        }
-
-        TypeCheckResult {
-            errors: self.errors,
-        }
+    fn signature_by_function(&self, function: hir::Function) -> Idx<Signature> {
+        self.infer_result.signature_by_function[&function]
     }
 
-    fn set_function(&mut self, function_id: hir::Function) {
-        self.current_function = Some(function_id);
-    }
-
-    fn check_function(&mut self, function: hir::Function) {
-        self.set_function(function);
-
-        let block_ast_id = function.ast(self.db).body().unwrap();
+    fn check(mut self) -> Vec<TypeCheckError> {
+        let block_ast_id = self.function.ast(self.db).body().unwrap();
         let body = self
             .hir_file
             .db(self.db)
             .function_body_by_ast_block(block_ast_id)
             .unwrap();
 
-        let signature =
-            &self.infer_result.signatures[self.infer_result.signature_by_function[&function]];
         match body {
             hir::Expr::Block(block) => {
                 for stmt in &block.stmts {
@@ -140,7 +143,9 @@ impl<'a> TypeChecker<'a> {
                 if let Some(tail) = block.tail {
                     self.check_expr(tail);
 
-                    let tail_ty = self.infer_result.type_by_expr[&tail];
+                    let signature = self.signature_by_function(self.function);
+                    let signature = &self.infer_result.signatures[signature];
+                    let tail_ty = self.current_inference().type_by_expr[&tail];
                     if tail_ty != signature.return_type {
                         self.errors.push(TypeCheckError::MismatchedReturnType {
                             expected_ty: signature.return_type,
@@ -153,9 +158,11 @@ impl<'a> TypeChecker<'a> {
             }
             _ => unreachable!(),
         }
+
+        self.errors
     }
 
-    fn check_stmt(&mut self, stmt: &hir::Stmt) {
+    fn check_stmt(&mut self, stmt: &'a hir::Stmt) {
         match stmt {
             hir::Stmt::ExprStmt { expr, .. } => self.check_expr(*expr),
             hir::Stmt::VariableDef { value, .. } => self.check_expr(*value),
@@ -207,7 +214,7 @@ impl<'a> TypeChecker<'a> {
                             }
                             hir::ResolutionStatus::Resolved { path: _, item } => match item {
                                 hir::Item::Function(function) => {
-                                    self.infer_result.signature_by_function[&function]
+                                    self.signature_by_function(function)
                                 }
                                 hir::Item::Module(_) | hir::Item::UseItem(_) => unimplemented!(),
                             },
@@ -273,13 +280,8 @@ impl<'a> TypeChecker<'a> {
                     ResolvedType::Unit
                 };
 
-                let signature = self
-                    .infer_result
-                    .signature_by_function
-                    .get(&self.current_function.unwrap())
-                    .unwrap();
-                let signature = &self.infer_result.signatures[*signature];
-
+                let signature = self.signature_by_function(self.function);
+                let signature = &self.infer_result.signatures[signature];
                 if return_value_ty != signature.return_type {
                     self.errors.push(TypeCheckError::MismatchedReturnType {
                         expected_ty: signature.return_type,
@@ -293,11 +295,19 @@ impl<'a> TypeChecker<'a> {
     }
 
     fn type_by_expr(&mut self, expr: hir::ExprId) -> ResolvedType {
-        let ty = self.infer_result.type_by_expr[&expr];
+        let ty = self.current_inference().type_by_expr[&expr];
         if ty == ResolvedType::Unknown {
             self.errors.push(TypeCheckError::UnresolvedType { expr });
         }
 
         ty
+    }
+
+    /// 現在の関数の推論結果を取得する
+    fn current_inference(&self) -> &InferenceBodyResult {
+        self.infer_result
+            .inference_by_body
+            .get(&self.function)
+            .unwrap()
     }
 }

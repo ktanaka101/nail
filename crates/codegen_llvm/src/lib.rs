@@ -534,11 +534,21 @@ mod tests {
 
         let pods = hir::parse_pods(&db, "/main.nail", &mut source_db);
 
-        let hir_file = pods.pods[0].root_hir_file;
-        let resolution_map = pods.resolution_map;
-        let ty_result = hir_ty::lower(&db, &hir_file, &resolution_map);
-        let mir_result = mir::lower(&db, &hir_file, &resolution_map, &ty_result);
-        (db, hir_file, resolution_map, ty_result, mir_result)
+        let ty_result = hir_ty::lower_pods(&db, &pods);
+
+        let mir_result = mir::lower(
+            &db,
+            &pods.pods[0].root_hir_file,
+            &pods.resolution_map,
+            &ty_result,
+        );
+        (
+            db,
+            pods.pods[0].root_hir_file,
+            pods.resolution_map,
+            ty_result,
+            mir_result,
+        )
     }
 
     fn execute_in_root_file(fixture: &str) -> String {

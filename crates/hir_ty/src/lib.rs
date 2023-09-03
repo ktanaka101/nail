@@ -19,16 +19,14 @@ mod checker;
 mod inference;
 
 pub use checker::{TypeCheckError, TypeCheckResult};
-pub use inference::{InferenceError, InferenceResult, ResolvedType, Signature};
+pub use inference::{
+    InferenceBodyResult, InferenceError, InferenceResult, ResolvedType, Signature,
+};
 
 /// HIRを元にTypedHIRを構築します。
-pub fn lower(
-    db: &dyn hir::HirMasterDatabase,
-    hir_file: &hir::HirFile,
-    resolution_map: &hir::ResolutionMap,
-) -> TyLowerResult {
-    let inference_result = inference::infer(db, hir_file, resolution_map);
-    let type_check_result = checker::check_type(db, hir_file, resolution_map, &inference_result);
+pub fn lower_pods(db: &dyn hir::HirMasterDatabase, pods: &hir::Pods) -> TyLowerResult {
+    let inference_result = inference::infer_pods(db, pods);
+    let type_check_result = checker::check_type_pods(db, pods, &inference_result);
 
     TyLowerResult {
         inference_result,
@@ -37,7 +35,7 @@ pub fn lower(
 }
 
 /// TypedHIRの構築結果です。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct TyLowerResult {
     /// 型推論の結果
     pub inference_result: InferenceResult,
@@ -49,16 +47,6 @@ impl TyLowerResult {
     pub fn signature_by_function(&self, function_id: hir::Function) -> &Signature {
         let signature_idx = self.inference_result.signature_by_function[&function_id];
         &self.inference_result.signatures[signature_idx]
-    }
-
-    /// 指定したパラメータの型を取得します。
-    pub fn type_by_param(&self, param_id: hir::Param) -> ResolvedType {
-        self.inference_result.type_by_param[&param_id]
-    }
-
-    /// 指定した式の型を取得します。
-    pub fn type_by_expr(&self, expr: hir::ExprId) -> ResolvedType {
-        self.inference_result.type_by_expr[&expr]
     }
 }
 
@@ -78,22 +66,23 @@ mod tests {
 
         let pods = hir::parse_pods(&db, "/main.nail", &mut source_db);
 
-        let result = lower(&db, &pods.pods[0].root_hir_file, &pods.resolution_map);
-        expect.assert_eq(&debug(
-            &db,
-            &result.inference_result,
-            &result.type_check_result,
-            &pods.pods[0].root_hir_file,
-        ));
+        let result = lower_pods(&db, &pods);
+
+        let pod = &pods.pods[0];
+        expect.assert_eq(&debug_file(&db, &result, &pod.root_hir_file));
     }
 
-    fn debug(
+    fn debug_file(
         db: &dyn hir::HirMasterDatabase,
-        inference_result: &InferenceResult,
-        check_result: &TypeCheckResult,
+        ty_lower_result: &TyLowerResult,
         hir_file: &hir::HirFile,
     ) -> String {
         let mut msg = "".to_string();
+
+        let TyLowerResult {
+            type_check_result,
+            inference_result,
+        } = ty_lower_result;
 
         for (_, signature) in inference_result.signatures.iter() {
             let params = signature
@@ -110,93 +99,104 @@ mod tests {
 
         msg.push_str("---\n");
 
-        let mut indexes = inference_result.type_by_expr.keys().collect::<Vec<_>>();
-        indexes.sort();
-        for expr_id in indexes {
-            let expr = debug_hir_expr(db, expr_id, hir_file);
-            msg.push_str(&format!(
-                "`{}`: {}\n",
-                expr,
-                debug_type(&inference_result.type_by_expr[expr_id])
-            ));
+        for function in hir_file.functions(db) {
+            let inference_body_result = inference_result.inference_by_body.get(function).unwrap();
+
+            let mut indexes = inference_body_result
+                .type_by_expr
+                .keys()
+                .collect::<Vec<_>>();
+            indexes.sort();
+            for expr_id in indexes {
+                let expr = debug_hir_expr(db, expr_id, hir_file);
+                msg.push_str(&format!(
+                    "`{}`: {}\n",
+                    expr,
+                    debug_type(&inference_body_result.type_by_expr[expr_id])
+                ));
+            }
         }
 
         msg.push_str("---\n");
 
-        for errors in &check_result.errors {
-            match errors {
-                TypeCheckError::UnresolvedType { expr } => {
-                    msg.push_str(&format!(
-                        "error: `{}` is unresolved type.\n",
-                        debug_hir_expr(db, expr, hir_file),
-                    ));
-                }
-                TypeCheckError::MismatchedTypes {
-                    expected_expr,
-                    expected_ty,
-                    found_expr,
-                    found_ty,
-                } => {
-                    msg.push_str(&format!(
-                        "error: expected {}, found {} by `{}` and `{}`\n",
-                        debug_type(expected_ty),
-                        debug_type(found_ty),
-                        debug_hir_expr(db, expected_expr, hir_file),
-                        debug_hir_expr(db, found_expr, hir_file)
-                    ));
-                }
-                TypeCheckError::MismaatchedSignature {
-                    expected_ty,
-                    found_expr,
-                    found_ty,
-                    ..
-                } => msg.push_str(&format!(
-                    "error: expected {}, found {} by `{}`\n",
-                    debug_type(expected_ty),
-                    debug_type(found_ty),
-                    debug_hir_expr(db, found_expr, hir_file)
-                )),
-                TypeCheckError::MismatchedTypeIfCondition {
-                    expected_ty,
-                    found_expr,
-                    found_ty,
-                } => {
-                    msg.push_str(&format!(
-                        "error: expected {}, found {} by `{}`\n",
-                        debug_type(expected_ty),
-                        debug_type(found_ty),
-                        debug_hir_expr(db, found_expr, hir_file)
-                    ));
-                }
-                TypeCheckError::MismatchedTypeElseBranch {
-                    expected_ty,
-                    found_expr,
-                    found_ty,
-                } => {
-                    msg.push_str(&format!(
-                        "error: expected {}, found {} by `{}`\n",
-                        debug_type(expected_ty),
-                        debug_type(found_ty),
-                        debug_hir_expr(db, found_expr, hir_file)
-                    ));
-                }
-                TypeCheckError::MismatchedReturnType {
-                    expected_ty,
-                    found_expr,
-                    found_ty,
-                } => {
-                    msg.push_str(&format!(
-                        "error: expected {}, found {}",
-                        debug_type(expected_ty),
-                        debug_type(found_ty)
-                    ));
-                    if let Some(found_expr) = found_expr {
+        for function in hir_file.functions(db) {
+            let type_check_errors = type_check_result.errors_by_function.get(function).unwrap();
+
+            for error in type_check_errors {
+                match error {
+                    TypeCheckError::UnresolvedType { expr } => {
                         msg.push_str(&format!(
-                            " by `{}`",
+                            "error: `{}` is unresolved type.\n",
+                            debug_hir_expr(db, expr, hir_file),
+                        ));
+                    }
+                    TypeCheckError::MismatchedTypes {
+                        expected_expr,
+                        expected_ty,
+                        found_expr,
+                        found_ty,
+                    } => {
+                        msg.push_str(&format!(
+                            "error: expected {}, found {} by `{}` and `{}`\n",
+                            debug_type(expected_ty),
+                            debug_type(found_ty),
+                            debug_hir_expr(db, expected_expr, hir_file),
                             debug_hir_expr(db, found_expr, hir_file)
                         ));
                     }
-                    msg.push('\n');
+                    TypeCheckError::MismaatchedSignature {
+                        expected_ty,
+                        found_expr,
+                        found_ty,
+                        ..
+                    } => msg.push_str(&format!(
+                        "error: expected {}, found {} by `{}`\n",
+                        debug_type(expected_ty),
+                        debug_type(found_ty),
+                        debug_hir_expr(db, found_expr, hir_file)
+                    )),
+                    TypeCheckError::MismatchedTypeIfCondition {
+                        expected_ty,
+                        found_expr,
+                        found_ty,
+                    } => {
+                        msg.push_str(&format!(
+                            "error: expected {}, found {} by `{}`\n",
+                            debug_type(expected_ty),
+                            debug_type(found_ty),
+                            debug_hir_expr(db, found_expr, hir_file)
+                        ));
+                    }
+                    TypeCheckError::MismatchedTypeElseBranch {
+                        expected_ty,
+                        found_expr,
+                        found_ty,
+                    } => {
+                        msg.push_str(&format!(
+                            "error: expected {}, found {} by `{}`\n",
+                            debug_type(expected_ty),
+                            debug_type(found_ty),
+                            debug_hir_expr(db, found_expr, hir_file)
+                        ));
+                    }
+                    TypeCheckError::MismatchedReturnType {
+                        expected_ty,
+                        found_expr,
+                        found_ty,
+                    } => {
+                        msg.push_str(&format!(
+                            "error: expected {}, found {}",
+                            debug_type(expected_ty),
+                            debug_type(found_ty)
+                        ));
+                        if let Some(found_expr) = found_expr {
+                            msg.push_str(&format!(
+                                " by `{}`",
+                                debug_hir_expr(db, found_expr, hir_file)
+                            ));
+                        }
+                        msg.push('\n');
+                    }
                 }
             }
         }
@@ -961,15 +961,15 @@ mod tests {
                 fn() -> ()
                 fn(bool, string) -> int
                 ---
-                `10`: int
-                `20`: int
-                `10 + 20`: int
                 `true`: bool
                 `"aaa"`: string
                 `aaa(true, "aaa")`: int
                 `res`: int
                 `30`: int
                 `res + 30`: int
+                `10`: int
+                `20`: int
+                `10 + 20`: int
                 ---
                 error: expected (), found int by `res + 30`
             "#]],
@@ -991,12 +991,12 @@ mod tests {
                 fn() -> ()
                 fn(bool, string) -> int
                 ---
-                `10`: int
-                `20`: int
-                `10 + 20`: int
                 `"aaa"`: string
                 `true`: bool
                 `aaa("aaa", true)`: int
+                `10`: int
+                `20`: int
+                `10 + 20`: int
                 ---
                 error: expected bool, found string by `"aaa"`
                 error: expected string, found bool by `true`
@@ -1341,8 +1341,8 @@ mod tests {
                 fn() -> int
                 ---
                 `return`: !
-                `"aaa"`: string
                 `true`: bool
+                `"aaa"`: string
                 `30`: int
                 ---
             "#]],

@@ -2,28 +2,77 @@ use std::collections::HashMap;
 
 use la_arena::{Arena, Idx};
 
-pub fn infer(
-    db: &dyn hir::HirMasterDatabase,
-    hir_file: &hir::HirFile,
-    resolution_map: &hir::ResolutionMap,
-) -> InferenceResult {
-    let inferencer = TypeInferencer::new(db, hir_file, resolution_map);
-    inferencer.infer()
+pub fn infer_pods(db: &dyn hir::HirMasterDatabase, pods: &hir::Pods) -> InferenceResult {
+    // TODO: 全てのPodを走査する
+    let pod = &pods.pods[0];
+
+    // 依存関係を気にしなくていいようにシグネチャを先に解決しておく
+    let mut signatures = Arena::<Signature>::new();
+    let mut signature_by_function = HashMap::<hir::Function, Idx<Signature>>::new();
+
+    let functions = pod.all_functions(db);
+    for (hir_file, function) in functions.clone() {
+        let mut params = vec![];
+        for param in function.params(db) {
+            let ty = infer_ty(&param.data(hir_file.db(db)).ty);
+            params.push(ty);
+        }
+
+        let signature = Signature {
+            params,
+            return_type: infer_ty(&function.return_type(db)),
+        };
+        let signature_idx = signatures.alloc(signature);
+        signature_by_function.insert(function, signature_idx);
+    }
+
+    // 各関数内を型推論する
+    let mut inference_by_body = HashMap::<hir::Function, InferenceBodyResult>::new();
+    for (hir_file, function) in functions {
+        let type_inferencer = TypeInferencer::new(db, hir_file, &pods.resolution_map, function);
+        let inference_result = type_inferencer.infer();
+        inference_by_body.insert(function, inference_result);
+    }
+
+    InferenceResult {
+        inference_by_body,
+        signatures,
+        signature_by_function,
+    }
+}
+
+fn infer_ty(ty: &hir::Type) -> ResolvedType {
+    match ty {
+        hir::Type::Unknown => ResolvedType::Unknown,
+        hir::Type::Integer => ResolvedType::Integer,
+        hir::Type::String => ResolvedType::String,
+        hir::Type::Char => ResolvedType::Char,
+        hir::Type::Boolean => ResolvedType::Bool,
+        hir::Type::Unit => ResolvedType::Unit,
+    }
 }
 
 /// 型推論の結果
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct InferenceResult {
-    /// 式に対応する型
+///
+/// 関数の引数と戻り値は必ず確定しているため、それより広い範囲で型推論を行う必要はありません。
+/// そのため、関数単位に結果を持ちます。
+#[derive(Debug)]
+pub struct InferenceBodyResult {
+    /// 関数内の式に対応する型
     pub type_by_expr: HashMap<hir::ExprId, ResolvedType>,
-    /// パラメータに対応する型
-    pub type_by_param: HashMap<hir::Param, ResolvedType>,
+    /// 型推論中に発生したエラー
+    pub errors: Vec<InferenceError>,
+}
+
+/// 型推論の結果
+#[derive(Debug)]
+pub struct InferenceResult {
+    /// 関数に対応する型推論結果
+    pub inference_by_body: HashMap<hir::Function, InferenceBodyResult>,
     /// 関数シグネチャ一覧
     pub signatures: Arena<Signature>,
     /// 関数に対応するシグネチャ
     pub signature_by_function: HashMap<hir::Function, Idx<Signature>>,
-    /// 型推論中に発生したエラー
-    pub errors: Vec<InferenceError>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -89,73 +138,42 @@ pub struct Signature {
 /// 型推論器
 struct TypeInferencer<'a> {
     db: &'a dyn hir::HirMasterDatabase,
-    hir_file: &'a hir::HirFile,
+    hir_file: hir::HirFile,
     resolution_map: &'a hir::ResolutionMap,
     ctx: InferenceContext,
+    function: hir::Function,
 }
 impl<'a> TypeInferencer<'a> {
     fn new(
         db: &'a dyn hir::HirMasterDatabase,
-        hir_file: &'a hir::HirFile,
+        hir_file: hir::HirFile,
         symbol_table: &'a hir::ResolutionMap,
+        function: hir::Function,
     ) -> Self {
         Self {
             db,
             hir_file,
             resolution_map: symbol_table,
             ctx: InferenceContext::new(),
+            function,
         }
     }
 
-    fn infer(mut self) -> InferenceResult {
-        for function in self.hir_file.functions(self.db) {
-            let mut params = vec![];
-            for param in function.params(self.db) {
-                let ty = self.infer_ty(&param.data(self.hir_file.db(self.db)).ty);
-                params.push(ty);
-                self.ctx.type_by_param.insert(*param, ty);
-            }
+    fn infer(mut self) -> InferenceBodyResult {
+        let body_ast_id = self.function.ast(self.db).body().unwrap();
+        let body = self
+            .hir_file
+            .db(self.db)
+            .function_body_by_ast_block(body_ast_id)
+            .unwrap();
+        match body {
+            hir::Expr::Block(block) => self.infer_block(block),
+            _ => unreachable!(),
+        };
 
-            let signature = Signature {
-                params,
-                return_type: self.infer_ty(&function.return_type(self.db)),
-            };
-            let signature_idx = self.ctx.signatures.alloc(signature);
-            self.ctx
-                .signature_by_function
-                .insert(*function, signature_idx);
-        }
-
-        for function in self.hir_file.functions(self.db) {
-            let body_ast_id = function.ast(self.db).body().unwrap();
-            let body = self
-                .hir_file
-                .db(self.db)
-                .function_body_by_ast_block(body_ast_id)
-                .unwrap();
-            match body {
-                hir::Expr::Block(block) => self.infer_block(block),
-                _ => unreachable!(),
-            };
-        }
-
-        InferenceResult {
+        InferenceBodyResult {
             type_by_expr: self.ctx.type_by_expr,
-            type_by_param: self.ctx.type_by_param,
-            signatures: self.ctx.signatures,
-            signature_by_function: self.ctx.signature_by_function,
             errors: self.ctx.errors,
-        }
-    }
-
-    fn infer_ty(&self, ty: &hir::Type) -> ResolvedType {
-        match ty {
-            hir::Type::Unknown => ResolvedType::Unknown,
-            hir::Type::Integer => ResolvedType::Integer,
-            hir::Type::String => ResolvedType::String,
-            hir::Type::Char => ResolvedType::Char,
-            hir::Type::Boolean => ResolvedType::Bool,
-            hir::Type::Unit => ResolvedType::Unit,
         }
     }
 
@@ -180,7 +198,7 @@ impl<'a> TypeInferencer<'a> {
             hir::Expr::Symbol(symbol) => match symbol {
                 hir::Symbol::Local { expr, .. } => self.infer_expr_id(*expr),
                 hir::Symbol::Param { param, .. } => {
-                    self.infer_ty(&param.data(self.hir_file.db(self.db)).ty)
+                    infer_ty(&param.data(self.hir_file.db(self.db)).ty)
                 }
                 // TODO: supports function, name resolution
                 hir::Symbol::Missing { path: _ } => ResolvedType::Unknown,
@@ -265,8 +283,7 @@ impl<'a> TypeInferencer<'a> {
                                 let param = function.params(self.db)[i];
 
                                 let arg_ty = self.infer_expr_id(*arg);
-                                let param_ty =
-                                    self.infer_ty(&param.data(self.hir_file.db(self.db)).ty);
+                                let param_ty = infer_ty(&param.data(self.hir_file.db(self.db)).ty);
 
                                 if arg_ty == param_ty {
                                     continue;
@@ -281,7 +298,7 @@ impl<'a> TypeInferencer<'a> {
                                 }
                             }
 
-                            self.infer_ty(&function.return_type(self.db))
+                            infer_ty(&function.return_type(self.db))
                         }
                         hir::Item::Module(_) => unimplemented!(),
                         hir::Item::UseItem(_) => unimplemented!(),

@@ -55,10 +55,11 @@ fn lower(
     let mut source_db = hir::SourceDatabase::new(&db, filepath.into());
 
     let pods = hir::parse_pods(&db, filepath, &mut source_db);
+    let ty_result = hir_ty::lower_pods(&db, &pods);
+
     let hir_file = pods.pods[0].root_hir_file;
     let resolution_map = pods.resolution_map;
 
-    let ty_result = hir_ty::lower(&db, &hir_file, &resolution_map);
     let mir_result = mir::lower(&db, &hir_file, &resolution_map, &ty_result);
     (db, hir_file, ty_result, mir_result)
 }

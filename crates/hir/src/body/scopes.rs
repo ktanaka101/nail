@@ -59,11 +59,6 @@ impl ExprScopes {
         self.inner.last_mut().unwrap().table.insert(name, value);
     }
 
-    #[must_use]
-    pub(crate) fn current_scope(&self) -> &ScopeType {
-        &self.inner.last().unwrap().scope_type
-    }
-
     pub(crate) fn enter(&mut self, block: ast::BlockExpr) {
         self.inner.push(ExprScope::sub_level(block));
     }
@@ -78,14 +73,14 @@ impl ExprScopes {
 #[derive(Debug)]
 struct ExprScope {
     table: HashMap<Name, ExprId>,
-    scope_type: ScopeType,
+    _scope_type: ScopeType,
 }
 impl ExprScope {
     #[must_use]
     fn top_level() -> Self {
         Self {
             table: HashMap::new(),
-            scope_type: ScopeType::TopLevel,
+            _scope_type: ScopeType::TopLevel,
         }
     }
 
@@ -93,7 +88,7 @@ impl ExprScope {
     fn sub_level(block: ast::BlockExpr) -> Self {
         Self {
             table: HashMap::new(),
-            scope_type: ScopeType::SubLevel(block),
+            _scope_type: ScopeType::SubLevel(block),
         }
     }
 }

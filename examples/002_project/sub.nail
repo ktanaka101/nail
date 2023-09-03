@@ -1,0 +1,3 @@
+fn build_string() -> string {
+  "Hello, sub module."
+}

@@ -35,8 +35,8 @@ mod testing;
 use std::collections::HashMap;
 
 use ast::AstNode;
-pub use body::{BodyLower, ExprId, FunctionBodyId, HirFileContext};
-pub use db::{HirDatabase, Jar};
+pub use body::{BodyLower, ExprId, FunctionBodyId, HirFileDatabase};
+pub use db::{HirMasterDatabase, Jar};
 pub use input::{FixtureDatabase, NailFile, SourceDatabase, SourceDatabaseTrait};
 pub use item::{Function, Item, Module, ModuleKind, Param, Type, UseItem};
 use name_resolver::resolve_symbols;
@@ -105,7 +105,7 @@ impl Pod {
 
 /// ルートファイルをパースし、Pod全体を構築します。
 pub fn parse_pods(
-    db: &dyn HirDatabase,
+    db: &dyn HirMasterDatabase,
     path: &str,
     source_db: &mut dyn SourceDatabaseTrait,
 ) -> Pods {
@@ -119,7 +119,11 @@ pub fn parse_pods(
 }
 
 /// ルートファイル、サブファイルをパースし、Podを構築します。
-fn parse_pod(db: &dyn HirDatabase, path: &str, source_db: &mut dyn SourceDatabaseTrait) -> Pod {
+fn parse_pod(
+    db: &dyn HirMasterDatabase,
+    path: &str,
+    source_db: &mut dyn SourceDatabaseTrait,
+) -> Pod {
     let mut hir_file_by_nail_file = HashMap::new();
     let mut hir_file_by_module = HashMap::new();
     let mut registration_order = vec![];
@@ -157,7 +161,7 @@ fn parse_pod(db: &dyn HirDatabase, path: &str, source_db: &mut dyn SourceDatabas
 /// サブモジュールをパースします
 /// `root_file_path`はルートファイルのファイルパスまで込みのパスを指定します。(`/main.nail`)
 fn parse_sub_module(
-    db: &dyn HirDatabase,
+    db: &dyn HirMasterDatabase,
     sub_module_name: &str,
     root_file_path: &std::path::Path,
     source_db: &mut dyn SourceDatabaseTrait,
@@ -190,7 +194,7 @@ pub struct HirFile {
     ///
     /// 1ファイル内のコンテキストです。
     #[return_ref]
-    pub hir_file_ctx: HirFileContext,
+    pub db: HirFileDatabase,
     /// トップレベルのアイテム一覧
     #[return_ref]
     pub top_level_items: Vec<Item>,
@@ -204,21 +208,21 @@ impl HirFile {
     /// 関数IDから関数ボディを取得します。
     pub fn function_body_by_function<'a>(
         &self,
-        db: &'a dyn HirDatabase,
+        db: &'a dyn HirMasterDatabase,
         function: Function,
     ) -> Option<&'a Expr> {
-        self.hir_file_ctx(db)
+        self.db(db)
             .function_body_by_ast_block(function.ast(db).body()?)
     }
 
     /// ファイル内の関数一覧を返します。
-    pub fn functions<'a>(&self, db: &'a dyn HirDatabase) -> &'a [Function] {
-        self.hir_file_ctx(db).functions()
+    pub fn functions<'a>(&self, db: &'a dyn HirMasterDatabase) -> &'a [Function] {
+        self.db(db).functions()
     }
 
     /// ファイル内のモジュール一覧を返します。
-    pub fn modules<'a>(&self, db: &'a dyn HirDatabase) -> &'a [Module] {
-        self.hir_file_ctx(db).modules()
+    pub fn modules<'a>(&self, db: &'a dyn HirMasterDatabase) -> &'a [Module] {
+        self.db(db).modules()
     }
 }
 
@@ -234,7 +238,7 @@ pub struct AstSourceFile {
 
 /// ファイルを元にASTを構築します。
 #[salsa::tracked]
-pub fn parse_to_ast(db: &dyn HirDatabase, nail_file: NailFile) -> AstSourceFile {
+pub fn parse_to_ast(db: &dyn HirMasterDatabase, nail_file: NailFile) -> AstSourceFile {
     let ast = parser::parse(nail_file.contents(db));
     let ast_source_file = ast::SourceFile::cast(ast.syntax()).unwrap();
     AstSourceFile::new(db, nail_file, ast_source_file)
@@ -242,13 +246,13 @@ pub fn parse_to_ast(db: &dyn HirDatabase, nail_file: NailFile) -> AstSourceFile 
 
 /// ASTを元に[HirFile]を構築します。
 #[salsa::tracked]
-fn build_hir_file(db: &dyn HirDatabase, ast_source: AstSourceFile) -> HirFile {
+fn build_hir_file(db: &dyn HirMasterDatabase, ast_source: AstSourceFile) -> HirFile {
     let file = ast_source.file(db);
     let source_file = ast_source.source(db);
 
-    let mut hir_file_context = HirFileContext::new();
+    let mut hir_file_db = HirFileDatabase::new();
 
-    let mut root_file_body = BodyLower::new(file, HashMap::new(), &mut hir_file_context);
+    let mut root_file_body = BodyLower::new(file, HashMap::new(), &mut hir_file_db);
     let top_level_items = source_file
         .items()
         .filter_map(|item| root_file_body.lower_toplevel(db, item))
@@ -265,21 +269,14 @@ fn build_hir_file(db: &dyn HirDatabase, ast_source: AstSourceFile) -> HirFile {
         (vec![], None)
     };
 
-    HirFile::new(
-        db,
-        file,
-        hir_file_context,
-        top_level_items,
-        entry_point,
-        errors,
-    )
+    HirFile::new(db, file, hir_file_db, top_level_items, entry_point, errors)
 }
 
 /// トップレベルのアイテムからエントリポイントを取得します。
 ///
 /// エントリポイントが見つからない場合は`None`を返します。
 /// エントリポイントが複数存在する場合は、最初に見つかったものを返します。
-fn get_entry_point(db: &dyn HirDatabase, top_level_items: &[Item]) -> Option<Function> {
+fn get_entry_point(db: &dyn HirMasterDatabase, top_level_items: &[Item]) -> Option<Function> {
     for item in top_level_items {
         match item {
             Item::Function(function) => {
@@ -502,7 +499,7 @@ impl Block {
     ///   let a = 10;
     /// } // None
     /// ```
-    pub fn tail<'a>(&self, ctx: &'a HirFileContext) -> Option<&'a Expr> {
+    pub fn tail<'a>(&self, ctx: &'a HirFileDatabase) -> Option<&'a Expr> {
         if let Some(tail) = self.tail {
             Some(tail.lookup(ctx))
         } else {

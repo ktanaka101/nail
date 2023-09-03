@@ -19,8 +19,8 @@ const INTERNAL_ENTRY_POINT: &str = "__main__";
 
 /// LLVM IR生成用のコンテキストです。
 pub struct CodegenContext<'a, 'ctx> {
-    pub db: &'a dyn hir::HirDatabase,
-    pub hir_result: &'a hir::HirFile,
+    pub db: &'a dyn hir::HirMasterDatabase,
+    pub hir_file: &'a hir::HirFile,
     pub mir_result: &'a mir::LowerResult,
 
     pub context: &'ctx Context,
@@ -35,7 +35,7 @@ pub fn codegen<'a, 'ctx>(
     should_return_string: bool,
 ) -> CodegenResult<'ctx> {
     let codegen = Codegen::new(
-        codegen_context.hir_result,
+        codegen_context.hir_file,
         codegen_context.mir_result,
         codegen_context.context,
         codegen_context.module,
@@ -333,7 +333,7 @@ struct Codegen<'a, 'ctx> {
 
 impl<'a, 'ctx> Codegen<'a, 'ctx> {
     fn new(
-        hir_result: &'a hir::HirFile,
+        hir_file: &'a hir::HirFile,
         mir_result: &'a mir::LowerResult,
         context: &'ctx Context,
         module: &'a Module<'ctx>,
@@ -341,7 +341,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         execution_engine: &'a ExecutionEngine<'ctx>,
     ) -> Self {
         let mut codegen = Self {
-            _hir_result: hir_result,
+            _hir_result: hir_file,
             mir_result,
             context,
             module,
@@ -361,7 +361,11 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         self.builder.position_at_end(*entry_block);
     }
 
-    fn gen(mut self, db: &dyn hir::HirDatabase, should_return_string: bool) -> CodegenResult<'ctx> {
+    fn gen(
+        mut self,
+        db: &dyn hir::HirMasterDatabase,
+        should_return_string: bool,
+    ) -> CodegenResult<'ctx> {
         if self.mir_result.entry_point().is_none() {
             unimplemented!();
         }
@@ -431,7 +435,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             .collect::<Vec<_>>()
     }
 
-    fn lookup_name(&self, db: &'a dyn hir::HirDatabase, name: &hir::Name) -> &'a str {
+    fn lookup_name(&self, db: &'a dyn hir::HirMasterDatabase, name: &hir::Name) -> &'a str {
         name.text(db)
     }
 
@@ -457,7 +461,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             .as_pointer_value()
     }
 
-    fn gen_function_signatures(&mut self, db: &dyn hir::HirDatabase) {
+    fn gen_function_signatures(&mut self, db: &dyn hir::HirMasterDatabase) {
         for (idx, body) in self.mir_result.ref_bodies() {
             let params = self.body_to_params(body);
             let return_type = body.locals[body.return_local].ty;
@@ -530,18 +534,18 @@ mod tests {
 
         let pods = hir::parse_pods(&db, "/main.nail", &mut source_db);
 
-        let hir_result = pods.pods[0].root_hir_file;
+        let hir_file = pods.pods[0].root_hir_file;
         let resolution_map = pods.resolution_map;
-        let ty_result = hir_ty::lower(&db, &hir_result, &resolution_map);
-        let mir_result = mir::lower(&db, &hir_result, &resolution_map, &ty_result);
-        (db, hir_result, resolution_map, ty_result, mir_result)
+        let ty_result = hir_ty::lower(&db, &hir_file, &resolution_map);
+        let mir_result = mir::lower(&db, &hir_file, &resolution_map, &ty_result);
+        (db, hir_file, resolution_map, ty_result, mir_result)
     }
 
     fn execute_in_root_file(fixture: &str) -> String {
         let mut fixture = fixture.to_string();
         fixture.insert_str(0, "//- /main.nail\n");
 
-        let (db, hir_result, _resolution_map, _ty_result, mir_result) = lower(&fixture);
+        let (db, hir_file, _resolution_map, _ty_result, mir_result) = lower(&fixture);
 
         let context = Context::create();
         let module = context.create_module("top");
@@ -552,7 +556,7 @@ mod tests {
         let result = codegen(
             &CodegenContext {
                 db: &db,
-                hir_result: &hir_result,
+                hir_file: &hir_file,
                 mir_result: &mir_result,
                 context: &context,
                 module: &module,
@@ -575,7 +579,7 @@ mod tests {
         let mut fixture = fixture.to_string();
         fixture.insert_str(0, "//- /main.nail\n");
 
-        let (db, hir_result, _resolution_map, _ty_result, mir_result) = lower(&fixture);
+        let (db, hir_file, _resolution_map, _ty_result, mir_result) = lower(&fixture);
 
         let context = Context::create();
         let module = context.create_module("top");
@@ -586,7 +590,7 @@ mod tests {
         codegen(
             &CodegenContext {
                 db: &db,
-                hir_result: &hir_result,
+                hir_file: &hir_file,
                 mir_result: &mir_result,
                 context: &context,
                 module: &module,

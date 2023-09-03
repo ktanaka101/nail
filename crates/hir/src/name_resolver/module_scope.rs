@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use la_arena::{Arena, Idx};
 
 use crate::{
-    Expr, ExprId, Function, HirDatabase, HirFile, Item, Module, Name, Path, Pod, Stmt, Symbol,
-    UseItem,
+    Expr, ExprId, Function, HirFile, HirMasterDatabase, Item, Module, Name, Path, Pod, Stmt,
+    Symbol, UseItem,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -59,7 +59,7 @@ pub enum ModuleScopeOrigin {
 impl ModuleScope {
     /// ルートスコープを作成します。
     /// ルートスコープはPod内のルートを表します。
-    fn root(db: &dyn HirDatabase, name: Name) -> Self {
+    fn root(db: &dyn HirMasterDatabase, name: Name) -> Self {
         Self {
             path: Path::new(db, vec![]),
             kind: ModuleScopeKind::TopLevel,
@@ -304,11 +304,11 @@ pub(crate) struct ModuleScopesBuilder<'a> {
 
     path_map: PathMap,
 
-    db: &'a dyn HirDatabase,
+    db: &'a dyn HirMasterDatabase,
     pod: &'a Pod,
 }
 impl<'a> ModuleScopesBuilder<'a> {
-    pub(crate) fn new(db: &'a dyn HirDatabase, pod: &'a Pod) -> Self {
+    pub(crate) fn new(db: &'a dyn HirMasterDatabase, pod: &'a Pod) -> Self {
         Self {
             storage: ModuleScopeStorage::new(),
             ref_map: RefMap::new(),
@@ -396,7 +396,7 @@ impl<'a> ModuleScopesBuilder<'a> {
         );
 
         let Expr::Block(function_body) = hir_file
-            .hir_file_ctx(self.db)
+            .db(self.db)
             .function_body_by_ast_block(function.ast(self.db).body().unwrap())
             .unwrap() else { panic!("No Block") };
 
@@ -423,7 +423,7 @@ impl<'a> ModuleScopesBuilder<'a> {
     }
 
     fn build_expr(&mut self, hir_file: HirFile, current_scope_idx: ModuleScopeIdx, expr: ExprId) {
-        match expr.lookup(hir_file.hir_file_ctx(self.db)) {
+        match expr.lookup(hir_file.db(self.db)) {
             Expr::Literal(_) | Expr::Missing => (),
             Expr::Symbol(symbol) => {
                 self.register_symbol(current_scope_idx, symbol.clone());
@@ -466,7 +466,7 @@ impl<'a> ModuleScopesBuilder<'a> {
     fn build_block(&mut self, hir_file: HirFile, current_scope_idx: ModuleScopeIdx, block: ExprId) {
         let current_scope_idx = self.create_scope_on_block(current_scope_idx, block);
 
-        let Expr::Block(block) = block.lookup(hir_file.hir_file_ctx(self.db)) else { panic!("Should be block") };
+        let Expr::Block(block) = block.lookup(hir_file.db(self.db)) else { panic!("Should be block") };
 
         for stmt in &block.stmts {
             self.build_stmt(hir_file, current_scope_idx, stmt);
@@ -482,7 +482,7 @@ impl<'a> ModuleScopesBuilder<'a> {
     /// モジュールには名前があるため、現在のスコープに子スコープとしても参照を保存します。
     fn crete_scope_on_module(
         &mut self,
-        db: &dyn HirDatabase,
+        db: &dyn HirMasterDatabase,
         current_scope_idx: ModuleScopeIdx,
         module: Module,
     ) -> ModuleScopeIdx {
@@ -508,7 +508,7 @@ impl<'a> ModuleScopesBuilder<'a> {
     /// 関数には名前があるため、現在のスコープに子スコープとしても参照を保存します。
     fn create_scope_on_function(
         &mut self,
-        db: &dyn HirDatabase,
+        db: &dyn HirMasterDatabase,
         current_scope_idx: ModuleScopeIdx,
         function: Function,
     ) -> ModuleScopeIdx {

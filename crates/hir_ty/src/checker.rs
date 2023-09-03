@@ -1,13 +1,13 @@
 use crate::inference::{InferenceResult, ResolvedType, Signature};
 
 pub fn check_type(
-    db: &dyn hir::HirDatabase,
+    db: &dyn hir::HirMasterDatabase,
     hir_file: &hir::HirFile,
     resolution_map: &hir::ResolutionMap,
     infer_result: &InferenceResult,
 ) -> TypeCheckResult {
-    let type_checker = TypeChecker::new(hir_file, resolution_map, infer_result);
-    type_checker.check(db)
+    let type_checker = TypeChecker::new(db, hir_file, resolution_map, infer_result);
+    type_checker.check()
 }
 
 /// 型チェックのエラー
@@ -81,6 +81,7 @@ pub struct TypeCheckResult {
 }
 
 struct TypeChecker<'a> {
+    db: &'a dyn hir::HirMasterDatabase,
     hir_file: &'a hir::HirFile,
     resolution_map: &'a hir::ResolutionMap,
     infer_result: &'a InferenceResult,
@@ -90,11 +91,13 @@ struct TypeChecker<'a> {
 
 impl<'a> TypeChecker<'a> {
     fn new(
+        db: &'a dyn hir::HirMasterDatabase,
         hir_file: &'a hir::HirFile,
         resolution_map: &'a hir::ResolutionMap,
         infer_result: &'a InferenceResult,
     ) -> Self {
         Self {
+            db,
             hir_file,
             resolution_map,
             infer_result,
@@ -103,9 +106,9 @@ impl<'a> TypeChecker<'a> {
         }
     }
 
-    fn check(mut self, db: &dyn hir::HirDatabase) -> TypeCheckResult {
-        for function in self.hir_file.functions(db) {
-            self.check_function(db, *function);
+    fn check(mut self) -> TypeCheckResult {
+        for function in self.hir_file.functions(self.db) {
+            self.check_function(*function);
         }
 
         TypeCheckResult {
@@ -117,13 +120,13 @@ impl<'a> TypeChecker<'a> {
         self.current_function = Some(function_id);
     }
 
-    fn check_function(&mut self, db: &dyn hir::HirDatabase, function: hir::Function) {
+    fn check_function(&mut self, function: hir::Function) {
         self.set_function(function);
 
-        let block_ast_id = function.ast(db).body().unwrap();
+        let block_ast_id = function.ast(self.db).body().unwrap();
         let body = self
             .hir_file
-            .hir_file_ctx(db)
+            .db(self.db)
             .function_body_by_ast_block(block_ast_id)
             .unwrap();
 
@@ -132,10 +135,10 @@ impl<'a> TypeChecker<'a> {
         match body {
             hir::Expr::Block(block) => {
                 for stmt in &block.stmts {
-                    self.check_stmt(db, stmt);
+                    self.check_stmt(stmt);
                 }
                 if let Some(tail) = block.tail {
-                    self.check_expr(db, tail);
+                    self.check_expr(tail);
 
                     let tail_ty = self.infer_result.type_by_expr[&tail];
                     if tail_ty != signature.return_type {
@@ -152,16 +155,16 @@ impl<'a> TypeChecker<'a> {
         }
     }
 
-    fn check_stmt(&mut self, db: &dyn hir::HirDatabase, stmt: &hir::Stmt) {
+    fn check_stmt(&mut self, stmt: &hir::Stmt) {
         match stmt {
-            hir::Stmt::ExprStmt { expr, .. } => self.check_expr(db, *expr),
-            hir::Stmt::VariableDef { value, .. } => self.check_expr(db, *value),
+            hir::Stmt::ExprStmt { expr, .. } => self.check_expr(*expr),
+            hir::Stmt::VariableDef { value, .. } => self.check_expr(*value),
             hir::Stmt::Item { .. } => (),
         }
     }
 
-    fn check_expr(&mut self, db: &dyn hir::HirDatabase, expr: hir::ExprId) {
-        let expr = expr.lookup(self.hir_file.hir_file_ctx(db));
+    fn check_expr(&mut self, expr: hir::ExprId) {
+        let expr = expr.lookup(self.hir_file.db(self.db));
         match expr {
             hir::Expr::Symbol(_) => (),
             hir::Expr::Binary { lhs, rhs, .. } => {
@@ -187,10 +190,10 @@ impl<'a> TypeChecker<'a> {
             hir::Expr::Literal(_) => (),
             hir::Expr::Block(block) => {
                 for stmt in &block.stmts {
-                    self.check_stmt(db, stmt);
+                    self.check_stmt(stmt);
                 }
                 if let Some(tail) = block.tail {
-                    self.check_expr(db, tail);
+                    self.check_expr(tail);
                 }
             }
             hir::Expr::Call { callee, args } => {

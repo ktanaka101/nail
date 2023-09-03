@@ -24,10 +24,12 @@ use std::collections::HashMap;
 pub use module_scope::{ModuleScope, ModuleScopeOrigin, SymbolInScopeOrigin};
 
 use self::module_scope::{ModuleScopes, ModuleScopesBuilder, NameResolutionCollection, PathMap};
-use crate::{Function, HirDatabase, Item, Name, NameSolutionPath, Path, Pod, Symbol, UseItem};
+use crate::{
+    Function, HirMasterDatabase, Item, Name, NameSolutionPath, Path, Pod, Symbol, UseItem,
+};
 
 /// 名前解決を行います。
-pub(crate) fn resolve_symbols(db: &dyn HirDatabase, pod: &Pod) -> ResolutionMap {
+pub(crate) fn resolve_symbols(db: &dyn HirMasterDatabase, pod: &Pod) -> ResolutionMap {
     let module_scope_builder = ModuleScopesBuilder::new(db, pod);
     let (module_scopes, name_resolution_collection, path_map) = module_scope_builder.build();
 
@@ -118,7 +120,7 @@ struct NameResolver<'a> {
     module_scopes: &'a ModuleScopes,
     name_resolution_collection: &'a NameResolutionCollection,
 
-    db: &'a dyn HirDatabase,
+    db: &'a dyn HirMasterDatabase,
 
     symbol_table: SymbolTable,
 }
@@ -127,7 +129,7 @@ impl<'a> NameResolver<'a> {
     fn new(
         module_scopes: &'a ModuleScopes,
         name_resolution_collection: &'a NameResolutionCollection,
-        db: &'a dyn HirDatabase,
+        db: &'a dyn HirMasterDatabase,
     ) -> Self {
         Self {
             module_scopes,

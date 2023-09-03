@@ -55,12 +55,12 @@ fn lower(
     let mut source_db = hir::SourceDatabase::new(&db, filepath.into());
 
     let pods = hir::parse_pods(&db, filepath, &mut source_db);
-    let hir_result = pods.pods[0].root_hir_file;
+    let hir_file = pods.pods[0].root_hir_file;
     let resolution_map = pods.resolution_map;
 
-    let ty_result = hir_ty::lower(&db, &hir_result, &resolution_map);
-    let mir_result = mir::lower(&db, &hir_result, &resolution_map, &ty_result);
-    (db, hir_result, ty_result, mir_result)
+    let ty_result = hir_ty::lower(&db, &hir_file, &resolution_map);
+    let mir_result = mir::lower(&db, &hir_file, &resolution_map, &ty_result);
+    (db, hir_file, ty_result, mir_result)
 }
 
 fn execute(filepath: &str) -> Result<String> {
@@ -71,12 +71,12 @@ fn execute(filepath: &str) -> Result<String> {
         .create_jit_execution_engine(OptimizationLevel::None)
         .unwrap();
 
-    let (db, hir_result, _ty_hir_result, mir_result) = lower(filepath);
+    let (db, hir_file, _ty_hir_result, mir_result) = lower(filepath);
 
     let codegen_result = codegen_llvm::codegen(
         &CodegenContext {
             db: &db,
-            hir_result: &hir_result,
+            hir_file: &hir_file,
             mir_result: &mir_result,
             context: &context,
             module: &module,

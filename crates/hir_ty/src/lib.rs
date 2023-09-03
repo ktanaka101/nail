@@ -23,7 +23,7 @@ pub use inference::{InferenceError, InferenceResult, ResolvedType, Signature};
 
 /// HIRを元にTypedHIRを構築します。
 pub fn lower(
-    db: &dyn hir::HirDatabase,
+    db: &dyn hir::HirMasterDatabase,
     hir_file: &hir::HirFile,
     resolution_map: &hir::ResolutionMap,
 ) -> TyLowerResult {
@@ -88,7 +88,7 @@ mod tests {
     }
 
     fn debug(
-        db: &dyn hir::HirDatabase,
+        db: &dyn hir::HirMasterDatabase,
         inference_result: &InferenceResult,
         check_result: &TypeCheckResult,
         hir_file: &hir::HirFile,
@@ -205,11 +205,11 @@ mod tests {
     }
 
     fn debug_hir_expr(
-        db: &dyn hir::HirDatabase,
+        db: &dyn hir::HirMasterDatabase,
         expr_id: &hir::ExprId,
         hir_file: &hir::HirFile,
     ) -> String {
-        let expr = expr_id.lookup(hir_file.hir_file_ctx(db));
+        let expr = expr_id.lookup(hir_file.db(db));
         match expr {
             hir::Expr::Symbol(symbol) => match symbol {
                 hir::Symbol::Param { name, .. } => debug_name(db, *name),
@@ -294,7 +294,7 @@ mod tests {
         }
     }
 
-    fn debug_symbol(db: &dyn hir::HirDatabase, symbol: &Symbol) -> String {
+    fn debug_symbol(db: &dyn hir::HirMasterDatabase, symbol: &Symbol) -> String {
         match symbol {
             hir::Symbol::Param { name, .. } => debug_name(db, *name),
             hir::Symbol::Local { name, .. } => debug_name(db, *name),
@@ -302,11 +302,11 @@ mod tests {
         }
     }
 
-    fn debug_name(db: &dyn hir::HirDatabase, name: Name) -> String {
+    fn debug_name(db: &dyn hir::HirMasterDatabase, name: Name) -> String {
         name.text(db).to_string()
     }
 
-    fn debug_path(db: &dyn hir::HirDatabase, path: &Path) -> String {
+    fn debug_path(db: &dyn hir::HirMasterDatabase, path: &Path) -> String {
         path.segments(db)
             .iter()
             .map(|segment| segment.text(db).to_string())

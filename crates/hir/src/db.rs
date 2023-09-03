@@ -1,5 +1,7 @@
+/// HIRの全体のデータベースです。
+///
 /// ここに`salsa`データを定義します。
-#[salsa::jar(db = HirDatabase)]
+#[salsa::jar(db = HirMasterDatabase)]
 pub struct Jar(
     crate::Name,
     crate::NailFile,
@@ -15,6 +17,6 @@ pub struct Jar(
 );
 
 /// [Jar]用のDBトレイトです。
-pub trait HirDatabase: salsa::DbWithJar<Jar> {}
+pub trait HirMasterDatabase: salsa::DbWithJar<Jar> {}
 
-impl<DB> HirDatabase for DB where DB: ?Sized + salsa::DbWithJar<Jar> {}
+impl<DB> HirMasterDatabase for DB where DB: ?Sized + salsa::DbWithJar<Jar> {}

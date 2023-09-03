@@ -5,8 +5,9 @@ use std::collections::HashMap;
 use la_arena::{Arena, Idx};
 
 use crate::{
-    body::scopes::ExprScopes, item::ParamData, Block, Expr, Function, HirDatabase, Item, Literal,
-    Module, ModuleKind, NailFile, Name, NameSolutionPath, Param, Path, Stmt, Symbol, Type, UseItem,
+    body::scopes::ExprScopes, item::ParamData, Block, Expr, Function, HirMasterDatabase, Item,
+    Literal, Module, ModuleKind, NailFile, Name, NameSolutionPath, Param, Path, Stmt, Symbol, Type,
+    UseItem,
 };
 
 /// 式を一意に識別するためのID
@@ -14,7 +15,7 @@ use crate::{
 pub struct ExprId(Idx<Expr>);
 impl ExprId {
     /// このIDに対応する式を取得する
-    pub fn lookup(self, ctx: &HirFileContext) -> &Expr {
+    pub fn lookup(self, ctx: &HirFileDatabase) -> &Expr {
         &ctx.exprs[self.0]
     }
 }
@@ -35,9 +36,9 @@ impl Ord for ExprId {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct FunctionBodyId(Idx<Expr>);
 
-/// 1ファイル内における式と関数本体を保持する
+/// 1ファイルに対応するDB
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct HirFileContext {
+pub struct HirFileDatabase {
     functions: Vec<Function>,
     modules: Vec<Module>,
 
@@ -47,8 +48,8 @@ pub struct HirFileContext {
     exprs: Arena<Expr>,
     function_body_by_ast_block: HashMap<ast::BlockExpr, FunctionBodyId>,
 }
-impl HirFileContext {
-    /// 空のコンテキストを作成する
+impl HirFileDatabase {
+    /// 空のDBを作成する
     pub fn new() -> Self {
         Self {
             functions: vec![],
@@ -118,7 +119,7 @@ pub struct BodyLower<'a> {
     file: NailFile,
     scopes: ExprScopes,
     params: HashMap<Name, Param>,
-    ctx: &'a mut HirFileContext,
+    hir_file_db: &'a mut HirFileDatabase,
 }
 
 impl<'a> BodyLower<'a> {
@@ -126,18 +127,22 @@ impl<'a> BodyLower<'a> {
     pub(super) fn new(
         file: NailFile,
         params: HashMap<Name, Param>,
-        ctx: &'a mut HirFileContext,
+        hir_file_db: &'a mut HirFileDatabase,
     ) -> Self {
         Self {
             file,
             scopes: ExprScopes::new(),
             params,
-            ctx,
+            hir_file_db,
         }
     }
 
     /// トップレベルに定義された[ast::Item]を元に、トップレベルのHIRを構築する
-    pub(super) fn lower_toplevel(&mut self, db: &dyn HirDatabase, ast: ast::Item) -> Option<Item> {
+    pub(super) fn lower_toplevel(
+        &mut self,
+        db: &dyn HirMasterDatabase,
+        ast: ast::Item,
+    ) -> Option<Item> {
         match ast {
             ast::Item::FunctionDef(def) => Some(Item::Function(self.lower_function(db, def)?)),
             ast::Item::Module(module) => Some(Item::Module(self.lower_module(db, module)?)),
@@ -146,7 +151,11 @@ impl<'a> BodyLower<'a> {
     }
 
     /// 関数のHIRを構築します。
-    fn lower_function(&mut self, db: &dyn HirDatabase, def: ast::FunctionDef) -> Option<Function> {
+    fn lower_function(
+        &mut self,
+        db: &dyn HirMasterDatabase,
+        def: ast::FunctionDef,
+    ) -> Option<Function> {
         let name = def
             .name()
             .map(|name| Name::new(db, name.name().to_string()))?;
@@ -161,12 +170,12 @@ impl<'a> BodyLower<'a> {
                     .name()
                     .map(|name| Name::new(db, name.name().to_string()));
                 let ty = self.lower_ty(param.ty());
-                Param::new(self.ctx, name, ty, pos)
+                Param::new(self.hir_file_db, name, ty, pos)
             })
             .collect::<Vec<_>>();
         let param_by_name = params
             .iter()
-            .filter_map(|param| param.data(self.ctx).name.map(|name| (name, *param)))
+            .filter_map(|param| param.data(self.hir_file_db).name.map(|name| (name, *param)))
             .collect::<HashMap<_, _>>();
         let return_type = if let Some(return_type) = def.return_type() {
             self.lower_ty(return_type.ty())
@@ -175,13 +184,16 @@ impl<'a> BodyLower<'a> {
         };
 
         let function = Function::new(db, name, params, param_by_name, return_type, def);
-        self.ctx.functions.push(function);
+        self.hir_file_db.functions.push(function);
 
-        let mut body_lower =
-            BodyLower::new(self.file, function.param_by_name(db).clone(), self.ctx);
+        let mut body_lower = BodyLower::new(
+            self.file,
+            function.param_by_name(db).clone(),
+            self.hir_file_db,
+        );
         let body_expr = body_lower.lower_block(db, ast_block.clone());
-        let body_id = self.ctx.alloc_function_body(body_expr);
-        self.ctx
+        let body_id = self.hir_file_db.alloc_function_body(body_expr);
+        self.hir_file_db
             .function_body_by_ast_block
             .insert(ast_block, body_id);
 
@@ -193,7 +205,11 @@ impl<'a> BodyLower<'a> {
     /// アウトラインモジュール(`mod aaa;`)のパースは[crate::parse_modules]で行います。
     /// この中では、トラバースするために各アイテムのHIR化を行っています。
     /// また、[ItemDefId]を返すために、アウトラインモジュールも返します。
-    fn lower_module(&mut self, db: &dyn HirDatabase, ast_module: ast::Module) -> Option<Module> {
+    fn lower_module(
+        &mut self,
+        db: &dyn HirMasterDatabase,
+        ast_module: ast::Module,
+    ) -> Option<Module> {
         if let Some(name) = ast_module.name() {
             let module_name = Name::new(db, name.name().to_string());
 
@@ -209,7 +225,7 @@ impl<'a> BodyLower<'a> {
                 ModuleKind::Outline
             };
             let module = Module::new(db, module_name, module_kind);
-            self.ctx.modules.push(module);
+            self.hir_file_db.modules.push(module);
 
             Some(module)
         } else {
@@ -217,7 +233,7 @@ impl<'a> BodyLower<'a> {
         }
     }
 
-    fn lower_use(&mut self, db: &dyn HirDatabase, ast_use: ast::Use) -> Option<UseItem> {
+    fn lower_use(&mut self, db: &dyn HirMasterDatabase, ast_use: ast::Use) -> Option<UseItem> {
         let use_path = ast_use.path()?.segments().collect::<Vec<_>>();
         match use_path.as_slice() {
             [] => unreachable!("use path should not be empty"),
@@ -253,11 +269,11 @@ impl<'a> BodyLower<'a> {
         }
     }
 
-    fn lower_stmt(&mut self, db: &dyn HirDatabase, ast_stmt: ast::Stmt) -> Option<Stmt> {
+    fn lower_stmt(&mut self, db: &dyn HirMasterDatabase, ast_stmt: ast::Stmt) -> Option<Stmt> {
         let result = match ast_stmt {
             ast::Stmt::VariableDef(def) => {
                 let expr = self.lower_expr(db, def.value());
-                let id = self.ctx.alloc_expr(expr);
+                let id = self.hir_file_db.alloc_expr(expr);
                 let name = Name::new(db, def.name()?.name().to_owned());
                 self.scopes.define(name, id);
                 Stmt::VariableDef { name, value: id }
@@ -265,7 +281,7 @@ impl<'a> BodyLower<'a> {
             ast::Stmt::ExprStmt(ast) => {
                 let expr = self.lower_expr(db, ast.expr());
                 Stmt::ExprStmt {
-                    expr: self.ctx.alloc_expr(expr),
+                    expr: self.hir_file_db.alloc_expr(expr),
                     has_semicolon: ast.semicolon().is_some(),
                 }
             }
@@ -278,7 +294,7 @@ impl<'a> BodyLower<'a> {
         Some(result)
     }
 
-    fn lower_item(&mut self, db: &dyn HirDatabase, ast_item: ast::Item) -> Option<Item> {
+    fn lower_item(&mut self, db: &dyn HirMasterDatabase, ast_item: ast::Item) -> Option<Item> {
         match ast_item {
             ast::Item::FunctionDef(def) => Some(Item::Function(self.lower_function(db, def)?)),
             ast::Item::Module(module) => Some(Item::Module(self.lower_module(db, module)?)),
@@ -286,7 +302,7 @@ impl<'a> BodyLower<'a> {
         }
     }
 
-    fn lower_expr(&mut self, db: &dyn HirDatabase, ast_expr: Option<ast::Expr>) -> Expr {
+    fn lower_expr(&mut self, db: &dyn HirMasterDatabase, ast_expr: Option<ast::Expr>) -> Expr {
         if let Some(ast) = ast_expr {
             match ast {
                 ast::Expr::BinaryExpr(ast) => self.lower_binary(db, ast),
@@ -337,7 +353,11 @@ impl<'a> BodyLower<'a> {
         }
     }
 
-    fn lower_binary(&mut self, db: &dyn HirDatabase, ast_binary_expr: ast::BinaryExpr) -> Expr {
+    fn lower_binary(
+        &mut self,
+        db: &dyn HirMasterDatabase,
+        ast_binary_expr: ast::BinaryExpr,
+    ) -> Expr {
         let op = ast_binary_expr.op().unwrap();
 
         let lhs = self.lower_expr(db, ast_binary_expr.lhs());
@@ -345,23 +365,23 @@ impl<'a> BodyLower<'a> {
 
         Expr::Binary {
             op,
-            lhs: self.ctx.alloc_expr(lhs),
-            rhs: self.ctx.alloc_expr(rhs),
+            lhs: self.hir_file_db.alloc_expr(lhs),
+            rhs: self.hir_file_db.alloc_expr(rhs),
         }
     }
 
-    fn lower_unary(&mut self, db: &dyn HirDatabase, ast_unary_expr: ast::UnaryExpr) -> Expr {
+    fn lower_unary(&mut self, db: &dyn HirMasterDatabase, ast_unary_expr: ast::UnaryExpr) -> Expr {
         let op = ast_unary_expr.op().unwrap();
 
         let expr = self.lower_expr(db, ast_unary_expr.expr());
 
         Expr::Unary {
             op,
-            expr: self.ctx.alloc_expr(expr),
+            expr: self.hir_file_db.alloc_expr(expr),
         }
     }
 
-    fn lower_path_expr(&mut self, db: &dyn HirDatabase, ast_path: ast::PathExpr) -> Expr {
+    fn lower_path_expr(&mut self, db: &dyn HirMasterDatabase, ast_path: ast::PathExpr) -> Expr {
         let path = Path::new(
             db,
             ast_path
@@ -375,7 +395,7 @@ impl<'a> BodyLower<'a> {
         Expr::Symbol(symbol)
     }
 
-    fn lookup_path(&mut self, db: &dyn HirDatabase, path: Path) -> Symbol {
+    fn lookup_path(&mut self, db: &dyn HirMasterDatabase, path: Path) -> Symbol {
         match path.segments(db).as_slice() {
             [name] => {
                 let name = *name;
@@ -405,13 +425,13 @@ impl<'a> BodyLower<'a> {
         self.params.get(&name).copied()
     }
 
-    fn lower_call(&mut self, db: &dyn HirDatabase, ast_call: ast::CallExpr) -> Expr {
+    fn lower_call(&mut self, db: &dyn HirMasterDatabase, ast_call: ast::CallExpr) -> Expr {
         let args = ast_call.args().unwrap();
         let args = args
             .args()
             .map(|arg| {
                 let expr = self.lower_expr(db, arg.expr());
-                self.ctx.alloc_expr(expr)
+                self.hir_file_db.alloc_expr(expr)
             })
             .collect();
         let callee = match self.lower_expr(db, ast_call.callee()) {
@@ -429,7 +449,7 @@ impl<'a> BodyLower<'a> {
         Expr::Call { callee, args }
     }
 
-    fn lower_block(&mut self, db: &dyn HirDatabase, ast_block: ast::BlockExpr) -> Expr {
+    fn lower_block(&mut self, db: &dyn HirMasterDatabase, ast_block: ast::BlockExpr) -> Expr {
         self.scopes.enter(ast_block.clone());
 
         let mut stmts = vec![];
@@ -460,16 +480,16 @@ impl<'a> BodyLower<'a> {
         })
     }
 
-    fn lower_if(&mut self, db: &dyn HirDatabase, ast_if: ast::IfExpr) -> Expr {
+    fn lower_if(&mut self, db: &dyn HirMasterDatabase, ast_if: ast::IfExpr) -> Expr {
         let condition = self.lower_expr(db, ast_if.condition());
-        let condition = self.ctx.alloc_expr(condition);
+        let condition = self.hir_file_db.alloc_expr(condition);
 
         let then_branch = self.lower_block(db, ast_if.then_branch().unwrap());
-        let then_branch = self.ctx.alloc_expr(then_branch);
+        let then_branch = self.hir_file_db.alloc_expr(then_branch);
 
         let else_branch = if let Some(else_branch) = ast_if.else_branch() {
             let else_branch = self.lower_block(db, else_branch);
-            Some(self.ctx.alloc_expr(else_branch))
+            Some(self.hir_file_db.alloc_expr(else_branch))
         } else {
             None
         };
@@ -481,10 +501,10 @@ impl<'a> BodyLower<'a> {
         }
     }
 
-    fn lower_return(&mut self, db: &dyn HirDatabase, ast_return: ast::ReturnExpr) -> Expr {
+    fn lower_return(&mut self, db: &dyn HirMasterDatabase, ast_return: ast::ReturnExpr) -> Expr {
         let value = if let Some(value) = ast_return.value() {
             let value = self.lower_expr(db, Some(value));
-            Some(self.ctx.alloc_expr(value))
+            Some(self.hir_file_db.alloc_expr(value))
         } else {
             None
         };
@@ -510,11 +530,11 @@ mod tests {
         "    ".repeat(nesting)
     }
 
-    fn debug_pods(db: &dyn HirDatabase, pods: &Pods) -> String {
+    fn debug_pods(db: &dyn HirMasterDatabase, pods: &Pods) -> String {
         debug_pod(db, &pods.pods[0], &pods.resolution_map)
     }
 
-    fn debug_pod(db: &dyn HirDatabase, pod: &Pod, resolution_map: &ResolutionMap) -> String {
+    fn debug_pod(db: &dyn HirMasterDatabase, pod: &Pod, resolution_map: &ResolutionMap) -> String {
         let mut msg = "".to_string();
 
         msg.push_str("//- /main.nail\n");
@@ -530,7 +550,7 @@ mod tests {
     }
 
     fn debug_hir_file(
-        db: &dyn HirDatabase,
+        db: &dyn HirMasterDatabase,
         hir_file: &HirFile,
         resolution_map: &ResolutionMap,
     ) -> String {
@@ -552,14 +572,14 @@ mod tests {
     }
 
     fn debug_function(
-        db: &dyn HirDatabase,
+        db: &dyn HirMasterDatabase,
         hir_file: &HirFile,
         rsolution_map: &ResolutionMap,
         function: Function,
         nesting: usize,
     ) -> String {
         let body_expr = hir_file
-            .hir_file_ctx(db)
+            .db(db)
             .function_body_by_ast_block(function.ast(db).body().unwrap())
             .unwrap();
 
@@ -568,12 +588,12 @@ mod tests {
             .params(db)
             .iter()
             .map(|param| {
-                let name = if let Some(name) = param.data(hir_file.hir_file_ctx(db)).name {
+                let name = if let Some(name) = param.data(hir_file.db(db)).name {
                     name.text(db)
                 } else {
                     "<missing>"
                 };
-                let ty = match param.data(hir_file.hir_file_ctx(db)).ty {
+                let ty = match param.data(hir_file.db(db)).ty {
                     Type::Integer => "int",
                     Type::String => "string",
                     Type::Char => "char",
@@ -627,7 +647,7 @@ mod tests {
     }
 
     fn debug_module(
-        db: &dyn HirDatabase,
+        db: &dyn HirMasterDatabase,
         hir_file: &HirFile,
         resolution_map: &ResolutionMap,
         module: Module,
@@ -666,7 +686,7 @@ mod tests {
         }
     }
 
-    fn debug_use_item(db: &dyn HirDatabase, use_item: UseItem) -> String {
+    fn debug_use_item(db: &dyn HirMasterDatabase, use_item: UseItem) -> String {
         let path_name = debug_path(db, use_item.path(db));
         let item_name = use_item.name(db).text(db);
 
@@ -674,7 +694,7 @@ mod tests {
     }
 
     fn debug_item(
-        db: &dyn HirDatabase,
+        db: &dyn HirMasterDatabase,
         hir_file: &HirFile,
         resolution_map: &ResolutionMap,
         item: &Item,
@@ -690,7 +710,7 @@ mod tests {
     }
 
     fn debug_stmt(
-        db: &dyn HirDatabase,
+        db: &dyn HirMasterDatabase,
         hir_file: &HirFile,
         resolution_map: &ResolutionMap,
         scope_origin: ModuleScopeOrigin,
@@ -718,14 +738,14 @@ mod tests {
     }
 
     fn debug_expr(
-        db: &dyn HirDatabase,
+        db: &dyn HirMasterDatabase,
         hir_file: &HirFile,
         resolution_map: &ResolutionMap,
         scope_origin: ModuleScopeOrigin,
         expr_id: ExprId,
         nesting: usize,
     ) -> String {
-        match expr_id.lookup(hir_file.hir_file_ctx(db)) {
+        match expr_id.lookup(hir_file.db(db)) {
             Expr::Symbol(symbol) => {
                 debug_symbol(db, hir_file, resolution_map, scope_origin, symbol, nesting)
             }
@@ -857,7 +877,7 @@ mod tests {
     }
 
     fn debug_symbol(
-        db: &dyn HirDatabase,
+        db: &dyn HirMasterDatabase,
         hir_file: &HirFile,
         resolution_map: &ResolutionMap,
         scope_origin: ModuleScopeOrigin,
@@ -865,7 +885,7 @@ mod tests {
         nesting: usize,
     ) -> String {
         match &symbol {
-            Symbol::Local { name, expr } => match expr.lookup(hir_file.hir_file_ctx(db)) {
+            Symbol::Local { name, expr } => match expr.lookup(hir_file.db(db)) {
                 Expr::Symbol { .. }
                 | Expr::Binary { .. }
                 | Expr::Missing
@@ -890,7 +910,7 @@ mod tests {
     }
 
     fn debug_resolution_status(
-        db: &dyn HirDatabase,
+        db: &dyn HirMasterDatabase,
         resolution_status: ResolutionStatus,
         _resolution_map: &ResolutionMap,
     ) -> String {
@@ -914,7 +934,7 @@ mod tests {
         }
     }
 
-    fn debug_path(db: &dyn HirDatabase, path: &Path) -> String {
+    fn debug_path(db: &dyn HirMasterDatabase, path: &Path) -> String {
         path.segments(db)
             .iter()
             .map(|segment| segment.text(db).to_string())

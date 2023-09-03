@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use la_arena::Idx;
 
-use crate::{HirFileContext, Name, Path};
+use crate::{HirFileDatabase, Name, Path};
 
 /// 関数のパラメータのIDを表す
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -10,7 +10,7 @@ pub struct Param(pub(crate) Idx<ParamData>);
 impl Param {
     /// パラメータを作成します。
     pub(crate) fn new(
-        hir_file_ctx: &mut HirFileContext,
+        hir_file_ctx: &mut HirFileDatabase,
         name: Option<Name>,
         ty: Type,
         pos: usize,
@@ -19,7 +19,7 @@ impl Param {
     }
 
     /// パラメータのデータを取得します。
-    pub fn data(self, hir_file_ctx: &HirFileContext) -> &ParamData {
+    pub fn data(self, hir_file_ctx: &HirFileDatabase) -> &ParamData {
         hir_file_ctx.param_data(self)
     }
 }

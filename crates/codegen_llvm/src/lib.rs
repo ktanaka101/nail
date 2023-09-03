@@ -289,7 +289,7 @@ mod tests {
         let result = codegen(
             &CodegenContext {
                 db: &db,
-                hir_file: &pods.pods[0].root_hir_file,
+                hir_file: &pods.root_pod.root_hir_file,
                 mir_result: &mir_result,
                 context: &context,
                 module: &module,
@@ -323,7 +323,7 @@ mod tests {
         codegen(
             &CodegenContext {
                 db: &db,
-                hir_file: &pods.pods[0].root_hir_file,
+                hir_file: &pods.root_pod.root_hir_file,
                 mir_result: &mir_result,
                 context: &context,
                 module: &module,

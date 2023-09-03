@@ -4,7 +4,7 @@ use la_arena::{Arena, Idx};
 
 pub fn infer_pods(db: &dyn hir::HirMasterDatabase, pods: &hir::Pods) -> InferenceResult {
     // TODO: 全てのPodを走査する
-    let pod = &pods.pods[0];
+    let pod = &pods.root_pod;
 
     // 依存関係を気にしなくていいようにシグネチャを先に解決しておく
     let mut signatures = Arena::<Signature>::new();

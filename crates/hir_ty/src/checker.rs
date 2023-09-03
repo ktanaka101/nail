@@ -10,7 +10,7 @@ pub fn check_type_pods(
     infer_result: &InferenceResult,
 ) -> TypeCheckResult {
     // TODO: 全てのPodをチェックする
-    let pod = &pods.pods[0];
+    let pod = &pods.root_pod;
     let mut errors_by_function = HashMap::new();
 
     for (hir_file, function) in pod.all_functions(db) {

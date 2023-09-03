@@ -46,8 +46,10 @@ pub use testing::TestingDatabase;
 /// ビルド対象全体を表します。
 #[derive(Debug)]
 pub struct Pods {
-    pub pods: Vec<Pod>,
+    /// ビルド対象のルートPod
+    pub root_pod: Pod,
 
+    /// 名前解決の結果
     pub resolution_map: ResolutionMap,
 }
 
@@ -140,7 +142,7 @@ pub fn parse_pods(
     let symbol_table = resolve_symbols(db, &pod);
 
     Pods {
-        pods: vec![pod],
+        root_pod: pod,
         resolution_map: symbol_table,
     }
 }

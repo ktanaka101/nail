@@ -74,7 +74,7 @@ fn execute(filepath: &str) -> Result<String> {
     let codegen_result = codegen_llvm::codegen(
         &CodegenContext {
             db: &db,
-            hir_file: &pods.pods[0].root_hir_file,
+            hir_file: &pods.root_pod.root_hir_file,
             mir_result: &mir_result,
             context: &context,
             module: &module,

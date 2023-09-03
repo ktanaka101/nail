@@ -66,10 +66,9 @@ mod tests {
 
         let pods = hir::parse_pods(&db, "/main.nail", &mut source_db);
 
-        let result = lower_pods(&db, &pods);
+        let ty_result = lower_pods(&db, &pods);
 
-        let pod = &pods.pods[0];
-        expect.assert_eq(&debug_file(&db, &result, &pod.root_hir_file));
+        expect.assert_eq(&debug_file(&db, &ty_result, &pods.root_pod.root_hir_file));
     }
 
     fn debug_file(

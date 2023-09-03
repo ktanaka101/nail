@@ -531,7 +531,7 @@ mod tests {
     }
 
     fn debug_pods(db: &dyn HirMasterDatabase, pods: &Pods) -> String {
-        debug_pod(db, &pods.pods[0], &pods.resolution_map)
+        debug_pod(db, &pods.root_pod, &pods.resolution_map)
     }
 
     fn debug_pod(db: &dyn HirMasterDatabase, pod: &Pod, resolution_map: &ResolutionMap) -> String {

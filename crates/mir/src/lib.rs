@@ -25,7 +25,7 @@ pub fn lower_pods(
     hir_ty_result: &hir_ty::TyLowerResult,
 ) -> LowerResult {
     // TODO: 全てのPodをMIRに変換する
-    let pod = &pods.pods[0];
+    let pod = &pods.root_pod;
 
     let mut entry_point: Option<Idx<Body>> = None;
     let mut bodies = Arena::new();

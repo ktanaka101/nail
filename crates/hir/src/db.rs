@@ -6,7 +6,7 @@ pub struct Jar(
     crate::parse_to_ast,
     crate::AstSourceFile,
     crate::build_hir,
-    crate::LowerResult,
+    crate::HirFile,
     crate::Function,
     crate::Param,
     crate::Module,

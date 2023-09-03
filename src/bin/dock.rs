@@ -47,7 +47,7 @@ fn lower(
     filepath: &str,
 ) -> (
     base_db::SalsaDatabase,
-    hir::LowerResult,
+    hir::HirFile,
     hir_ty::TyLowerResult,
     mir::LowerResult,
 ) {
@@ -55,7 +55,7 @@ fn lower(
     let mut source_db = hir::SourceDatabase::new(&db, filepath.into());
 
     let pods = hir::parse_pods(&db, filepath, &mut source_db);
-    let hir_result = pods.pods[0].root_lower_result;
+    let hir_result = pods.pods[0].root_hir_file;
     let resolution_map = pods.resolution_map;
 
     let ty_result = hir_ty::lower(&db, &hir_result, &resolution_map);

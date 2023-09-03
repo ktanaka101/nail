@@ -2,11 +2,11 @@ use crate::inference::{InferenceResult, ResolvedType, Signature};
 
 pub fn check_type(
     db: &dyn hir::HirDatabase,
-    lower_result: &hir::LowerResult,
+    hir_file: &hir::HirFile,
     resolution_map: &hir::ResolutionMap,
     infer_result: &InferenceResult,
 ) -> TypeCheckResult {
-    let type_checker = TypeChecker::new(lower_result, resolution_map, infer_result);
+    let type_checker = TypeChecker::new(hir_file, resolution_map, infer_result);
     type_checker.check(db)
 }
 
@@ -81,7 +81,7 @@ pub struct TypeCheckResult {
 }
 
 struct TypeChecker<'a> {
-    lower_result: &'a hir::LowerResult,
+    hir_file: &'a hir::HirFile,
     resolution_map: &'a hir::ResolutionMap,
     infer_result: &'a InferenceResult,
     errors: Vec<TypeCheckError>,
@@ -90,12 +90,12 @@ struct TypeChecker<'a> {
 
 impl<'a> TypeChecker<'a> {
     fn new(
-        lower_result: &'a hir::LowerResult,
+        hir_file: &'a hir::HirFile,
         resolution_map: &'a hir::ResolutionMap,
         infer_result: &'a InferenceResult,
     ) -> Self {
         Self {
-            lower_result,
+            hir_file,
             resolution_map,
             infer_result,
             errors: vec![],
@@ -104,7 +104,7 @@ impl<'a> TypeChecker<'a> {
     }
 
     fn check(mut self, db: &dyn hir::HirDatabase) -> TypeCheckResult {
-        for function in self.lower_result.functions(db) {
+        for function in self.hir_file.functions(db) {
             self.check_function(db, *function);
         }
 
@@ -122,8 +122,8 @@ impl<'a> TypeChecker<'a> {
 
         let block_ast_id = function.ast(db).body().unwrap();
         let body = self
-            .lower_result
-            .shared_ctx(db)
+            .hir_file
+            .hir_file_ctx(db)
             .function_body_by_ast_block(block_ast_id)
             .unwrap();
 
@@ -161,7 +161,7 @@ impl<'a> TypeChecker<'a> {
     }
 
     fn check_expr(&mut self, db: &dyn hir::HirDatabase, expr: hir::ExprId) {
-        let expr = expr.lookup(self.lower_result.shared_ctx(db));
+        let expr = expr.lookup(self.hir_file.hir_file_ctx(db));
         match expr {
             hir::Expr::Symbol(_) => (),
             hir::Expr::Binary { lhs, rhs, .. } => {

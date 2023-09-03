@@ -4,10 +4,10 @@ use la_arena::{Arena, Idx};
 
 pub fn infer(
     db: &dyn hir::HirDatabase,
-    lower_result: &hir::LowerResult,
+    hir_file: &hir::HirFile,
     resolution_map: &hir::ResolutionMap,
 ) -> InferenceResult {
-    let inferencer = TypeInferencer::new(lower_result, resolution_map);
+    let inferencer = TypeInferencer::new(hir_file, resolution_map);
     inferencer.infer(db)
 }
 
@@ -88,12 +88,12 @@ pub struct Signature {
 
 /// 型推論器
 struct TypeInferencer<'a> {
-    hir_result: &'a hir::LowerResult,
+    hir_result: &'a hir::HirFile,
     resolution_map: &'a hir::ResolutionMap,
     ctx: InferenceContext,
 }
 impl<'a> TypeInferencer<'a> {
-    fn new(hir_result: &'a hir::LowerResult, symbol_table: &'a hir::ResolutionMap) -> Self {
+    fn new(hir_result: &'a hir::HirFile, symbol_table: &'a hir::ResolutionMap) -> Self {
         Self {
             hir_result,
             resolution_map: symbol_table,
@@ -124,7 +124,7 @@ impl<'a> TypeInferencer<'a> {
             let body_ast_id = function.ast(db).body().unwrap();
             let body = self
                 .hir_result
-                .shared_ctx(db)
+                .hir_file_ctx(db)
                 .function_body_by_ast_block(body_ast_id)
                 .unwrap();
             match body {
@@ -332,7 +332,7 @@ impl<'a> TypeInferencer<'a> {
             return ty;
         }
 
-        let ty = self.infer_expr(db, expr_id.lookup(self.hir_result.shared_ctx(db)));
+        let ty = self.infer_expr(db, expr_id.lookup(self.hir_result.hir_file_ctx(db)));
         self.ctx.type_by_expr.insert(expr_id, ty);
 
         ty

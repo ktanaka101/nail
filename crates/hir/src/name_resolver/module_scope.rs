@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use la_arena::{Arena, Idx};
 
 use crate::{
-    Expr, ExprId, Function, HirDatabase, Item, LowerResult, Module, Name, Path, Pod, Stmt, Symbol,
+    Expr, ExprId, Function, HirDatabase, HirFile, Item, Module, Name, Path, Pod, Stmt, Symbol,
     UseItem,
 };
 
@@ -325,8 +325,8 @@ impl<'a> ModuleScopesBuilder<'a> {
             .storage
             .alloc(ModuleScope::root(self.db, self.pod.name));
 
-        for item in self.pod.root_lower_result.top_level_items(self.db) {
-            self.build_item(self.pod.root_lower_result, top_level_scope_idx, *item);
+        for item in self.pod.root_hir_file.top_level_items(self.db) {
+            self.build_item(self.pod.root_hir_file, top_level_scope_idx, *item);
         }
 
         (
@@ -339,18 +339,13 @@ impl<'a> ModuleScopesBuilder<'a> {
         )
     }
 
-    fn build_item(
-        &mut self,
-        lower_result: LowerResult,
-        current_scope_idx: ModuleScopeIdx,
-        item: Item,
-    ) {
+    fn build_item(&mut self, hir_file: HirFile, current_scope_idx: ModuleScopeIdx, item: Item) {
         match item {
             crate::Item::Module(module) => {
-                self.build_module(lower_result, current_scope_idx, module);
+                self.build_module(hir_file, current_scope_idx, module);
             }
             crate::Item::Function(function) => {
-                self.build_function(lower_result, current_scope_idx, function);
+                self.build_function(hir_file, current_scope_idx, function);
             }
             crate::Item::UseItem(use_item) => {
                 self.register_use_item(current_scope_idx, use_item.name(self.db), use_item);
@@ -360,7 +355,7 @@ impl<'a> ModuleScopesBuilder<'a> {
 
     fn build_module(
         &mut self,
-        lower_result: LowerResult,
+        hir_file: HirFile,
         current_scope_idx: ModuleScopeIdx,
         module: Module,
     ) {
@@ -371,16 +366,16 @@ impl<'a> ModuleScopesBuilder<'a> {
         match module.kind(self.db) {
             crate::ModuleKind::Inline { items } => {
                 for item in items {
-                    self.build_item(lower_result, current_scope_idx, *item);
+                    self.build_item(hir_file, current_scope_idx, *item);
                 }
             }
             crate::ModuleKind::Outline => {
-                let lower_result = self
+                let hir_file = self
                     .pod
-                    .lower_result_by_module(&module)
+                    .get_hir_file_by_module(&module)
                     .expect("Must exist at this point.");
-                for item in lower_result.top_level_items(self.db) {
-                    self.build_item(lower_result, current_scope_idx, *item);
+                for item in hir_file.top_level_items(self.db) {
+                    self.build_item(hir_file, current_scope_idx, *item);
                 }
             }
         }
@@ -388,7 +383,7 @@ impl<'a> ModuleScopesBuilder<'a> {
 
     fn build_function(
         &mut self,
-        lower_result: LowerResult,
+        hir_file: HirFile,
         current_scope_idx: ModuleScopeIdx,
         function: Function,
     ) {
@@ -400,60 +395,50 @@ impl<'a> ModuleScopesBuilder<'a> {
             self.storage.module_scopes[current_scope_idx.0].path,
         );
 
-        let Expr::Block(function_body) = lower_result
-            .shared_ctx(self.db)
+        let Expr::Block(function_body) = hir_file
+            .hir_file_ctx(self.db)
             .function_body_by_ast_block(function.ast(self.db).body().unwrap())
             .unwrap() else { panic!("No Block") };
 
         for stmt in &function_body.stmts {
-            self.build_stmt(lower_result, current_scope_idx, stmt);
+            self.build_stmt(hir_file, current_scope_idx, stmt);
         }
 
         if let Some(tail) = function_body.tail {
-            self.build_expr(lower_result, current_scope_idx, tail);
+            self.build_expr(hir_file, current_scope_idx, tail);
         }
     }
 
-    fn build_stmt(
-        &mut self,
-        lower_result: LowerResult,
-        current_scope_idx: ModuleScopeIdx,
-        stmt: &Stmt,
-    ) {
+    fn build_stmt(&mut self, hir_file: HirFile, current_scope_idx: ModuleScopeIdx, stmt: &Stmt) {
         match stmt {
             crate::Stmt::VariableDef { name: _, value } => {
-                self.build_expr(lower_result, current_scope_idx, *value);
+                self.build_expr(hir_file, current_scope_idx, *value);
             }
             crate::Stmt::ExprStmt {
                 expr,
                 has_semicolon: _,
-            } => self.build_expr(lower_result, current_scope_idx, *expr),
-            crate::Stmt::Item { item } => self.build_item(lower_result, current_scope_idx, *item),
+            } => self.build_expr(hir_file, current_scope_idx, *expr),
+            crate::Stmt::Item { item } => self.build_item(hir_file, current_scope_idx, *item),
         }
     }
 
-    fn build_expr(
-        &mut self,
-        lower_result: LowerResult,
-        current_scope_idx: ModuleScopeIdx,
-        expr: ExprId,
-    ) {
-        match expr.lookup(lower_result.shared_ctx(self.db)) {
+    fn build_expr(&mut self, hir_file: HirFile, current_scope_idx: ModuleScopeIdx, expr: ExprId) {
+        match expr.lookup(hir_file.hir_file_ctx(self.db)) {
             Expr::Literal(_) | Expr::Missing => (),
             Expr::Symbol(symbol) => {
                 self.register_symbol(current_scope_idx, symbol.clone());
             }
             Expr::Binary { op: _, lhs, rhs } => {
-                self.build_expr(lower_result, current_scope_idx, *lhs);
-                self.build_expr(lower_result, current_scope_idx, *rhs);
+                self.build_expr(hir_file, current_scope_idx, *lhs);
+                self.build_expr(hir_file, current_scope_idx, *rhs);
             }
             Expr::Unary { op: _, expr } => {
-                self.build_expr(lower_result, current_scope_idx, *expr);
+                self.build_expr(hir_file, current_scope_idx, *expr);
             }
             Expr::Call { callee, args } => {
                 self.register_symbol(current_scope_idx, callee.clone());
                 for arg in args {
-                    self.build_expr(lower_result, current_scope_idx, *arg);
+                    self.build_expr(hir_file, current_scope_idx, *arg);
                 }
             }
             Expr::If {
@@ -461,39 +446,34 @@ impl<'a> ModuleScopesBuilder<'a> {
                 then_branch,
                 else_branch,
             } => {
-                self.build_expr(lower_result, current_scope_idx, *condition);
-                self.build_expr(lower_result, current_scope_idx, *then_branch);
+                self.build_expr(hir_file, current_scope_idx, *condition);
+                self.build_expr(hir_file, current_scope_idx, *then_branch);
                 if let Some(else_branch) = else_branch {
-                    self.build_expr(lower_result, current_scope_idx, *else_branch);
+                    self.build_expr(hir_file, current_scope_idx, *else_branch);
                 }
             }
             Expr::Return { value } => {
                 if let Some(value) = value {
-                    self.build_expr(lower_result, current_scope_idx, *value);
+                    self.build_expr(hir_file, current_scope_idx, *value);
                 }
             }
             Expr::Block(_block) => {
-                self.build_block(lower_result, current_scope_idx, expr);
+                self.build_block(hir_file, current_scope_idx, expr);
             }
         }
     }
 
-    fn build_block(
-        &mut self,
-        lower_result: LowerResult,
-        current_scope_idx: ModuleScopeIdx,
-        block: ExprId,
-    ) {
+    fn build_block(&mut self, hir_file: HirFile, current_scope_idx: ModuleScopeIdx, block: ExprId) {
         let current_scope_idx = self.create_scope_on_block(current_scope_idx, block);
 
-        let Expr::Block(block) = block.lookup(lower_result.shared_ctx(self.db)) else { panic!("Should be block") };
+        let Expr::Block(block) = block.lookup(hir_file.hir_file_ctx(self.db)) else { panic!("Should be block") };
 
         for stmt in &block.stmts {
-            self.build_stmt(lower_result, current_scope_idx, stmt);
+            self.build_stmt(hir_file, current_scope_idx, stmt);
         }
 
         if let Some(tail) = &block.tail {
-            self.build_expr(lower_result, current_scope_idx, *tail);
+            self.build_expr(hir_file, current_scope_idx, *tail);
         }
     }
 

@@ -35,7 +35,7 @@ mod testing;
 use std::collections::HashMap;
 
 use ast::AstNode;
-pub use body::{BodyLower, ExprId, FunctionBodyId, SharedBodyLowerContext};
+pub use body::{BodyLower, ExprId, FunctionBodyId, HirFileContext};
 pub use db::{HirDatabase, Jar};
 pub use input::{FixtureDatabase, NailFile, SourceDatabase, SourceDatabaseTrait};
 pub use item::{Function, Item, Module, ModuleKind, Param, Type, UseItem};
@@ -58,20 +58,20 @@ pub struct Pod {
     pub name: Name,
 
     /// ルートファイルID
-    pub root_file: NailFile,
+    pub root_nail_file: NailFile,
 
     /// ルートファイルのHIR構築結果
-    pub root_lower_result: LowerResult,
+    pub root_hir_file: HirFile,
 
     /// ファイル別のHIR構築結果
     ///
     /// ルートファイルは含まれません。
-    lower_result_by_file: HashMap<NailFile, LowerResult>,
+    hir_file_by_nail_file: HashMap<NailFile, HirFile>,
 
     /// モジュール別のHIR構築結果
     ///
     /// ルートファイルのHIR構築結果
-    lower_result_by_module: HashMap<Module, LowerResult>,
+    hir_file_by_module: HashMap<Module, HirFile>,
 
     /// ファイルの登録順
     ///
@@ -83,23 +83,23 @@ impl Pod {
     ///
     /// ルートファイルのHIR構築結果は`root_lower_result`で参照してください。
     /// この関数はルートファイルを指定されても`None`を返します。
-    pub fn get_lower_result_by_file(&self, file: NailFile) -> Option<&LowerResult> {
-        self.lower_result_by_file.get(&file)
+    pub fn get_hir_file_by_file(&self, file: NailFile) -> Option<&HirFile> {
+        self.hir_file_by_nail_file.get(&file)
     }
 
     /// ファイルの登録順の昇順でHIR構築結果を返します。
-    pub fn lower_results_order_registration_asc(&self) -> Vec<(NailFile, &LowerResult)> {
+    pub fn get_hir_files_order_registration_asc(&self) -> Vec<(NailFile, &HirFile)> {
         let mut lower_results = vec![];
         for file in &self.registration_order {
-            lower_results.push((*file, self.lower_result_by_file.get(file).unwrap()));
+            lower_results.push((*file, self.hir_file_by_nail_file.get(file).unwrap()));
         }
 
         lower_results
     }
 
     /// モジュールからHIR構築結果を返します。
-    pub fn lower_result_by_module(&self, module: &Module) -> Option<LowerResult> {
-        self.lower_result_by_module.get(module).copied()
+    pub fn get_hir_file_by_module(&self, module: &Module) -> Option<HirFile> {
+        self.hir_file_by_module.get(module).copied()
     }
 }
 
@@ -120,17 +120,17 @@ pub fn parse_pods(
 
 /// ルートファイル、サブファイルをパースし、Podを構築します。
 fn parse_pod(db: &dyn HirDatabase, path: &str, source_db: &mut dyn SourceDatabaseTrait) -> Pod {
-    let mut lower_result_by_file = HashMap::new();
-    let mut lower_result_by_module = HashMap::new();
+    let mut hir_file_by_nail_file = HashMap::new();
+    let mut hir_file_by_module = HashMap::new();
     let mut registration_order = vec![];
 
     let root_file_path = std::path::PathBuf::from(path);
     let nail_file = source_db.source_root();
 
     let ast_source = parse_to_ast(db, nail_file);
-    let root_result = build_hir(db, ast_source);
+    let root_hir_file = build_hir(db, ast_source);
 
-    for sub_module in root_result.modules(db) {
+    for sub_module in root_hir_file.modules(db) {
         if matches!(sub_module.kind(db), ModuleKind::Inline { .. }) {
             continue;
         }
@@ -138,18 +138,18 @@ fn parse_pod(db: &dyn HirDatabase, path: &str, source_db: &mut dyn SourceDatabas
         let sub_module_name = sub_module.name(db).text(db);
         let sub_module_lower_result =
             parse_sub_module(db, sub_module_name, &root_file_path, source_db);
-        lower_result_by_module.insert(*sub_module, sub_module_lower_result);
+        hir_file_by_module.insert(*sub_module, sub_module_lower_result);
 
         registration_order.push(sub_module_lower_result.file(db));
-        lower_result_by_file.insert(sub_module_lower_result.file(db), sub_module_lower_result);
+        hir_file_by_nail_file.insert(sub_module_lower_result.file(db), sub_module_lower_result);
     }
 
     Pod {
         name: Name::new(db, "t_pod".to_string()),
-        root_file: source_db.source_root(),
-        root_lower_result: root_result,
-        lower_result_by_file,
-        lower_result_by_module,
+        root_nail_file: source_db.source_root(),
+        root_hir_file,
+        hir_file_by_nail_file,
+        hir_file_by_module,
         registration_order,
     }
 }
@@ -161,7 +161,7 @@ fn parse_sub_module(
     sub_module_name: &str,
     root_file_path: &std::path::Path,
     source_db: &mut dyn SourceDatabaseTrait,
-) -> LowerResult {
+) -> HirFile {
     // todo: サブモジュールのサブモジュールの場合はaaa/bbb.nailのようにする必要がある
     let file_path = root_file_path.with_file_name(format!("{sub_module_name}.nail"));
     let nail_file = source_db.register_file_with_read(db, file_path);
@@ -180,7 +180,7 @@ pub enum LowerError {
 /// HIR構築結果
 #[salsa::tracked]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LowerResult {
+pub struct HirFile {
     /// ファイル
     ///
     /// 1ファイルにつき1つの[LowerResult]が生成されます。
@@ -190,7 +190,7 @@ pub struct LowerResult {
     ///
     /// 1ファイル内のコンテキストです。
     #[return_ref]
-    pub shared_ctx: SharedBodyLowerContext,
+    pub hir_file_ctx: HirFileContext,
     /// トップレベルのアイテム一覧
     #[return_ref]
     pub top_level_items: Vec<Item>,
@@ -200,25 +200,25 @@ pub struct LowerResult {
     #[return_ref]
     pub errors: Vec<LowerError>,
 }
-impl LowerResult {
+impl HirFile {
     /// 関数IDから関数ボディを取得します。
     pub fn function_body_by_function<'a>(
         &self,
         db: &'a dyn HirDatabase,
         function: Function,
     ) -> Option<&'a Expr> {
-        self.shared_ctx(db)
+        self.hir_file_ctx(db)
             .function_body_by_ast_block(function.ast(db).body()?)
     }
 
     /// ファイル内の関数一覧を返します。
     pub fn functions<'a>(&self, db: &'a dyn HirDatabase) -> &'a [Function] {
-        self.shared_ctx(db).functions()
+        self.hir_file_ctx(db).functions()
     }
 
     /// ファイル内のモジュール一覧を返します。
     pub fn modules<'a>(&self, db: &'a dyn HirDatabase) -> &'a [Module] {
-        self.shared_ctx(db).modules()
+        self.hir_file_ctx(db).modules()
     }
 }
 
@@ -242,11 +242,11 @@ pub fn parse_to_ast(db: &dyn HirDatabase, nail_file: NailFile) -> AstSourceFile 
 
 /// ASTを元に[ItemTree]を構築します。
 #[salsa::tracked]
-pub fn build_hir(db: &dyn HirDatabase, ast_source: AstSourceFile) -> crate::LowerResult {
+pub fn build_hir(db: &dyn HirDatabase, ast_source: AstSourceFile) -> crate::HirFile {
     let file = ast_source.file(db);
     let source_file = ast_source.source(db);
 
-    let mut shared_ctx = SharedBodyLowerContext::new();
+    let mut shared_ctx = HirFileContext::new();
 
     let mut root_file_body = BodyLower::new(file, HashMap::new());
     let top_level_items = source_file
@@ -265,7 +265,7 @@ pub fn build_hir(db: &dyn HirDatabase, ast_source: AstSourceFile) -> crate::Lowe
         (vec![], None)
     };
 
-    LowerResult::new(db, file, shared_ctx, top_level_items, entry_point, errors)
+    HirFile::new(db, file, shared_ctx, top_level_items, entry_point, errors)
 }
 
 /// トップレベルのアイテムからエントリポイントを取得します。
@@ -495,7 +495,7 @@ impl Block {
     ///   let a = 10;
     /// } // None
     /// ```
-    pub fn tail<'a>(&self, ctx: &'a SharedBodyLowerContext) -> Option<&'a Expr> {
+    pub fn tail<'a>(&self, ctx: &'a HirFileContext) -> Option<&'a Expr> {
         if let Some(tail) = self.tail {
             Some(tail.lookup(ctx))
         } else {

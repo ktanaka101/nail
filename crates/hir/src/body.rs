@@ -14,7 +14,7 @@ use crate::{
 pub struct ExprId(Idx<Expr>);
 impl ExprId {
     /// このIDに対応する式を取得する
-    pub fn lookup(self, ctx: &SharedBodyLowerContext) -> &Expr {
+    pub fn lookup(self, ctx: &HirFileContext) -> &Expr {
         &ctx.exprs[self.0]
     }
 }
@@ -37,7 +37,7 @@ pub struct FunctionBodyId(Idx<Expr>);
 
 /// 1ファイル内における式と関数本体を保持する
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct SharedBodyLowerContext {
+pub struct HirFileContext {
     functions: Vec<Function>,
     modules: Vec<Module>,
 
@@ -45,7 +45,7 @@ pub struct SharedBodyLowerContext {
     exprs: Arena<Expr>,
     function_body_by_ast_block: HashMap<ast::BlockExpr, FunctionBodyId>,
 }
-impl SharedBodyLowerContext {
+impl HirFileContext {
     /// 空のコンテキストを作成する
     pub fn new() -> Self {
         Self {
@@ -122,7 +122,7 @@ impl BodyLower {
         &mut self,
         db: &dyn HirDatabase,
         ast: ast::Item,
-        ctx: &mut SharedBodyLowerContext,
+        ctx: &mut HirFileContext,
     ) -> Option<Item> {
         match ast {
             ast::Item::FunctionDef(def) => Some(Item::Function(self.lower_function(db, def, ctx)?)),
@@ -136,7 +136,7 @@ impl BodyLower {
         &mut self,
         db: &dyn HirDatabase,
         def: ast::FunctionDef,
-        ctx: &mut SharedBodyLowerContext,
+        ctx: &mut HirFileContext,
     ) -> Option<Function> {
         let name = def
             .name()
@@ -185,7 +185,7 @@ impl BodyLower {
         &mut self,
         db: &dyn HirDatabase,
         ast_module: ast::Module,
-        ctx: &mut SharedBodyLowerContext,
+        ctx: &mut HirFileContext,
     ) -> Option<Module> {
         if let Some(name) = ast_module.name() {
             let module_name = Name::new(db, name.name().to_string());
@@ -250,7 +250,7 @@ impl BodyLower {
         &mut self,
         db: &dyn HirDatabase,
         ast_stmt: ast::Stmt,
-        ctx: &mut SharedBodyLowerContext,
+        ctx: &mut HirFileContext,
     ) -> Option<Stmt> {
         let result = match ast_stmt {
             ast::Stmt::VariableDef(def) => {
@@ -280,7 +280,7 @@ impl BodyLower {
         &mut self,
         db: &dyn HirDatabase,
         ast_item: ast::Item,
-        ctx: &mut SharedBodyLowerContext,
+        ctx: &mut HirFileContext,
     ) -> Option<Item> {
         match ast_item {
             ast::Item::FunctionDef(def) => Some(Item::Function(self.lower_function(db, def, ctx)?)),
@@ -293,7 +293,7 @@ impl BodyLower {
         &mut self,
         db: &dyn HirDatabase,
         ast_expr: Option<ast::Expr>,
-        ctx: &mut SharedBodyLowerContext,
+        ctx: &mut HirFileContext,
     ) -> Expr {
         if let Some(ast) = ast_expr {
             match ast {
@@ -349,7 +349,7 @@ impl BodyLower {
         &mut self,
         db: &dyn HirDatabase,
         ast_binary_expr: ast::BinaryExpr,
-        ctx: &mut SharedBodyLowerContext,
+        ctx: &mut HirFileContext,
     ) -> Expr {
         let op = ast_binary_expr.op().unwrap();
 
@@ -367,7 +367,7 @@ impl BodyLower {
         &mut self,
         db: &dyn HirDatabase,
         ast_unary_expr: ast::UnaryExpr,
-        ctx: &mut SharedBodyLowerContext,
+        ctx: &mut HirFileContext,
     ) -> Expr {
         let op = ast_unary_expr.op().unwrap();
 
@@ -383,7 +383,7 @@ impl BodyLower {
         &mut self,
         db: &dyn HirDatabase,
         ast_path: ast::PathExpr,
-        _ctx: &mut SharedBodyLowerContext,
+        _ctx: &mut HirFileContext,
     ) -> Expr {
         let path = Path::new(
             db,
@@ -402,7 +402,7 @@ impl BodyLower {
         &mut self,
         db: &dyn HirDatabase,
         path: Path,
-        _ctx: &mut SharedBodyLowerContext,
+        _ctx: &mut HirFileContext,
     ) -> Symbol {
         match path.segments(db).as_slice() {
             [name] => {
@@ -437,7 +437,7 @@ impl BodyLower {
         &mut self,
         db: &dyn HirDatabase,
         ast_call: ast::CallExpr,
-        ctx: &mut SharedBodyLowerContext,
+        ctx: &mut HirFileContext,
     ) -> Expr {
         let args = ast_call.args().unwrap();
         let args = args
@@ -466,7 +466,7 @@ impl BodyLower {
         &mut self,
         db: &dyn HirDatabase,
         ast_block: ast::BlockExpr,
-        ctx: &mut SharedBodyLowerContext,
+        ctx: &mut HirFileContext,
     ) -> Expr {
         self.scopes.enter(ast_block.clone());
 
@@ -502,7 +502,7 @@ impl BodyLower {
         &mut self,
         db: &dyn HirDatabase,
         ast_if: ast::IfExpr,
-        ctx: &mut SharedBodyLowerContext,
+        ctx: &mut HirFileContext,
     ) -> Expr {
         let condition = self.lower_expr(db, ast_if.condition(), ctx);
         let condition = ctx.alloc_expr(condition);
@@ -528,7 +528,7 @@ impl BodyLower {
         &mut self,
         db: &dyn HirDatabase,
         ast_return: ast::ReturnExpr,
-        ctx: &mut SharedBodyLowerContext,
+        ctx: &mut HirFileContext,
     ) -> Expr {
         let value = if let Some(value) = ast_return.value() {
             let value = self.lower_expr(db, Some(value), ctx);
@@ -551,7 +551,7 @@ mod tests {
         name_resolver::{ModuleScopeOrigin, ResolutionMap, ResolutionStatus},
         parse_pods,
         testing::TestingDatabase,
-        Function, LowerError, LowerResult, Module, ModuleKind, Pod, Pods, UseItem,
+        Function, HirFile, LowerError, Module, ModuleKind, Pod, Pods, UseItem,
     };
 
     fn indent(nesting: usize) -> String {
@@ -566,33 +566,29 @@ mod tests {
         let mut msg = "".to_string();
 
         msg.push_str("//- /main.nail\n");
-        msg.push_str(&debug_lower_result(
-            db,
-            &pod.root_lower_result,
-            resolution_map,
-        ));
+        msg.push_str(&debug_hir_file(db, &pod.root_hir_file, resolution_map));
 
-        for (file, lower_result) in pod.lower_results_order_registration_asc() {
+        for (file, hir_file) in pod.get_hir_files_order_registration_asc() {
             let file_path = file.file_path(db);
             msg.push_str(&format!("//- {}\n", file_path.to_string_lossy()));
-            msg.push_str(&debug_lower_result(db, lower_result, resolution_map));
+            msg.push_str(&debug_hir_file(db, hir_file, resolution_map));
         }
 
         msg
     }
 
-    fn debug_lower_result(
+    fn debug_hir_file(
         db: &dyn HirDatabase,
-        lower_result: &LowerResult,
+        hir_file: &HirFile,
         resolution_map: &ResolutionMap,
     ) -> String {
         let mut msg = "".to_string();
 
-        for item in lower_result.top_level_items(db) {
-            msg.push_str(&debug_item(db, lower_result, resolution_map, item, 0));
+        for item in hir_file.top_level_items(db) {
+            msg.push_str(&debug_item(db, hir_file, resolution_map, item, 0));
         }
 
-        for error in lower_result.errors(db) {
+        for error in hir_file.errors(db) {
             match error {
                 LowerError::UndefinedEntryPoint => {
                     msg.push_str("error: Undefined entry point.(help: fn main() { ... })\n");
@@ -605,13 +601,13 @@ mod tests {
 
     fn debug_function(
         db: &dyn HirDatabase,
-        lower_result: &LowerResult,
+        hir_file: &HirFile,
         rsolution_map: &ResolutionMap,
         function: Function,
         nesting: usize,
     ) -> String {
-        let body_expr = lower_result
-            .shared_ctx(db)
+        let body_expr = hir_file
+            .hir_file_ctx(db)
             .function_body_by_ast_block(function.ast(db).body().unwrap())
             .unwrap();
 
@@ -654,7 +650,7 @@ mod tests {
         for stmt in &block.stmts {
             body.push_str(&debug_stmt(
                 db,
-                lower_result,
+                hir_file,
                 rsolution_map,
                 scope_origin,
                 stmt,
@@ -665,19 +661,12 @@ mod tests {
             body.push_str(&format!(
                 "{}expr:{}\n",
                 indent(nesting + 1),
-                debug_expr(
-                    db,
-                    lower_result,
-                    rsolution_map,
-                    scope_origin,
-                    tail,
-                    nesting + 1
-                )
+                debug_expr(db, hir_file, rsolution_map, scope_origin, tail, nesting + 1)
             ));
         }
         body.push_str(&format!("{}}}", indent(nesting)));
 
-        let is_entry_point = lower_result.entry_point(db) == Some(function);
+        let is_entry_point = hir_file.entry_point(db) == Some(function);
         format!(
             "{}fn {}{name}({params}) -> {return_type} {body}\n",
             indent(nesting),
@@ -687,7 +676,7 @@ mod tests {
 
     fn debug_module(
         db: &dyn HirDatabase,
-        lower_result: &LowerResult,
+        hir_file: &HirFile,
         resolution_map: &ResolutionMap,
         module: Module,
         nesting: usize,
@@ -705,7 +694,7 @@ mod tests {
                 for (i, item) in items.iter().enumerate() {
                     module_str.push_str(&debug_item(
                         db,
-                        lower_result,
+                        hir_file,
                         resolution_map,
                         item,
                         nesting + 1,
@@ -734,25 +723,23 @@ mod tests {
 
     fn debug_item(
         db: &dyn HirDatabase,
-        lower_result: &LowerResult,
+        hir_file: &HirFile,
         resolution_map: &ResolutionMap,
         item: &Item,
         nesting: usize,
     ) -> String {
         match item {
             Item::Function(function) => {
-                debug_function(db, lower_result, resolution_map, *function, nesting)
+                debug_function(db, hir_file, resolution_map, *function, nesting)
             }
-            Item::Module(module) => {
-                debug_module(db, lower_result, resolution_map, *module, nesting)
-            }
+            Item::Module(module) => debug_module(db, hir_file, resolution_map, *module, nesting),
             Item::UseItem(use_item) => debug_use_item(db, *use_item),
         }
     }
 
     fn debug_stmt(
         db: &dyn HirDatabase,
-        lower_result: &LowerResult,
+        hir_file: &HirFile,
         resolution_map: &ResolutionMap,
         scope_origin: ModuleScopeOrigin,
         stmt: &Stmt,
@@ -761,14 +748,8 @@ mod tests {
         match stmt {
             Stmt::VariableDef { name, value } => {
                 let name = name.text(db);
-                let expr_str = debug_expr(
-                    db,
-                    lower_result,
-                    resolution_map,
-                    scope_origin,
-                    *value,
-                    nesting,
-                );
+                let expr_str =
+                    debug_expr(db, hir_file, resolution_map, scope_origin, *value, nesting);
                 format!("{}let {name} = {expr_str}\n", indent(nesting))
             }
             Stmt::ExprStmt {
@@ -777,37 +758,25 @@ mod tests {
             } => format!(
                 "{}{}{}\n",
                 indent(nesting),
-                debug_expr(
-                    db,
-                    lower_result,
-                    resolution_map,
-                    scope_origin,
-                    *expr,
-                    nesting
-                ),
+                debug_expr(db, hir_file, resolution_map, scope_origin, *expr, nesting),
                 if *has_semicolon { ";" } else { "" }
             ),
-            Stmt::Item { item } => debug_item(db, lower_result, resolution_map, item, nesting),
+            Stmt::Item { item } => debug_item(db, hir_file, resolution_map, item, nesting),
         }
     }
 
     fn debug_expr(
         db: &dyn HirDatabase,
-        lower_result: &LowerResult,
+        hir_file: &HirFile,
         resolution_map: &ResolutionMap,
         scope_origin: ModuleScopeOrigin,
         expr_id: ExprId,
         nesting: usize,
     ) -> String {
-        match expr_id.lookup(lower_result.shared_ctx(db)) {
-            Expr::Symbol(symbol) => debug_symbol(
-                db,
-                lower_result,
-                resolution_map,
-                scope_origin,
-                symbol,
-                nesting,
-            ),
+        match expr_id.lookup(hir_file.hir_file_ctx(db)) {
+            Expr::Symbol(symbol) => {
+                debug_symbol(db, hir_file, resolution_map, scope_origin, symbol, nesting)
+            }
             Expr::Literal(literal) => match literal {
                 Literal::Bool(b) => b.to_string(),
                 Literal::Char(c) => format!("'{c}'"),
@@ -824,22 +793,8 @@ mod tests {
                     ast::BinaryOp::GreaterThan(_) => ">",
                     ast::BinaryOp::LessThan(_) => "<",
                 };
-                let lhs_str = debug_expr(
-                    db,
-                    lower_result,
-                    resolution_map,
-                    scope_origin,
-                    *lhs,
-                    nesting,
-                );
-                let rhs_str = debug_expr(
-                    db,
-                    lower_result,
-                    resolution_map,
-                    scope_origin,
-                    *rhs,
-                    nesting,
-                );
+                let lhs_str = debug_expr(db, hir_file, resolution_map, scope_origin, *lhs, nesting);
+                let rhs_str = debug_expr(db, hir_file, resolution_map, scope_origin, *rhs, nesting);
                 format!("{lhs_str} {op} {rhs_str}")
             }
             Expr::Unary { op, expr } => {
@@ -847,36 +802,17 @@ mod tests {
                     ast::UnaryOp::Neg(_) => "-",
                     ast::UnaryOp::Not(_) => "!",
                 };
-                let expr_str = debug_expr(
-                    db,
-                    lower_result,
-                    resolution_map,
-                    scope_origin,
-                    *expr,
-                    nesting,
-                );
+                let expr_str =
+                    debug_expr(db, hir_file, resolution_map, scope_origin, *expr, nesting);
                 format!("{op}{expr_str}")
             }
             Expr::Call { callee, args } => {
-                let callee = debug_symbol(
-                    db,
-                    lower_result,
-                    resolution_map,
-                    scope_origin,
-                    callee,
-                    nesting,
-                );
+                let callee =
+                    debug_symbol(db, hir_file, resolution_map, scope_origin, callee, nesting);
                 let args = args
                     .iter()
                     .map(|arg| {
-                        debug_expr(
-                            db,
-                            lower_result,
-                            resolution_map,
-                            scope_origin,
-                            *arg,
-                            nesting,
-                        )
+                        debug_expr(db, hir_file, resolution_map, scope_origin, *arg, nesting)
                     })
                     .collect::<Vec<_>>()
                     .join(", ");
@@ -890,7 +826,7 @@ mod tests {
                 for stmt in &block.stmts {
                     msg.push_str(&debug_stmt(
                         db,
-                        lower_result,
+                        hir_file,
                         resolution_map,
                         scope_origin,
                         stmt,
@@ -903,7 +839,7 @@ mod tests {
                         indent(nesting + 1),
                         debug_expr(
                             db,
-                            lower_result,
+                            hir_file,
                             resolution_map,
                             scope_origin,
                             tail,
@@ -923,7 +859,7 @@ mod tests {
                 let mut msg = "if ".to_string();
                 msg.push_str(&debug_expr(
                     db,
-                    lower_result,
+                    hir_file,
                     resolution_map,
                     scope_origin,
                     *condition,
@@ -932,7 +868,7 @@ mod tests {
                 msg.push(' ');
                 msg.push_str(&debug_expr(
                     db,
-                    lower_result,
+                    hir_file,
                     resolution_map,
                     scope_origin,
                     *then_branch,
@@ -943,7 +879,7 @@ mod tests {
                     msg.push_str(" else ");
                     msg.push_str(&debug_expr(
                         db,
-                        lower_result,
+                        hir_file,
                         resolution_map,
                         scope_origin,
                         *else_branch,
@@ -958,14 +894,7 @@ mod tests {
                 if let Some(value) = value {
                     msg.push_str(&format!(
                         " {}",
-                        &debug_expr(
-                            db,
-                            lower_result,
-                            resolution_map,
-                            scope_origin,
-                            *value,
-                            nesting,
-                        )
+                        &debug_expr(db, hir_file, resolution_map, scope_origin, *value, nesting,)
                     ));
                 }
 
@@ -977,14 +906,14 @@ mod tests {
 
     fn debug_symbol(
         db: &dyn HirDatabase,
-        lower_result: &LowerResult,
+        hir_file: &HirFile,
         resolution_map: &ResolutionMap,
         scope_origin: ModuleScopeOrigin,
         symbol: &Symbol,
         nesting: usize,
     ) -> String {
         match &symbol {
-            Symbol::Local { name, expr } => match expr.lookup(lower_result.shared_ctx(db)) {
+            Symbol::Local { name, expr } => match expr.lookup(hir_file.hir_file_ctx(db)) {
                 Expr::Symbol { .. }
                 | Expr::Binary { .. }
                 | Expr::Missing
@@ -992,14 +921,9 @@ mod tests {
                 | Expr::Unary { .. }
                 | Expr::Call { .. }
                 | Expr::If { .. }
-                | Expr::Return { .. } => debug_expr(
-                    db,
-                    lower_result,
-                    resolution_map,
-                    scope_origin,
-                    *expr,
-                    nesting,
-                ),
+                | Expr::Return { .. } => {
+                    debug_expr(db, hir_file, resolution_map, scope_origin, *expr, nesting)
+                }
                 Expr::Block { .. } => name.text(db).to_string(),
             },
             Symbol::Param { name, .. } => {

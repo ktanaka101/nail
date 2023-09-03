@@ -20,7 +20,7 @@ const INTERNAL_ENTRY_POINT: &str = "__main__";
 /// LLVM IR生成用のコンテキストです。
 pub struct CodegenContext<'a, 'ctx> {
     pub db: &'a dyn hir::HirDatabase,
-    pub hir_result: &'a hir::LowerResult,
+    pub hir_result: &'a hir::HirFile,
     pub mir_result: &'a mir::LowerResult,
 
     pub context: &'ctx Context,
@@ -317,7 +317,7 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
 }
 
 struct Codegen<'a, 'ctx> {
-    _hir_result: &'a hir::LowerResult,
+    _hir_result: &'a hir::HirFile,
     mir_result: &'a mir::LowerResult,
 
     context: &'ctx Context,
@@ -333,7 +333,7 @@ struct Codegen<'a, 'ctx> {
 
 impl<'a, 'ctx> Codegen<'a, 'ctx> {
     fn new(
-        hir_result: &'a hir::LowerResult,
+        hir_result: &'a hir::HirFile,
         mir_result: &'a mir::LowerResult,
         context: &'ctx Context,
         module: &'a Module<'ctx>,
@@ -520,7 +520,7 @@ mod tests {
         fixture: &str,
     ) -> (
         hir::TestingDatabase,
-        hir::LowerResult,
+        hir::HirFile,
         hir::ResolutionMap,
         hir_ty::TyLowerResult,
         mir::LowerResult,
@@ -530,7 +530,7 @@ mod tests {
 
         let pods = hir::parse_pods(&db, "/main.nail", &mut source_db);
 
-        let hir_result = pods.pods[0].root_lower_result;
+        let hir_result = pods.pods[0].root_hir_file;
         let resolution_map = pods.resolution_map;
         let ty_result = hir_ty::lower(&db, &hir_result, &resolution_map);
         let mir_result = mir::lower(&db, &hir_result, &resolution_map, &ty_result);

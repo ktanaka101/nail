@@ -21,12 +21,12 @@ use la_arena::{Arena, Idx};
 /// HIRとTyped HIRからMIRを構築する
 pub fn lower(
     db: &dyn hir::HirDatabase,
-    hir_result: &hir::LowerResult,
+    hir_file: &hir::HirFile,
     resolution_map: &hir::ResolutionMap,
     hir_ty_result: &hir_ty::TyLowerResult,
 ) -> LowerResult {
     let mir_lower = MirLower {
-        hir_result,
+        hir_file,
         resolution_map,
         hir_ty_result,
     };
@@ -35,7 +35,7 @@ pub fn lower(
 }
 
 struct FunctionLower<'a> {
-    hir_result: &'a hir::LowerResult,
+    hir_file: &'a hir::HirFile,
     resolution_map: &'a hir::ResolutionMap,
     hir_ty_result: &'a hir_ty::TyLowerResult,
     function_by_hir_function: &'a HashMap<hir::Function, FunctionId>,
@@ -56,7 +56,7 @@ struct FunctionLower<'a> {
 
 impl<'a> FunctionLower<'a> {
     fn new(
-        hir_result: &'a hir::LowerResult,
+        hir_file: &'a hir::HirFile,
         resolution_map: &'a hir::ResolutionMap,
         hir_ty_result: &'a hir_ty::TyLowerResult,
         function_by_hir_function: &'a HashMap<hir::Function, FunctionId>,
@@ -70,7 +70,7 @@ impl<'a> FunctionLower<'a> {
         });
 
         FunctionLower {
-            hir_result,
+            hir_file,
             resolution_map,
             hir_ty_result,
             function_by_hir_function,
@@ -184,7 +184,7 @@ impl<'a> FunctionLower<'a> {
     }
 
     fn lower_expr(&mut self, db: &dyn hir::HirDatabase, expr_id: hir::ExprId) -> LoweredExpr {
-        let expr = expr_id.lookup(self.hir_result.shared_ctx(db));
+        let expr = expr_id.lookup(self.hir_file.hir_file_ctx(db));
         match expr {
             hir::Expr::Symbol(symbol) => match symbol {
                 hir::Symbol::Param { name: _, param } => LoweredExpr::Operand(Operand::Place(
@@ -257,7 +257,7 @@ impl<'a> FunctionLower<'a> {
                 {
                     self.current_bb = Some(switch_bb.then_bb_idx);
 
-                    let then_block = match then_branch.lookup(self.hir_result.shared_ctx(db)) {
+                    let then_block = match then_branch.lookup(self.hir_file.hir_file_ctx(db)) {
                         hir::Expr::Block(block) => block,
                         _ => unreachable!(),
                     };
@@ -307,7 +307,7 @@ impl<'a> FunctionLower<'a> {
 
                     match else_branch {
                         Some(else_block) => {
-                            let else_block = match else_block.lookup(self.hir_result.shared_ctx(db))
+                            let else_block = match else_block.lookup(self.hir_file.hir_file_ctx(db))
                             {
                                 hir::Expr::Block(block) => block,
                                 _ => unreachable!(),
@@ -549,7 +549,7 @@ impl<'a> FunctionLower<'a> {
         }
 
         let body_block = self
-            .hir_result
+            .hir_file
             .function_body_by_function(db, self.function)
             .unwrap();
         let body_block = match body_block {
@@ -627,7 +627,7 @@ impl FunctionIdGenerator {
 }
 
 struct MirLower<'a> {
-    hir_result: &'a hir::LowerResult,
+    hir_file: &'a hir::HirFile,
     resolution_map: &'a hir::ResolutionMap,
     hir_ty_result: &'a hir_ty::TyLowerResult,
 }
@@ -640,7 +640,7 @@ impl<'a> MirLower<'a> {
         let function_id_by_hir_function = {
             let mut function_id_resolver = FunctionIdGenerator::new();
             let mut function_id_by_hir_function = HashMap::<hir::Function, FunctionId>::new();
-            for function in self.hir_result.functions(db) {
+            for function in self.hir_file.functions(db) {
                 function_id_by_hir_function.insert(*function, function_id_resolver.gen());
             }
 
@@ -649,9 +649,9 @@ impl<'a> MirLower<'a> {
 
         let mut body_by_function = HashMap::<FunctionId, Idx<Body>>::new();
         let mut function_by_body = HashMap::<Idx<Body>, FunctionId>::new();
-        for function in self.hir_result.functions(db) {
+        for function in self.hir_file.functions(db) {
             let lower = FunctionLower::new(
-                self.hir_result,
+                self.hir_file,
                 self.resolution_map,
                 self.hir_ty_result,
                 &function_id_by_hir_function,
@@ -1042,19 +1042,18 @@ mod tests {
         let mut source_db = hir::FixtureDatabase::new(&db, &fixture);
 
         let pods = hir::parse_pods(&db, "/main.nail", &mut source_db);
-        let ty_hir_result =
-            hir_ty::lower(&db, &pods.pods[0].root_lower_result, &pods.resolution_map);
+        let ty_hir_result = hir_ty::lower(&db, &pods.pods[0].root_hir_file, &pods.resolution_map);
 
         let mir_result = lower(
             &db,
-            &pods.pods[0].root_lower_result,
+            &pods.pods[0].root_hir_file,
             &pods.resolution_map,
             &ty_hir_result,
         );
 
         expect.assert_eq(&debug(
             &db,
-            &pods.pods[0].root_lower_result,
+            &pods.pods[0].root_hir_file,
             &ty_hir_result,
             &mir_result,
         ));
@@ -1077,7 +1076,7 @@ mod tests {
 
     fn debug(
         db: &dyn hir::HirDatabase,
-        _hir_result: &hir::LowerResult,
+        _hir_result: &hir::HirFile,
         _hir_ty_result: &hir_ty::TyLowerResult,
         mir_result: &crate::LowerResult,
     ) -> String {

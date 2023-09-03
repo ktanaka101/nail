@@ -24,12 +24,11 @@ pub use inference::{InferenceError, InferenceResult, ResolvedType, Signature};
 /// HIRを元にTypedHIRを構築します。
 pub fn lower(
     db: &dyn hir::HirDatabase,
-    lower_result: &hir::LowerResult,
+    hir_file: &hir::HirFile,
     resolution_map: &hir::ResolutionMap,
 ) -> TyLowerResult {
-    let inference_result = inference::infer(db, lower_result, resolution_map);
-    let type_check_result =
-        checker::check_type(db, lower_result, resolution_map, &inference_result);
+    let inference_result = inference::infer(db, hir_file, resolution_map);
+    let type_check_result = checker::check_type(db, hir_file, resolution_map, &inference_result);
 
     TyLowerResult {
         inference_result,
@@ -79,12 +78,12 @@ mod tests {
 
         let pods = hir::parse_pods(&db, "/main.nail", &mut source_db);
 
-        let result = lower(&db, &pods.pods[0].root_lower_result, &pods.resolution_map);
+        let result = lower(&db, &pods.pods[0].root_hir_file, &pods.resolution_map);
         expect.assert_eq(&debug(
             &db,
             &result.inference_result,
             &result.type_check_result,
-            &pods.pods[0].root_lower_result,
+            &pods.pods[0].root_hir_file,
         ));
     }
 
@@ -92,7 +91,7 @@ mod tests {
         db: &dyn hir::HirDatabase,
         inference_result: &InferenceResult,
         check_result: &TypeCheckResult,
-        lower_result: &hir::LowerResult,
+        hir_file: &hir::HirFile,
     ) -> String {
         let mut msg = "".to_string();
 
@@ -114,7 +113,7 @@ mod tests {
         let mut indexes = inference_result.type_by_expr.keys().collect::<Vec<_>>();
         indexes.sort();
         for expr_id in indexes {
-            let expr = debug_hir_expr(db, expr_id, lower_result);
+            let expr = debug_hir_expr(db, expr_id, hir_file);
             msg.push_str(&format!(
                 "`{}`: {}\n",
                 expr,
@@ -129,7 +128,7 @@ mod tests {
                 TypeCheckError::UnresolvedType { expr } => {
                     msg.push_str(&format!(
                         "error: `{}` is unresolved type.\n",
-                        debug_hir_expr(db, expr, lower_result),
+                        debug_hir_expr(db, expr, hir_file),
                     ));
                 }
                 TypeCheckError::MismatchedTypes {
@@ -142,8 +141,8 @@ mod tests {
                         "error: expected {}, found {} by `{}` and `{}`\n",
                         debug_type(expected_ty),
                         debug_type(found_ty),
-                        debug_hir_expr(db, expected_expr, lower_result),
-                        debug_hir_expr(db, found_expr, lower_result)
+                        debug_hir_expr(db, expected_expr, hir_file),
+                        debug_hir_expr(db, found_expr, hir_file)
                     ));
                 }
                 TypeCheckError::MismaatchedSignature {
@@ -155,7 +154,7 @@ mod tests {
                     "error: expected {}, found {} by `{}`\n",
                     debug_type(expected_ty),
                     debug_type(found_ty),
-                    debug_hir_expr(db, found_expr, lower_result)
+                    debug_hir_expr(db, found_expr, hir_file)
                 )),
                 TypeCheckError::MismatchedTypeIfCondition {
                     expected_ty,
@@ -166,7 +165,7 @@ mod tests {
                         "error: expected {}, found {} by `{}`\n",
                         debug_type(expected_ty),
                         debug_type(found_ty),
-                        debug_hir_expr(db, found_expr, lower_result)
+                        debug_hir_expr(db, found_expr, hir_file)
                     ));
                 }
                 TypeCheckError::MismatchedTypeElseBranch {
@@ -178,7 +177,7 @@ mod tests {
                         "error: expected {}, found {} by `{}`\n",
                         debug_type(expected_ty),
                         debug_type(found_ty),
-                        debug_hir_expr(db, found_expr, lower_result)
+                        debug_hir_expr(db, found_expr, hir_file)
                     ));
                 }
                 TypeCheckError::MismatchedReturnType {
@@ -194,7 +193,7 @@ mod tests {
                     if let Some(found_expr) = found_expr {
                         msg.push_str(&format!(
                             " by `{}`",
-                            debug_hir_expr(db, found_expr, lower_result)
+                            debug_hir_expr(db, found_expr, hir_file)
                         ));
                     }
                     msg.push('\n');
@@ -208,9 +207,9 @@ mod tests {
     fn debug_hir_expr(
         db: &dyn hir::HirDatabase,
         expr_id: &hir::ExprId,
-        lower_result: &hir::LowerResult,
+        hir_file: &hir::HirFile,
     ) -> String {
-        let expr = expr_id.lookup(lower_result.shared_ctx(db));
+        let expr = expr_id.lookup(hir_file.hir_file_ctx(db));
         match expr {
             hir::Expr::Symbol(symbol) => match symbol {
                 hir::Symbol::Param { name, .. } => debug_name(db, *name),
@@ -223,7 +222,7 @@ mod tests {
                     ast::UnaryOp::Neg(_) => "-".to_string(),
                     ast::UnaryOp::Not(_) => "!".to_string(),
                 };
-                let expr = debug_hir_expr(db, expr, lower_result);
+                let expr = debug_hir_expr(db, expr, hir_file);
                 format!("{op}{expr}")
             }
             hir::Expr::Binary { op, lhs, rhs } => {
@@ -237,14 +236,14 @@ mod tests {
                     ast::BinaryOp::LessThan(_) => "<",
                 }
                 .to_string();
-                let lhs = debug_hir_expr(db, lhs, lower_result);
-                let rhs = debug_hir_expr(db, rhs, lower_result);
+                let lhs = debug_hir_expr(db, lhs, hir_file);
+                let rhs = debug_hir_expr(db, rhs, hir_file);
 
                 format!("{lhs} {op} {rhs}")
             }
             hir::Expr::Block(block) => {
                 if let Some(tail) = block.tail {
-                    format!("{{ .., {} }}", debug_hir_expr(db, &tail, lower_result))
+                    format!("{{ .., {} }}", debug_hir_expr(db, &tail, hir_file))
                 } else {
                     "{{ .. }}".to_string()
                 }
@@ -253,7 +252,7 @@ mod tests {
                 let name = debug_symbol(db, callee);
                 let args = args
                     .iter()
-                    .map(|id| debug_hir_expr(db, id, lower_result))
+                    .map(|id| debug_hir_expr(db, id, hir_file))
                     .collect::<Vec<String>>()
                     .join(", ");
 
@@ -272,13 +271,13 @@ mod tests {
             } => {
                 let mut if_expr = format!(
                     "if {} {}",
-                    debug_hir_expr(db, condition, lower_result),
-                    debug_hir_expr(db, then_branch, lower_result)
+                    debug_hir_expr(db, condition, hir_file),
+                    debug_hir_expr(db, then_branch, hir_file)
                 );
                 if let Some(else_branch) = else_branch {
                     if_expr.push_str(&format!(
                         " else {}",
-                        debug_hir_expr(db, else_branch, lower_result)
+                        debug_hir_expr(db, else_branch, hir_file)
                     ));
                 }
 
@@ -287,7 +286,7 @@ mod tests {
             hir::Expr::Return { value } => {
                 let mut msg = "return".to_string();
                 if let Some(value) = value {
-                    msg.push_str(&format!(" {}", debug_hir_expr(db, value, lower_result)));
+                    msg.push_str(&format!(" {}", debug_hir_expr(db, value, hir_file)));
                 }
 
                 msg

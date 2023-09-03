@@ -40,7 +40,7 @@ pub use db::{HirDatabase, Jar};
 pub use input::{FixtureDatabase, NailFile, SourceDatabase, SourceDatabaseTrait};
 pub use item::{Function, Item, Module, ModuleKind, Param, Type, UseItem};
 use name_resolver::resolve_symbols;
-pub use name_resolver::{ResolutionStatus, SymbolTable};
+pub use name_resolver::{ResolutionMap, ResolutionStatus};
 pub use testing::TestingDatabase;
 
 /// ビルド対象全体を表します。
@@ -48,7 +48,7 @@ pub use testing::TestingDatabase;
 pub struct Pods {
     pub pods: Vec<Pod>,
 
-    pub symbol_table: SymbolTable,
+    pub resolution_map: ResolutionMap,
 }
 
 /// PodはNailにおけるパッケージの単位です。
@@ -114,7 +114,7 @@ pub fn parse_pods(
 
     Pods {
         pods: vec![pod],
-        symbol_table,
+        resolution_map: symbol_table,
     }
 }
 
@@ -145,7 +145,7 @@ fn parse_pod(db: &dyn HirDatabase, path: &str, source_db: &mut dyn SourceDatabas
     }
 
     Pod {
-        name: Name::new(db, "dummy_pod_name".to_string()),
+        name: Name::new(db, "t_pod".to_string()),
         root_file: source_db.source_root(),
         root_lower_result: root_result,
         lower_result_by_file,
@@ -415,15 +415,10 @@ pub enum Expr {
 /// パスを表します
 ///
 /// 例: `aaa::bbb`
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[salsa::interned]
 pub struct Path {
-    segments: Vec<Name>,
-}
-impl Path {
-    /// 区切り文字で分割したパスの一覧を返します
-    pub fn segments(&self) -> &[Name] {
-        self.segments.as_slice()
-    }
+    #[return_ref]
+    pub segments: Vec<Name>,
 }
 
 /// コード中に現れるシンボルを表します
@@ -453,10 +448,18 @@ pub enum Symbol {
         expr: ExprId,
     },
     /// 解決できないシンボル
+    ///
+    /// 名前解決フェーズで名前解決を試みます。
     Missing {
         /// パス
-        path: Path,
+        path: NameSolutionPath,
     },
+}
+
+/// 名前解決対象のパスを表します。
+#[salsa::tracked]
+pub struct NameSolutionPath {
+    pub path: Path,
 }
 
 /// ブロック

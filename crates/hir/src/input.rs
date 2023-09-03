@@ -149,8 +149,8 @@ impl FixtureDatabase {
     /// // この例では、/main.nailというエントリポイントと、/foo.nailというnailファイルが存在します。
     /// // /main.nailから、/foo.nailのbar関数が呼び出されています。
     /// use hir::{FixtureDatabase, TestingDatabase};
-    /// let salsa_db = TestingDatabase::default();
-    /// let fixture_db = FixtureDatabase::new(&salsa_db, r#"
+    /// let db = TestingDatabase::default();
+    /// let fixture_db = FixtureDatabase::new(&db, r#"
     ///    //- /main.nail
     ///    mod foo;
     ///    fn main() {

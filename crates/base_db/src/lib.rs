@@ -1,5 +1,5 @@
 #[derive(Default)]
-#[salsa::db(hir::Jar, hir_ty::Jar)]
+#[salsa::db(hir::Jar)]
 pub struct SalsaDatabase {
     storage: salsa::Storage<Self>,
 }

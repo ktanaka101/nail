@@ -2,11 +2,12 @@ use std::collections;
 
 use la_arena::{Arena, Idx};
 
-use crate::TyHirDatabase;
-
-#[salsa::tracked]
-pub fn infer(db: &dyn TyHirDatabase, hir_result: hir::LowerResult) -> InferenceResult {
-    let inferencer = TypeInferencer::new(&hir_result);
+pub fn infer(
+    db: &dyn hir::HirDatabase,
+    lower_result: &hir::LowerResult,
+    resolution_map: &hir::ResolutionMap,
+) -> InferenceResult {
+    let inferencer = TypeInferencer::new(lower_result, resolution_map);
     inferencer.infer(db)
 }
 
@@ -88,18 +89,20 @@ pub struct Signature {
 /// 型推論器
 struct TypeInferencer<'a> {
     hir_result: &'a hir::LowerResult,
+    resolution_map: &'a hir::ResolutionMap,
     ctx: InferenceContext,
 }
 impl<'a> TypeInferencer<'a> {
-    fn new(hir_result: &'a hir::LowerResult) -> Self {
+    fn new(hir_result: &'a hir::LowerResult, symbol_table: &'a hir::ResolutionMap) -> Self {
         Self {
             hir_result,
+            resolution_map: symbol_table,
             ctx: InferenceContext::new(),
         }
     }
 
-    fn infer(mut self, db: &dyn TyHirDatabase) -> InferenceResult {
-        for function in self.hir_result.item_tree(db).functions() {
+    fn infer(mut self, db: &dyn hir::HirDatabase) -> InferenceResult {
+        for function in self.hir_result.functions(db) {
             let mut params = vec![];
             for param in function.params(db) {
                 let ty = self.infer_ty(&param.ty(db));
@@ -117,12 +120,8 @@ impl<'a> TypeInferencer<'a> {
                 .insert(*function, signature_idx);
         }
 
-        for function in self.hir_result.item_tree(db).functions() {
-            let body_ast_id = self
-                .hir_result
-                .item_tree(db)
-                .block_id_by_function(function)
-                .unwrap();
+        for function in self.hir_result.functions(db) {
+            let body_ast_id = function.ast(db).body().unwrap();
             let body = self
                 .hir_result
                 .shared_ctx(db)
@@ -175,8 +174,8 @@ impl<'a> TypeInferencer<'a> {
             hir::Expr::Symbol(symbol) => match symbol {
                 hir::Symbol::Local { expr, .. } => self.infer_expr_id(db, *expr),
                 hir::Symbol::Param { param, .. } => self.infer_ty(&param.ty(db)),
-                hir::Symbol::Missing { .. } => ResolvedType::Unknown,
-                hir::Symbol::Function { .. } => unimplemented!(),
+                // TODO: supports function, name resolution
+                hir::Symbol::Missing { path: _ } => ResolvedType::Unknown,
             },
             hir::Expr::Literal(literal) => match literal {
                 hir::Literal::Integer(_) => ResolvedType::Integer,
@@ -242,28 +241,42 @@ impl<'a> TypeInferencer<'a> {
                 ResolvedType::Unknown
             }
             hir::Expr::Call { callee, args } => match callee {
-                hir::Symbol::Missing { .. } => ResolvedType::Unknown,
-                hir::Symbol::Function { function, .. } => {
-                    for (i, arg) in args.iter().enumerate() {
-                        let param = function.params(db)[i];
+                hir::Symbol::Missing { path } => {
+                    let Some(resolution_status) = self.resolution_map.item_by_symbol(path) else { return ResolvedType::Unknown; };
 
-                        let arg_ty = self.infer_expr_id(db, *arg);
-                        let param_ty = self.infer_ty(&param.ty(db));
-
-                        if arg_ty == param_ty {
-                            continue;
+                    let resolved_item = match resolution_status {
+                        hir::ResolutionStatus::Resolved { path: _, item } => item,
+                        hir::ResolutionStatus::Unresolved | hir::ResolutionStatus::Error => {
+                            return ResolvedType::Unknown;
                         }
+                    };
 
-                        match (arg_ty, param_ty) {
-                            (ResolvedType::Unknown, ResolvedType::Unknown) => (),
-                            (ResolvedType::Unknown, ty) => {
-                                self.ctx.type_by_expr.insert(*arg, ty);
+                    match resolved_item {
+                        hir::Item::Function(function) => {
+                            for (i, arg) in args.iter().enumerate() {
+                                let param = function.params(db)[i];
+
+                                let arg_ty = self.infer_expr_id(db, *arg);
+                                let param_ty = self.infer_ty(&param.ty(db));
+
+                                if arg_ty == param_ty {
+                                    continue;
+                                }
+
+                                match (arg_ty, param_ty) {
+                                    (ResolvedType::Unknown, ResolvedType::Unknown) => (),
+                                    (ResolvedType::Unknown, ty) => {
+                                        self.ctx.type_by_expr.insert(*arg, ty);
+                                    }
+                                    (_, _) => (),
+                                }
                             }
-                            (_, _) => (),
-                        }
-                    }
 
-                    self.infer_ty(&function.return_type(db))
+                            self.infer_ty(&function.return_type(db))
+                        }
+                        hir::Item::Module(_) => unimplemented!(),
+                        hir::Item::UseItem(_) => unimplemented!(),
+                    }
                 }
                 hir::Symbol::Local { .. } | hir::Symbol::Param { .. } => unimplemented!(),
             },

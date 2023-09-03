@@ -11,6 +11,8 @@ pub struct Jar(
     crate::Param,
     crate::Module,
     crate::UseItem,
+    crate::NameSolutionPath,
+    crate::Path,
 );
 
 /// [Jar]用のDBトレイトです。

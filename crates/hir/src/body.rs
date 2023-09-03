@@ -6,7 +6,7 @@ use la_arena::{Arena, Idx};
 
 use crate::{
     body::scopes::ExprScopes, Block, Expr, Function, HirDatabase, Item, Literal, Module,
-    ModuleKind, NailFile, Name, Param, Path, Stmt, Symbol, Type, UseItem,
+    ModuleKind, NailFile, Name, NameSolutionPath, Param, Path, Stmt, Symbol, Type, UseItem,
 };
 
 /// 式を一意に識別するためのID
@@ -220,7 +220,7 @@ impl BodyLower {
                     .iter()
                     .map(|segment| Name::new(db, segment.name().unwrap().name().to_string()))
                     .collect::<Vec<_>>();
-                let path = Path { segments };
+                let path = Path::new(db, segments);
                 let use_item = UseItem::new(db, name, path);
 
                 Some(use_item)
@@ -385,20 +385,26 @@ impl BodyLower {
         ast_path: ast::PathExpr,
         _ctx: &mut SharedBodyLowerContext,
     ) -> Expr {
-        let path = Path {
-            segments: ast_path
+        let path = Path::new(
+            db,
+            ast_path
                 .path()
                 .unwrap()
                 .segments()
                 .map(|segment| Name::new(db, segment.name().unwrap().name().to_string()))
                 .collect(),
-        };
-        let symbol = self.lookup_path(path, _ctx);
+        );
+        let symbol = self.lookup_path(db, path, _ctx);
         Expr::Symbol(symbol)
     }
 
-    fn lookup_path(&mut self, path: Path, _ctx: &mut SharedBodyLowerContext) -> Symbol {
-        match path.segments() {
+    fn lookup_path(
+        &mut self,
+        db: &dyn HirDatabase,
+        path: Path,
+        _ctx: &mut SharedBodyLowerContext,
+    ) -> Symbol {
+        match path.segments(db).as_slice() {
             [name] => {
                 let name = *name;
                 if let Some(expr) = self.scopes.lookup_in_only_current_scope(name) {
@@ -412,16 +418,12 @@ impl BodyLower {
                     Symbol::Local { name, expr }
                 } else {
                     Symbol::Missing {
-                        path: Path {
-                            segments: vec![name],
-                        },
+                        path: NameSolutionPath::new(db, Path::new(db, vec![name])),
                     }
                 }
             }
             [_segments @ .., _item_segment] => Symbol::Missing {
-                path: Path {
-                    segments: path.segments().to_vec(),
-                },
+                path: NameSolutionPath::new(db, path),
             },
             [] => unreachable!(),
         }
@@ -546,7 +548,7 @@ mod tests {
     use super::*;
     use crate::{
         input::FixtureDatabase,
-        name_resolver::{ModuleScopeOrigin, ResolutionStatus, SymbolInScopeOrigin, SymbolTable},
+        name_resolver::{ModuleScopeOrigin, ResolutionMap, ResolutionStatus},
         parse_pods,
         testing::TestingDatabase,
         Function, LowerError, LowerResult, Module, ModuleKind, Pod, Pods, UseItem,
@@ -557,23 +559,23 @@ mod tests {
     }
 
     fn debug_pods(db: &dyn HirDatabase, pods: &Pods) -> String {
-        debug_pod(db, &pods.pods[0], &pods.symbol_table)
+        debug_pod(db, &pods.pods[0], &pods.resolution_map)
     }
 
-    fn debug_pod(db: &dyn HirDatabase, pod: &Pod, symbol_table: &SymbolTable) -> String {
+    fn debug_pod(db: &dyn HirDatabase, pod: &Pod, resolution_map: &ResolutionMap) -> String {
         let mut msg = "".to_string();
 
         msg.push_str("//- /main.nail\n");
         msg.push_str(&debug_lower_result(
             db,
             &pod.root_lower_result,
-            symbol_table,
+            resolution_map,
         ));
 
         for (file, lower_result) in pod.lower_results_order_registration_asc() {
             let file_path = file.file_path(db);
             msg.push_str(&format!("//- {}\n", file_path.to_string_lossy()));
-            msg.push_str(&debug_lower_result(db, lower_result, symbol_table));
+            msg.push_str(&debug_lower_result(db, lower_result, resolution_map));
         }
 
         msg
@@ -582,12 +584,12 @@ mod tests {
     fn debug_lower_result(
         db: &dyn HirDatabase,
         lower_result: &LowerResult,
-        symbol_table: &SymbolTable,
+        resolution_map: &ResolutionMap,
     ) -> String {
         let mut msg = "".to_string();
 
         for item in lower_result.top_level_items(db) {
-            msg.push_str(&debug_item(db, lower_result, symbol_table, item, 0));
+            msg.push_str(&debug_item(db, lower_result, resolution_map, item, 0));
         }
 
         for error in lower_result.errors(db) {
@@ -604,7 +606,7 @@ mod tests {
     fn debug_function(
         db: &dyn HirDatabase,
         lower_result: &LowerResult,
-        symbol_table: &SymbolTable,
+        rsolution_map: &ResolutionMap,
         function: Function,
         nesting: usize,
     ) -> String {
@@ -648,10 +650,7 @@ mod tests {
             Type::Unknown => "<unknown>",
         };
 
-        let scope_origin = ModuleScopeOrigin::Function {
-            name: function.name(db).unwrap(),
-            origin: function,
-        };
+        let scope_origin = ModuleScopeOrigin::Function { origin: function };
 
         let Expr::Block(block) = body_expr else { panic!("Should be Block") };
 
@@ -660,7 +659,7 @@ mod tests {
             body.push_str(&debug_stmt(
                 db,
                 lower_result,
-                symbol_table,
+                rsolution_map,
                 scope_origin,
                 stmt,
                 nesting + 1,
@@ -673,7 +672,7 @@ mod tests {
                 debug_expr(
                     db,
                     lower_result,
-                    symbol_table,
+                    rsolution_map,
                     scope_origin,
                     tail,
                     nesting + 1
@@ -693,14 +692,11 @@ mod tests {
     fn debug_module(
         db: &dyn HirDatabase,
         lower_result: &LowerResult,
-        symbol_table: &SymbolTable,
+        resolution_map: &ResolutionMap,
         module: Module,
         nesting: usize,
     ) -> String {
-        let _scope_origin = ModuleScopeOrigin::Module {
-            name: module.name(db),
-            origin: module,
-        };
+        let _scope_origin = ModuleScopeOrigin::Module { origin: module };
 
         let curr_indent = indent(nesting);
 
@@ -714,7 +710,7 @@ mod tests {
                     module_str.push_str(&debug_item(
                         db,
                         lower_result,
-                        symbol_table,
+                        resolution_map,
                         item,
                         nesting + 1,
                     ));
@@ -743,15 +739,17 @@ mod tests {
     fn debug_item(
         db: &dyn HirDatabase,
         lower_result: &LowerResult,
-        symbol_table: &SymbolTable,
+        resolution_map: &ResolutionMap,
         item: &Item,
         nesting: usize,
     ) -> String {
         match item {
             Item::Function(function) => {
-                debug_function(db, lower_result, symbol_table, *function, nesting)
+                debug_function(db, lower_result, resolution_map, *function, nesting)
             }
-            Item::Module(module) => debug_module(db, lower_result, symbol_table, *module, nesting),
+            Item::Module(module) => {
+                debug_module(db, lower_result, resolution_map, *module, nesting)
+            }
             Item::UseItem(use_item) => debug_use_item(db, *use_item),
         }
     }
@@ -759,7 +757,7 @@ mod tests {
     fn debug_stmt(
         db: &dyn HirDatabase,
         lower_result: &LowerResult,
-        symbol_table: &SymbolTable,
+        resolution_map: &ResolutionMap,
         scope_origin: ModuleScopeOrigin,
         stmt: &Stmt,
         nesting: usize,
@@ -770,7 +768,7 @@ mod tests {
                 let expr_str = debug_expr(
                     db,
                     lower_result,
-                    symbol_table,
+                    resolution_map,
                     scope_origin,
                     *value,
                     nesting,
@@ -783,17 +781,24 @@ mod tests {
             } => format!(
                 "{}{}{}\n",
                 indent(nesting),
-                debug_expr(db, lower_result, symbol_table, scope_origin, *expr, nesting),
+                debug_expr(
+                    db,
+                    lower_result,
+                    resolution_map,
+                    scope_origin,
+                    *expr,
+                    nesting
+                ),
                 if *has_semicolon { ";" } else { "" }
             ),
-            Stmt::Item { item } => debug_item(db, lower_result, symbol_table, item, nesting),
+            Stmt::Item { item } => debug_item(db, lower_result, resolution_map, item, nesting),
         }
     }
 
     fn debug_expr(
         db: &dyn HirDatabase,
         lower_result: &LowerResult,
-        symbol_table: &SymbolTable,
+        resolution_map: &ResolutionMap,
         scope_origin: ModuleScopeOrigin,
         expr_id: ExprId,
         nesting: usize,
@@ -802,11 +807,9 @@ mod tests {
             Expr::Symbol(symbol) => debug_symbol(
                 db,
                 lower_result,
-                symbol_table,
-                &SymbolInScopeOrigin {
-                    scope_origin,
-                    symbol: symbol.clone(),
-                },
+                resolution_map,
+                scope_origin,
+                symbol,
                 nesting,
             ),
             Expr::Literal(literal) => match literal {
@@ -825,10 +828,22 @@ mod tests {
                     ast::BinaryOp::GreaterThan(_) => ">",
                     ast::BinaryOp::LessThan(_) => "<",
                 };
-                let lhs_str =
-                    debug_expr(db, lower_result, symbol_table, scope_origin, *lhs, nesting);
-                let rhs_str =
-                    debug_expr(db, lower_result, symbol_table, scope_origin, *rhs, nesting);
+                let lhs_str = debug_expr(
+                    db,
+                    lower_result,
+                    resolution_map,
+                    scope_origin,
+                    *lhs,
+                    nesting,
+                );
+                let rhs_str = debug_expr(
+                    db,
+                    lower_result,
+                    resolution_map,
+                    scope_origin,
+                    *rhs,
+                    nesting,
+                );
                 format!("{lhs_str} {op} {rhs_str}")
             }
             Expr::Unary { op, expr } => {
@@ -836,25 +851,36 @@ mod tests {
                     ast::UnaryOp::Neg(_) => "-",
                     ast::UnaryOp::Not(_) => "!",
                 };
-                let expr_str =
-                    debug_expr(db, lower_result, symbol_table, scope_origin, *expr, nesting);
+                let expr_str = debug_expr(
+                    db,
+                    lower_result,
+                    resolution_map,
+                    scope_origin,
+                    *expr,
+                    nesting,
+                );
                 format!("{op}{expr_str}")
             }
             Expr::Call { callee, args } => {
                 let callee = debug_symbol(
                     db,
                     lower_result,
-                    symbol_table,
-                    &SymbolInScopeOrigin {
-                        scope_origin,
-                        symbol: callee.clone(),
-                    },
+                    resolution_map,
+                    scope_origin,
+                    callee,
                     nesting,
                 );
                 let args = args
                     .iter()
                     .map(|arg| {
-                        debug_expr(db, lower_result, symbol_table, scope_origin, *arg, nesting)
+                        debug_expr(
+                            db,
+                            lower_result,
+                            resolution_map,
+                            scope_origin,
+                            *arg,
+                            nesting,
+                        )
                     })
                     .collect::<Vec<_>>()
                     .join(", ");
@@ -869,7 +895,7 @@ mod tests {
                     msg.push_str(&debug_stmt(
                         db,
                         lower_result,
-                        symbol_table,
+                        resolution_map,
                         scope_origin,
                         stmt,
                         nesting + 1,
@@ -882,7 +908,7 @@ mod tests {
                         debug_expr(
                             db,
                             lower_result,
-                            symbol_table,
+                            resolution_map,
                             scope_origin,
                             tail,
                             nesting + 1
@@ -902,7 +928,7 @@ mod tests {
                 msg.push_str(&debug_expr(
                     db,
                     lower_result,
-                    symbol_table,
+                    resolution_map,
                     scope_origin,
                     *condition,
                     nesting,
@@ -911,7 +937,7 @@ mod tests {
                 msg.push_str(&debug_expr(
                     db,
                     lower_result,
-                    symbol_table,
+                    resolution_map,
                     scope_origin,
                     *then_branch,
                     nesting,
@@ -922,7 +948,7 @@ mod tests {
                     msg.push_str(&debug_expr(
                         db,
                         lower_result,
-                        symbol_table,
+                        resolution_map,
                         scope_origin,
                         *else_branch,
                         nesting,
@@ -939,7 +965,7 @@ mod tests {
                         &debug_expr(
                             db,
                             lower_result,
-                            symbol_table,
+                            resolution_map,
                             scope_origin,
                             *value,
                             nesting,
@@ -956,11 +982,12 @@ mod tests {
     fn debug_symbol(
         db: &dyn HirDatabase,
         lower_result: &LowerResult,
-        symbol_table: &SymbolTable,
-        symbol: &SymbolInScopeOrigin,
+        resolution_map: &ResolutionMap,
+        scope_origin: ModuleScopeOrigin,
+        symbol: &Symbol,
         nesting: usize,
     ) -> String {
-        match &symbol.symbol {
+        match &symbol {
             Symbol::Local { name, expr } => match expr.lookup(lower_result.shared_ctx(db)) {
                 Expr::Symbol { .. }
                 | Expr::Binary { .. }
@@ -972,8 +999,8 @@ mod tests {
                 | Expr::Return { .. } => debug_expr(
                     db,
                     lower_result,
-                    symbol_table,
-                    symbol.scope_origin,
+                    resolution_map,
+                    scope_origin,
                     *expr,
                     nesting,
                 ),
@@ -983,9 +1010,9 @@ mod tests {
                 let name = name.text(db);
                 format!("param:{name}")
             }
-            Symbol::Missing { .. } => {
-                let resolving_status = symbol_table.item_by_symbol(symbol).unwrap();
-                debug_resolution_status(db, resolving_status, symbol_table)
+            Symbol::Missing { path } => {
+                let resolving_status = resolution_map.item_by_symbol(path).unwrap();
+                debug_resolution_status(db, resolving_status, resolution_map)
             }
         }
     }
@@ -993,7 +1020,7 @@ mod tests {
     fn debug_resolution_status(
         db: &dyn HirDatabase,
         resolution_status: ResolutionStatus,
-        _symbol_table: &SymbolTable,
+        _resolution_map: &ResolutionMap,
     ) -> String {
         match resolution_status {
             ResolutionStatus::Unresolved => "<unknown>".to_string(),
@@ -1016,7 +1043,7 @@ mod tests {
     }
 
     fn debug_path(db: &dyn HirDatabase, path: &Path) -> String {
-        path.segments
+        path.segments(db)
             .iter()
             .map(|segment| segment.text(db).to_string())
             .collect::<Vec<_>>()

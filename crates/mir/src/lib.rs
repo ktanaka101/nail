@@ -20,23 +20,25 @@ use la_arena::{Arena, Idx};
 
 /// HIRとTyped HIRからMIRを構築する
 pub fn lower(
-    salsa_db: &dyn hir::HirDatabase,
+    db: &dyn hir::HirDatabase,
     hir_result: &hir::LowerResult,
+    resolution_map: &hir::ResolutionMap,
     hir_ty_result: &hir_ty::TyLowerResult,
 ) -> LowerResult {
     let mir_lower = MirLower {
         hir_result,
+        resolution_map,
         hir_ty_result,
     };
 
-    mir_lower.lower(salsa_db)
+    mir_lower.lower(db)
 }
 
 struct FunctionLower<'a> {
     hir_result: &'a hir::LowerResult,
+    resolution_map: &'a hir::ResolutionMap,
     hir_ty_result: &'a hir_ty::TyLowerResult,
     function_by_hir_function: &'a HashMap<hir::Function, FunctionId>,
-    path: hir::Path,
     function: hir::Function,
 
     return_local: Idx<Local>,
@@ -55,9 +57,9 @@ struct FunctionLower<'a> {
 impl<'a> FunctionLower<'a> {
     fn new(
         hir_result: &'a hir::LowerResult,
+        resolution_map: &'a hir::ResolutionMap,
         hir_ty_result: &'a hir_ty::TyLowerResult,
         function_by_hir_function: &'a HashMap<hir::Function, FunctionId>,
-        path: hir::Path,
         function: hir::Function,
     ) -> Self {
         let mut locals = Arena::new();
@@ -69,9 +71,9 @@ impl<'a> FunctionLower<'a> {
 
         FunctionLower {
             hir_result,
+            resolution_map,
             hir_ty_result,
             function_by_hir_function,
-            path,
             function,
             local_idx: 1,
             return_local,
@@ -191,8 +193,7 @@ impl<'a> FunctionLower<'a> {
                 hir::Symbol::Local { name: _, expr } => LoweredExpr::Operand(Operand::Place(
                     Place::Local(self.get_local_by_expr(*expr)),
                 )),
-                hir::Symbol::Function { .. } => todo!(),
-                hir::Symbol::Missing { .. } => unreachable!(),
+                hir::Symbol::Missing { .. } => todo!(),
             },
             hir::Expr::Literal(literal) => match literal {
                 hir::Literal::Integer(value) => {
@@ -463,26 +464,37 @@ impl<'a> FunctionLower<'a> {
                 match callee {
                     hir::Symbol::Param { .. } => unimplemented!(),
                     hir::Symbol::Local { .. } => unimplemented!(),
-                    hir::Symbol::Function { path: _, function } => {
-                        let function_id = self.function_by_hir_function[function];
+                    hir::Symbol::Missing { path } => {
+                        let resolution_status = self.resolution_map.item_by_symbol(path).unwrap();
+                        let item = match resolution_status {
+                            hir::ResolutionStatus::Unresolved | hir::ResolutionStatus::Error => {
+                                unimplemented!()
+                            }
+                            hir::ResolutionStatus::Resolved { path: _, item } => item,
+                        };
+                        match item {
+                            hir::Item::Function(function) => {
+                                let function_id = self.function_by_hir_function[&function];
 
-                        let signature = self.hir_ty_result.signature_by_function(*function);
-                        let called_local = self.alloc_local_by_ty(signature.return_type);
-                        let dest_place = Place::Local(called_local);
+                                let signature = self.hir_ty_result.signature_by_function(function);
+                                let called_local = self.alloc_local_by_ty(signature.return_type);
+                                let dest_place = Place::Local(called_local);
 
-                        let target_bb = self.alloc_standard_bb();
+                                let target_bb = self.alloc_standard_bb();
 
-                        self.add_termination_to_current_bb(Termination::Call {
-                            function: function_id,
-                            args: arg_operands,
-                            destination: dest_place,
-                            target: target_bb,
-                        });
-                        self.current_bb = Some(target_bb);
+                                self.add_termination_to_current_bb(Termination::Call {
+                                    function: function_id,
+                                    args: arg_operands,
+                                    destination: dest_place,
+                                    target: target_bb,
+                                });
+                                self.current_bb = Some(target_bb);
 
-                        LoweredExpr::Operand(Operand::Place(dest_place))
+                                LoweredExpr::Operand(Operand::Place(dest_place))
+                            }
+                            hir::Item::Module(_) | hir::Item::UseItem(_) => unimplemented!(),
+                        }
                     }
-                    hir::Symbol::Missing { .. } => unreachable!(),
                 }
             }
             hir::Expr::Missing => unreachable!(),
@@ -581,7 +593,7 @@ impl<'a> FunctionLower<'a> {
         }
 
         Body {
-            path: self.path,
+            path: self.resolution_map.path_of_function(self.function).unwrap(),
             name: self.function.name(db).unwrap(),
             params: self.params,
             return_local: self.return_local,
@@ -616,6 +628,7 @@ impl FunctionIdGenerator {
 
 struct MirLower<'a> {
     hir_result: &'a hir::LowerResult,
+    resolution_map: &'a hir::ResolutionMap,
     hir_ty_result: &'a hir_ty::TyLowerResult,
 }
 
@@ -627,7 +640,7 @@ impl<'a> MirLower<'a> {
         let function_id_by_hir_function = {
             let mut function_id_resolver = FunctionIdGenerator::new();
             let mut function_id_by_hir_function = HashMap::<hir::Function, FunctionId>::new();
-            for function in self.hir_result.item_tree(db).functions() {
+            for function in self.hir_result.functions(db) {
                 function_id_by_hir_function.insert(*function, function_id_resolver.gen());
             }
 
@@ -636,12 +649,12 @@ impl<'a> MirLower<'a> {
 
         let mut body_by_function = HashMap::<FunctionId, Idx<Body>>::new();
         let mut function_by_body = HashMap::<Idx<Body>, FunctionId>::new();
-        for function in self.hir_result.item_tree(db).functions() {
+        for function in self.hir_result.functions(db) {
             let lower = FunctionLower::new(
                 self.hir_result,
+                self.resolution_map,
                 self.hir_ty_result,
                 &function_id_by_hir_function,
-                function.path(db).clone(),
                 *function,
             );
             let body = lower.lower(db);
@@ -1017,42 +1030,53 @@ pub enum BasicBlockKind {
 #[cfg(test)]
 mod tests {
     use expect_test::{expect, Expect};
-    use hir::SourceDatabaseTrait;
     use hir_ty::ResolvedType;
+
+    use crate::lower;
 
     fn check_in_root_file(fixture: &str, expect: Expect) {
         let mut fixture = fixture.to_string();
         fixture.insert_str(0, "//- /main.nail\n");
 
-        let salsa_db = hir_ty::TestingDatabase::default();
-        let source_db = hir::FixtureDatabase::new(&salsa_db, &fixture);
+        let db = hir::TestingDatabase::default();
+        let mut source_db = hir::FixtureDatabase::new(&db, &fixture);
 
-        let ast = hir::parse_to_ast(&salsa_db, source_db.source_root());
-        let hir_result = hir::build_hir(&salsa_db, ast);
-        let ty_hir_result = hir_ty::lower(&salsa_db, hir_result);
+        let pods = hir::parse_pods(&db, "/main.nail", &mut source_db);
+        let ty_hir_result =
+            hir_ty::lower(&db, &pods.pods[0].root_lower_result, &pods.resolution_map);
 
-        let mir_result = crate::lower(&salsa_db, &hir_result, &ty_hir_result);
+        let mir_result = lower(
+            &db,
+            &pods.pods[0].root_lower_result,
+            &pods.resolution_map,
+            &ty_hir_result,
+        );
 
-        expect.assert_eq(&debug(&salsa_db, &hir_result, &ty_hir_result, &mir_result));
+        expect.assert_eq(&debug(
+            &db,
+            &pods.pods[0].root_lower_result,
+            &ty_hir_result,
+            &mir_result,
+        ));
     }
 
     fn indent(nesting: usize) -> String {
         "    ".repeat(nesting)
     }
 
-    fn debug_path(salsa_db: &dyn hir::HirDatabase, path: &hir::Path) -> String {
+    fn debug_path(db: &dyn hir::HirDatabase, path: &hir::Path) -> String {
         let mut msg = "".to_string();
-        for (idx, segment) in path.segments().iter().enumerate() {
+        for (idx, segment) in path.segments(db).iter().enumerate() {
             if idx > 0 {
                 msg.push_str("::");
             }
-            msg.push_str(segment.text(salsa_db));
+            msg.push_str(segment.text(db));
         }
         msg
     }
 
     fn debug(
-        salsa_db: &dyn hir::HirDatabase,
+        db: &dyn hir::HirDatabase,
         _hir_result: &hir::LowerResult,
         _hir_ty_result: &hir_ty::TyLowerResult,
         mir_result: &crate::LowerResult,
@@ -1060,8 +1084,8 @@ mod tests {
         let mut msg = "".to_string();
 
         for (_body_idx, body) in mir_result.bodies.iter() {
-            let path = debug_path(salsa_db, &body.path);
-            let name = body.name.text(salsa_db);
+            let path = debug_path(db, &body.path);
+            let name = body.name.text(db);
             if path.is_empty() {
                 msg.push_str(&format!("fn {name}("));
             } else {
@@ -1108,7 +1132,7 @@ mod tests {
                     msg.push_str(&format!(
                         "{}{}\n",
                         indent(2),
-                        debug_termination(salsa_db, termination, body, mir_result)
+                        debug_termination(db, termination, body, mir_result)
                     ));
                 }
 
@@ -1207,7 +1231,7 @@ mod tests {
     }
 
     fn debug_termination(
-        salsa_db: &dyn hir::HirDatabase,
+        db: &dyn hir::HirDatabase,
         termination: &crate::Termination,
         body: &crate::Body,
         mir_result: &crate::LowerResult,
@@ -1239,7 +1263,7 @@ mod tests {
             } => {
                 let function = mir_result.body_by_function[function];
                 let function_name = mir_result.bodies[function].name;
-                let function_name = function_name.text(salsa_db);
+                let function_name = function_name.text(db);
                 let args = debug_args(args, body);
                 let dest = debug_place(destination, body);
                 let target_bb_name = debug_bb_name_by_idx(*target, body);
@@ -1291,7 +1315,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> int {
+                fn t_pod::main() -> int {
                     let _0: int
                     let _1: int
 
@@ -1318,7 +1342,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> int {
+                fn t_pod::main() -> int {
                     let _0: int
                     let _1: int
                     let _2: int
@@ -1355,7 +1379,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> int {
+                fn t_pod::main() -> int {
                     let _0: int
                     let _1: int
 
@@ -1382,7 +1406,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> int {
+                fn t_pod::main() -> int {
                     let _0: int
                     let _1: int
 
@@ -1409,7 +1433,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> int {
+                fn t_pod::main() -> int {
                     let _0: int
                     let _1: int
 
@@ -1436,7 +1460,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> bool {
+                fn t_pod::main() -> bool {
                     let _0: bool
                     let _1: bool
 
@@ -1465,7 +1489,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> bool {
+                fn t_pod::main() -> bool {
                     let _0: bool
                     let _1: bool
                     let _2: bool
@@ -1501,7 +1525,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> bool {
+                fn t_pod::main() -> bool {
                     let _0: bool
                     let _1: int
                     let _2: int
@@ -1539,7 +1563,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> bool {
+                fn t_pod::main() -> bool {
                     let _0: bool
                     let _1: int
                     let _2: int
@@ -1576,7 +1600,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> bool {
+                fn t_pod::main() -> bool {
                     let _0: bool
                     let _1: bool
                     let _2: bool
@@ -1611,7 +1635,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> int {
+                fn t_pod::main() -> int {
                     let _0: int
 
                     entry: {
@@ -1635,7 +1659,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn t_pod::main() -> () {
                     let _0: ()
 
                     entry: {
@@ -1656,7 +1680,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn t_pod::main() -> () {
                     let _0: ()
 
                     entry: {
@@ -1680,7 +1704,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> bool {
+                fn t_pod::main() -> bool {
                     let _0: bool
 
                     entry: {
@@ -1705,7 +1729,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> string {
+                fn t_pod::main() -> string {
                     let _0: string
 
                     entry: {
@@ -1731,7 +1755,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> int {
+                fn t_pod::main() -> int {
                     let _0: int
                     let _1: int
 
@@ -1761,7 +1785,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> int {
+                fn t_pod::main() -> int {
                     let _0: int
                     let _1: int
 
@@ -1790,7 +1814,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn t_pod::main() -> () {
                     let _0: ()
                     let _1: int
 
@@ -1817,7 +1841,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> bool {
+                fn t_pod::main() -> bool {
                     let _0: bool
 
                     entry: {
@@ -1839,7 +1863,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> bool {
+                fn t_pod::main() -> bool {
                     let _0: bool
 
                     entry: {
@@ -1862,7 +1886,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> int {
+                fn t_pod::main() -> int {
                     let _0: int
 
                     entry: {
@@ -1894,7 +1918,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> bool {
+                fn t_pod::main() -> bool {
                     let _0: bool
                     let _1: bool
                     let _2: bool
@@ -1923,7 +1947,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> int {
+                fn t_pod::main() -> int {
                     let _0: int
                     let _1: ()
 
@@ -1953,7 +1977,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> int {
+                fn t_pod::main() -> int {
                     let _0: int
                     let _1: bool
 
@@ -1993,7 +2017,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> int {
+                fn t_pod::main() -> int {
                     let _0: int
                     let _1: bool
                     let _2: int
@@ -2039,7 +2063,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> int {
+                fn t_pod::main() -> int {
                     let _0: int
                     let _1: bool
                     let _2: ()
@@ -2085,7 +2109,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> int {
+                fn t_pod::main() -> int {
                     let _0: int
                     let _1: bool
                     let _2: int
@@ -2132,7 +2156,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> int {
+                fn t_pod::main() -> int {
                     let _0: int
                     let _1: int
                     let _2: bool
@@ -2179,7 +2203,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> int {
+                fn t_pod::main() -> int {
                     let _0: int
                     let _1: int
                     let _2: bool
@@ -2229,7 +2253,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> int {
+                fn t_pod::main() -> int {
                     let _0: int
                     let _1: bool
                     let _2: int
@@ -2279,7 +2303,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn aaa() -> int {
+                fn t_pod::aaa() -> int {
                     let _0: int
 
                     entry: {
@@ -2291,7 +2315,7 @@ mod tests {
                         return _0
                     }
                 }
-                fn main() -> int {
+                fn t_pod::main() -> int {
                     let _0: int
                     let _1: int
 
@@ -2325,7 +2349,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn aaa(_1: int, _2: int) -> int {
+                fn t_pod::aaa(_1: int, _2: int) -> int {
                     let _0: int
                     let _3: int
 
@@ -2339,7 +2363,7 @@ mod tests {
                         return _0
                     }
                 }
-                fn main() -> int {
+                fn t_pod::main() -> int {
                     let _0: int
                     let _1: int
 
@@ -2373,7 +2397,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn aaa(_1: string, _2: string) -> string {
+                fn t_pod::aaa(_1: string, _2: string) -> string {
                     let _0: string
 
                     entry: {
@@ -2385,7 +2409,7 @@ mod tests {
                         return _0
                     }
                 }
-                fn main() -> string {
+                fn t_pod::main() -> string {
                     let _0: string
                     let _1: string
 
@@ -2422,7 +2446,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn aaa(_1: int, _2: int) -> int {
+                fn t_pod::aaa(_1: int, _2: int) -> int {
                     let _0: int
                     let _3: int
 
@@ -2436,7 +2460,7 @@ mod tests {
                         return _0
                     }
                 }
-                fn main() -> int {
+                fn t_pod::main() -> int {
                     let _0: int
                     let _1: int
                     let _2: int
@@ -2489,7 +2513,7 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn main() -> () {
+                fn t_pod::main() -> () {
                     let _0: ()
 
                     entry: {
@@ -2500,7 +2524,7 @@ mod tests {
                         return _0
                     }
                 }
-                fn module_aaa::module_bbb::function_aaa() -> int {
+                fn t_pod::module_aaa::module_bbb::function_aaa() -> int {
                     let _0: int
 
                     entry: {
@@ -2512,7 +2536,7 @@ mod tests {
                         return _0
                     }
                 }
-                fn module_aaa::module_bbb::function_aaa::module_ccc::function_bbb() -> int {
+                fn t_pod::module_aaa::module_bbb::function_aaa::module_ccc::function_bbb() -> int {
                     let _0: int
 
                     entry: {
@@ -2524,7 +2548,7 @@ mod tests {
                         return _0
                     }
                 }
-                fn module_aaa::function_ccc() -> int {
+                fn t_pod::module_aaa::function_ccc() -> int {
                     let _0: int
 
                     entry: {

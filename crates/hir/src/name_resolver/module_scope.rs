@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use la_arena::{Arena, Idx};
 
 use crate::{
-    Expr, ExprId, Function, HirDatabase, Item, LowerResult, Module, Name, Pod, Stmt, Symbol,
+    Expr, ExprId, Function, HirDatabase, Item, LowerResult, Module, Name, Path, Pod, Stmt, Symbol,
     UseItem,
 };
 
@@ -15,6 +15,11 @@ pub struct ModuleScopeIdx(Idx<ModuleScope>);
 /// - アイテム
 #[derive(Debug)]
 pub struct ModuleScope {
+    /// モジュールスコープのパスです。
+    ///
+    /// 末端の名前は含まれません。名前は`origin`を参照してください。
+    pub path: Path,
+
     /// モジュールスコープの種別です。
     pub kind: ModuleScopeKind,
 
@@ -46,16 +51,17 @@ pub enum ModuleScopeKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ModuleScopeOrigin {
     Pod { name: Name },
-    Function { name: Name, origin: Function },
-    Module { name: Name, origin: Module },
+    Function { origin: Function },
+    Module { origin: Module },
     Block { origin: ExprId },
 }
 
 impl ModuleScope {
     /// ルートスコープを作成します。
     /// ルートスコープはPod内のルートを表します。
-    fn root(name: Name) -> Self {
+    fn root(db: &dyn HirDatabase, name: Name) -> Self {
         Self {
+            path: Path::new(db, vec![]),
             kind: ModuleScopeKind::TopLevel,
             origin: ModuleScopeOrigin::Pod { name },
             use_item_by_name: HashMap::new(),
@@ -67,10 +73,11 @@ impl ModuleScope {
 
     /// サブスコープを作成します。
     /// サブスコープはモジュール内のスコープを表します。
-    fn sub_scope_on_function(name: Name, parent: ModuleScopeIdx, origin: Function) -> Self {
+    fn sub_scope_on_function(path: Path, parent: ModuleScopeIdx, origin: Function) -> Self {
         Self {
+            path,
             kind: ModuleScopeKind::SubLevel { parent },
-            origin: ModuleScopeOrigin::Function { name, origin },
+            origin: ModuleScopeOrigin::Function { origin },
             use_item_by_name: HashMap::new(),
             defined_module_by_name: HashMap::new(),
             defined_function_by_name: HashMap::new(),
@@ -78,10 +85,11 @@ impl ModuleScope {
         }
     }
 
-    fn sub_scope_on_module(name: Name, parent: ModuleScopeIdx, origin: Module) -> Self {
+    fn sub_scope_on_module(path: Path, parent: ModuleScopeIdx, origin: Module) -> Self {
         Self {
+            path,
             kind: ModuleScopeKind::SubLevel { parent },
-            origin: ModuleScopeOrigin::Module { name, origin },
+            origin: ModuleScopeOrigin::Module { origin },
             use_item_by_name: HashMap::new(),
             defined_module_by_name: HashMap::new(),
             defined_function_by_name: HashMap::new(),
@@ -89,8 +97,9 @@ impl ModuleScope {
         }
     }
 
-    fn sub_scope_on_block(parent: ModuleScopeIdx, origin: ExprId) -> Self {
+    fn sub_scope_on_block(path: Path, parent: ModuleScopeIdx, origin: ExprId) -> Self {
         Self {
+            path,
             kind: ModuleScopeKind::SubLevel { parent },
             origin: ModuleScopeOrigin::Block { origin },
             use_item_by_name: HashMap::new(),
@@ -266,11 +275,34 @@ impl NameResolutionCollection {
     }
 }
 
+/// パスとの対応表です。
+#[derive(Debug)]
+pub struct PathMap {
+    path_by_function: HashMap<Function, Path>,
+}
+impl PathMap {
+    fn new() -> Self {
+        Self {
+            path_by_function: HashMap::new(),
+        }
+    }
+
+    pub(crate) fn path_by_function(&self, function: Function) -> Option<Path> {
+        self.path_by_function.get(&function).copied()
+    }
+
+    fn insert_path(&mut self, function: Function, path: Path) {
+        self.path_by_function.insert(function, path);
+    }
+}
+
 pub(crate) struct ModuleScopesBuilder<'a> {
     storage: ModuleScopeStorage,
 
     ref_map: RefMap,
     name_resolution_collection: NameResolutionCollection,
+
+    path_map: PathMap,
 
     db: &'a dyn HirDatabase,
     pod: &'a Pod,
@@ -281,14 +313,17 @@ impl<'a> ModuleScopesBuilder<'a> {
             storage: ModuleScopeStorage::new(),
             ref_map: RefMap::new(),
             name_resolution_collection: NameResolutionCollection::new(),
+            path_map: PathMap::new(),
             db,
             pod,
         }
     }
 
-    pub(crate) fn build(mut self) -> (ModuleScopes, NameResolutionCollection) {
+    pub(crate) fn build(mut self) -> (ModuleScopes, NameResolutionCollection, PathMap) {
         // トップレベルは必ずPodと紐づくので対応表への追加は不要
-        let top_level_scope_idx = self.storage.alloc(ModuleScope::root(self.pod.name));
+        let top_level_scope_idx = self
+            .storage
+            .alloc(ModuleScope::root(self.db, self.pod.name));
 
         for item in self.pod.root_lower_result.top_level_items(self.db) {
             self.build_item(self.pod.root_lower_result, top_level_scope_idx, *item);
@@ -300,6 +335,7 @@ impl<'a> ModuleScopesBuilder<'a> {
                 ref_map: self.ref_map,
             },
             self.name_resolution_collection,
+            self.path_map,
         )
     }
 
@@ -359,6 +395,10 @@ impl<'a> ModuleScopesBuilder<'a> {
         self.define_function(current_scope_idx, function);
 
         let current_scope_idx = self.create_scope_on_function(self.db, current_scope_idx, function);
+        self.path_map.insert_path(
+            function,
+            self.storage.module_scopes[current_scope_idx.0].path,
+        );
 
         let Expr::Block(function_body) = lower_result
             .shared_ctx(self.db)
@@ -466,19 +506,17 @@ impl<'a> ModuleScopesBuilder<'a> {
         current_scope_idx: ModuleScopeIdx,
         module: Module,
     ) -> ModuleScopeIdx {
+        let current_path = self.build_current_path(current_scope_idx);
         let name = module.name(db);
         let child_scope_idx = self.storage.alloc(ModuleScope::sub_scope_on_module(
-            name,
+            current_path,
             current_scope_idx,
             module,
         ));
         self.storage.module_scopes[current_scope_idx.0].push_child_scope(name, child_scope_idx);
 
         self.ref_map.insert_scope_origin(
-            ModuleScopeOrigin::Module {
-                name,
-                origin: module,
-            },
+            ModuleScopeOrigin::Module { origin: module },
             child_scope_idx,
         );
 
@@ -494,19 +532,17 @@ impl<'a> ModuleScopesBuilder<'a> {
         current_scope_idx: ModuleScopeIdx,
         function: Function,
     ) -> ModuleScopeIdx {
+        let current_path = self.build_current_path(current_scope_idx);
         let name = function.name(db).unwrap();
         let child_scope_idx = self.storage.alloc(ModuleScope::sub_scope_on_function(
-            name,
+            current_path,
             current_scope_idx,
             function,
         ));
         self.storage.module_scopes[current_scope_idx.0].push_child_scope(name, child_scope_idx);
 
         self.ref_map.insert_scope_origin(
-            ModuleScopeOrigin::Function {
-                name,
-                origin: function,
-            },
+            ModuleScopeOrigin::Function { origin: function },
             child_scope_idx,
         );
 
@@ -521,9 +557,12 @@ impl<'a> ModuleScopesBuilder<'a> {
         current_scope_idx: ModuleScopeIdx,
         block: ExprId,
     ) -> ModuleScopeIdx {
-        let child_scope_idx = self
-            .storage
-            .alloc(ModuleScope::sub_scope_on_block(current_scope_idx, block));
+        let current_path = self.build_current_path(current_scope_idx);
+        let child_scope_idx = self.storage.alloc(ModuleScope::sub_scope_on_block(
+            current_path,
+            current_scope_idx,
+            block,
+        ));
 
         self.ref_map
             .insert_scope_origin(ModuleScopeOrigin::Block { origin: block }, child_scope_idx);
@@ -567,5 +606,30 @@ impl<'a> ModuleScopesBuilder<'a> {
                 scope_origin: self.storage.module_scopes[module_scope_idx.0].origin,
                 symbol,
             });
+    }
+
+    /// 指定したモジュールスコープのパスを生成し返します。
+    fn build_current_path(&self, current_scope_idx: ModuleScopeIdx) -> Path {
+        let mut segments = Vec::new();
+        let mut current_scope_idx = current_scope_idx;
+        loop {
+            let current_scope = &self.storage.module_scopes[current_scope_idx.0];
+            let segment = match current_scope.origin {
+                ModuleScopeOrigin::Pod { name } => name,
+                ModuleScopeOrigin::Function { origin } => origin.name(self.db).unwrap(),
+                ModuleScopeOrigin::Module { origin } => origin.name(self.db),
+                ModuleScopeOrigin::Block { .. } => Name::new(self.db, "{block}".to_string()),
+            };
+            segments.push(segment);
+
+            match current_scope.kind {
+                ModuleScopeKind::TopLevel => break,
+                ModuleScopeKind::SubLevel { parent } => {
+                    current_scope_idx = parent;
+                }
+            }
+        }
+        segments.reverse();
+        Path::new(self.db, segments)
     }
 }

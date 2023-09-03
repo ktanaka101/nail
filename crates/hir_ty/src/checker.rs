@@ -1,13 +1,12 @@
-use hir::LowerResult;
-
 use crate::inference::{InferenceResult, ResolvedType, Signature};
 
 pub fn check_type(
     db: &dyn hir::HirDatabase,
-    lower_result: &LowerResult,
+    lower_result: &hir::LowerResult,
+    resolution_map: &hir::ResolutionMap,
     infer_result: &InferenceResult,
 ) -> TypeCheckResult {
-    let type_checker = TypeChecker::new(lower_result, infer_result);
+    let type_checker = TypeChecker::new(lower_result, resolution_map, infer_result);
     type_checker.check(db)
 }
 
@@ -82,16 +81,22 @@ pub struct TypeCheckResult {
 }
 
 struct TypeChecker<'a> {
-    lower_result: &'a LowerResult,
+    lower_result: &'a hir::LowerResult,
+    resolution_map: &'a hir::ResolutionMap,
     infer_result: &'a InferenceResult,
     errors: Vec<TypeCheckError>,
     current_function: Option<hir::Function>,
 }
 
 impl<'a> TypeChecker<'a> {
-    fn new(lower_result: &'a LowerResult, infer_result: &'a InferenceResult) -> Self {
+    fn new(
+        lower_result: &'a hir::LowerResult,
+        resolution_map: &'a hir::ResolutionMap,
+        infer_result: &'a InferenceResult,
+    ) -> Self {
         Self {
             lower_result,
+            resolution_map,
             infer_result,
             errors: vec![],
             current_function: None,
@@ -99,7 +104,7 @@ impl<'a> TypeChecker<'a> {
     }
 
     fn check(mut self, db: &dyn hir::HirDatabase) -> TypeCheckResult {
-        for function in self.lower_result.item_tree(db).functions() {
+        for function in self.lower_result.functions(db) {
             self.check_function(db, *function);
         }
 
@@ -112,14 +117,10 @@ impl<'a> TypeChecker<'a> {
         self.current_function = Some(function_id);
     }
 
-    fn check_function(&mut self, db: &dyn hir::HirDatabase, function_id: hir::Function) {
-        self.set_function(function_id);
+    fn check_function(&mut self, db: &dyn hir::HirDatabase, function: hir::Function) {
+        self.set_function(function);
 
-        let block_ast_id = self
-            .lower_result
-            .item_tree(db)
-            .block_id_by_function(&function_id)
-            .unwrap();
+        let block_ast_id = function.ast(db).body().unwrap();
         let body = self
             .lower_result
             .shared_ctx(db)
@@ -127,7 +128,7 @@ impl<'a> TypeChecker<'a> {
             .unwrap();
 
         let signature =
-            &self.infer_result.signatures[self.infer_result.signature_by_function[&function_id]];
+            &self.infer_result.signatures[self.infer_result.signature_by_function[&function]];
         match body {
             hir::Expr::Block(block) => {
                 for stmt in &block.stmts {
@@ -194,24 +195,34 @@ impl<'a> TypeChecker<'a> {
             }
             hir::Expr::Call { callee, args } => {
                 let signature = match callee {
-                    hir::Symbol::Function { function, .. } => {
-                        Some(self.infer_result.signature_by_function[function])
-                    }
-                    _ => None,
-                };
-                if let Some(signature) = signature {
-                    let signature = &self.infer_result.signatures[signature];
-                    for (i, param_ty) in signature.params.iter().enumerate() {
-                        let arg = args[i];
-                        let arg_ty = self.type_by_expr(arg);
-                        if *param_ty != arg_ty {
-                            self.errors.push(TypeCheckError::MismaatchedSignature {
-                                expected_ty: *param_ty,
-                                signature: signature.clone(),
-                                found_expr: arg,
-                                found_ty: arg_ty,
-                            });
+                    hir::Symbol::Local { .. } | hir::Symbol::Param { .. } => return,
+                    hir::Symbol::Missing { path } => {
+                        let Some(item) = self.resolution_map.item_by_symbol(path) else { return; };
+                        match item {
+                            hir::ResolutionStatus::Unresolved | hir::ResolutionStatus::Error => {
+                                return
+                            }
+                            hir::ResolutionStatus::Resolved { path: _, item } => match item {
+                                hir::Item::Function(function) => {
+                                    self.infer_result.signature_by_function[&function]
+                                }
+                                hir::Item::Module(_) | hir::Item::UseItem(_) => unimplemented!(),
+                            },
                         }
+                    }
+                };
+
+                let signature = &self.infer_result.signatures[signature];
+                for (i, param_ty) in signature.params.iter().enumerate() {
+                    let arg = args[i];
+                    let arg_ty = self.type_by_expr(arg);
+                    if *param_ty != arg_ty {
+                        self.errors.push(TypeCheckError::MismaatchedSignature {
+                            expected_ty: *param_ty,
+                            signature: signature.clone(),
+                            found_expr: arg,
+                            found_ty: arg_ty,
+                        });
                     }
                 }
             }

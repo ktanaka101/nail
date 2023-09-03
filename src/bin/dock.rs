@@ -5,7 +5,6 @@ use std::ffi::{c_char, CString};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use codegen_llvm::CodegenContext;
-use hir::SourceDatabaseTrait;
 use inkwell::{context::Context, OptimizationLevel};
 
 #[derive(Debug, Parser)]
@@ -52,14 +51,16 @@ fn lower(
     hir_ty::TyLowerResult,
     mir::LowerResult,
 ) {
-    let salsa_db = base_db::SalsaDatabase::default();
-    let source_db = hir::SourceDatabase::new(&salsa_db, filepath.into());
+    let db = base_db::SalsaDatabase::default();
+    let mut source_db = hir::SourceDatabase::new(&db, filepath.into());
 
-    let ast_source = hir::parse_to_ast(&salsa_db, source_db.source_root());
-    let hir_result = hir::build_hir(&salsa_db, ast_source);
-    let ty_result = hir_ty::lower(&salsa_db, hir_result);
-    let mir_result = mir::lower(&salsa_db, &hir_result, &ty_result);
-    (salsa_db, hir_result, ty_result, mir_result)
+    let pods = hir::parse_pods(&db, "/main.nail", &mut source_db);
+    let hir_result = pods.pods[0].root_lower_result;
+    let resolution_map = pods.resolution_map;
+
+    let ty_result = hir_ty::lower(&db, &hir_result, &resolution_map);
+    let mir_result = mir::lower(&db, &hir_result, &resolution_map, &ty_result);
+    (db, hir_result, ty_result, mir_result)
 }
 
 fn execute(filepath: &str) -> Result<String> {
@@ -70,11 +71,11 @@ fn execute(filepath: &str) -> Result<String> {
         .create_jit_execution_engine(OptimizationLevel::None)
         .unwrap();
 
-    let (salsa_db, hir_result, _ty_hir_result, mir_result) = lower(filepath);
+    let (db, hir_result, _ty_hir_result, mir_result) = lower(filepath);
 
     let codegen_result = codegen_llvm::codegen(
         &CodegenContext {
-            salsa_db: &salsa_db,
+            db: &db,
             hir_result: &hir_result,
             mir_result: &mir_result,
             context: &context,

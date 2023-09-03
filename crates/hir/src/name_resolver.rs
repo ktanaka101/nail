@@ -23,22 +23,45 @@ use std::collections::HashMap;
 
 pub use module_scope::{ModuleScope, ModuleScopeOrigin, SymbolInScopeOrigin};
 
-use self::module_scope::{ModuleScopes, ModuleScopesBuilder, NameResolutionCollection};
-use crate::{HirDatabase, Item, Name, Path, Pod, Symbol, UseItem};
+use self::module_scope::{ModuleScopes, ModuleScopesBuilder, NameResolutionCollection, PathMap};
+use crate::{Function, HirDatabase, Item, Name, NameSolutionPath, Path, Pod, Symbol, UseItem};
 
 /// 名前解決を行います。
-pub(crate) fn resolve_symbols(db: &dyn HirDatabase, pod: &Pod) -> SymbolTable {
+pub(crate) fn resolve_symbols(db: &dyn HirDatabase, pod: &Pod) -> ResolutionMap {
     let module_scope_builder = ModuleScopesBuilder::new(db, pod);
-    let (module_scopes, name_resolution_collection) = module_scope_builder.build();
+    let (module_scopes, name_resolution_collection, path_map) = module_scope_builder.build();
 
     let name_resolver = NameResolver::new(&module_scopes, &name_resolution_collection, db);
-    name_resolver.resolve()
+
+    ResolutionMap {
+        symbol_table: name_resolver.resolve(),
+        path_map,
+    }
 }
 
 #[derive(Debug)]
-pub struct SymbolTable {
+pub struct ResolutionMap {
+    symbol_table: SymbolTable,
+    path_map: PathMap,
+}
+impl ResolutionMap {
+    pub fn item_by_symbol(&self, symbol: &NameSolutionPath) -> Option<ResolutionStatus> {
+        self.symbol_table.item_by_symbol(symbol)
+    }
+
+    pub fn item_by_use_item(&self, use_item: &UseItem) -> Option<ResolutionStatus> {
+        self.symbol_table.item_by_use_item(use_item)
+    }
+
+    pub fn path_of_function(&self, function: Function) -> Option<Path> {
+        self.path_map.path_by_function(function)
+    }
+}
+
+#[derive(Debug)]
+struct SymbolTable {
     item_by_use_item: HashMap<UseItem, ResolutionStatus>,
-    item_by_symbol: HashMap<SymbolInScopeOrigin, ResolutionStatus>,
+    item_by_symbol: HashMap<NameSolutionPath, ResolutionStatus>,
 }
 impl SymbolTable {
     fn new() -> Self {
@@ -52,15 +75,15 @@ impl SymbolTable {
         self.item_by_use_item.insert(use_item, status);
     }
 
-    fn insert_symbol(&mut self, symbol: SymbolInScopeOrigin, status: ResolutionStatus) {
+    fn insert_symbol(&mut self, symbol: NameSolutionPath, status: ResolutionStatus) {
         self.item_by_symbol.insert(symbol, status);
     }
 
-    pub fn item_by_symbol(&self, symbol: &SymbolInScopeOrigin) -> Option<ResolutionStatus> {
+    fn item_by_symbol(&self, symbol: &NameSolutionPath) -> Option<ResolutionStatus> {
         self.item_by_symbol.get(symbol).cloned()
     }
 
-    pub fn item_by_use_item(&self, use_item: &UseItem) -> Option<ResolutionStatus> {
+    fn item_by_use_item(&self, use_item: &UseItem) -> Option<ResolutionStatus> {
         self.item_by_use_item.get(use_item).cloned()
     }
 }
@@ -135,7 +158,7 @@ impl<'a> NameResolver<'a> {
                 self.symbol_table.insert_use_item(
                     *use_item,
                     ResolutionStatus::Resolved {
-                        path: path.clone(),
+                        path: *path,
                         item: resolved_item,
                     },
                 );
@@ -152,20 +175,20 @@ impl<'a> NameResolver<'a> {
                     .module_scope_by_origin(symbol.scope_origin)
                     .unwrap();
 
-                let segments = self.resolve_path(path);
+                let segments = self.resolve_path(&path.path(self.db));
 
                 let resolved_item = self.resolve_relative_item(module_scope, &segments);
                 if let Some(resolved_item) = resolved_item {
                     self.symbol_table.insert_symbol(
-                        symbol.clone(),
+                        *path,
                         ResolutionStatus::Resolved {
-                            path: path.clone(),
+                            path: path.path(self.db),
                             item: resolved_item,
                         },
                     );
                 } else {
                     self.symbol_table
-                        .insert_symbol(symbol.clone(), ResolutionStatus::Error);
+                        .insert_symbol(*path, ResolutionStatus::Error);
                 }
             }
         }
@@ -194,7 +217,6 @@ impl<'a> NameResolver<'a> {
                             let module_scope = self
                                 .module_scopes
                                 .module_scope_by_origin(ModuleScopeOrigin::Module {
-                                    name: module.name(self.db),
                                     origin: module,
                                 })
                                 .unwrap();
@@ -233,7 +255,6 @@ impl<'a> NameResolver<'a> {
                             let module_scope = self
                                 .module_scopes
                                 .module_scope_by_origin(ModuleScopeOrigin::Module {
-                                    name: module.name(self.db),
                                     origin: module,
                                 })
                                 .unwrap();
@@ -253,7 +274,7 @@ impl<'a> NameResolver<'a> {
     }
 
     fn resolve_path(&self, path: &Path) -> Vec<PathSegmentKind> {
-        path.segments()
+        path.segments(self.db)
             .iter()
             .map(|segment| {
                 let name = segment.text(self.db);

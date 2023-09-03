@@ -276,10 +276,8 @@ fn get_entry_point(db: &dyn HirDatabase, top_level_items: &[Item]) -> Option<Fun
     for item in top_level_items {
         match item {
             Item::Function(function) => {
-                if let Some(name) = function.name(db) {
-                    if name.text(db) == "main" {
-                        return Some(*function);
-                    }
+                if function.name(db).text(db) == "main" {
+                    return Some(*function);
                 }
             }
             Item::Module(_) => (),

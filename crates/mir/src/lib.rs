@@ -594,7 +594,7 @@ impl<'a> FunctionLower<'a> {
 
         Body {
             path: self.resolution_map.path_of_function(self.function).unwrap(),
-            name: self.function.name(db).unwrap(),
+            name: self.function.name(db),
             params: self.params,
             return_local: self.return_local,
             locals: self.locals,
@@ -669,7 +669,7 @@ impl<'a> MirLower<'a> {
                 *function_id_by_hir_function.get(function).unwrap(),
             );
 
-            let name = function.name(db).unwrap().text(db);
+            let name = function.name(db).text(db);
             if name == "main" {
                 assert_eq!(entry_point, None);
                 entry_point = Some(body_idx);

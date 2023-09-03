@@ -138,6 +138,10 @@ impl BodyLower {
         def: ast::FunctionDef,
         ctx: &mut SharedBodyLowerContext,
     ) -> Option<Function> {
+        let name = def
+            .name()
+            .map(|name| Name::new(db, name.name().to_string()))?;
+
         let ast_block = def.body()?;
         let params = def
             .params()?
@@ -160,10 +164,6 @@ impl BodyLower {
         } else {
             Type::Unit
         };
-
-        let name = def
-            .name()
-            .map(|name| Name::new(db, name.name().to_string()));
 
         let function = Function::new(db, name, params, param_by_name, return_type, def);
         ctx.functions.push(function);
@@ -615,11 +615,7 @@ mod tests {
             .function_body_by_ast_block(function.ast(db).body().unwrap())
             .unwrap();
 
-        let name = if let Some(name) = function.name(db) {
-            name.text(db)
-        } else {
-            "<missing>"
-        };
+        let name = function.name(db).text(db);
         let params = function
             .params(db)
             .iter()
@@ -2117,8 +2113,6 @@ mod tests {
             "fn (a, ) {}",
             expect![[r#"
                 //- /main.nail
-                fn <missing>(a: <unknown>, <missing>: <unknown>) -> () {
-                }
                 error: Undefined entry point.(help: fn main() { ... })
             "#]],
         );

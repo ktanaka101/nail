@@ -56,10 +56,7 @@ pub enum Type {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Function {
     /// 関数名
-    ///
-    /// 言語仕様上は`None`になることはありませんが、
-    /// エラー耐性のために、関数名が存在しない場合は`None`となります。
-    pub name: Option<Name>,
+    pub name: Name,
     /// 関数のパラメータ
     #[return_ref]
     pub params: Vec<Param>,

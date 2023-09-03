@@ -533,7 +533,7 @@ impl<'a> ModuleScopesBuilder<'a> {
         function: Function,
     ) -> ModuleScopeIdx {
         let current_path = self.build_current_path(current_scope_idx);
-        let name = function.name(db).unwrap();
+        let name = function.name(db);
         let child_scope_idx = self.storage.alloc(ModuleScope::sub_scope_on_function(
             current_path,
             current_scope_idx,
@@ -573,7 +573,7 @@ impl<'a> ModuleScopesBuilder<'a> {
     /// モジュールスコープに関数を登録します。
     fn define_function(&mut self, current_scope_idx: ModuleScopeIdx, function: Function) {
         self.storage.module_scopes[current_scope_idx.0]
-            .define_function(function.name(self.db).unwrap(), function);
+            .define_function(function.name(self.db), function);
     }
 
     /// モジュールスコープにモジュールを登録します。
@@ -616,7 +616,7 @@ impl<'a> ModuleScopesBuilder<'a> {
             let current_scope = &self.storage.module_scopes[current_scope_idx.0];
             let segment = match current_scope.origin {
                 ModuleScopeOrigin::Pod { name } => name,
-                ModuleScopeOrigin::Function { origin } => origin.name(self.db).unwrap(),
+                ModuleScopeOrigin::Function { origin } => origin.name(self.db),
                 ModuleScopeOrigin::Module { origin } => origin.name(self.db),
                 ModuleScopeOrigin::Block { .. } => Name::new(self.db, "{block}".to_string()),
             };

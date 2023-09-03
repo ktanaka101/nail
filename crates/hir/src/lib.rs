@@ -246,12 +246,12 @@ fn build_hir_file(db: &dyn HirDatabase, ast_source: AstSourceFile) -> HirFile {
     let file = ast_source.file(db);
     let source_file = ast_source.source(db);
 
-    let mut shared_ctx = HirFileContext::new();
+    let mut hir_file_context = HirFileContext::new();
 
-    let mut root_file_body = BodyLower::new(file, HashMap::new());
+    let mut root_file_body = BodyLower::new(file, HashMap::new(), &mut hir_file_context);
     let top_level_items = source_file
         .items()
-        .filter_map(|item| root_file_body.lower_toplevel(db, item, &mut shared_ctx))
+        .filter_map(|item| root_file_body.lower_toplevel(db, item))
         .collect::<Vec<_>>();
 
     let (errors, entry_point) = if ast_source.file(db).root(db) {
@@ -265,7 +265,14 @@ fn build_hir_file(db: &dyn HirDatabase, ast_source: AstSourceFile) -> HirFile {
         (vec![], None)
     };
 
-    HirFile::new(db, file, shared_ctx, top_level_items, entry_point, errors)
+    HirFile::new(
+        db,
+        file,
+        hir_file_context,
+        top_level_items,
+        entry_point,
+        errors,
+    )
 }
 
 /// トップレベルのアイテムからエントリポイントを取得します。

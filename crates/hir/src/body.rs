@@ -94,50 +94,46 @@ impl HirFileContext {
     }
 }
 
-/// ASTを元にHIRを構築するためのコンテキスト/ビルダー
+/// ASTを元にトップレベルあるいは関数のHIRを構築するためのコンテキスト/ビルダー
 ///
 /// ユースケースはトップレベルと関数本体の2種類あります。
 /// トップレベルの場合、`params`は空で指定します。
 /// 関数本体の場合、`params`に関数パラメータを指定します。
 /// `params`は、名前解決に使用されます。
 #[derive(Debug)]
-pub struct BodyLower {
+pub struct BodyLower<'a> {
     file: NailFile,
     scopes: ExprScopes,
     params: HashMap<Name, Param>,
+    ctx: &'a mut HirFileContext,
 }
 
-impl BodyLower {
+impl<'a> BodyLower<'a> {
     /// 空のコンテキストを作成する
-    pub(super) fn new(file: NailFile, params: HashMap<Name, Param>) -> Self {
+    pub(super) fn new(
+        file: NailFile,
+        params: HashMap<Name, Param>,
+        ctx: &'a mut HirFileContext,
+    ) -> Self {
         Self {
             file,
             scopes: ExprScopes::new(),
             params,
+            ctx,
         }
     }
 
     /// トップレベルに定義された[ast::Item]を元に、トップレベルのHIRを構築する
-    pub(super) fn lower_toplevel(
-        &mut self,
-        db: &dyn HirDatabase,
-        ast: ast::Item,
-        ctx: &mut HirFileContext,
-    ) -> Option<Item> {
+    pub(super) fn lower_toplevel(&mut self, db: &dyn HirDatabase, ast: ast::Item) -> Option<Item> {
         match ast {
-            ast::Item::FunctionDef(def) => Some(Item::Function(self.lower_function(db, def, ctx)?)),
-            ast::Item::Module(module) => Some(Item::Module(self.lower_module(db, module, ctx)?)),
+            ast::Item::FunctionDef(def) => Some(Item::Function(self.lower_function(db, def)?)),
+            ast::Item::Module(module) => Some(Item::Module(self.lower_module(db, module)?)),
             ast::Item::Use(r#use) => Some(Item::UseItem(self.lower_use(db, r#use)?)),
         }
     }
 
     /// 関数のHIRを構築します。
-    fn lower_function(
-        &mut self,
-        db: &dyn HirDatabase,
-        def: ast::FunctionDef,
-        ctx: &mut HirFileContext,
-    ) -> Option<Function> {
+    fn lower_function(&mut self, db: &dyn HirDatabase, def: ast::FunctionDef) -> Option<Function> {
         let name = def
             .name()
             .map(|name| Name::new(db, name.name().to_string()))?;
@@ -166,12 +162,15 @@ impl BodyLower {
         };
 
         let function = Function::new(db, name, params, param_by_name, return_type, def);
-        ctx.functions.push(function);
+        self.ctx.functions.push(function);
 
-        let mut body_lower = BodyLower::new(self.file, function.param_by_name(db).clone());
-        let body_expr = body_lower.lower_block(db, ast_block.clone(), ctx);
-        let body_id = ctx.alloc_function_body(body_expr);
-        ctx.function_body_by_ast_block.insert(ast_block, body_id);
+        let mut body_lower =
+            BodyLower::new(self.file, function.param_by_name(db).clone(), self.ctx);
+        let body_expr = body_lower.lower_block(db, ast_block.clone());
+        let body_id = self.ctx.alloc_function_body(body_expr);
+        self.ctx
+            .function_body_by_ast_block
+            .insert(ast_block, body_id);
 
         Some(function)
     }
@@ -181,19 +180,14 @@ impl BodyLower {
     /// アウトラインモジュール(`mod aaa;`)のパースは[crate::parse_modules]で行います。
     /// この中では、トラバースするために各アイテムのHIR化を行っています。
     /// また、[ItemDefId]を返すために、アウトラインモジュールも返します。
-    fn lower_module(
-        &mut self,
-        db: &dyn HirDatabase,
-        ast_module: ast::Module,
-        ctx: &mut HirFileContext,
-    ) -> Option<Module> {
+    fn lower_module(&mut self, db: &dyn HirDatabase, ast_module: ast::Module) -> Option<Module> {
         if let Some(name) = ast_module.name() {
             let module_name = Name::new(db, name.name().to_string());
 
             let module_kind = if let Some(item_list) = ast_module.items() {
                 let mut items = vec![];
                 for item in item_list.items() {
-                    if let Some(item) = self.lower_item(db, item, ctx) {
+                    if let Some(item) = self.lower_item(db, item) {
                         items.push(item);
                     }
                 }
@@ -202,7 +196,7 @@ impl BodyLower {
                 ModuleKind::Outline
             };
             let module = Module::new(db, module_name, module_kind);
-            ctx.modules.push(module);
+            self.ctx.modules.push(module);
 
             Some(module)
         } else {
@@ -246,29 +240,24 @@ impl BodyLower {
         }
     }
 
-    fn lower_stmt(
-        &mut self,
-        db: &dyn HirDatabase,
-        ast_stmt: ast::Stmt,
-        ctx: &mut HirFileContext,
-    ) -> Option<Stmt> {
+    fn lower_stmt(&mut self, db: &dyn HirDatabase, ast_stmt: ast::Stmt) -> Option<Stmt> {
         let result = match ast_stmt {
             ast::Stmt::VariableDef(def) => {
-                let expr = self.lower_expr(db, def.value(), ctx);
-                let id = ctx.alloc_expr(expr);
+                let expr = self.lower_expr(db, def.value());
+                let id = self.ctx.alloc_expr(expr);
                 let name = Name::new(db, def.name()?.name().to_owned());
                 self.scopes.define(name, id);
                 Stmt::VariableDef { name, value: id }
             }
             ast::Stmt::ExprStmt(ast) => {
-                let expr = self.lower_expr(db, ast.expr(), ctx);
+                let expr = self.lower_expr(db, ast.expr());
                 Stmt::ExprStmt {
-                    expr: ctx.alloc_expr(expr),
+                    expr: self.ctx.alloc_expr(expr),
                     has_semicolon: ast.semicolon().is_some(),
                 }
             }
             ast::Stmt::Item(item) => {
-                let item = self.lower_item(db, item, ctx)?;
+                let item = self.lower_item(db, item)?;
                 Stmt::Item { item }
             }
         };
@@ -276,36 +265,26 @@ impl BodyLower {
         Some(result)
     }
 
-    fn lower_item(
-        &mut self,
-        db: &dyn HirDatabase,
-        ast_item: ast::Item,
-        ctx: &mut HirFileContext,
-    ) -> Option<Item> {
+    fn lower_item(&mut self, db: &dyn HirDatabase, ast_item: ast::Item) -> Option<Item> {
         match ast_item {
-            ast::Item::FunctionDef(def) => Some(Item::Function(self.lower_function(db, def, ctx)?)),
-            ast::Item::Module(module) => Some(Item::Module(self.lower_module(db, module, ctx)?)),
+            ast::Item::FunctionDef(def) => Some(Item::Function(self.lower_function(db, def)?)),
+            ast::Item::Module(module) => Some(Item::Module(self.lower_module(db, module)?)),
             ast::Item::Use(r#use) => Some(Item::UseItem(self.lower_use(db, r#use)?)),
         }
     }
 
-    fn lower_expr(
-        &mut self,
-        db: &dyn HirDatabase,
-        ast_expr: Option<ast::Expr>,
-        ctx: &mut HirFileContext,
-    ) -> Expr {
+    fn lower_expr(&mut self, db: &dyn HirDatabase, ast_expr: Option<ast::Expr>) -> Expr {
         if let Some(ast) = ast_expr {
             match ast {
-                ast::Expr::BinaryExpr(ast) => self.lower_binary(db, ast, ctx),
+                ast::Expr::BinaryExpr(ast) => self.lower_binary(db, ast),
                 ast::Expr::Literal(ast) => self.lower_literal(ast),
-                ast::Expr::ParenExpr(ast) => self.lower_expr(db, ast.expr(), ctx),
-                ast::Expr::UnaryExpr(ast) => self.lower_unary(db, ast, ctx),
-                ast::Expr::PathExpr(ast) => self.lower_path_expr(db, ast, ctx),
-                ast::Expr::CallExpr(ast) => self.lower_call(db, ast, ctx),
-                ast::Expr::BlockExpr(ast) => self.lower_block(db, ast, ctx),
-                ast::Expr::IfExpr(ast) => self.lower_if(db, ast, ctx),
-                ast::Expr::ReturnExpr(ast) => self.lower_return(db, ast, ctx),
+                ast::Expr::ParenExpr(ast) => self.lower_expr(db, ast.expr()),
+                ast::Expr::UnaryExpr(ast) => self.lower_unary(db, ast),
+                ast::Expr::PathExpr(ast) => self.lower_path_expr(db, ast),
+                ast::Expr::CallExpr(ast) => self.lower_call(db, ast),
+                ast::Expr::BlockExpr(ast) => self.lower_block(db, ast),
+                ast::Expr::IfExpr(ast) => self.lower_if(db, ast),
+                ast::Expr::ReturnExpr(ast) => self.lower_return(db, ast),
             }
         } else {
             Expr::Missing
@@ -345,46 +324,31 @@ impl BodyLower {
         }
     }
 
-    fn lower_binary(
-        &mut self,
-        db: &dyn HirDatabase,
-        ast_binary_expr: ast::BinaryExpr,
-        ctx: &mut HirFileContext,
-    ) -> Expr {
+    fn lower_binary(&mut self, db: &dyn HirDatabase, ast_binary_expr: ast::BinaryExpr) -> Expr {
         let op = ast_binary_expr.op().unwrap();
 
-        let lhs = self.lower_expr(db, ast_binary_expr.lhs(), ctx);
-        let rhs = self.lower_expr(db, ast_binary_expr.rhs(), ctx);
+        let lhs = self.lower_expr(db, ast_binary_expr.lhs());
+        let rhs = self.lower_expr(db, ast_binary_expr.rhs());
 
         Expr::Binary {
             op,
-            lhs: ctx.alloc_expr(lhs),
-            rhs: ctx.alloc_expr(rhs),
+            lhs: self.ctx.alloc_expr(lhs),
+            rhs: self.ctx.alloc_expr(rhs),
         }
     }
 
-    fn lower_unary(
-        &mut self,
-        db: &dyn HirDatabase,
-        ast_unary_expr: ast::UnaryExpr,
-        ctx: &mut HirFileContext,
-    ) -> Expr {
+    fn lower_unary(&mut self, db: &dyn HirDatabase, ast_unary_expr: ast::UnaryExpr) -> Expr {
         let op = ast_unary_expr.op().unwrap();
 
-        let expr = self.lower_expr(db, ast_unary_expr.expr(), ctx);
+        let expr = self.lower_expr(db, ast_unary_expr.expr());
 
         Expr::Unary {
             op,
-            expr: ctx.alloc_expr(expr),
+            expr: self.ctx.alloc_expr(expr),
         }
     }
 
-    fn lower_path_expr(
-        &mut self,
-        db: &dyn HirDatabase,
-        ast_path: ast::PathExpr,
-        _ctx: &mut HirFileContext,
-    ) -> Expr {
+    fn lower_path_expr(&mut self, db: &dyn HirDatabase, ast_path: ast::PathExpr) -> Expr {
         let path = Path::new(
             db,
             ast_path
@@ -394,16 +358,11 @@ impl BodyLower {
                 .map(|segment| Name::new(db, segment.name().unwrap().name().to_string()))
                 .collect(),
         );
-        let symbol = self.lookup_path(db, path, _ctx);
+        let symbol = self.lookup_path(db, path);
         Expr::Symbol(symbol)
     }
 
-    fn lookup_path(
-        &mut self,
-        db: &dyn HirDatabase,
-        path: Path,
-        _ctx: &mut HirFileContext,
-    ) -> Symbol {
+    fn lookup_path(&mut self, db: &dyn HirDatabase, path: Path) -> Symbol {
         match path.segments(db).as_slice() {
             [name] => {
                 let name = *name;
@@ -433,21 +392,16 @@ impl BodyLower {
         self.params.get(&name).copied()
     }
 
-    fn lower_call(
-        &mut self,
-        db: &dyn HirDatabase,
-        ast_call: ast::CallExpr,
-        ctx: &mut HirFileContext,
-    ) -> Expr {
+    fn lower_call(&mut self, db: &dyn HirDatabase, ast_call: ast::CallExpr) -> Expr {
         let args = ast_call.args().unwrap();
         let args = args
             .args()
             .map(|arg| {
-                let expr = self.lower_expr(db, arg.expr(), ctx);
-                ctx.alloc_expr(expr)
+                let expr = self.lower_expr(db, arg.expr());
+                self.ctx.alloc_expr(expr)
             })
             .collect();
-        let callee = match self.lower_expr(db, ast_call.callee(), ctx) {
+        let callee = match self.lower_expr(db, ast_call.callee()) {
             Expr::Symbol(symbol) => symbol,
             Expr::Binary { .. } => todo!(),
             Expr::Literal(_) => todo!(),
@@ -462,17 +416,12 @@ impl BodyLower {
         Expr::Call { callee, args }
     }
 
-    fn lower_block(
-        &mut self,
-        db: &dyn HirDatabase,
-        ast_block: ast::BlockExpr,
-        ctx: &mut HirFileContext,
-    ) -> Expr {
+    fn lower_block(&mut self, db: &dyn HirDatabase, ast_block: ast::BlockExpr) -> Expr {
         self.scopes.enter(ast_block.clone());
 
         let mut stmts = vec![];
         for stmt in ast_block.stmts() {
-            if let Some(stmt) = self.lower_stmt(db, stmt, ctx) {
+            if let Some(stmt) = self.lower_stmt(db, stmt) {
                 stmts.push(stmt);
             }
         }
@@ -498,21 +447,16 @@ impl BodyLower {
         })
     }
 
-    fn lower_if(
-        &mut self,
-        db: &dyn HirDatabase,
-        ast_if: ast::IfExpr,
-        ctx: &mut HirFileContext,
-    ) -> Expr {
-        let condition = self.lower_expr(db, ast_if.condition(), ctx);
-        let condition = ctx.alloc_expr(condition);
+    fn lower_if(&mut self, db: &dyn HirDatabase, ast_if: ast::IfExpr) -> Expr {
+        let condition = self.lower_expr(db, ast_if.condition());
+        let condition = self.ctx.alloc_expr(condition);
 
-        let then_branch = self.lower_block(db, ast_if.then_branch().unwrap(), ctx);
-        let then_branch = ctx.alloc_expr(then_branch);
+        let then_branch = self.lower_block(db, ast_if.then_branch().unwrap());
+        let then_branch = self.ctx.alloc_expr(then_branch);
 
         let else_branch = if let Some(else_branch) = ast_if.else_branch() {
-            let else_branch = self.lower_block(db, else_branch, ctx);
-            Some(ctx.alloc_expr(else_branch))
+            let else_branch = self.lower_block(db, else_branch);
+            Some(self.ctx.alloc_expr(else_branch))
         } else {
             None
         };
@@ -524,15 +468,10 @@ impl BodyLower {
         }
     }
 
-    fn lower_return(
-        &mut self,
-        db: &dyn HirDatabase,
-        ast_return: ast::ReturnExpr,
-        ctx: &mut HirFileContext,
-    ) -> Expr {
+    fn lower_return(&mut self, db: &dyn HirDatabase, ast_return: ast::ReturnExpr) -> Expr {
         let value = if let Some(value) = ast_return.value() {
-            let value = self.lower_expr(db, Some(value), ctx);
-            Some(ctx.alloc_expr(value))
+            let value = self.lower_expr(db, Some(value));
+            Some(self.ctx.alloc_expr(value))
         } else {
             None
         };

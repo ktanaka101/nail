@@ -72,7 +72,7 @@ pub struct Function {
 }
 
 /// モジュール定義を表す
-#[salsa::interned]
+#[salsa::tracked]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Module {
     /// モジュール名

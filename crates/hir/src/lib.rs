@@ -150,31 +150,34 @@ pub fn parse_pods(
 /// ルートファイル、サブファイルをパースし、Podを構築します。
 fn parse_pod(
     db: &dyn HirMasterDatabase,
-    path: &str,
+    file_path: &str,
     source_db: &mut dyn SourceDatabaseTrait,
 ) -> Pod {
     let mut hir_file_by_nail_file = HashMap::new();
     let mut hir_file_by_module = HashMap::new();
     let mut registration_order = vec![];
 
-    let root_file_path = std::path::PathBuf::from(path);
+    let root_file_path = std::path::PathBuf::from(file_path);
     let nail_file = source_db.source_root();
 
     let ast_source = parse_to_ast(db, nail_file);
     let root_hir_file = build_hir_file(db, ast_source);
 
+    let root_dir = root_file_path.parent().unwrap();
     for sub_module in root_hir_file.modules(db) {
         if matches!(sub_module.kind(db), ModuleKind::Inline { .. }) {
             continue;
         }
 
-        let sub_module_name = sub_module.name(db).text(db);
-        let sub_module_lower_result =
-            parse_sub_module(db, sub_module_name, &root_file_path, source_db);
-        hir_file_by_module.insert(*sub_module, sub_module_lower_result);
-
-        registration_order.push(sub_module_lower_result.file(db));
-        hir_file_by_nail_file.insert(sub_module_lower_result.file(db), sub_module_lower_result);
+        parse_module(
+            db,
+            *sub_module,
+            root_dir,
+            &mut hir_file_by_nail_file,
+            &mut hir_file_by_module,
+            &mut registration_order,
+            source_db,
+        );
     }
 
     Pod {
@@ -187,20 +190,52 @@ fn parse_pod(
     }
 }
 
-/// サブモジュールをパースします
-/// `root_file_path`はルートファイルのファイルパスまで込みのパスを指定します。(`/main.nail`)
-fn parse_sub_module(
+/// モジュールのパースを行います。
+///
+/// モジュールのパースは、再帰的に行われます。
+/// 例えば、`aaa::bbb::ccc`というモジュールがあった場合、`aaa`、`bbb`、`ccc`の順でパースが行われます。
+///
+/// `dir`には、パース対象モジュールのディレクトリを指定します。
+/// そのディレクトリの`module`の名前がパースされます。
+/// `dir`に`aaa`を指定した場合、`aaa.nail`がパースされます。
+/// そのファイル内のアウトラインモジュールがあれば、`aaa/`配下のファイルをパースしていきます。
+/// 例えば、アウトラインモジュール名が`bbb`の場合、`aaa/bbb.nail`がパースされます。
+fn parse_module(
     db: &dyn HirMasterDatabase,
-    sub_module_name: &str,
-    root_file_path: &std::path::Path,
+    module: Module,
+    dir: &std::path::Path,
+    hir_file_by_nail_file: &mut HashMap<NailFile, HirFile>,
+    hir_file_by_module: &mut HashMap<Module, HirFile>,
+    registration_order: &mut Vec<NailFile>,
     source_db: &mut dyn SourceDatabaseTrait,
-) -> HirFile {
-    // todo: サブモジュールのサブモジュールの場合はaaa/bbb.nailのようにする必要がある
-    let file_path = root_file_path.with_file_name(format!("{sub_module_name}.nail"));
+) {
+    let module_name = module.name(db).text(db);
+    let file_path = dir.with_file_name(format!("{module_name}.nail"));
     let nail_file = source_db.register_file_with_read(db, file_path);
 
     let ast_source = parse_to_ast(db, nail_file);
-    build_hir_file(db, ast_source)
+    let hir_file = build_hir_file(db, ast_source);
+
+    hir_file_by_module.insert(module, hir_file);
+    registration_order.push(hir_file.file(db));
+    hir_file_by_nail_file.insert(hir_file.file(db), hir_file);
+
+    let sub_dir = dir.join(format!("{module_name}/_.nail"));
+    for sub_module in hir_file.modules(db) {
+        if matches!(sub_module.kind(db), ModuleKind::Inline { .. }) {
+            continue;
+        }
+
+        parse_module(
+            db,
+            *sub_module,
+            &sub_dir,
+            hir_file_by_nail_file,
+            hir_file_by_module,
+            registration_order,
+            source_db,
+        );
+    }
 }
 
 /// HIR構築時のエラー

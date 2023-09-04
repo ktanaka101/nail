@@ -2359,4 +2359,45 @@ mod tests {
             "#]],
         );
     }
+
+    #[test]
+    fn nested_outline_module() {
+        check_pod_start_with_root_file(
+            r#"
+                //- /main.nail
+                mod mod_aaa;
+
+                fn main() {
+                    mod_aaa::fn_aaa();
+                    mod_aaa::mod_bbb::fn_bbb();
+                }
+
+                //- /mod_aaa.nail
+                mod mod_bbb;
+                fn fn_aaa() {
+                    mod_bbb::fn_bbb();
+                }
+
+                //- /mod_aaa/mod_bbb.nail
+                fn fn_bbb() {
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                mod mod_aaa;
+                fn entry:main() -> () {
+                    fn:mod_aaa::fn_aaa();
+                    fn:mod_aaa::mod_bbb::fn_bbb();
+                }
+                //- /mod_aaa.nail
+                mod mod_bbb;
+                fn fn_aaa() -> () {
+                    fn:mod_bbb::fn_bbb();
+                }
+                //- /mod_aaa/mod_bbb.nail
+                fn fn_bbb() -> () {
+                }
+            "#]],
+        );
+    }
 }

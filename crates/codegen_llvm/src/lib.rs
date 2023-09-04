@@ -308,7 +308,11 @@ mod tests {
         let mut fixture = fixture.to_string();
         fixture.insert_str(0, "//- /main.nail\n");
 
-        let (db, _pods, _ty_result, mir_result) = lower(&fixture);
+        check_pod_result_start_with_root_file(&fixture, expect);
+    }
+
+    fn check_pod_result_start_with_root_file(fixture: &str, expect: Expect) {
+        let (db, _pods, _ty_result, mir_result) = lower(fixture);
 
         let context = Context::create();
         let module = context.create_module("top");
@@ -1690,6 +1694,39 @@ mod tests {
                 {
                   "nail_type": "Int",
                   "value": 30
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn nested_outline_module() {
+        check_pod_result_start_with_root_file(
+            r#"
+                //- /main.nail
+                mod mod_aaa;
+
+                fn main() -> integer {
+                    mod_aaa::fn_aaa();
+                    mod_aaa::mod_bbb::fn_bbb()
+                }
+
+                //- /mod_aaa.nail
+                mod mod_bbb;
+                fn fn_aaa() -> integer {
+                    mod_bbb::fn_bbb()
+                }
+
+                //- /mod_aaa/mod_bbb.nail
+                fn fn_bbb() -> integer {
+                    10
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 10
                 }
             "#]],
         );

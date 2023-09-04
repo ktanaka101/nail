@@ -453,12 +453,9 @@ mod tests {
 
     use crate::lower_pods;
 
-    fn check_in_root_file(fixture: &str, expect: Expect) {
-        let mut fixture = fixture.to_string();
-        fixture.insert_str(0, "//- /main.nail\n");
-
+    fn check_pod_start_with_root_file(fixture: &str, expect: Expect) {
         let db = hir::TestingDatabase::default();
-        let mut source_db = hir::FixtureDatabase::new(&db, &fixture);
+        let mut source_db = hir::FixtureDatabase::new(&db, fixture);
 
         let pods = hir::parse_pods(&db, "/main.nail", &mut source_db);
         let ty_hir_result = hir_ty::lower_pods(&db, &pods);
@@ -466,6 +463,13 @@ mod tests {
         let mir_result = lower_pods(&db, &pods, &ty_hir_result);
 
         expect.assert_eq(&debug(&db, &mir_result));
+    }
+
+    fn check_in_root_file(fixture: &str, expect: Expect) {
+        let mut fixture = fixture.to_string();
+        fixture.insert_str(0, "//- /main.nail\n");
+
+        check_pod_start_with_root_file(&fixture, expect);
     }
 
     fn indent(nesting: usize) -> String {
@@ -1956,6 +1960,85 @@ mod tests {
 
                     entry: {
                         _0 = const 30
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn nested_outline_module() {
+        check_pod_start_with_root_file(
+            r#"
+                //- /main.nail
+                mod mod_aaa;
+
+                fn main() -> integer {
+                    mod_aaa::fn_aaa();
+                    mod_aaa::mod_bbb::fn_bbb()
+                }
+
+                //- /mod_aaa.nail
+                mod mod_bbb;
+                fn fn_aaa() -> integer {
+                    mod_bbb::fn_bbb()
+                }
+
+                //- /mod_aaa/mod_bbb.nail
+                fn fn_bbb() -> integer {
+                    10
+                }
+            "#,
+            expect![[r#"
+                fn t_pod::main() -> unknown {
+                    let _0: unknown
+                    let _1: unknown
+                    let _2: unknown
+
+                    entry: {
+                        _1 = fn_aaa() -> [return: bb0]
+                    }
+
+                    exit: {
+                        return _0
+                    }
+
+                    bb0: {
+                        _2 = fn_bbb() -> [return: bb1]
+                    }
+
+                    bb1: {
+                        _0 = _2
+                        goto -> exit
+                    }
+                }
+                fn t_pod::mod_aaa::fn_aaa() -> unknown {
+                    let _0: unknown
+                    let _1: unknown
+
+                    entry: {
+                        _1 = fn_bbb() -> [return: bb0]
+                    }
+
+                    exit: {
+                        return _0
+                    }
+
+                    bb0: {
+                        _0 = _1
+                        goto -> exit
+                    }
+                }
+                fn t_pod::mod_aaa::mod_bbb::fn_bbb() -> unknown {
+                    let _0: unknown
+
+                    entry: {
+                        _0 = const 10
                         goto -> exit
                     }
 

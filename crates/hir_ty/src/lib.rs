@@ -57,18 +57,21 @@ mod tests {
 
     use super::*;
 
+    fn check_pod_start_with_root_file(fixture: &str, expect: Expect) {
+        let db = TestingDatabase::default();
+        let mut source_db = hir::FixtureDatabase::new(&db, fixture);
+
+        let pods = hir::parse_pods(&db, "/main.nail", &mut source_db);
+        let ty_result = lower_pods(&db, &pods);
+
+        expect.assert_eq(&debug_file(&db, &ty_result, &pods.root_pod.root_hir_file));
+    }
+
     fn check_in_root_file(fixture: &str, expect: Expect) {
         let mut fixture = fixture.to_string();
         fixture.insert_str(0, "//- /main.nail\n");
 
-        let db = TestingDatabase::default();
-        let mut source_db = hir::FixtureDatabase::new(&db, &fixture);
-
-        let pods = hir::parse_pods(&db, "/main.nail", &mut source_db);
-
-        let ty_result = lower_pods(&db, &pods);
-
-        expect.assert_eq(&debug_file(&db, &ty_result, &pods.root_pod.root_hir_file));
+        check_pod_start_with_root_file(&fixture, expect);
     }
 
     fn debug_file(
@@ -1343,6 +1346,41 @@ mod tests {
                 `true`: bool
                 `"aaa"`: string
                 `30`: int
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn nested_outline_module() {
+        check_pod_start_with_root_file(
+            r#"
+                //- /main.nail
+                mod mod_aaa;
+
+                fn main() -> integer {
+                    mod_aaa::fn_aaa();
+                    mod_aaa::mod_bbb::fn_bbb()
+                }
+
+                //- /mod_aaa.nail
+                mod mod_bbb;
+                fn fn_aaa() -> integer {
+                    mod_bbb::fn_bbb()
+                }
+
+                //- /mod_aaa/mod_bbb.nail
+                fn fn_bbb() -> integer {
+                    10
+                }
+            "#,
+            expect![[r#"
+                fn() -> unknown
+                fn() -> unknown
+                fn() -> unknown
+                ---
+                `mod_aaa::fn_aaa()`: unknown
+                `mod_aaa::mod_bbb::fn_bbb()`: unknown
                 ---
             "#]],
         );

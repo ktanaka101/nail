@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use la_arena::Idx;
-
-use crate::inference::{InferenceBodyResult, InferenceResult, ResolvedType, Signature};
+use crate::inference::{InferenceBodyResult, InferenceResult, Monotype, Signature};
 
 pub fn check_type_pods(
     db: &dyn hir::HirMasterDatabase,
@@ -27,7 +25,7 @@ pub fn check_type_pods(
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeCheckError {
     /// 型を解決できない
-    UnresolvedType {
+    UnMonotype {
         /// 対象の式
         expr: hir::ExprId,
     },
@@ -36,40 +34,40 @@ pub enum TypeCheckError {
         /// 期待される型の式
         expected_expr: hir::ExprId,
         /// 期待される型
-        expected_ty: ResolvedType,
+        expected_ty: Monotype,
         /// 実際の式
         found_expr: hir::ExprId,
         /// 実際の型
-        found_ty: ResolvedType,
+        found_ty: Monotype,
     },
     /// Ifの条件式の型が一致しない
     MismatchedTypeIfCondition {
         /// 期待される型
-        expected_ty: ResolvedType,
+        expected_ty: Monotype,
         /// 実際の式
         found_expr: hir::ExprId,
         /// 実際の型
-        found_ty: ResolvedType,
+        found_ty: Monotype,
     },
     /// Ifのthenブランチとelseブランチの型が一致しない
     MismatchedTypeElseBranch {
         /// 期待される型
-        expected_ty: ResolvedType,
+        expected_ty: Monotype,
         /// 実際の式
         found_expr: hir::ExprId,
         /// 実際の型
-        found_ty: ResolvedType,
+        found_ty: Monotype,
     },
     /// 関数呼び出しの引数の数が一致しない
     MismaatchedSignature {
         /// 期待される型
-        expected_ty: ResolvedType,
+        expected_ty: Monotype,
         /// 呼び出そうとしている関数のシグネチャ
         signature: Signature,
         /// 実際の式
         found_expr: hir::ExprId,
         /// 実際の型
-        found_ty: ResolvedType,
+        found_ty: Monotype,
     },
     /// 関数の戻り値の型と実際の戻り値の型が異なる
     ///
@@ -78,11 +76,11 @@ pub enum TypeCheckError {
     /// - 関数ボディの最後の式の型
     MismatchedReturnType {
         /// 期待される型
-        expected_ty: ResolvedType,
+        expected_ty: Monotype,
         /// 実際の式
         found_expr: Option<hir::ExprId>,
         /// 実際の型
-        found_ty: ResolvedType,
+        found_ty: Monotype,
     },
 }
 
@@ -123,8 +121,8 @@ impl<'a> FunctionTypeChecker<'a> {
         }
     }
 
-    fn signature_by_function(&self, function: hir::Function) -> Idx<Signature> {
-        self.infer_result.signature_by_function[&function]
+    fn signature_by_function(&self, function: hir::Function) -> &Signature {
+        &self.infer_result.signature_by_function[&function]
     }
 
     fn check(mut self) -> Vec<TypeCheckError> {
@@ -144,11 +142,10 @@ impl<'a> FunctionTypeChecker<'a> {
                     self.check_expr(tail);
 
                     let signature = self.signature_by_function(self.function);
-                    let signature = &self.infer_result.signatures[signature];
-                    let tail_ty = self.current_inference().type_by_expr[&tail];
+                    let tail_ty = self.current_inference().type_by_expr[&tail].clone();
                     if tail_ty != signature.return_type {
                         self.errors.push(TypeCheckError::MismatchedReturnType {
-                            expected_ty: signature.return_type,
+                            expected_ty: signature.return_type.clone(),
                             found_expr: Some(tail),
                             found_ty: tail_ty,
                         });
@@ -178,7 +175,7 @@ impl<'a> FunctionTypeChecker<'a> {
                 let lhs_ty = self.type_by_expr(*lhs);
                 let rhs_ty = self.type_by_expr(*rhs);
                 match (lhs_ty, rhs_ty) {
-                    (ResolvedType::Unknown, ResolvedType::Unknown) => (),
+                    (Monotype::Unknown, Monotype::Unknown) => (),
                     (lhs_ty, rhs_ty) => {
                         if lhs_ty != rhs_ty {
                             self.errors.push(TypeCheckError::MismatchedTypes {
@@ -214,7 +211,7 @@ impl<'a> FunctionTypeChecker<'a> {
                             }
                             hir::ResolutionStatus::Resolved { path: _, item } => match item {
                                 hir::Item::Function(function) => {
-                                    self.signature_by_function(function)
+                                    self.signature_by_function(function).clone()
                                 }
                                 hir::Item::Module(_) | hir::Item::UseItem(_) => unimplemented!(),
                             },
@@ -222,13 +219,12 @@ impl<'a> FunctionTypeChecker<'a> {
                     }
                 };
 
-                let signature = &self.infer_result.signatures[signature];
                 for (i, param_ty) in signature.params.iter().enumerate() {
                     let arg = args[i];
                     let arg_ty = self.type_by_expr(arg);
-                    if *param_ty != arg_ty {
+                    if param_ty != &arg_ty {
                         self.errors.push(TypeCheckError::MismaatchedSignature {
-                            expected_ty: *param_ty,
+                            expected_ty: param_ty.clone(),
                             signature: signature.clone(),
                             found_expr: arg,
                             found_ty: arg_ty,
@@ -242,7 +238,7 @@ impl<'a> FunctionTypeChecker<'a> {
                 else_branch,
             } => {
                 let condition_ty = self.type_by_expr(*condition);
-                let expected_condition_ty = ResolvedType::Bool;
+                let expected_condition_ty = Monotype::Bool;
                 if condition_ty != expected_condition_ty {
                     self.errors.push(TypeCheckError::MismatchedTypeIfCondition {
                         expected_ty: expected_condition_ty,
@@ -263,7 +259,7 @@ impl<'a> FunctionTypeChecker<'a> {
                         });
                     }
                 } else {
-                    let else_branch_ty = ResolvedType::Unit;
+                    let else_branch_ty = Monotype::Unit;
                     if then_branch_ty != else_branch_ty {
                         self.errors.push(TypeCheckError::MismatchedTypeElseBranch {
                             expected_ty: else_branch_ty,
@@ -277,14 +273,13 @@ impl<'a> FunctionTypeChecker<'a> {
                 let return_value_ty = if let Some(value) = value {
                     self.type_by_expr(*value)
                 } else {
-                    ResolvedType::Unit
+                    Monotype::Unit
                 };
 
                 let signature = self.signature_by_function(self.function);
-                let signature = &self.infer_result.signatures[signature];
                 if return_value_ty != signature.return_type {
                     self.errors.push(TypeCheckError::MismatchedReturnType {
-                        expected_ty: signature.return_type,
+                        expected_ty: signature.return_type.clone(),
                         found_expr: *value,
                         found_ty: return_value_ty,
                     });
@@ -294,10 +289,10 @@ impl<'a> FunctionTypeChecker<'a> {
         }
     }
 
-    fn type_by_expr(&mut self, expr: hir::ExprId) -> ResolvedType {
-        let ty = self.current_inference().type_by_expr[&expr];
-        if ty == ResolvedType::Unknown {
-            self.errors.push(TypeCheckError::UnresolvedType { expr });
+    fn type_by_expr(&mut self, expr: hir::ExprId) -> Monotype {
+        let ty = self.current_inference().type_by_expr[&expr].clone();
+        if ty == Monotype::Unknown {
+            self.errors.push(TypeCheckError::UnMonotype { expr });
         }
 
         ty
@@ -306,7 +301,7 @@ impl<'a> FunctionTypeChecker<'a> {
     /// 現在の関数の推論結果を取得する
     fn current_inference(&self) -> &InferenceBodyResult {
         self.infer_result
-            .inference_by_body
+            .inference_body_result_by_function
             .get(&self.function)
             .unwrap()
     }

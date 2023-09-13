@@ -19,9 +19,8 @@ mod checker;
 mod inference;
 
 pub use checker::{TypeCheckError, TypeCheckResult};
-pub use inference::{
-    InferenceBodyResult, InferenceError, InferenceResult, ResolvedType, Signature,
-};
+use inference::Signature;
+pub use inference::{InferenceBodyResult, InferenceResult};
 
 /// HIRを元にTypedHIRを構築します。
 pub fn lower_pods(db: &dyn hir::HirMasterDatabase, pods: &hir::Pods) -> TyLowerResult {
@@ -45,26 +44,24 @@ pub struct TyLowerResult {
 impl TyLowerResult {
     /// 指定した関数の型を取得します。
     pub fn signature_by_function(&self, function_id: hir::Function) -> &Signature {
-        let signature_idx = self.inference_result.signature_by_function[&function_id];
-        &self.inference_result.signatures[signature_idx]
+        &self.inference_result.signature_by_function[&function_id]
     }
 }
 
 #[cfg(test)]
 mod tests {
     use expect_test::{expect, Expect};
-    use hir::{Name, Path, Symbol, TestingDatabase};
 
-    use super::*;
+    use crate::{inference::infer_pods, InferenceResult};
 
     fn check_pod_start_with_root_file(fixture: &str, expect: Expect) {
-        let db = TestingDatabase::default();
+        let db = hir::TestingDatabase::default();
         let mut source_db = hir::FixtureDatabase::new(&db, fixture);
 
         let pods = hir::parse_pods(&db, "/main.nail", &mut source_db);
-        let ty_result = lower_pods(&db, &pods);
+        let inference_result = infer_pods(&db, &pods);
 
-        expect.assert_eq(&debug_file(&db, &ty_result, &pods.root_pod.root_hir_file));
+        expect.assert_eq(&TestingDebug::new(&db, &pods, &inference_result).debug());
     }
 
     fn check_in_root_file(fixture: &str, expect: Expect) {
@@ -74,260 +71,446 @@ mod tests {
         check_pod_start_with_root_file(&fixture, expect);
     }
 
-    fn debug_file(
-        db: &dyn hir::HirMasterDatabase,
-        ty_lower_result: &TyLowerResult,
-        hir_file: &hir::HirFile,
-    ) -> String {
-        let mut msg = "".to_string();
+    fn indent(nesting: usize) -> String {
+        "    ".repeat(nesting)
+    }
 
-        let TyLowerResult {
-            type_check_result,
-            inference_result,
-        } = ty_lower_result;
-
-        for (_, signature) in inference_result.signatures.iter() {
-            let params = signature
-                .params
-                .iter()
-                .map(debug_type)
-                .collect::<Vec<String>>()
-                .join(", ");
-            msg.push_str(&format!(
-                "fn({params}) -> {}\n",
-                debug_type(&signature.return_type)
-            ));
-        }
-
-        msg.push_str("---\n");
-
-        for function in hir_file.functions(db) {
-            let inference_body_result = inference_result.inference_by_body.get(function).unwrap();
-
-            let mut indexes = inference_body_result
-                .type_by_expr
-                .keys()
-                .collect::<Vec<_>>();
-            indexes.sort();
-            for expr_id in indexes {
-                let expr = debug_hir_expr(db, expr_id, hir_file);
-                msg.push_str(&format!(
-                    "`{}`: {}\n",
-                    expr,
-                    debug_type(&inference_body_result.type_by_expr[expr_id])
-                ));
+    struct TestingDebug<'a> {
+        db: &'a dyn hir::HirMasterDatabase,
+        pods: &'a hir::Pods,
+        inference_result: &'a InferenceResult,
+    }
+    impl<'a> TestingDebug<'a> {
+        fn new(
+            db: &'a dyn hir::HirMasterDatabase,
+            pods: &'a hir::Pods,
+            inference_result: &'a InferenceResult,
+        ) -> Self {
+            TestingDebug {
+                db,
+                pods,
+                inference_result,
             }
         }
 
-        msg.push_str("---\n");
+        fn debug(&self) -> String {
+            let mut msg = "".to_string();
 
-        for function in hir_file.functions(db) {
-            let type_check_errors = type_check_result.errors_by_function.get(function).unwrap();
+            msg.push_str(&self.debug_hir_file(self.pods.root_pod.root_hir_file));
 
-            for error in type_check_errors {
-                match error {
-                    TypeCheckError::UnresolvedType { expr } => {
-                        msg.push_str(&format!(
-                            "error: `{}` is unresolved type.\n",
-                            debug_hir_expr(db, expr, hir_file),
-                        ));
-                    }
-                    TypeCheckError::MismatchedTypes {
-                        expected_expr,
-                        expected_ty,
-                        found_expr,
-                        found_ty,
-                    } => {
-                        msg.push_str(&format!(
-                            "error: expected {}, found {} by `{}` and `{}`\n",
-                            debug_type(expected_ty),
-                            debug_type(found_ty),
-                            debug_hir_expr(db, expected_expr, hir_file),
-                            debug_hir_expr(db, found_expr, hir_file)
-                        ));
-                    }
-                    TypeCheckError::MismaatchedSignature {
-                        expected_ty,
-                        found_expr,
-                        found_ty,
-                        ..
-                    } => msg.push_str(&format!(
-                        "error: expected {}, found {} by `{}`\n",
-                        debug_type(expected_ty),
-                        debug_type(found_ty),
-                        debug_hir_expr(db, found_expr, hir_file)
-                    )),
-                    TypeCheckError::MismatchedTypeIfCondition {
-                        expected_ty,
-                        found_expr,
-                        found_ty,
-                    } => {
-                        msg.push_str(&format!(
-                            "error: expected {}, found {} by `{}`\n",
-                            debug_type(expected_ty),
-                            debug_type(found_ty),
-                            debug_hir_expr(db, found_expr, hir_file)
-                        ));
-                    }
-                    TypeCheckError::MismatchedTypeElseBranch {
-                        expected_ty,
-                        found_expr,
-                        found_ty,
-                    } => {
-                        msg.push_str(&format!(
-                            "error: expected {}, found {} by `{}`\n",
-                            debug_type(expected_ty),
-                            debug_type(found_ty),
-                            debug_hir_expr(db, found_expr, hir_file)
-                        ));
-                    }
-                    TypeCheckError::MismatchedReturnType {
-                        expected_ty,
-                        found_expr,
-                        found_ty,
-                    } => {
-                        msg.push_str(&format!(
-                            "error: expected {}, found {}",
-                            debug_type(expected_ty),
-                            debug_type(found_ty)
-                        ));
-                        if let Some(found_expr) = found_expr {
+            for (_nail_file, hir_file) in self.pods.root_pod.get_hir_files_order_registration_asc()
+            {
+                msg.push_str(&self.debug_hir_file(*hir_file));
+                msg.push('\n');
+            }
+
+            msg.push_str("---\n");
+            for (_hir_file, function) in self.pods.root_pod.all_functions(self.db) {
+                let inference_body_result = self
+                    .inference_result
+                    .inference_body_result_by_function
+                    .get(&function)
+                    .unwrap();
+
+                for error in &inference_body_result.errors {
+                    match error {
+                        crate::inference::InferenceError::TypeMismatch { expected, actual } => {
                             msg.push_str(&format!(
-                                " by `{}`",
-                                debug_hir_expr(db, found_expr, hir_file)
+                                "error: expected {expected}, actual: {actual}\n"
                             ));
                         }
-                        msg.push('\n');
+                    }
+                }
+            }
+
+            msg
+        }
+
+        fn debug_hir_file(&self, hir_file: hir::HirFile) -> String {
+            let mut msg = format!(
+                "//- {}\n",
+                hir_file.file(self.db).file_path(self.db).to_str().unwrap()
+            );
+
+            for item in hir_file.top_level_items(self.db) {
+                msg.push_str(&self.debug_item(hir_file, *item, 0));
+            }
+
+            msg
+        }
+
+        fn debug_function(
+            &self,
+            hir_file: hir::HirFile,
+            function: hir::Function,
+            nesting: usize,
+        ) -> String {
+            let body_expr = hir_file
+                .db(self.db)
+                .function_body_by_ast_block(function.ast(self.db).body().unwrap())
+                .unwrap();
+
+            let name = function.name(self.db).text(self.db);
+            let params = function
+                .params(self.db)
+                .iter()
+                .map(|param| {
+                    let name = if let Some(name) = param.data(hir_file.db(self.db)).name {
+                        name.text(self.db)
+                    } else {
+                        "<missing>"
+                    };
+                    let ty = match param.data(hir_file.db(self.db)).ty {
+                        hir::Type::Integer => "int",
+                        hir::Type::String => "string",
+                        hir::Type::Char => "char",
+                        hir::Type::Boolean => "bool",
+                        hir::Type::Unit => "()",
+                        hir::Type::Unknown => "<unknown>",
+                    };
+                    format!("{name}: {ty}")
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            let return_type = match &function.return_type(self.db) {
+                hir::Type::Integer => "int",
+                hir::Type::String => "string",
+                hir::Type::Char => "char",
+                hir::Type::Boolean => "bool",
+                hir::Type::Unit => "()",
+                hir::Type::Unknown => "<unknown>",
+            };
+
+            let scope_origin = hir::ModuleScopeOrigin::Function { origin: function };
+
+            let hir::Expr::Block(block) = body_expr else { panic!("Should be Block") };
+
+            let mut body = "{\n".to_string();
+            for stmt in &block.stmts {
+                body.push_str(&self.debug_stmt(
+                    hir_file,
+                    function,
+                    scope_origin,
+                    stmt,
+                    nesting + 1,
+                ));
+            }
+            if let Some(tail) = block.tail {
+                let indent = indent(nesting + 1);
+                body.push_str(&format!(
+                    "{indent}expr:{}\n",
+                    self.debug_expr(hir_file, function, scope_origin, tail, nesting + 1)
+                ));
+                body.push_str(&format!(
+                    "{indent}{}\n",
+                    self.debug_type_line(hir_file, function, scope_origin, tail)
+                ));
+            }
+            body.push_str(&format!("{}}}", indent(nesting)));
+
+            let is_entry_point = hir_file.entry_point(self.db) == Some(function);
+            format!(
+                "{}fn {}{name}({params}) -> {return_type} {body}\n",
+                indent(nesting),
+                if is_entry_point { "entry:" } else { "" }
+            )
+        }
+
+        fn debug_module(
+            &self,
+            hir_file: hir::HirFile,
+            module: hir::Module,
+            nesting: usize,
+        ) -> String {
+            let _scope_origin = hir::ModuleScopeOrigin::Module { origin: module };
+
+            let curr_indent = indent(nesting);
+
+            let module_name = module.name(self.db).text(self.db);
+
+            match module.kind(self.db) {
+                hir::ModuleKind::Inline { items } => {
+                    let mut module_str = "".to_string();
+                    module_str.push_str(&format!("{curr_indent}mod {module_name} {{\n"));
+                    for (i, item) in items.iter().enumerate() {
+                        module_str.push_str(&self.debug_item(hir_file, *item, nesting + 1));
+                        if i == items.len() - 1 {
+                            continue;
+                        }
+
+                        module_str.push('\n');
+                    }
+                    module_str.push_str(&format!("{curr_indent}}}\n"));
+                    module_str
+                }
+                hir::ModuleKind::Outline => {
+                    format!("{curr_indent}mod {module_name};\n")
+                }
+            }
+        }
+
+        fn debug_use_item(&self, use_item: hir::UseItem) -> String {
+            let path_name = self.debug_path(use_item.path(self.db));
+            let item_name = use_item.name(self.db).text(self.db);
+
+            format!("{path_name}::{item_name}")
+        }
+
+        fn debug_item(&self, hir_file: hir::HirFile, item: hir::Item, nesting: usize) -> String {
+            match item {
+                hir::Item::Function(function) => self.debug_function(hir_file, function, nesting),
+                hir::Item::Module(module) => self.debug_module(hir_file, module, nesting),
+                hir::Item::UseItem(use_item) => self.debug_use_item(use_item),
+            }
+        }
+
+        fn debug_stmt(
+            &self,
+            hir_file: hir::HirFile,
+            function: hir::Function,
+            scope_origin: hir::ModuleScopeOrigin,
+            stmt: &hir::Stmt,
+            nesting: usize,
+        ) -> String {
+            match stmt {
+                hir::Stmt::VariableDef { name, value } => {
+                    let indent = indent(nesting);
+                    let name = name.text(self.db);
+                    let expr_str =
+                        self.debug_expr(hir_file, function, scope_origin, *value, nesting);
+                    let mut stmt_str = format!("{indent}let {name} = {expr_str}\n");
+
+                    let type_line = self.debug_type_line(hir_file, function, scope_origin, *value);
+                    stmt_str.push_str(&format!("{indent}{type_line}\n"));
+
+                    stmt_str
+                }
+                hir::Stmt::ExprStmt {
+                    expr,
+                    has_semicolon,
+                } => {
+                    let indent = indent(nesting);
+                    let expr_str =
+                        self.debug_expr(hir_file, function, scope_origin, *expr, nesting);
+                    let type_line = self.debug_type_line(hir_file, function, scope_origin, *expr);
+                    let maybe_semicolon = if *has_semicolon { ";" } else { "" };
+                    format!("{indent}{expr_str}{maybe_semicolon}\n{indent}{type_line}\n")
+                }
+                hir::Stmt::Item { item } => self.debug_item(hir_file, *item, nesting),
+            }
+        }
+
+        fn debug_type_line(
+            &self,
+            hir_file: hir::HirFile,
+            function: hir::Function,
+            scope_origin: hir::ModuleScopeOrigin,
+            expr_id: hir::ExprId,
+        ) -> String {
+            let ty = self
+                .inference_result
+                .inference_body_result_by_function
+                .get(&function)
+                .unwrap()
+                .type_by_expr
+                .get(&expr_id)
+                .unwrap();
+            let expr_str = match expr_id.lookup(hir_file.db(self.db)) {
+                hir::Expr::Symbol(_)
+                | hir::Expr::Binary { .. }
+                | hir::Expr::Literal(_)
+                | hir::Expr::Unary { .. }
+                | hir::Expr::Call { .. }
+                | hir::Expr::If { .. }
+                | hir::Expr::Return { .. }
+                | hir::Expr::Missing => {
+                    self.debug_expr(hir_file, function, scope_origin, expr_id, 0)
+                }
+                hir::Expr::Block(_) => "{ .. }".to_string(),
+            };
+
+            format!("// {expr_str}: {ty}")
+        }
+
+        fn debug_expr(
+            &self,
+            hir_file: hir::HirFile,
+            function: hir::Function,
+            scope_origin: hir::ModuleScopeOrigin,
+            expr_id: hir::ExprId,
+            nesting: usize,
+        ) -> String {
+            match expr_id.lookup(hir_file.db(self.db)) {
+                hir::Expr::Symbol(symbol) => {
+                    self.debug_symbol(hir_file, function, scope_origin, symbol, nesting)
+                }
+                hir::Expr::Literal(literal) => match literal {
+                    hir::Literal::Bool(b) => b.to_string(),
+                    hir::Literal::Char(c) => format!("'{c}'"),
+                    hir::Literal::String(s) => format!("\"{s}\""),
+                    hir::Literal::Integer(i) => i.to_string(),
+                },
+                hir::Expr::Binary { op, lhs, rhs } => {
+                    let op = match op {
+                        ast::BinaryOp::Add(_) => "+",
+                        ast::BinaryOp::Sub(_) => "-",
+                        ast::BinaryOp::Mul(_) => "*",
+                        ast::BinaryOp::Div(_) => "/",
+                        ast::BinaryOp::Equal(_) => "==",
+                        ast::BinaryOp::GreaterThan(_) => ">",
+                        ast::BinaryOp::LessThan(_) => "<",
+                    };
+                    let lhs_str = self.debug_expr(hir_file, function, scope_origin, *lhs, nesting);
+                    let rhs_str = self.debug_expr(hir_file, function, scope_origin, *rhs, nesting);
+                    format!("{lhs_str} {op} {rhs_str}")
+                }
+                hir::Expr::Unary { op, expr } => {
+                    let op = match op {
+                        ast::UnaryOp::Neg(_) => "-",
+                        ast::UnaryOp::Not(_) => "!",
+                    };
+                    let expr_str =
+                        self.debug_expr(hir_file, function, scope_origin, *expr, nesting);
+                    format!("{op}{expr_str}")
+                }
+                hir::Expr::Call { callee, args } => {
+                    let callee =
+                        self.debug_symbol(hir_file, function, scope_origin, callee, nesting);
+                    let args = args
+                        .iter()
+                        .map(|arg| self.debug_expr(hir_file, function, scope_origin, *arg, nesting))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+
+                    format!("{callee}({args})")
+                }
+                hir::Expr::Block(block) => {
+                    let scope_origin = hir::ModuleScopeOrigin::Block { origin: expr_id };
+
+                    let mut msg = "{\n".to_string();
+                    for stmt in &block.stmts {
+                        msg.push_str(&self.debug_stmt(
+                            hir_file,
+                            function,
+                            scope_origin,
+                            stmt,
+                            nesting + 1,
+                        ));
+                    }
+                    if let Some(tail) = block.tail {
+                        let indent = indent(nesting + 1);
+                        msg.push_str(&format!(
+                            "{indent}expr:{}\n",
+                            self.debug_expr(hir_file, function, scope_origin, tail, nesting + 1)
+                        ));
+                        msg.push_str(&format!(
+                            "{indent}{}\n",
+                            self.debug_type_line(hir_file, function, scope_origin, tail)
+                        ));
+                    }
+                    msg.push_str(&format!("{}}}", indent(nesting)));
+
+                    msg
+                }
+                hir::Expr::If {
+                    condition,
+                    then_branch,
+                    else_branch,
+                } => {
+                    let mut msg = "if ".to_string();
+                    msg.push_str(&self.debug_expr(
+                        hir_file,
+                        function,
+                        scope_origin,
+                        *condition,
+                        nesting,
+                    ));
+                    msg.push(' ');
+                    msg.push_str(&self.debug_expr(
+                        hir_file,
+                        function,
+                        scope_origin,
+                        *then_branch,
+                        nesting,
+                    ));
+
+                    if let Some(else_branch) = else_branch {
+                        msg.push_str(" else ");
+                        msg.push_str(&self.debug_expr(
+                            hir_file,
+                            function,
+                            scope_origin,
+                            *else_branch,
+                            nesting,
+                        ));
+                    }
+
+                    msg
+                }
+                hir::Expr::Return { value } => {
+                    let mut msg = "return".to_string();
+                    if let Some(value) = value {
+                        msg.push_str(&format!(
+                            " {}",
+                            &self.debug_expr(hir_file, function, scope_origin, *value, nesting,)
+                        ));
+                    }
+
+                    msg
+                }
+                hir::Expr::Missing => "<missing>".to_string(),
+            }
+        }
+
+        fn debug_symbol(
+            &self,
+            _hir_file: hir::HirFile,
+            _function: hir::Function,
+            _scope_origin: hir::ModuleScopeOrigin,
+            symbol: &hir::Symbol,
+            _nesting: usize,
+        ) -> String {
+            match &symbol {
+                hir::Symbol::Local { name, expr: _ } => name.text(self.db).to_string(),
+                hir::Symbol::Param { name, .. } => {
+                    let name = name.text(self.db);
+                    format!("param:{name}")
+                }
+                hir::Symbol::Missing { path } => {
+                    let resolving_status = self.pods.resolution_map.item_by_symbol(path).unwrap();
+                    self.debug_resolution_status(resolving_status)
+                }
+            }
+        }
+
+        fn debug_resolution_status(&self, resolution_status: hir::ResolutionStatus) -> String {
+            match resolution_status {
+                hir::ResolutionStatus::Unresolved => "<unknown>".to_string(),
+                hir::ResolutionStatus::Error => "<missing>".to_string(),
+                hir::ResolutionStatus::Resolved { path, item } => {
+                    let path = self.debug_path(&path);
+                    match item {
+                        hir::Item::Function(_) => {
+                            format!("fn:{path}")
+                        }
+                        hir::Item::Module(_) => {
+                            format!("mod:{path}")
+                        }
+                        hir::Item::UseItem(_) => {
+                            unreachable!()
+                        }
                     }
                 }
             }
         }
 
-        msg
-    }
-
-    fn debug_hir_expr(
-        db: &dyn hir::HirMasterDatabase,
-        expr_id: &hir::ExprId,
-        hir_file: &hir::HirFile,
-    ) -> String {
-        let expr = expr_id.lookup(hir_file.db(db));
-        match expr {
-            hir::Expr::Symbol(symbol) => match symbol {
-                hir::Symbol::Param { name, .. } => debug_name(db, *name),
-                hir::Symbol::Local { name, .. } => debug_name(db, *name),
-                hir::Symbol::Missing { path, .. } => debug_path(db, &path.path(db)),
-            },
-            hir::Expr::Missing => "<missing>".to_string(),
-            hir::Expr::Unary { op, expr } => {
-                let op = match op {
-                    ast::UnaryOp::Neg(_) => "-".to_string(),
-                    ast::UnaryOp::Not(_) => "!".to_string(),
-                };
-                let expr = debug_hir_expr(db, expr, hir_file);
-                format!("{op}{expr}")
-            }
-            hir::Expr::Binary { op, lhs, rhs } => {
-                let op = match op {
-                    ast::BinaryOp::Add(_) => "+",
-                    ast::BinaryOp::Sub(_) => "-",
-                    ast::BinaryOp::Mul(_) => "*",
-                    ast::BinaryOp::Div(_) => "/",
-                    ast::BinaryOp::Equal(_) => "==",
-                    ast::BinaryOp::GreaterThan(_) => ">",
-                    ast::BinaryOp::LessThan(_) => "<",
-                }
-                .to_string();
-                let lhs = debug_hir_expr(db, lhs, hir_file);
-                let rhs = debug_hir_expr(db, rhs, hir_file);
-
-                format!("{lhs} {op} {rhs}")
-            }
-            hir::Expr::Block(block) => {
-                if let Some(tail) = block.tail {
-                    format!("{{ .., {} }}", debug_hir_expr(db, &tail, hir_file))
-                } else {
-                    "{{ .. }}".to_string()
-                }
-            }
-            hir::Expr::Call { callee, args } => {
-                let name = debug_symbol(db, callee);
-                let args = args
-                    .iter()
-                    .map(|id| debug_hir_expr(db, id, hir_file))
-                    .collect::<Vec<String>>()
-                    .join(", ");
-
-                format!("{name}({args})")
-            }
-            hir::Expr::Literal(literal) => match literal {
-                hir::Literal::Bool(b) => b.to_string(),
-                hir::Literal::Char(c) => format!("'{c}'"),
-                hir::Literal::Integer(i) => i.to_string(),
-                hir::Literal::String(s) => format!("\"{s}\""),
-            },
-            hir::Expr::If {
-                condition,
-                then_branch,
-                else_branch,
-            } => {
-                let mut if_expr = format!(
-                    "if {} {}",
-                    debug_hir_expr(db, condition, hir_file),
-                    debug_hir_expr(db, then_branch, hir_file)
-                );
-                if let Some(else_branch) = else_branch {
-                    if_expr.push_str(&format!(
-                        " else {}",
-                        debug_hir_expr(db, else_branch, hir_file)
-                    ));
-                }
-
-                if_expr
-            }
-            hir::Expr::Return { value } => {
-                let mut msg = "return".to_string();
-                if let Some(value) = value {
-                    msg.push_str(&format!(" {}", debug_hir_expr(db, value, hir_file)));
-                }
-
-                msg
-            }
+        fn debug_path(&self, path: &hir::Path) -> String {
+            path.segments(self.db)
+                .iter()
+                .map(|segment| segment.text(self.db).to_string())
+                .collect::<Vec<_>>()
+                .join("::")
         }
-    }
-
-    fn debug_symbol(db: &dyn hir::HirMasterDatabase, symbol: &Symbol) -> String {
-        match symbol {
-            hir::Symbol::Param { name, .. } => debug_name(db, *name),
-            hir::Symbol::Local { name, .. } => debug_name(db, *name),
-            hir::Symbol::Missing { path, .. } => debug_path(db, &path.path(db)),
-        }
-    }
-
-    fn debug_name(db: &dyn hir::HirMasterDatabase, name: Name) -> String {
-        name.text(db).to_string()
-    }
-
-    fn debug_path(db: &dyn hir::HirMasterDatabase, path: &Path) -> String {
-        path.segments(db)
-            .iter()
-            .map(|segment| segment.text(db).to_string())
-            .collect::<Vec<_>>()
-            .join("::")
-    }
-
-    fn debug_type(ty: &ResolvedType) -> String {
-        match ty {
-            ResolvedType::Unknown => "unknown",
-            ResolvedType::Integer => "int",
-            ResolvedType::String => "string",
-            ResolvedType::Char => "char",
-            ResolvedType::Bool => "bool",
-            ResolvedType::Unit => "()",
-            ResolvedType::Never => "!",
-            ResolvedType::Function(_) => "fn",
-        }
-        .to_string()
     }
 
     #[test]
@@ -392,9 +575,11 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
-                ---
-                `10`: int
+                //- /main.nail
+                fn entry:main() -> () {
+                    10;
+                    // 10: integer
+                }
                 ---
             "#]],
         );
@@ -409,9 +594,11 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
-                ---
-                `"aaa"`: string
+                //- /main.nail
+                fn entry:main() -> () {
+                    "aaa";
+                    // "aaa": string
+                }
                 ---
             "#]],
         );
@@ -426,9 +613,11 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
-                ---
-                `'a'`: char
+                //- /main.nail
+                fn entry:main() -> () {
+                    'a';
+                    // 'a': char
+                }
                 ---
             "#]],
         );
@@ -443,9 +632,11 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
-                ---
-                `true`: bool
+                //- /main.nail
+                fn entry:main() -> () {
+                    true;
+                    // true: bool
+                }
                 ---
             "#]],
         );
@@ -457,9 +648,11 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
-                ---
-                `false`: bool
+                //- /main.nail
+                fn entry:main() -> () {
+                    false;
+                    // false: bool
+                }
                 ---
             "#]],
         );
@@ -474,9 +667,11 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
-                ---
-                `true`: bool
+                //- /main.nail
+                fn entry:main() -> () {
+                    let a = true
+                    // true: bool
+                }
                 ---
             "#]],
         )
@@ -494,12 +689,17 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
-                ---
-                `true`: bool
-                `10`: int
-                `"aa"`: string
-                `'a'`: char
+                //- /main.nail
+                fn entry:main() -> () {
+                    let a = true
+                    // true: bool
+                    let b = 10
+                    // 10: integer
+                    let c = "aa"
+                    // "aa": string
+                    let d = 'a'
+                    // 'a': char
+                }
                 ---
             "#]],
         )
@@ -535,82 +735,72 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn entry:main() -> () {
+                    10 + 20
+                    // 10 + 20: integer
+                    "aaa" + "bbb"
+                    // "aaa" + "bbb": integer
+                    10 + "aaa"
+                    // 10 + "aaa": integer
+                    'a' + 'a'
+                    // 'a' + 'a': integer
+                    10 + 'a'
+                    // 10 + 'a': integer
+                    10 < 'a'
+                    // 10 < 'a': bool
+                    10 > 'a'
+                    // 10 > 'a': bool
+                    true + true
+                    // true + true: integer
+                    true - true
+                    // true - true: integer
+                    true * true
+                    // true * true: integer
+                    true / true
+                    // true / true: integer
+                    true == true
+                    // true == true: bool
+                    true < false
+                    // true < false: bool
+                    true > false
+                    // true > false: bool
+                    10 + true
+                    // 10 + true: integer
+                    10 + 10 + "aaa"
+                    // 10 + 10 + "aaa": integer
+                    10 - 20
+                    // 10 - 20: integer
+                    10 * 20
+                    // 10 * 20: integer
+                    10 / 20
+                    // 10 / 20: integer
+                    10 == 20
+                    // 10 == 20: bool
+                    10 < 20
+                    // 10 < 20: bool
+                    10 > 20;
+                    // 10 > 20: bool
+                }
                 ---
-                `10`: int
-                `20`: int
-                `10 + 20`: int
-                `"aaa"`: string
-                `"bbb"`: string
-                `"aaa" + "bbb"`: unknown
-                `10`: int
-                `"aaa"`: string
-                `10 + "aaa"`: unknown
-                `'a'`: char
-                `'a'`: char
-                `'a' + 'a'`: unknown
-                `10`: int
-                `'a'`: char
-                `10 + 'a'`: unknown
-                `10`: int
-                `'a'`: char
-                `10 < 'a'`: unknown
-                `10`: int
-                `'a'`: char
-                `10 > 'a'`: unknown
-                `true`: bool
-                `true`: bool
-                `true + true`: unknown
-                `true`: bool
-                `true`: bool
-                `true - true`: unknown
-                `true`: bool
-                `true`: bool
-                `true * true`: unknown
-                `true`: bool
-                `true`: bool
-                `true / true`: unknown
-                `true`: bool
-                `true`: bool
-                `true == true`: bool
-                `true`: bool
-                `false`: bool
-                `true < false`: unknown
-                `true`: bool
-                `false`: bool
-                `true > false`: unknown
-                `10`: int
-                `true`: bool
-                `10 + true`: unknown
-                `10`: int
-                `"aaa"`: string
-                `10`: int
-                `10 + "aaa"`: int
-                `10 + 10 + "aaa"`: int
-                `10`: int
-                `20`: int
-                `10 - 20`: int
-                `10`: int
-                `20`: int
-                `10 * 20`: int
-                `10`: int
-                `20`: int
-                `10 / 20`: int
-                `10`: int
-                `20`: int
-                `10 == 20`: bool
-                `10`: int
-                `20`: int
-                `10 < 20`: bool
-                `10`: int
-                `20`: int
-                `10 > 20`: bool
-                ---
-                error: expected int, found string by `10` and `"aaa"`
-                error: expected int, found char by `10` and `'a'`
-                error: expected int, found char by `10` and `'a'`
-                error: expected int, found char by `10` and `'a'`
-                error: expected int, found bool by `10` and `true`
+                error: expected integer, actual: string
+                error: expected integer, actual: string
+                error: expected integer, actual: string
+                error: expected integer, actual: char
+                error: expected integer, actual: char
+                error: expected integer, actual: char
+                error: expected integer, actual: char
+                error: expected integer, actual: char
+                error: expected integer, actual: bool
+                error: expected integer, actual: bool
+                error: expected integer, actual: bool
+                error: expected integer, actual: bool
+                error: expected integer, actual: bool
+                error: expected integer, actual: bool
+                error: expected integer, actual: bool
+                error: expected integer, actual: bool
+                error: expected integer, actual: bool
+                error: expected integer, actual: string
             "#]],
         );
 
@@ -621,18 +811,14 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn entry:main() -> () {
+                    10 + "aaa" + 10 + "aaa";
+                    // 10 + "aaa" + 10 + "aaa": integer
+                }
                 ---
-                `10`: int
-                `"aaa"`: string
-                `10`: int
-                `"aaa"`: string
-                `10 + "aaa"`: unknown
-                `10 + "aaa"`: unknown
-                `10 + "aaa" + 10 + "aaa"`: unknown
-                ---
-                error: `10 + "aaa"` is unresolved type.
-                error: `10 + "aaa"` is unresolved type.
+                error: expected integer, actual: string
+                error: expected integer, actual: string
             "#]],
         );
     }
@@ -654,25 +840,32 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn entry:main() -> () {
+                    let a = -10
+                    // -10: integer
+                    let b = -"aaa"
+                    // -"aaa": integer
+                    let c = -'a'
+                    // -'a': integer
+                    let d = -true
+                    // -true: integer
+                    let e = !10
+                    // !10: bool
+                    let f = !"aaa"
+                    // !"aaa": bool
+                    let g = !'a'
+                    // !'a': bool
+                    let h = !true
+                    // !true: bool
+                }
                 ---
-                `10`: int
-                `-10`: int
-                `"aaa"`: string
-                `-"aaa"`: unknown
-                `'a'`: char
-                `-'a'`: unknown
-                `true`: bool
-                `-true`: unknown
-                `10`: int
-                `!10`: unknown
-                `"aaa"`: string
-                `!"aaa"`: unknown
-                `'a'`: char
-                `!'a'`: unknown
-                `true`: bool
-                `!true`: bool
-                ---
+                error: expected integer, actual: string
+                error: expected integer, actual: char
+                error: expected integer, actual: bool
+                error: expected bool, actual: integer
+                error: expected bool, actual: string
+                error: expected bool, actual: char
             "#]],
         )
     }
@@ -688,17 +881,15 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> bool
-                ---
-                `true`: bool
-                `!true`: bool
-                `false`: bool
-                `!false`: bool
-                `a`: bool
-                `b`: bool
-                `!a`: bool
-                `!b`: bool
-                `!a == !b`: bool
+                //- /main.nail
+                fn entry:main() -> bool {
+                    let a = !true
+                    // !true: bool
+                    let b = !false
+                    // !false: bool
+                    expr:!a == !b
+                    // !a == !b: bool
+                }
                 ---
             "#]],
         );
@@ -714,11 +905,13 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> int
-                ---
-                `10`: int
-                `-10`: int
-                `a`: int
+                //- /main.nail
+                fn entry:main() -> int {
+                    let a = -10
+                    // -10: integer
+                    expr:a
+                    // a: integer
+                }
                 ---
             "#]],
         )
@@ -735,10 +928,14 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
-                ---
-                `10`: int
-                `{ .., 10 }`: int
+                //- /main.nail
+                fn entry:main() -> () {
+                    {
+                        expr:10
+                        // 10: integer
+                    };
+                    // { .. }: integer
+                }
                 ---
             "#]],
         );
@@ -755,12 +952,19 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
-                ---
-                `10`: int
-                `"aaa"`: string
-                `{ .., "aaa" }`: string
-                `{ .., { .., "aaa" } }`: string
+                //- /main.nail
+                fn entry:main() -> () {
+                    {
+                        expr:{
+                            10
+                            // 10: integer
+                            expr:"aaa"
+                            // "aaa": string
+                        }
+                        // { .. }: string
+                    };
+                    // { .. }: string
+                }
                 ---
             "#]],
         );
@@ -777,15 +981,20 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> int
-                ---
-                `10`: int
-                `20`: int
-                `a`: int
-                `c`: int
-                `a + c`: int
-                `{ .., a + c }`: int
-                `b`: int
+                //- /main.nail
+                fn entry:main() -> int {
+                    let a = 10
+                    // 10: integer
+                    let b = {
+                        let c = 20
+                        // 20: integer
+                        expr:a + c
+                        // a + c: integer
+                    }
+                    // { .. }: integer
+                    expr:b
+                    // b: integer
+                }
                 ---
             "#]],
         );
@@ -800,11 +1009,13 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn aaa() -> () {
+                    expr:10
+                    // 10: integer
+                }
                 ---
-                `10`: int
-                ---
-                error: expected (), found int by `10`
+                error: expected integer, actual: ()
             "#]],
         );
 
@@ -815,9 +1026,11 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
-                ---
-                `10`: int
+                //- /main.nail
+                fn aaa() -> () {
+                    10;
+                    // 10: integer
+                }
                 ---
             "#]],
         );
@@ -834,12 +1047,19 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
-                ---
-                `10`: int
-                `{ .., 10 }`: int
-                `20`: int
-                `{{ .. }}`: ()
+                //- /main.nail
+                fn aaa() -> () {
+                    {
+                        expr:10
+                        // 10: integer
+                    };
+                    // { .. }: integer
+                    {
+                        20;
+                        // 20: integer
+                    };
+                    // { .. }: ()
+                }
                 ---
             "#]],
         );
@@ -858,13 +1078,19 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn aaa() -> () {
+                    expr:{
+                        expr:{
+                            expr:10
+                            // 10: integer
+                        }
+                        // { .. }: integer
+                    }
+                    // { .. }: integer
+                }
                 ---
-                `10`: int
-                `{ .., 10 }`: int
-                `{ .., { .., 10 } }`: int
-                ---
-                error: expected (), found int by `{ .., { .., 10 } }`
+                error: expected integer, actual: ()
             "#]],
         );
 
@@ -879,11 +1105,17 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
-                ---
-                `10`: int
-                `{{ .. }}`: ()
-                `{ .., {{ .. }} }`: ()
+                //- /main.nail
+                fn aaa() -> () {
+                    expr:{
+                        expr:{
+                            10;
+                            // 10: integer
+                        }
+                        // { .. }: ()
+                    }
+                    // { .. }: ()
+                }
                 ---
             "#]],
         );
@@ -899,11 +1131,17 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
-                ---
-                `10`: int
-                `{ .., 10 }`: int
-                `{{ .. }}`: ()
+                //- /main.nail
+                fn aaa() -> () {
+                    expr:{
+                        {
+                            expr:10
+                            // 10: integer
+                        };
+                        // { .. }: integer
+                    }
+                    // { .. }: ()
+                }
                 ---
             "#]],
         );
@@ -919,10 +1157,13 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> int
-                ---
-                `10`: int
-                `a`: int
+                //- /main.nail
+                fn aaa() -> int {
+                    let a = 10
+                    // 10: integer
+                    expr:a
+                    // a: integer
+                }
                 ---
             "#]],
         );
@@ -938,10 +1179,13 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn(int, string) -> ()
-                ---
-                `x`: int
-                `y`: string
+                //- /main.nail
+                fn aaa(x: int, y: string) -> () {
+                    let a = param:x
+                    // param:x: integer
+                    let b = param:y
+                    // param:y: string
+                }
                 ---
             "#]],
         );

@@ -42,6 +42,8 @@ impl TypeUnifier {
                     return_type: b_return_type,
                 },
             ) => {
+                self.unify(a_return_type, b_return_type);
+
                 if a_args.len() != b_args.len() {
                     self.errors.push(InferenceError::TypeMismatch {
                         expected: a_rep,
@@ -53,8 +55,6 @@ impl TypeUnifier {
                 for (a_arg, b_arg) in a_args.iter().zip(b_args.iter()) {
                     self.unify(a_arg, b_arg);
                 }
-
-                self.unify(a_return_type, b_return_type);
             }
             (Monotype::Variable(_), b_rep) => self.unify_var(&a_rep, b_rep),
             (a_rep, Monotype::Variable(_)) => self.unify_var(&b_rep, a_rep),

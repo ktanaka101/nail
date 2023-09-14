@@ -20,7 +20,7 @@ pub fn infer_pods(db: &dyn hir::HirMasterDatabase, pods: &hir::Pods) -> Inferenc
     let mut body_result_by_function = HashMap::<hir::Function, InferenceBodyResult>::new();
     for (hir_file, function) in pods.root_pod.all_functions(db) {
         let env = Environment::new();
-        let infer_body = InferBody::new(db, hir_file, function, &signature_by_function, env);
+        let infer_body = InferBody::new(db, pods, hir_file, function, &signature_by_function, env);
         let infer_body_result = infer_body.infer_body();
 
         body_result_by_function.insert(function, infer_body_result);

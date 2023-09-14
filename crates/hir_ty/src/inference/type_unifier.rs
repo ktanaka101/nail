@@ -34,16 +34,27 @@ impl TypeUnifier {
         match (&a_rep, &b_rep) {
             (
                 Monotype::Function {
-                    from: a_from,
-                    to: a_to,
+                    args: a_args,
+                    return_type: a_return_type,
                 },
                 Monotype::Function {
-                    from: b_from,
-                    to: b_to,
+                    args: b_args,
+                    return_type: b_return_type,
                 },
             ) => {
-                self.unify(a_from, b_from);
-                self.unify(a_to, b_to);
+                if a_args.len() != b_args.len() {
+                    self.errors.push(InferenceError::TypeMismatch {
+                        expected: a_rep,
+                        actual: b_rep,
+                    });
+                    return;
+                }
+
+                for (a_arg, b_arg) in a_args.iter().zip(b_args.iter()) {
+                    self.unify(a_arg, b_arg);
+                }
+
+                self.unify(a_return_type, b_return_type);
             }
             (Monotype::Variable(_), b_rep) => self.unify_var(&a_rep, b_rep),
             (a_rep, Monotype::Variable(_)) => self.unify_var(&b_rep, a_rep),

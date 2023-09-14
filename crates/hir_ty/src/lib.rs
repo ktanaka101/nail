@@ -321,10 +321,22 @@ mod tests {
                 | hir::Expr::Literal(_)
                 | hir::Expr::Unary { .. }
                 | hir::Expr::Call { .. }
-                | hir::Expr::If { .. }
                 | hir::Expr::Return { .. }
                 | hir::Expr::Missing => {
                     self.debug_expr(hir_file, function, scope_origin, expr_id, 0)
+                }
+                hir::Expr::If {
+                    condition,
+                    then_branch: _,
+                    else_branch,
+                } => {
+                    let condition_str =
+                        self.debug_expr(hir_file, function, scope_origin, *condition, 0);
+                    let mut if_str = format!("if {condition_str} {{ .. }}");
+                    if else_branch.is_some() {
+                        if_str.push_str(" else { .. }");
+                    }
+                    if_str
                 }
                 hir::Expr::Block(_) => "{ .. }".to_string(),
             };
@@ -533,34 +545,27 @@ mod tests {
             }
         "#,
             expect![[r#"
-                fn(int) -> int
-                fn() -> int
-                ---
-                `x`: int
-                `0`: int
-                `x == 0`: bool
-                `0`: int
-                `{ .., 0 }`: int
-                `x`: int
-                `1`: int
-                `x == 1`: bool
-                `1`: int
-                `{ .., 1 }`: int
-                `x`: int
-                `1`: int
-                `x - 1`: int
-                `x`: int
-                `2`: int
-                `x - 2`: int
-                `fibonacci(x - 1)`: int
-                `fibonacci(x - 2)`: int
-                `fibonacci(x - 1) + fibonacci(x - 2)`: int
-                `{ .., fibonacci(x - 1) + fibonacci(x - 2) }`: int
-                `if x == 1 { .., 1 } else { .., fibonacci(x - 1) + fibonacci(x - 2) }`: int
-                `{ .., if x == 1 { .., 1 } else { .., fibonacci(x - 1) + fibonacci(x - 2) } }`: int
-                `if x == 0 { .., 0 } else { .., if x == 1 { .., 1 } else { .., fibonacci(x - 1) + fibonacci(x - 2) } }`: int
-                `15`: int
-                `fibonacci(15)`: int
+                //- /main.nail
+                fn fibonacci(x: int) -> int {
+                    expr:if param:x == 0 {
+                        expr:0
+                        // 0: int
+                    } else {
+                        expr:if param:x == 1 {
+                            expr:1
+                            // 1: int
+                        } else {
+                            expr:fn:fibonacci(param:x - 1) + fn:fibonacci(param:x - 2)
+                            // fn:fibonacci(param:x - 1) + fn:fibonacci(param:x - 2): int
+                        }
+                        // if param:x == 1 { .. } else { .. }: int
+                    }
+                    // if param:x == 0 { .. } else { .. }: int
+                }
+                fn entry:main() -> int {
+                    expr:fn:fibonacci(15)
+                    // fn:fibonacci(15): int
+                }
                 ---
             "#]],
         );
@@ -578,7 +583,7 @@ mod tests {
                 //- /main.nail
                 fn entry:main() -> () {
                     10;
-                    // 10: integer
+                    // 10: int
                 }
                 ---
             "#]],
@@ -694,7 +699,7 @@ mod tests {
                     let a = true
                     // true: bool
                     let b = 10
-                    // 10: integer
+                    // 10: int
                     let c = "aa"
                     // "aa": string
                     let d = 'a'
@@ -738,27 +743,27 @@ mod tests {
                 //- /main.nail
                 fn entry:main() -> () {
                     10 + 20
-                    // 10 + 20: integer
+                    // 10 + 20: int
                     "aaa" + "bbb"
-                    // "aaa" + "bbb": integer
+                    // "aaa" + "bbb": int
                     10 + "aaa"
-                    // 10 + "aaa": integer
+                    // 10 + "aaa": int
                     'a' + 'a'
-                    // 'a' + 'a': integer
+                    // 'a' + 'a': int
                     10 + 'a'
-                    // 10 + 'a': integer
+                    // 10 + 'a': int
                     10 < 'a'
                     // 10 < 'a': bool
                     10 > 'a'
                     // 10 > 'a': bool
                     true + true
-                    // true + true: integer
+                    // true + true: int
                     true - true
-                    // true - true: integer
+                    // true - true: int
                     true * true
-                    // true * true: integer
+                    // true * true: int
                     true / true
-                    // true / true: integer
+                    // true / true: int
                     true == true
                     // true == true: bool
                     true < false
@@ -766,15 +771,15 @@ mod tests {
                     true > false
                     // true > false: bool
                     10 + true
-                    // 10 + true: integer
+                    // 10 + true: int
                     10 + 10 + "aaa"
-                    // 10 + 10 + "aaa": integer
+                    // 10 + 10 + "aaa": int
                     10 - 20
-                    // 10 - 20: integer
+                    // 10 - 20: int
                     10 * 20
-                    // 10 * 20: integer
+                    // 10 * 20: int
                     10 / 20
-                    // 10 / 20: integer
+                    // 10 / 20: int
                     10 == 20
                     // 10 == 20: bool
                     10 < 20
@@ -783,24 +788,24 @@ mod tests {
                     // 10 > 20: bool
                 }
                 ---
-                error: expected integer, actual: string
-                error: expected integer, actual: string
-                error: expected integer, actual: string
-                error: expected integer, actual: char
-                error: expected integer, actual: char
-                error: expected integer, actual: char
-                error: expected integer, actual: char
-                error: expected integer, actual: char
-                error: expected integer, actual: bool
-                error: expected integer, actual: bool
-                error: expected integer, actual: bool
-                error: expected integer, actual: bool
-                error: expected integer, actual: bool
-                error: expected integer, actual: bool
-                error: expected integer, actual: bool
-                error: expected integer, actual: bool
-                error: expected integer, actual: bool
-                error: expected integer, actual: string
+                error: expected int, actual: string
+                error: expected int, actual: string
+                error: expected int, actual: string
+                error: expected int, actual: char
+                error: expected int, actual: char
+                error: expected int, actual: char
+                error: expected int, actual: char
+                error: expected int, actual: char
+                error: expected int, actual: bool
+                error: expected int, actual: bool
+                error: expected int, actual: bool
+                error: expected int, actual: bool
+                error: expected int, actual: bool
+                error: expected int, actual: bool
+                error: expected int, actual: bool
+                error: expected int, actual: bool
+                error: expected int, actual: bool
+                error: expected int, actual: string
             "#]],
         );
 
@@ -814,11 +819,11 @@ mod tests {
                 //- /main.nail
                 fn entry:main() -> () {
                     10 + "aaa" + 10 + "aaa";
-                    // 10 + "aaa" + 10 + "aaa": integer
+                    // 10 + "aaa" + 10 + "aaa": int
                 }
                 ---
-                error: expected integer, actual: string
-                error: expected integer, actual: string
+                error: expected int, actual: string
+                error: expected int, actual: string
             "#]],
         );
     }
@@ -843,13 +848,13 @@ mod tests {
                 //- /main.nail
                 fn entry:main() -> () {
                     let a = -10
-                    // -10: integer
+                    // -10: int
                     let b = -"aaa"
-                    // -"aaa": integer
+                    // -"aaa": int
                     let c = -'a'
-                    // -'a': integer
+                    // -'a': int
                     let d = -true
-                    // -true: integer
+                    // -true: int
                     let e = !10
                     // !10: bool
                     let f = !"aaa"
@@ -860,10 +865,10 @@ mod tests {
                     // !true: bool
                 }
                 ---
-                error: expected integer, actual: string
-                error: expected integer, actual: char
-                error: expected integer, actual: bool
-                error: expected bool, actual: integer
+                error: expected int, actual: string
+                error: expected int, actual: char
+                error: expected int, actual: bool
+                error: expected bool, actual: int
                 error: expected bool, actual: string
                 error: expected bool, actual: char
             "#]],
@@ -908,9 +913,9 @@ mod tests {
                 //- /main.nail
                 fn entry:main() -> int {
                     let a = -10
-                    // -10: integer
+                    // -10: int
                     expr:a
-                    // a: integer
+                    // a: int
                 }
                 ---
             "#]],
@@ -932,9 +937,9 @@ mod tests {
                 fn entry:main() -> () {
                     {
                         expr:10
-                        // 10: integer
+                        // 10: int
                     };
-                    // { .. }: integer
+                    // { .. }: int
                 }
                 ---
             "#]],
@@ -957,7 +962,7 @@ mod tests {
                     {
                         expr:{
                             10
-                            // 10: integer
+                            // 10: int
                             expr:"aaa"
                             // "aaa": string
                         }
@@ -984,16 +989,16 @@ mod tests {
                 //- /main.nail
                 fn entry:main() -> int {
                     let a = 10
-                    // 10: integer
+                    // 10: int
                     let b = {
                         let c = 20
-                        // 20: integer
+                        // 20: int
                         expr:a + c
-                        // a + c: integer
+                        // a + c: int
                     }
-                    // { .. }: integer
+                    // { .. }: int
                     expr:b
-                    // b: integer
+                    // b: int
                 }
                 ---
             "#]],
@@ -1012,10 +1017,10 @@ mod tests {
                 //- /main.nail
                 fn aaa() -> () {
                     expr:10
-                    // 10: integer
+                    // 10: int
                 }
                 ---
-                error: expected integer, actual: ()
+                error: expected int, actual: ()
             "#]],
         );
 
@@ -1029,7 +1034,7 @@ mod tests {
                 //- /main.nail
                 fn aaa() -> () {
                     10;
-                    // 10: integer
+                    // 10: int
                 }
                 ---
             "#]],
@@ -1051,12 +1056,12 @@ mod tests {
                 fn aaa() -> () {
                     {
                         expr:10
-                        // 10: integer
+                        // 10: int
                     };
-                    // { .. }: integer
+                    // { .. }: int
                     {
                         20;
-                        // 20: integer
+                        // 20: int
                     };
                     // { .. }: ()
                 }
@@ -1083,14 +1088,14 @@ mod tests {
                     expr:{
                         expr:{
                             expr:10
-                            // 10: integer
+                            // 10: int
                         }
-                        // { .. }: integer
+                        // { .. }: int
                     }
-                    // { .. }: integer
+                    // { .. }: int
                 }
                 ---
-                error: expected integer, actual: ()
+                error: expected int, actual: ()
             "#]],
         );
 
@@ -1110,7 +1115,7 @@ mod tests {
                     expr:{
                         expr:{
                             10;
-                            // 10: integer
+                            // 10: int
                         }
                         // { .. }: ()
                     }
@@ -1136,9 +1141,9 @@ mod tests {
                     expr:{
                         {
                             expr:10
-                            // 10: integer
+                            // 10: int
                         };
-                        // { .. }: integer
+                        // { .. }: int
                     }
                     // { .. }: ()
                 }
@@ -1160,9 +1165,9 @@ mod tests {
                 //- /main.nail
                 fn aaa() -> int {
                     let a = 10
-                    // 10: integer
+                    // 10: int
                     expr:a
-                    // a: integer
+                    // a: int
                 }
                 ---
             "#]],
@@ -1182,7 +1187,7 @@ mod tests {
                 //- /main.nail
                 fn aaa(x: int, y: string) -> () {
                     let a = param:x
-                    // param:x: integer
+                    // param:x: int
                     let b = param:y
                     // param:y: string
                 }
@@ -1204,20 +1209,19 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
-                fn(bool, string) -> int
+                //- /main.nail
+                fn entry:main() -> () {
+                    fn aaa(x: bool, y: string) -> int {
+                        expr:10 + 20
+                        // 10 + 20: int
+                    }
+                    let res = fn:aaa(true, "aaa")
+                    // fn:aaa(true, "aaa"): int
+                    expr:res + 30
+                    // res + 30: int
+                }
                 ---
-                `true`: bool
-                `"aaa"`: string
-                `aaa(true, "aaa")`: int
-                `res`: int
-                `30`: int
-                `res + 30`: int
-                `10`: int
-                `20`: int
-                `10 + 20`: int
-                ---
-                error: expected (), found int by `res + 30`
+                error: expected int, actual: ()
             "#]],
         );
     }
@@ -1234,18 +1238,18 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
-                fn(bool, string) -> int
+                //- /main.nail
+                fn entry:main() -> () {
+                    fn aaa(x: bool, y: string) -> int {
+                        expr:10 + 20
+                        // 10 + 20: int
+                    }
+                    fn:aaa("aaa", true);
+                    // fn:aaa("aaa", true): int
+                }
                 ---
-                `"aaa"`: string
-                `true`: bool
-                `aaa("aaa", true)`: int
-                `10`: int
-                `20`: int
-                `10 + 20`: int
-                ---
-                error: expected bool, found string by `"aaa"`
-                error: expected string, found bool by `true`
+                error: expected string, actual: bool
+                error: expected bool, actual: string
             "#]],
         );
     }
@@ -1263,14 +1267,17 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
-                ---
-                `true`: bool
-                `10`: int
-                `{ .., 10 }`: int
-                `20`: int
-                `{ .., 20 }`: int
-                `if true { .., 10 } else { .., 20 }`: int
+                //- /main.nail
+                fn entry:main() -> () {
+                    if true {
+                        expr:10
+                        // 10: int
+                    } else {
+                        expr:20
+                        // 20: int
+                    };
+                    // if true { .. } else { .. }: int
+                }
                 ---
             "#]],
         );
@@ -1287,15 +1294,16 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> int
+                //- /main.nail
+                fn entry:main() -> int {
+                    expr:if true {
+                        expr:10
+                        // 10: int
+                    }
+                    // if true { .. }: int
+                }
                 ---
-                `true`: bool
-                `10`: int
-                `{ .., 10 }`: int
-                `if true { .., 10 }`: unknown
-                ---
-                error: expected (), found int by `{ .., 10 }`
-                error: expected int, found unknown by `if true { .., 10 }`
+                error: expected int, actual: ()
             "#]],
         );
     }
@@ -1311,12 +1319,13 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
-                ---
-                `true`: bool
-                `{{ .. }}`: ()
-                `{{ .. }}`: ()
-                `if true {{ .. }} else {{ .. }}`: ()
+                //- /main.nail
+                fn entry:main() -> () {
+                    expr:if true {
+                    } else {
+                    }
+                    // if true { .. } else { .. }: ()
+                }
                 ---
             "#]],
         );
@@ -1329,11 +1338,12 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
-                ---
-                `true`: bool
-                `{{ .. }}`: ()
-                `if true {{ .. }}`: ()
+                //- /main.nail
+                fn entry:main() -> () {
+                    expr:if true {
+                    }
+                    // if true { .. }: ()
+                }
                 ---
             "#]],
         );
@@ -1352,17 +1362,20 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn entry:main() -> () {
+                    expr:if true {
+                        expr:10
+                        // 10: int
+                    } else {
+                        expr:"aaa"
+                        // "aaa": string
+                    }
+                    // if true { .. } else { .. }: int
+                }
                 ---
-                `true`: bool
-                `10`: int
-                `{ .., 10 }`: int
-                `"aaa"`: string
-                `{ .., "aaa" }`: string
-                `if true { .., 10 } else { .., "aaa" }`: unknown
-                ---
-                error: expected int, found string by `{ .., 10 }` and `{ .., "aaa" }`
-                error: expected (), found unknown by `if true { .., 10 } else { .., "aaa" }`
+                error: expected int, actual: string
+                error: expected int, actual: ()
             "#]],
         );
     }
@@ -1380,17 +1393,20 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn entry:main() -> () {
+                    expr:if 10 {
+                        expr:"aaa"
+                        // "aaa": string
+                    } else {
+                        expr:"aaa"
+                        // "aaa": string
+                    }
+                    // if 10 { .. } else { .. }: string
+                }
                 ---
-                `10`: int
-                `"aaa"`: string
-                `{ .., "aaa" }`: string
-                `"aaa"`: string
-                `{ .., "aaa" }`: string
-                `if 10 { .., "aaa" } else { .., "aaa" }`: string
-                ---
-                error: expected bool, found int by `10`
-                error: expected (), found string by `if 10 { .., "aaa" } else { .., "aaa" }`
+                error: expected bool, actual: int
+                error: expected string, actual: ()
             "#]],
         );
     }
@@ -1411,18 +1427,21 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> int
+                //- /main.nail
+                fn entry:main() -> int {
+                    let value = if true {
+                        return 10;
+                        // return 10: !
+                    } else {
+                        expr:true
+                        // true: bool
+                    }
+                    // if true { .. } else { .. }: ()
+                    expr:20
+                    // 20: int
+                }
                 ---
-                `true`: bool
-                `10`: int
-                `return 10`: !
-                `{{ .. }}`: ()
-                `true`: bool
-                `{ .., true }`: bool
-                `if true {{ .. }} else { .., true }`: unknown
-                `20`: int
-                ---
-                error: expected (), found bool by `{{ .. }}` and `{ .., true }`
+                error: expected (), actual: bool
             "#]],
         );
 
@@ -1440,18 +1459,21 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> int
+                //- /main.nail
+                fn entry:main() -> int {
+                    let value = if true {
+                        expr:true
+                        // true: bool
+                    } else {
+                        return 10;
+                        // return 10: !
+                    }
+                    // if true { .. } else { .. }: bool
+                    expr:20
+                    // 20: int
+                }
                 ---
-                `true`: bool
-                `true`: bool
-                `{ .., true }`: bool
-                `10`: int
-                `return 10`: !
-                `{{ .. }}`: ()
-                `if true { .., true } else {{ .. }}`: unknown
-                `20`: int
-                ---
-                error: expected bool, found () by `{ .., true }` and `{{ .. }}`
+                error: expected bool, actual: ()
             "#]],
         );
 
@@ -1469,17 +1491,19 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> int
-                ---
-                `true`: bool
-                `10`: int
-                `return 10`: !
-                `{{ .. }}`: ()
-                `20`: int
-                `return 20`: !
-                `{{ .. }}`: ()
-                `if true {{ .. }} else {{ .. }}`: ()
-                `30`: int
+                //- /main.nail
+                fn entry:main() -> int {
+                    let value = if true {
+                        return 10;
+                        // return 10: !
+                    } else {
+                        return 20;
+                        // return 20: !
+                    }
+                    // if true { .. } else { .. }: ()
+                    expr:30
+                    // 30: int
+                }
                 ---
             "#]],
         );
@@ -1494,11 +1518,13 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn entry:main() -> () {
+                    expr:return
+                    // return: !
+                }
                 ---
-                `return`: !
-                ---
-                error: expected (), found ! by `return`
+                error: expected !, actual: ()
             "#]],
         );
 
@@ -1509,12 +1535,13 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> int
+                //- /main.nail
+                fn entry:main() -> int {
+                    expr:return 10
+                    // return 10: !
+                }
                 ---
-                `10`: int
-                `return 10`: !
-                ---
-                error: expected int, found ! by `return 10`
+                error: expected !, actual: int
             "#]],
         );
     }
@@ -1528,12 +1555,14 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> int
+                //- /main.nail
+                fn entry:main() -> int {
+                    expr:return
+                    // return: !
+                }
                 ---
-                `return`: !
-                ---
-                error: expected int, found ()
-                error: expected int, found ! by `return`
+                error: expected (), actual: int
+                error: expected !, actual: int
             "#]],
         );
 
@@ -1544,13 +1573,14 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> int
+                //- /main.nail
+                fn entry:main() -> int {
+                    expr:return "aaa"
+                    // return "aaa": !
+                }
                 ---
-                `"aaa"`: string
-                `return "aaa"`: !
-                ---
-                error: expected int, found string by `"aaa"`
-                error: expected int, found ! by `return "aaa"`
+                error: expected string, actual: int
+                error: expected !, actual: int
             "#]],
         );
     }
@@ -1581,15 +1611,30 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
-                fn() -> bool
-                fn() -> string
-                fn() -> int
-                ---
-                `return`: !
-                `true`: bool
-                `"aaa"`: string
-                `30`: int
+                //- /main.nail
+                fn entry:main() -> () {
+                    return;
+                    // return: !
+                }
+                mod module_aaa {
+                    mod module_bbb {
+                        fn function_aaa() -> bool {
+                            mod module_ccc {
+                                fn function_bbb() -> string {
+                                    expr:"aaa"
+                                    // "aaa": string
+                                }
+                            }
+                            expr:true
+                            // true: bool
+                        }
+                    }
+
+                    fn function_ccc() -> int {
+                        expr:30
+                        // 30: int
+                    }
+                }
                 ---
             "#]],
         );
@@ -1619,13 +1664,29 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> unknown
-                fn() -> unknown
-                fn() -> unknown
+                //- /main.nail
+                mod mod_aaa;
+                fn entry:main() -> <unknown> {
+                    fn:mod_aaa::fn_aaa();
+                    // fn:mod_aaa::fn_aaa(): unknown
+                    expr:fn:mod_aaa::mod_bbb::fn_bbb()
+                    // fn:mod_aaa::mod_bbb::fn_bbb(): unknown
+                }
+                //- /mod_aaa.nail
+                mod mod_bbb;
+                fn fn_aaa() -> <unknown> {
+                    expr:fn:mod_bbb::fn_bbb()
+                    // fn:mod_bbb::fn_bbb(): unknown
+                }
+
+                //- /mod_aaa/mod_bbb.nail
+                fn fn_bbb() -> <unknown> {
+                    expr:10
+                    // 10: int
+                }
+
                 ---
-                `mod_aaa::fn_aaa()`: unknown
-                `mod_aaa::mod_bbb::fn_bbb()`: unknown
-                ---
+                error: expected int, actual: unknown
             "#]],
         );
     }

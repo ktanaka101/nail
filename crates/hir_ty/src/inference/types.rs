@@ -11,8 +11,8 @@ pub enum Monotype {
     String,
     Variable(u32),
     Function {
-        from: Box<Monotype>,
-        to: Box<Monotype>,
+        args: Vec<Monotype>,
+        return_type: Box<Monotype>,
     },
     Never,
     Unknown,
@@ -21,7 +21,7 @@ pub enum Monotype {
 impl fmt::Display for Monotype {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
-            Monotype::Integer => write!(f, "integer"),
+            Monotype::Integer => write!(f, "int"),
             Monotype::Bool => write!(f, "bool"),
             Monotype::Char => write!(f, "char"),
             Monotype::String => write!(f, "string"),
@@ -29,12 +29,20 @@ impl fmt::Display for Monotype {
             Monotype::Never => write!(f, "!"),
             Monotype::Unknown => write!(f, "unknown"),
             Monotype::Variable(id) => write!(f, "{}", id),
-            Monotype::Function { from, to } => {
-                if let Monotype::Function { from, .. } = from.as_ref() {
-                    write!(f, "({}) -> {}", from.to_string(), to.to_string())
-                } else {
-                    write!(f, "{} -> {}", from.to_string(), to.to_string())
-                }
+            Monotype::Function {
+                args: from,
+                return_type: to,
+            } => {
+                write!(
+                    f,
+                    "({}) -> {}",
+                    from.iter()
+                        .map(|ty| ty.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                        .to_string(),
+                    to.to_string()
+                )
             }
         }
     }
@@ -55,11 +63,17 @@ impl Monotype {
 
                 set
             }
-            Monotype::Function { from, to } => from
-                .free_variables()
-                .union(&to.free_variables())
-                .cloned()
-                .collect(),
+            Monotype::Function {
+                args: from,
+                return_type: to,
+            } => {
+                let mut set = HashSet::new();
+                for arg in from.iter() {
+                    set.extend(arg.free_variables());
+                }
+                set.extend(to.free_variables());
+                set
+            }
             _ => Default::default(),
         }
     }
@@ -80,9 +94,12 @@ impl Monotype {
                     self.clone()
                 }
             }
-            Monotype::Function { from, to } => Monotype::Function {
-                from: Box::new(from.apply(subst)),
-                to: Box::new(to.apply(subst)),
+            Monotype::Function {
+                args: from,
+                return_type: to,
+            } => Monotype::Function {
+                args: from.iter().map(|arg| arg.apply(subst)).collect::<Vec<_>>(),
+                return_type: Box::new(to.apply(subst)),
             },
         }
     }

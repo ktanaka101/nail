@@ -97,6 +97,7 @@ mod tests {
             let mut msg = "".to_string();
 
             msg.push_str(&self.debug_hir_file(self.pods.root_pod.root_hir_file));
+            msg.push('\n');
 
             for (_nail_file, hir_file) in self.pods.root_pod.get_hir_files_order_registration_asc()
             {
@@ -523,6 +524,7 @@ mod tests {
                 fn entry:main() -> int {
                     expr:fn:fibonacci(15) //: int
                 }
+
                 ---
             "#]],
         );
@@ -541,6 +543,7 @@ mod tests {
                 fn entry:main() -> () {
                     10; //: int
                 }
+
                 ---
             "#]],
         );
@@ -559,6 +562,7 @@ mod tests {
                 fn entry:main() -> () {
                     "aaa"; //: string
                 }
+
                 ---
             "#]],
         );
@@ -577,6 +581,7 @@ mod tests {
                 fn entry:main() -> () {
                     'a'; //: char
                 }
+
                 ---
             "#]],
         );
@@ -595,6 +600,7 @@ mod tests {
                 fn entry:main() -> () {
                     true; //: bool
                 }
+
                 ---
             "#]],
         );
@@ -610,6 +616,7 @@ mod tests {
                 fn entry:main() -> () {
                     false; //: bool
                 }
+
                 ---
             "#]],
         );
@@ -628,6 +635,7 @@ mod tests {
                 fn entry:main() -> () {
                     let a = true; //: bool
                 }
+
                 ---
             "#]],
         )
@@ -652,6 +660,7 @@ mod tests {
                     let c = "aa"; //: string
                     let d = 'a'; //: char
                 }
+
                 ---
             "#]],
         )
@@ -712,6 +721,7 @@ mod tests {
                     10 < 20 //: bool
                     10 > 20; //: bool
                 }
+
                 ---
                 error: expected int, actual: string
                 error: expected int, actual: string
@@ -745,6 +755,7 @@ mod tests {
                 fn entry:main() -> () {
                     10 + "aaa" + 10 + "aaa"; //: int
                 }
+
                 ---
                 error: expected int, actual: string
                 error: expected int, actual: string
@@ -780,6 +791,7 @@ mod tests {
                     let g = !'a'; //: bool
                     let h = !true; //: bool
                 }
+
                 ---
                 error: expected int, actual: string
                 error: expected int, actual: char
@@ -808,6 +820,7 @@ mod tests {
                     let b = !false; //: bool
                     expr:!a == !b //: bool
                 }
+
                 ---
             "#]],
         );
@@ -828,6 +841,7 @@ mod tests {
                     let a = -10; //: int
                     expr:a //: int
                 }
+
                 ---
             "#]],
         )
@@ -850,6 +864,7 @@ mod tests {
                         expr:10 //: int
                     }; //: int
                 }
+
                 ---
             "#]],
         );
@@ -875,6 +890,7 @@ mod tests {
                         } //: string
                     }; //: string
                 }
+
                 ---
             "#]],
         );
@@ -900,6 +916,7 @@ mod tests {
                     }; //: int
                     expr:b //: int
                 }
+
                 ---
             "#]],
         );
@@ -918,6 +935,7 @@ mod tests {
                 fn aaa() -> () {
                     expr:10 //: int
                 }
+
                 ---
                 error: expected int, actual: ()
             "#]],
@@ -934,6 +952,7 @@ mod tests {
                 fn aaa() -> () {
                     10; //: int
                 }
+
                 ---
             "#]],
         );
@@ -959,6 +978,7 @@ mod tests {
                         20; //: int
                     }; //: ()
                 }
+
                 ---
             "#]],
         );
@@ -985,6 +1005,7 @@ mod tests {
                         } //: int
                     } //: int
                 }
+
                 ---
                 error: expected int, actual: ()
             "#]],
@@ -1009,6 +1030,7 @@ mod tests {
                         } //: ()
                     } //: ()
                 }
+
                 ---
             "#]],
         );
@@ -1032,6 +1054,7 @@ mod tests {
                         }; //: int
                     } //: ()
                 }
+
                 ---
             "#]],
         );
@@ -1052,6 +1075,7 @@ mod tests {
                     let a = 10; //: int
                     expr:a //: int
                 }
+
                 ---
             "#]],
         );
@@ -1072,6 +1096,7 @@ mod tests {
                     let a = param:x; //: int
                     let b = param:y; //: string
                 }
+
                 ---
             "#]],
         );
@@ -1098,6 +1123,7 @@ mod tests {
                     let res = fn:aaa(true, "aaa"); //: int
                     expr:res + 30 //: int
                 }
+
                 ---
                 error: expected int, actual: ()
             "#]],
@@ -1123,6 +1149,7 @@ mod tests {
                     }
                     fn:aaa("aaa", true); //: int
                 }
+
                 ---
                 error: expected string, actual: bool
                 error: expected bool, actual: string
@@ -1151,6 +1178,7 @@ mod tests {
                         expr:20 //: int
                     }; //: int
                 }
+
                 ---
             "#]],
         );
@@ -1173,6 +1201,7 @@ mod tests {
                         expr:10 //: int
                     } //: int
                 }
+
                 ---
                 error: expected int, actual: ()
             "#]],
@@ -1196,6 +1225,7 @@ mod tests {
                     } else {
                     } //: ()
                 }
+
                 ---
             "#]],
         );
@@ -1213,6 +1243,7 @@ mod tests {
                     expr:if true {
                     } //: ()
                 }
+
                 ---
             "#]],
         );
@@ -1239,6 +1270,7 @@ mod tests {
                         expr:"aaa" //: string
                     } //: int
                 }
+
                 ---
                 error: expected int, actual: string
                 error: expected int, actual: ()
@@ -1267,6 +1299,7 @@ mod tests {
                         expr:"aaa" //: string
                     } //: string
                 }
+
                 ---
                 error: expected bool, actual: int
                 error: expected string, actual: ()
@@ -1299,6 +1332,7 @@ mod tests {
                     }; //: ()
                     expr:20 //: int
                 }
+
                 ---
                 error: expected (), actual: bool
             "#]],
@@ -1327,6 +1361,7 @@ mod tests {
                     }; //: bool
                     expr:20 //: int
                 }
+
                 ---
                 error: expected bool, actual: ()
             "#]],
@@ -1355,6 +1390,7 @@ mod tests {
                     }; //: ()
                     expr:30 //: int
                 }
+
                 ---
             "#]],
         );
@@ -1373,6 +1409,7 @@ mod tests {
                 fn entry:main() -> () {
                     expr:return //: !
                 }
+
                 ---
                 error: expected !, actual: ()
             "#]],
@@ -1389,6 +1426,7 @@ mod tests {
                 fn entry:main() -> int {
                     expr:return 10 //: !
                 }
+
                 ---
                 error: expected !, actual: int
             "#]],
@@ -1408,6 +1446,7 @@ mod tests {
                 fn entry:main() -> int {
                     expr:return //: !
                 }
+
                 ---
                 error: expected (), actual: int
                 error: expected !, actual: int
@@ -1425,6 +1464,7 @@ mod tests {
                 fn entry:main() -> int {
                     expr:return "aaa" //: !
                 }
+
                 ---
                 error: expected string, actual: int
                 error: expected !, actual: int
@@ -1478,6 +1518,7 @@ mod tests {
                         expr:30 //: int
                     }
                 }
+
                 ---
             "#]],
         );
@@ -1513,6 +1554,7 @@ mod tests {
                     fn:mod_aaa::fn_aaa(); //: int
                     expr:fn:mod_aaa::mod_bbb::fn_bbb() //: int
                 }
+
                 //- /mod_aaa.nail
                 mod mod_bbb;
                 fn fn_aaa() -> int {

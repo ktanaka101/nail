@@ -1490,42 +1490,41 @@ mod tests {
                 //- /main.nail
                 mod mod_aaa;
 
-                fn main() -> integer {
+                fn main() -> int {
                     mod_aaa::fn_aaa();
                     mod_aaa::mod_bbb::fn_bbb()
                 }
 
                 //- /mod_aaa.nail
                 mod mod_bbb;
-                fn fn_aaa() -> integer {
+                fn fn_aaa() -> int {
                     mod_bbb::fn_bbb()
                 }
 
                 //- /mod_aaa/mod_bbb.nail
-                fn fn_bbb() -> integer {
+                fn fn_bbb() -> int {
                     10
                 }
             "#,
             expect![[r#"
                 //- /main.nail
                 mod mod_aaa;
-                fn entry:main() -> <unknown> {
-                    fn:mod_aaa::fn_aaa(); //: unknown
-                    expr:fn:mod_aaa::mod_bbb::fn_bbb() //: unknown
+                fn entry:main() -> int {
+                    fn:mod_aaa::fn_aaa(); //: int
+                    expr:fn:mod_aaa::mod_bbb::fn_bbb() //: int
                 }
                 //- /mod_aaa.nail
                 mod mod_bbb;
-                fn fn_aaa() -> <unknown> {
-                    expr:fn:mod_bbb::fn_bbb() //: unknown
+                fn fn_aaa() -> int {
+                    expr:fn:mod_bbb::fn_bbb() //: int
                 }
 
                 //- /mod_aaa/mod_bbb.nail
-                fn fn_bbb() -> <unknown> {
+                fn fn_bbb() -> int {
                     expr:10 //: int
                 }
 
                 ---
-                error: expected int, actual: unknown
             "#]],
         );
     }

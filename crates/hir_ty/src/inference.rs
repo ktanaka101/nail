@@ -12,7 +12,9 @@ pub use error::InferenceError;
 pub use type_scheme::TypeScheme;
 pub use types::Monotype;
 
-pub fn infer_pods(db: &dyn hir::HirMasterDatabase, pods: &hir::Pods) -> InferenceResult {
+use crate::HirTyMasterDatabase;
+
+pub fn infer_pods(db: &dyn HirTyMasterDatabase, pods: &hir::Pods) -> InferenceResult {
     let mut signature_by_function = HashMap::<hir::Function, Signature>::new();
     for (hir_file, function) in pods.root_pod.all_functions(db) {
         let signature = lower_signature(db, hir_file, function);
@@ -34,8 +36,9 @@ pub fn infer_pods(db: &dyn hir::HirMasterDatabase, pods: &hir::Pods) -> Inferenc
     }
 }
 
-fn lower_signature(
-    db: &dyn hir::HirMasterDatabase,
+#[salsa::tracked]
+pub(crate) fn lower_signature(
+    db: &dyn HirTyMasterDatabase,
     hir_file: hir::HirFile,
     function: hir::Function,
 ) -> Signature {
@@ -50,10 +53,7 @@ fn lower_signature(
 
     let return_type = lower_type(&function.return_type(db));
 
-    Signature {
-        params,
-        return_type,
-    }
+    Signature::new(db, params, return_type)
 }
 
 fn lower_type(ty: &hir::Type) -> Monotype {

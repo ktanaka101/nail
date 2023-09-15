@@ -4,6 +4,7 @@ use std::{
 };
 
 use super::{environment::Context, types::Monotype};
+use crate::HirTyMasterDatabase;
 
 #[derive(Clone)]
 pub struct TypeScheme {
@@ -20,16 +21,16 @@ impl TypeScheme {
     }
 
     #[allow(dead_code)]
-    pub fn free_variables(&self) -> HashSet<u32> {
+    pub fn free_variables(&self, db: &dyn HirTyMasterDatabase) -> HashSet<u32> {
         self.ty
-            .free_variables()
+            .free_variables(db)
             .into_iter()
             .filter(|var| !self.variables.contains(var))
             .collect()
     }
 
     /// 具体的な型を生成する
-    pub fn instantiate(&self, cxt: &mut Context) -> Monotype {
+    pub fn instantiate(&self, db: &dyn HirTyMasterDatabase, cxt: &mut Context) -> Monotype {
         let new_vars = self
             .variables
             .iter()

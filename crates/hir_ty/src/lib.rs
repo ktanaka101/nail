@@ -15,14 +15,16 @@
 // #![warn(missing_docs)]
 
 mod checker;
+mod db;
 mod inference;
+mod testing;
 
 pub use checker::{TypeCheckError, TypeCheckResult};
-use inference::Signature;
-pub use inference::{InferenceBodyResult, InferenceResult};
+pub use db::{HirTyMasterDatabase, Jar};
+pub use inference::{InferenceBodyResult, InferenceResult, Signature};
 
 /// HIRを元にTypedHIRを構築します。
-pub fn lower_pods(db: &dyn hir::HirMasterDatabase, pods: &hir::Pods) -> TyLowerResult {
+pub fn lower_pods(db: &dyn HirTyMasterDatabase, pods: &hir::Pods) -> TyLowerResult {
     let inference_result = inference::infer_pods(db, pods);
     let type_check_result = checker::check_type_pods(db, pods, &inference_result);
 
@@ -70,12 +72,14 @@ mod tests {
     use expect_test::{expect, Expect};
 
     use crate::{
-        inference::{InferenceError, Signature},
-        lower_pods, TyLowerResult, TypeCheckError,
+        inference::{InferenceError, Monotype, Signature},
+        lower_pods,
+        testing::TestingDatabase,
+        HirTyMasterDatabase, TyLowerResult, TypeCheckError,
     };
 
     fn check_pod_start_with_root_file(fixture: &str, expect: Expect) {
-        let db = hir::TestingDatabase::default();
+        let db = TestingDatabase::default();
         let mut source_db = hir::FixtureDatabase::new(&db, fixture);
 
         let pods = hir::parse_pods(&db, "/main.nail", &mut source_db);
@@ -96,13 +100,13 @@ mod tests {
     }
 
     struct TestingDebug<'a> {
-        db: &'a dyn hir::HirMasterDatabase,
+        db: &'a dyn HirTyMasterDatabase,
         pods: &'a hir::Pods,
         ty_lower_result: &'a TyLowerResult,
     }
     impl<'a> TestingDebug<'a> {
         fn new(
-            db: &'a dyn hir::HirMasterDatabase,
+            db: &'a dyn HirTyMasterDatabase,
             pods: &'a hir::Pods,
             ty_lower_result: &'a TyLowerResult,
         ) -> Self {
@@ -145,8 +149,8 @@ mod tests {
                             msg.push_str(
                             &format!(
                                 "error MismatchedTypes: expected_ty: {}, found_ty: {}, expected_expr: {}, found_expr: {}",
-                                expected_ty,
-                                found_ty,
+                                self.debug_monotype(expected_ty),
+                                self.debug_monotype(found_ty),
                                 self.debug_simplify_expr(hir_file, *expected_expr),
                                 self.debug_simplify_expr(hir_file, *found_expr),
                             ));
@@ -159,9 +163,9 @@ mod tests {
                             msg.push_str(
                             &format!(
                                 "error MismatchedTypeIfCondition: expected_ty: {}, found_expr: {}, found_ty: {}",
-                                expected_ty,
+                                self.debug_monotype(expected_ty),
                                 self.debug_simplify_expr(hir_file, *found_expr),
-                                found_ty,
+                                self.debug_monotype(found_ty),
                             ));
                         }
                         InferenceError::MismatchedTypeElseBranch {
@@ -173,9 +177,9 @@ mod tests {
                             msg.push_str(
                             &format!(
                                 "error MismatchedTypeElseBranch: then_branch_ty: {}, then_branch: {}, else_branch_ty: {}, else_branch: {}",
-                                then_branch_ty,
+                                self.debug_monotype(then_branch_ty),
                                 self.debug_simplify_expr(hir_file, *then_branch),
-                                else_branch_ty,
+                                self.debug_monotype(else_branch_ty),
                                 self.debug_simplify_expr(hir_file, *else_branch),
                             ));
                         }
@@ -186,7 +190,7 @@ mod tests {
                             msg.push_str(
                             &format!(
                                 "error MismatchedTypeOnlyIfBranch: then_branch_ty: {}, then_branch: {}",
-                                then_branch_ty,
+                                self.debug_monotype(then_branch_ty),
                                 self.debug_simplify_expr(hir_file, *then_branch),
                             ));
                         }
@@ -199,10 +203,10 @@ mod tests {
                             msg.push_str(
                             &format!(
                                 "error MismaatchedSignature: expected_ty: {}, signature: {}, found_expr: {}, found_ty: {}",
-                                expected_ty,
+                                self.debug_monotype(expected_ty),
                                 self.debug_signature(signature),
                                 self.debug_simplify_expr(hir_file, *found_expr),
-                                found_ty,
+                                self.debug_monotype(found_ty),
                             ));
                         }
                         InferenceError::MismatchedBinaryInteger {
@@ -214,9 +218,9 @@ mod tests {
                             msg.push_str(
                             &format!(
                                 "error MismatchedBinaryInteger: expected_ty: {}, found_expr: {}, found_ty: {}, op: {}",
-                                expected_ty,
+                                self.debug_monotype(expected_ty),
                                 self.debug_simplify_expr(hir_file, *found_expr),
-                                found_ty,
+                                self.debug_monotype(found_ty),
                                 self.debug_binary_op(op),
                             ));
                         }
@@ -230,10 +234,10 @@ mod tests {
                             msg.push_str(
                             &format!(
                                 "error MismatchedBinaryCompare: expected_ty: {}, expected_expr: {}, found_expr: {}, found_ty: {}, op: {}",
-                                expected_ty,
+                                self.debug_monotype(expected_ty),
                                 self.debug_simplify_expr(hir_file, *expected_expr),
                                 self.debug_simplify_expr(hir_file, *found_expr),
-                                found_ty,
+                                self.debug_monotype(found_ty),
                                 self.debug_binary_op(op),
                             ));
                         }
@@ -246,9 +250,9 @@ mod tests {
                             msg.push_str(
                             &format!(
                                 "error MismatchedUnary: expected_ty: {}, found_expr: {}, found_ty: {}, op: {}",
-                                expected_ty,
+                                self.debug_monotype(expected_ty),
                                 self.debug_simplify_expr(hir_file, *found_expr),
-                                found_ty,
+                                self.debug_monotype(found_ty),
                                 self.debug_unary_op(op),
                             ));
                         }
@@ -261,14 +265,15 @@ mod tests {
                                 msg.push_str(
                             &format!(
                                 "error MismatchedReturnType: expected_ty: {}, found_expr: {}, found_ty: {}",
-                                expected_signature.return_type,
+                                self.debug_monotype(&expected_signature.return_type(self.db)),
                                 self.debug_simplify_expr(hir_file, *found_expr),
-                                found_ty,
+                                self.debug_monotype(found_ty),
                             ));
                             } else {
                                 msg.push_str(&format!(
                                     "error MismatchedReturnType: expected_ty: {}, found_ty: {}",
-                                    expected_signature.return_type, found_ty,
+                                    self.debug_monotype(&expected_signature.return_type(self.db)),
+                                    self.debug_monotype(found_ty),
                                 ));
                             }
                         }
@@ -292,8 +297,8 @@ mod tests {
                             ));
                         }
                     }
+                    msg.push('\n');
                 }
-                msg.push('\n');
             }
 
             msg
@@ -301,12 +306,12 @@ mod tests {
 
         fn debug_signature(&self, signature: &Signature) -> String {
             let params = signature
-                .params
+                .params(self.db)
                 .iter()
-                .map(|param| param.to_string())
+                .map(|param| self.debug_monotype(param))
                 .collect::<Vec<_>>()
                 .join(", ");
-            let return_type = signature.return_type.to_string();
+            let return_type = self.debug_monotype(&signature.return_type(self.db));
 
             format!("({params}) -> {return_type}")
         }
@@ -480,7 +485,21 @@ mod tests {
                 .get(&expr_id)
                 .unwrap();
 
-            format!("//: {ty}")
+            format!("//: {}", self.debug_monotype(ty))
+        }
+
+        fn debug_monotype(&self, monotype: &Monotype) -> String {
+            match monotype {
+                Monotype::Integer => "int".to_string(),
+                Monotype::Bool => "bool".to_string(),
+                Monotype::Unit => "()".to_string(),
+                Monotype::Char => "char".to_string(),
+                Monotype::String => "string".to_string(),
+                Monotype::Variable(id) => format!("${}", id),
+                Monotype::Function(signature) => self.debug_signature(signature),
+                Monotype::Never => "!".to_string(),
+                Monotype::Unknown => "<unknown>".to_string(),
+            }
         }
 
         fn debug_expr(
@@ -768,6 +787,7 @@ mod tests {
                 }
 
                 ---
+                ---
             "#]],
         );
     }
@@ -786,6 +806,7 @@ mod tests {
                     10; //: int
                 }
 
+                ---
                 ---
             "#]],
         );
@@ -806,6 +827,7 @@ mod tests {
                 }
 
                 ---
+                ---
             "#]],
         );
     }
@@ -824,6 +846,7 @@ mod tests {
                     'a'; //: char
                 }
 
+                ---
                 ---
             "#]],
         );
@@ -844,6 +867,7 @@ mod tests {
                 }
 
                 ---
+                ---
             "#]],
         );
 
@@ -859,6 +883,7 @@ mod tests {
                     false; //: bool
                 }
 
+                ---
                 ---
             "#]],
         );
@@ -878,6 +903,7 @@ mod tests {
                     let a = true; //: bool
                 }
 
+                ---
                 ---
             "#]],
         )
@@ -903,6 +929,7 @@ mod tests {
                     let d = 'a'; //: char
                 }
 
+                ---
                 ---
             "#]],
         )
@@ -983,6 +1010,7 @@ mod tests {
                 error MismatchedBinaryInteger: expected_ty: int, found_expr: true, found_ty: bool, op: /
                 error MismatchedBinaryInteger: expected_ty: int, found_expr: true, found_ty: bool, op: +
                 error MismatchedBinaryInteger: expected_ty: int, found_expr: "aaa", found_ty: string, op: +
+                ---
             "#]],
         );
 
@@ -1001,6 +1029,7 @@ mod tests {
                 ---
                 error MismatchedBinaryInteger: expected_ty: int, found_expr: "aaa", found_ty: string, op: +
                 error MismatchedBinaryInteger: expected_ty: int, found_expr: "aaa", found_ty: string, op: +
+                ---
             "#]],
         );
     }
@@ -1041,6 +1070,7 @@ mod tests {
                 error MismatchedUnary: expected_ty: bool, found_expr: 10, found_ty: int, op: !
                 error MismatchedUnary: expected_ty: bool, found_expr: "aaa", found_ty: string, op: !
                 error MismatchedUnary: expected_ty: bool, found_expr: 'a', found_ty: char, op: !
+                ---
             "#]],
         )
     }
@@ -1064,6 +1094,7 @@ mod tests {
                 }
 
                 ---
+                ---
             "#]],
         );
     }
@@ -1084,6 +1115,7 @@ mod tests {
                     expr:a //: int
                 }
 
+                ---
                 ---
             "#]],
         )
@@ -1107,6 +1139,7 @@ mod tests {
                     }; //: int
                 }
 
+                ---
                 ---
             "#]],
         );
@@ -1134,6 +1167,7 @@ mod tests {
                 }
 
                 ---
+                ---
             "#]],
         );
 
@@ -1160,6 +1194,7 @@ mod tests {
                 }
 
                 ---
+                ---
             "#]],
         );
     }
@@ -1180,6 +1215,7 @@ mod tests {
 
                 ---
                 error MismatchedReturnType: expected_ty: (), found_expr: 10, found_ty: ()
+                ---
             "#]],
         );
 
@@ -1195,6 +1231,7 @@ mod tests {
                     10; //: int
                 }
 
+                ---
                 ---
             "#]],
         );
@@ -1221,6 +1258,7 @@ mod tests {
                     }; //: ()
                 }
 
+                ---
                 ---
             "#]],
         );
@@ -1250,6 +1288,7 @@ mod tests {
 
                 ---
                 error MismatchedReturnType: expected_ty: (), found_expr: { tail:{ tail:10 } }, found_ty: ()
+                ---
             "#]],
         );
 
@@ -1273,6 +1312,7 @@ mod tests {
                     } //: ()
                 }
 
+                ---
                 ---
             "#]],
         );
@@ -1298,6 +1338,7 @@ mod tests {
                 }
 
                 ---
+                ---
             "#]],
         );
     }
@@ -1319,6 +1360,7 @@ mod tests {
                 }
 
                 ---
+                ---
             "#]],
         );
     }
@@ -1339,6 +1381,7 @@ mod tests {
                     let b = param:y; //: string
                 }
 
+                ---
                 ---
             "#]],
         );
@@ -1368,6 +1411,7 @@ mod tests {
 
                 ---
                 error MismatchedReturnType: expected_ty: (), found_expr: res + 30, found_ty: ()
+                ---
             "#]],
         );
     }
@@ -1395,6 +1439,7 @@ mod tests {
                 ---
                 error MismaatchedSignature: expected_ty: string, signature: (bool, string) -> int, found_expr: "aaa", found_ty: bool
                 error MismaatchedSignature: expected_ty: bool, signature: (bool, string) -> int, found_expr: true, found_ty: string
+                ---
             "#]],
         );
     }
@@ -1422,6 +1467,7 @@ mod tests {
                 }
 
                 ---
+                ---
             "#]],
         );
     }
@@ -1446,6 +1492,7 @@ mod tests {
 
                 ---
                 error MismatchedTypeOnlyIfBranch: then_branch_ty: (), then_branch: { tail:10 }
+                ---
             "#]],
         );
     }
@@ -1469,6 +1516,7 @@ mod tests {
                 }
 
                 ---
+                ---
             "#]],
         );
 
@@ -1486,6 +1534,7 @@ mod tests {
                     } //: ()
                 }
 
+                ---
                 ---
             "#]],
         );
@@ -1516,6 +1565,7 @@ mod tests {
                 ---
                 error MismatchedTypeElseBranch: then_branch_ty: int, then_branch: { tail:10 }, else_branch_ty: string, else_branch: { tail:"aaa" }
                 error MismatchedReturnType: expected_ty: (), found_expr: if true { tail:10 } else { tail:"aaa" }, found_ty: ()
+                ---
             "#]],
         );
     }
@@ -1545,6 +1595,7 @@ mod tests {
                 ---
                 error MismatchedTypeIfCondition: expected_ty: bool, found_expr: 10, found_ty: int
                 error MismatchedReturnType: expected_ty: (), found_expr: if 10 { tail:"aaa" } else { tail:"aaa" }, found_ty: ()
+                ---
             "#]],
         );
     }
@@ -1577,6 +1628,7 @@ mod tests {
 
                 ---
                 error MismatchedTypeElseBranch: then_branch_ty: (), then_branch: { tail:none }, else_branch_ty: bool, else_branch: { tail:true }
+                ---
             "#]],
         );
 
@@ -1606,6 +1658,7 @@ mod tests {
 
                 ---
                 error MismatchedTypeElseBranch: then_branch_ty: bool, then_branch: { tail:true }, else_branch_ty: (), else_branch: { tail:none }
+                ---
             "#]],
         );
 
@@ -1634,6 +1687,7 @@ mod tests {
                 }
 
                 ---
+                ---
             "#]],
         );
     }
@@ -1654,6 +1708,7 @@ mod tests {
 
                 ---
                 error MismatchedReturnType: expected_ty: (), found_expr: return, found_ty: ()
+                ---
             "#]],
         );
 
@@ -1671,6 +1726,7 @@ mod tests {
 
                 ---
                 error MismatchedReturnType: expected_ty: int, found_expr: return 10, found_ty: int
+                ---
             "#]],
         );
     }
@@ -1692,6 +1748,7 @@ mod tests {
                 ---
                 error MismatchedReturnType: expected_ty: int, found_ty: int
                 error MismatchedReturnType: expected_ty: int, found_expr: return, found_ty: int
+                ---
             "#]],
         );
 
@@ -1710,6 +1767,7 @@ mod tests {
                 ---
                 error MismatchedReturnType: expected_ty: int, found_expr: "aaa", found_ty: int
                 error MismatchedReturnType: expected_ty: int, found_expr: return "aaa", found_ty: int
+                ---
             "#]],
         );
     }
@@ -1762,6 +1820,7 @@ mod tests {
                 }
 
                 ---
+                ---
             "#]],
         );
     }
@@ -1808,6 +1867,7 @@ mod tests {
                     expr:10 //: int
                 }
 
+                ---
                 ---
             "#]],
         );

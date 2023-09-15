@@ -75,14 +75,14 @@ fn build_unify_error_from_unify_purpose(
         } => InferenceError::MismaatchedSignature {
             expected_ty,
             found_ty,
-            signature: expected_signature.clone(),
+            signature: *expected_signature,
             found_expr: *found_arg,
         },
         UnifyPurpose::SelfReturnType {
             expected_signature,
             found_expr,
         } => InferenceError::MismatchedTypeReturnValue {
-            expected_signature: expected_signature.clone(),
+            expected_signature: *expected_signature,
             found_ty,
             found_expr: *found_expr,
         },
@@ -135,7 +135,7 @@ fn build_unify_error_from_unify_purpose(
         } => InferenceError::MismatchedTypeReturnValue {
             found_ty,
             found_expr: *found_expr,
-            expected_signature: expected_signature.clone(),
+            expected_signature: *expected_signature,
         },
     }
 }

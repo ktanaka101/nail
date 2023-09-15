@@ -1,6 +1,7 @@
-use std::{collections::HashSet, fmt};
+use std::collections::HashSet;
 
 use super::{environment::Context, type_scheme::TypeSubstitution, Signature};
+use crate::HirTyMasterDatabase;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Monotype {
@@ -10,37 +11,9 @@ pub enum Monotype {
     Char,
     String,
     Variable(u32),
-    Function(Box<Signature>),
+    Function(Signature),
     Never,
     Unknown,
-}
-
-impl fmt::Display for Monotype {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        match self {
-            Monotype::Integer => write!(f, "int"),
-            Monotype::Bool => write!(f, "bool"),
-            Monotype::Char => write!(f, "char"),
-            Monotype::String => write!(f, "string"),
-            Monotype::Unit => write!(f, "()"),
-            Monotype::Never => write!(f, "!"),
-            Monotype::Unknown => write!(f, "unknown"),
-            Monotype::Variable(id) => write!(f, "{}", id),
-            Monotype::Function(signature) => {
-                write!(
-                    f,
-                    "({}) -> {}",
-                    signature
-                        .params
-                        .iter()
-                        .map(|ty| ty.to_string())
-                        .collect::<Vec<_>>()
-                        .join(", "),
-                    signature.return_type.to_string()
-                )
-            }
-        }
-    }
 }
 
 impl Monotype {
@@ -50,7 +23,7 @@ impl Monotype {
         monotype
     }
 
-    pub fn free_variables(&self) -> HashSet<u32> {
+    pub fn free_variables(&self, db: &dyn HirTyMasterDatabase) -> HashSet<u32> {
         match self {
             Monotype::Variable(id) => {
                 let mut set = HashSet::new();
@@ -60,10 +33,10 @@ impl Monotype {
             }
             Monotype::Function(signature) => {
                 let mut set = HashSet::new();
-                for arg in signature.params.iter() {
-                    set.extend(arg.free_variables());
+                for arg in signature.params(db).iter() {
+                    set.extend(arg.free_variables(db));
                 }
-                set.extend(signature.return_type.free_variables());
+                set.extend(signature.return_type(db).free_variables(db));
                 set
             }
             _ => Default::default(),
@@ -86,17 +59,8 @@ impl Monotype {
                     self.clone()
                 }
             }
-            Monotype::Function(signagure) => Monotype::Function(
-                Signature {
-                    params: signagure
-                        .params
-                        .iter()
-                        .map(|arg| arg.apply(subst))
-                        .collect::<Vec<_>>(),
-                    return_type: signagure.return_type.apply(subst),
-                }
-                .into(),
-            ),
+            // 関数シグネチャに自由変数を持たないので何もしない
+            Monotype::Function(_signagure) => self.clone(),
         }
     }
 }

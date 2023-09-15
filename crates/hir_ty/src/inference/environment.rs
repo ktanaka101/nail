@@ -9,19 +9,21 @@ use super::{
     type_unifier::{TypeUnifier, UnifyPurpose},
     types::Monotype,
 };
+use crate::HirTyMasterDatabase;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[salsa::tracked]
 pub struct Signature {
+    #[return_ref]
     pub params: Vec<Monotype>,
     pub return_type: Monotype,
 }
 
 pub(crate) struct InferBody<'a> {
-    db: &'a dyn hir::HirMasterDatabase,
+    db: &'a dyn HirTyMasterDatabase,
     pods: &'a hir::Pods,
     hir_file: hir::HirFile,
     function: hir::Function,
-    signature: &'a Signature,
+    signature: Signature,
 
     unifier: TypeUnifier,
     cxt: Context,
@@ -32,7 +34,7 @@ pub(crate) struct InferBody<'a> {
 }
 impl<'a> InferBody<'a> {
     pub(crate) fn new(
-        db: &'a dyn hir::HirMasterDatabase,
+        db: &'a dyn HirTyMasterDatabase,
         pods: &'a hir::Pods,
         hir_file: hir::HirFile,
         function: hir::Function,
@@ -44,7 +46,7 @@ impl<'a> InferBody<'a> {
             pods,
             hir_file,
             function,
-            signature: signature_by_function.get(&function).unwrap(),
+            signature: *signature_by_function.get(&function).unwrap(),
 
             unifier: TypeUnifier::new(),
             cxt: Context::default(),
@@ -64,9 +66,9 @@ impl<'a> InferBody<'a> {
             let ty = self.infer_expr(*tail);
             self.unifier.unify(
                 &ty,
-                &self.signature.return_type,
+                &self.signature.return_type(self.db),
                 &UnifyPurpose::SelfReturnType {
-                    expected_signature: self.signature.clone(),
+                    expected_signature: self.signature,
                     found_expr: Some(*tail),
                 },
             );
@@ -74,9 +76,9 @@ impl<'a> InferBody<'a> {
             let ty = Monotype::Unit;
             self.unifier.unify(
                 &ty,
-                &self.signature.return_type,
+                &self.signature.return_type(self.db),
                 &UnifyPurpose::SelfReturnType {
-                    expected_signature: self.signature.clone(),
+                    expected_signature: self.signature,
                     found_expr: None,
                 },
             );
@@ -125,7 +127,7 @@ impl<'a> InferBody<'a> {
             hir::Symbol::Local { name, expr: _ } => {
                 let ty_scheme = self.current_scope().bindings.get(name).cloned();
                 if let Some(ty_scheme) = ty_scheme {
-                    ty_scheme.instantiate(&mut self.cxt)
+                    ty_scheme.instantiate(self.db, &mut self.cxt)
                 } else {
                     panic!("Unbound variable {symbol:?}");
                 }
@@ -142,7 +144,7 @@ impl<'a> InferBody<'a> {
                             hir::Item::Function(function) => {
                                 let signature = self.signature_by_function.get(&function);
                                 if let Some(signature) = signature {
-                                    Monotype::Function(signature.clone().into())
+                                    Monotype::Function(*signature)
                                 } else {
                                     unreachable!("Function signature should be resolved.")
                                 }
@@ -196,24 +198,26 @@ impl<'a> InferBody<'a> {
                             .map(|arg| self.infer_expr(*arg))
                             .collect::<Vec<_>>();
 
-                        if call_args_ty.len() != signature.params.len() {
+                        if call_args_ty.len() != signature.params(self.db).len() {
                             // TODO: 引数の数が異なるエラーを追加
                             Monotype::Unknown
                         } else {
-                            for ((call_arg, call_arg_ty), arg) in
-                                call_args.iter().zip(call_args_ty).zip(&signature.params)
+                            for ((call_arg, call_arg_ty), arg) in call_args
+                                .iter()
+                                .zip(call_args_ty)
+                                .zip(signature.params(self.db))
                             {
                                 self.unifier.unify(
                                     &call_arg_ty,
                                     arg,
                                     &UnifyPurpose::CallArg {
                                         found_arg: *call_arg,
-                                        expected_signature: signature.as_ref().clone(),
+                                        expected_signature: signature,
                                     },
                                 );
                             }
 
-                            signature.return_type.clone()
+                            signature.return_type(self.db)
                         }
                     }
                 }
@@ -351,9 +355,9 @@ impl<'a> InferBody<'a> {
                     let ty = self.infer_expr(*return_value);
                     self.unifier.unify(
                         &ty,
-                        &self.signature.return_type,
+                        &self.signature.return_type(self.db),
                         &UnifyPurpose::ReturnValue {
-                            expected_signature: self.signature.clone(),
+                            expected_signature: self.signature,
                             found_expr: Some(*return_value),
                         },
                     );
@@ -361,9 +365,9 @@ impl<'a> InferBody<'a> {
                     // 何も指定しない場合は Unit を返すものとして扱う
                     self.unifier.unify(
                         &Monotype::Unit,
-                        &self.signature.return_type,
+                        &self.signature.return_type(self.db),
                         &UnifyPurpose::ReturnValue {
-                            expected_signature: self.signature.clone(),
+                            expected_signature: self.signature,
                             found_expr: None,
                         },
                     );
@@ -427,10 +431,10 @@ impl Environment {
     }
 
     #[allow(dead_code)]
-    fn free_variables(&self) -> HashSet<u32> {
+    fn free_variables(&self, db: &dyn HirTyMasterDatabase) -> HashSet<u32> {
         let mut union = HashSet::<u32>::new();
         for type_scheme in self.bindings.values() {
-            union.extend(type_scheme.free_variables());
+            union.extend(type_scheme.free_variables(db));
         }
 
         union
@@ -444,9 +448,9 @@ impl Environment {
     }
 
     #[allow(dead_code)]
-    fn generalize(&self, ty: &Monotype) -> TypeScheme {
+    fn generalize(&self, ty: &Monotype, db: &dyn HirTyMasterDatabase) -> TypeScheme {
         TypeScheme {
-            variables: ty.free_variables().sub(&self.free_variables()),
+            variables: ty.free_variables(db).sub(&self.free_variables(db)),
             ty: ty.clone(),
         }
     }

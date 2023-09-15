@@ -19,6 +19,7 @@ impl TypeScheme {
         }
     }
 
+    #[allow(dead_code)]
     pub fn free_variables(&self) -> HashSet<u32> {
         self.ty
             .free_variables()

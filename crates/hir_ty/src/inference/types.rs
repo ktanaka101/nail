@@ -35,8 +35,7 @@ impl fmt::Display for Monotype {
                         .iter()
                         .map(|ty| ty.to_string())
                         .collect::<Vec<_>>()
-                        .join(", ")
-                        .to_string(),
+                        .join(", "),
                     signature.return_type.to_string()
                 )
             }

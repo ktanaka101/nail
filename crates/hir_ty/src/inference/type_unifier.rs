@@ -10,12 +10,6 @@ pub(crate) struct TypeUnifier {
 
 /// 型推論の目的
 pub(crate) enum UnifyPurpose {
-    Expr {
-        /// 期待する型を持つ式
-        expected_expr: hir::ExprId,
-        /// 実際に得られた型を持つ式
-        found_expr: hir::ExprId,
-    },
     CallArg {
         /// 関数呼び出し対象のシグネチャ
         expected_signature: Signature,
@@ -75,15 +69,6 @@ fn build_unify_error_from_unify_purpose(
     purpose: &UnifyPurpose,
 ) -> InferenceError {
     match purpose {
-        UnifyPurpose::Expr {
-            expected_expr,
-            found_expr,
-        } => InferenceError::MismatchedTypes {
-            expected_ty,
-            found_ty,
-            expected_expr: *expected_expr,
-            found_expr: *found_expr,
-        },
         UnifyPurpose::CallArg {
             found_arg,
             expected_signature,

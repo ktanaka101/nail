@@ -137,7 +137,7 @@ impl<'a> InferBody<'a> {
                         // 解決できないエラーを追加
                         Monotype::Unknown
                     }
-                    hir::ResolutionStatus::Resolved { path, item } => {
+                    hir::ResolutionStatus::Resolved { path: _, item } => {
                         match item {
                             hir::Item::Function(function) => {
                                 let signature = self.signature_by_function.get(&function);
@@ -205,7 +205,7 @@ impl<'a> InferBody<'a> {
                             {
                                 self.unifier.unify(
                                     &call_arg_ty,
-                                    &arg,
+                                    arg,
                                     &UnifyPurpose::CallArg {
                                         found_arg: *call_arg,
                                         expected_signature: signature.as_ref().clone(),
@@ -426,6 +426,7 @@ impl Environment {
         }
     }
 
+    #[allow(dead_code)]
     fn free_variables(&self) -> HashSet<u32> {
         let mut union = HashSet::<u32>::new();
         for type_scheme in self.bindings.values() {
@@ -442,6 +443,7 @@ impl Environment {
         Environment { bindings: copy }
     }
 
+    #[allow(dead_code)]
     fn generalize(&self, ty: &Monotype) -> TypeScheme {
         TypeScheme {
             variables: ty.free_variables().sub(&self.free_variables()),

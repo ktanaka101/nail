@@ -623,16 +623,33 @@ mod tests {
 
                     format!("{callee}({args})")
                 }
-                hir::Expr::Block(block) => "{{ .. }}".to_string(),
+                hir::Expr::Block(block) => {
+                    let mut msg = "{ tail:".to_string();
+                    if let Some(tail) = block.tail {
+                        msg.push_str(&self.debug_simplify_expr(hir_file, tail));
+                    } else {
+                        msg.push_str("none");
+                    }
+                    msg.push_str(" }");
+
+                    msg
+                }
                 hir::Expr::If {
                     condition,
                     then_branch,
                     else_branch,
                 } => {
                     let cond_str = self.debug_simplify_expr(hir_file, *condition);
-                    let mut msg = format!("if {cond_str} {{ .. }}");
-                    if else_branch.is_some() {
-                        msg.push_str(" else { .. }");
+                    let mut msg = format!(
+                        "if {cond_str} {}",
+                        self.debug_simplify_expr(hir_file, *then_branch)
+                    );
+
+                    if let Some(else_branch) = else_branch {
+                        msg.push_str(&format!(
+                            " else {}",
+                            self.debug_simplify_expr(hir_file, *else_branch)
+                        ));
                     }
 
                     msg
@@ -1235,7 +1252,7 @@ mod tests {
                 }
 
                 ---
-                error MismatchedReturnType: expected_ty: (), found_expr: {{ .. }}, found_ty: ()
+                error MismatchedReturnType: expected_ty: (), found_expr: { tail:{ tail:10 } }, found_ty: ()
             "#]],
         );
 
@@ -1431,7 +1448,7 @@ mod tests {
                 }
 
                 ---
-                error MismatchedTypeOnlyIfBranch: then_branch_ty: (), then_branch: {{ .. }}
+                error MismatchedTypeOnlyIfBranch: then_branch_ty: (), then_branch: { tail:10 }
             "#]],
         );
     }
@@ -1500,8 +1517,8 @@ mod tests {
                 }
 
                 ---
-                error MismatchedTypeElseBranch: then_branch_ty: int, then_branch: {{ .. }}, else_branch_ty: string, else_branch: {{ .. }}
-                error MismatchedReturnType: expected_ty: (), found_expr: if true { .. } else { .. }, found_ty: ()
+                error MismatchedTypeElseBranch: then_branch_ty: int, then_branch: { tail:10 }, else_branch_ty: string, else_branch: { tail:"aaa" }
+                error MismatchedReturnType: expected_ty: (), found_expr: if true { tail:10 } else { tail:"aaa" }, found_ty: ()
             "#]],
         );
     }
@@ -1530,7 +1547,7 @@ mod tests {
 
                 ---
                 error MismatchedTypeIfCondition: expected_ty: bool, found_expr: 10, found_ty: int
-                error MismatchedReturnType: expected_ty: (), found_expr: if 10 { .. } else { .. }, found_ty: ()
+                error MismatchedReturnType: expected_ty: (), found_expr: if 10 { tail:"aaa" } else { tail:"aaa" }, found_ty: ()
             "#]],
         );
     }
@@ -1562,7 +1579,7 @@ mod tests {
                 }
 
                 ---
-                error MismatchedTypeElseBranch: then_branch_ty: (), then_branch: {{ .. }}, else_branch_ty: bool, else_branch: {{ .. }}
+                error MismatchedTypeElseBranch: then_branch_ty: (), then_branch: { tail:none }, else_branch_ty: bool, else_branch: { tail:true }
             "#]],
         );
 
@@ -1591,7 +1608,7 @@ mod tests {
                 }
 
                 ---
-                error MismatchedTypeElseBranch: then_branch_ty: bool, then_branch: {{ .. }}, else_branch_ty: (), else_branch: {{ .. }}
+                error MismatchedTypeElseBranch: then_branch_ty: bool, then_branch: { tail:true }, else_branch_ty: (), else_branch: { tail:none }
             "#]],
         );
 

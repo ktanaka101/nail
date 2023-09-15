@@ -1,6 +1,6 @@
 use std::{collections::HashSet, fmt};
 
-use super::{environment::Context, type_scheme::TypeSubstitution};
+use super::{environment::Context, type_scheme::TypeSubstitution, Signature};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Monotype {
@@ -10,10 +10,7 @@ pub enum Monotype {
     Char,
     String,
     Variable(u32),
-    Function {
-        args: Vec<Monotype>,
-        return_type: Box<Monotype>,
-    },
+    Function(Box<Signature>),
     Never,
     Unknown,
 }
@@ -29,19 +26,18 @@ impl fmt::Display for Monotype {
             Monotype::Never => write!(f, "!"),
             Monotype::Unknown => write!(f, "unknown"),
             Monotype::Variable(id) => write!(f, "{}", id),
-            Monotype::Function {
-                args: from,
-                return_type: to,
-            } => {
+            Monotype::Function(signature) => {
                 write!(
                     f,
                     "({}) -> {}",
-                    from.iter()
+                    signature
+                        .params
+                        .iter()
                         .map(|ty| ty.to_string())
                         .collect::<Vec<_>>()
                         .join(", ")
                         .to_string(),
-                    to.to_string()
+                    signature.return_type.to_string()
                 )
             }
         }
@@ -63,15 +59,12 @@ impl Monotype {
 
                 set
             }
-            Monotype::Function {
-                args: from,
-                return_type: to,
-            } => {
+            Monotype::Function(signature) => {
                 let mut set = HashSet::new();
-                for arg in from.iter() {
+                for arg in signature.params.iter() {
                     set.extend(arg.free_variables());
                 }
-                set.extend(to.free_variables());
+                set.extend(signature.return_type.free_variables());
                 set
             }
             _ => Default::default(),
@@ -94,13 +87,17 @@ impl Monotype {
                     self.clone()
                 }
             }
-            Monotype::Function {
-                args: from,
-                return_type: to,
-            } => Monotype::Function {
-                args: from.iter().map(|arg| arg.apply(subst)).collect::<Vec<_>>(),
-                return_type: Box::new(to.apply(subst)),
-            },
+            Monotype::Function(signagure) => Monotype::Function(
+                Signature {
+                    params: signagure
+                        .params
+                        .iter()
+                        .map(|arg| arg.apply(subst))
+                        .collect::<Vec<_>>(),
+                    return_type: signagure.return_type.apply(subst),
+                }
+                .into(),
+            ),
         }
     }
 }

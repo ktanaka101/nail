@@ -1,4 +1,5 @@
 mod environment;
+mod error;
 mod type_scheme;
 mod type_unifier;
 mod types;
@@ -6,7 +7,8 @@ mod types;
 use std::collections::HashMap;
 
 use environment::{Environment, InferBody};
-pub use environment::{InferenceBodyResult, InferenceError, InferenceResult, Signature};
+pub use environment::{InferenceBodyResult, InferenceResult, Signature};
+pub use error::InferenceError;
 pub use type_scheme::TypeScheme;
 pub use types::Monotype;
 

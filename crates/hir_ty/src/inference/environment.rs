@@ -3,7 +3,12 @@ use std::{
     ops::Sub,
 };
 
-use super::{type_scheme::TypeScheme, type_unifier::TypeUnifier, types::Monotype};
+use super::{
+    error::InferenceError,
+    type_scheme::TypeScheme,
+    type_unifier::{TypeUnifier, UnifyPurpose},
+    types::Monotype,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Signature {
@@ -55,13 +60,27 @@ impl<'a> InferBody<'a> {
             self.infer_stmt(stmt);
         }
 
-        let ty = if let Some(tail) = &body.tail {
-            self.infer_expr(*tail)
+        if let Some(tail) = &body.tail {
+            let ty = self.infer_expr(*tail);
+            self.unifier.unify(
+                &ty,
+                &self.signature.return_type,
+                &UnifyPurpose::SelfReturnType {
+                    expected_signature: self.signature.clone(),
+                    found_expr: Some(*tail),
+                },
+            );
         } else {
-            Monotype::Unit
+            let ty = Monotype::Unit;
+            self.unifier.unify(
+                &ty,
+                &self.signature.return_type,
+                &UnifyPurpose::SelfReturnType {
+                    expected_signature: self.signature.clone(),
+                    found_expr: None,
+                },
+            );
         };
-        dbg!(&self.signature.return_type);
-        self.unifier.unify(&ty, &self.signature.return_type);
 
         InferenceBodyResult {
             type_by_expr: self.type_by_expr,
@@ -123,10 +142,7 @@ impl<'a> InferBody<'a> {
                             hir::Item::Function(function) => {
                                 let signature = self.signature_by_function.get(&function);
                                 if let Some(signature) = signature {
-                                    Monotype::Function {
-                                        args: signature.params.clone(),
-                                        return_type: Box::new(signature.return_type.clone()),
-                                    }
+                                    Monotype::Function(signature.clone().into())
                                 } else {
                                     unreachable!("Function signature should be resolved.")
                                 }
@@ -174,21 +190,30 @@ impl<'a> InferBody<'a> {
                         // TODO: 関数ではないものを呼び出そうとしているエラーを追加
                         Monotype::Unknown
                     }
-                    Monotype::Function { args, return_type } => {
+                    Monotype::Function(signature) => {
                         let call_args_ty = call_args
                             .iter()
                             .map(|arg| self.infer_expr(*arg))
                             .collect::<Vec<_>>();
 
-                        if call_args_ty.len() != args.len() {
+                        if call_args_ty.len() != signature.params.len() {
                             // TODO: 引数の数が異なるエラーを追加
                             Monotype::Unknown
                         } else {
-                            for (call_arg, arg) in call_args_ty.iter().zip(args.iter()) {
-                                self.unifier.unify(call_arg, arg);
+                            for ((call_arg, call_arg_ty), arg) in
+                                call_args.iter().zip(call_args_ty).zip(&signature.params)
+                            {
+                                self.unifier.unify(
+                                    &call_arg_ty,
+                                    &arg,
+                                    &UnifyPurpose::CallArg {
+                                        found_arg: *call_arg,
+                                        expected_signature: signature.as_ref().clone(),
+                                    },
+                                );
                             }
 
-                            *return_type
+                            signature.return_type.clone()
                         }
                     }
                 }
@@ -200,8 +225,22 @@ impl<'a> InferBody<'a> {
                 | ast::BinaryOp::Div(_) => {
                     let lhs_ty = self.infer_expr(*lhs);
                     let rhs_ty = self.infer_expr(*rhs);
-                    self.unifier.unify(&Monotype::Integer, &lhs_ty);
-                    self.unifier.unify(&Monotype::Integer, &rhs_ty);
+                    self.unifier.unify(
+                        &Monotype::Integer,
+                        &lhs_ty,
+                        &UnifyPurpose::BinaryInteger {
+                            found_expr: *lhs,
+                            op: op.clone(),
+                        },
+                    );
+                    self.unifier.unify(
+                        &Monotype::Integer,
+                        &rhs_ty,
+                        &UnifyPurpose::BinaryInteger {
+                            found_expr: *rhs,
+                            op: op.clone(),
+                        },
+                    );
 
                     Monotype::Integer
                 }
@@ -210,7 +249,15 @@ impl<'a> InferBody<'a> {
                 | ast::BinaryOp::LessThan(_) => {
                     let lhs_ty = self.infer_expr(*lhs);
                     let rhs_ty = self.infer_expr(*rhs);
-                    self.unifier.unify(&lhs_ty, &rhs_ty);
+                    self.unifier.unify(
+                        &lhs_ty,
+                        &rhs_ty,
+                        &UnifyPurpose::BinaryCompare {
+                            expected_expr: *lhs,
+                            found_expr: *rhs,
+                            op: op.clone(),
+                        },
+                    );
 
                     Monotype::Bool
                 }
@@ -218,13 +265,27 @@ impl<'a> InferBody<'a> {
             hir::Expr::Unary { op, expr } => match op {
                 ast::UnaryOp::Neg(_) => {
                     let expr_ty = self.infer_expr(*expr);
-                    self.unifier.unify(&Monotype::Integer, &expr_ty);
+                    self.unifier.unify(
+                        &Monotype::Integer,
+                        &expr_ty,
+                        &UnifyPurpose::Unary {
+                            found_expr: *expr,
+                            op: op.clone(),
+                        },
+                    );
 
                     Monotype::Integer
                 }
                 ast::UnaryOp::Not(_) => {
                     let expr_ty = self.infer_expr(*expr);
-                    self.unifier.unify(&Monotype::Bool, &expr_ty);
+                    self.unifier.unify(
+                        &Monotype::Bool,
+                        &expr_ty,
+                        &UnifyPurpose::Unary {
+                            found_expr: *expr,
+                            op: op.clone(),
+                        },
+                    );
 
                     Monotype::Bool
                 }
@@ -253,15 +314,34 @@ impl<'a> InferBody<'a> {
                 else_branch,
             } => {
                 let condition_ty = self.infer_expr(*condition);
-                self.unifier.unify(&Monotype::Bool, &condition_ty);
+                self.unifier.unify(
+                    &Monotype::Bool,
+                    &condition_ty,
+                    &UnifyPurpose::IfCondition {
+                        found_expr: *condition,
+                    },
+                );
 
                 let then_ty = self.infer_expr(*then_branch);
                 if let Some(else_branch) = else_branch {
                     let else_ty = self.infer_expr(*else_branch);
-                    self.unifier.unify(&then_ty, &else_ty);
+                    self.unifier.unify(
+                        &then_ty,
+                        &else_ty,
+                        &UnifyPurpose::IfThenElseBranch {
+                            expected_expr: *then_branch,
+                            found_expr: *else_branch,
+                        },
+                    );
                 } else {
                     // elseブランチがない場合は Unit として扱う
-                    self.unifier.unify(&then_ty, &Monotype::Unit);
+                    self.unifier.unify(
+                        &then_ty,
+                        &Monotype::Unit,
+                        &UnifyPurpose::IfThenOnlyBranch {
+                            found_expr: *then_branch,
+                        },
+                    );
                 }
 
                 then_ty
@@ -269,11 +349,24 @@ impl<'a> InferBody<'a> {
             hir::Expr::Return { value } => {
                 if let Some(return_value) = value {
                     let ty = self.infer_expr(*return_value);
-                    self.unifier.unify(&ty, &self.signature.return_type);
+                    self.unifier.unify(
+                        &ty,
+                        &self.signature.return_type,
+                        &UnifyPurpose::ReturnValue {
+                            expected_signature: self.signature.clone(),
+                            found_expr: Some(*return_value),
+                        },
+                    );
                 } else {
                     // 何も指定しない場合は Unit を返すものとして扱う
-                    self.unifier
-                        .unify(&Monotype::Unit, &self.signature.return_type);
+                    self.unifier.unify(
+                        &Monotype::Unit,
+                        &self.signature.return_type,
+                        &UnifyPurpose::ReturnValue {
+                            expected_signature: self.signature.clone(),
+                            found_expr: None,
+                        },
+                    );
                 }
 
                 // return自体の戻り値は Never として扱う
@@ -314,13 +407,6 @@ pub struct InferenceResult {
 pub struct InferenceBodyResult {
     pub type_by_expr: HashMap<hir::ExprId, Monotype>,
     pub errors: Vec<InferenceError>,
-}
-#[derive(Debug)]
-pub enum InferenceError {
-    TypeMismatch {
-        expected: Monotype,
-        actual: Monotype,
-    },
 }
 
 #[derive(Default)]

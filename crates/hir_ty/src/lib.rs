@@ -36,14 +36,32 @@ pub fn lower_pods(db: &dyn hir::HirMasterDatabase, pods: &hir::Pods) -> TyLowerR
 #[derive(Debug)]
 pub struct TyLowerResult {
     /// 型推論の結果
-    pub inference_result: InferenceResult,
+    inference_result: InferenceResult,
     /// 型チェックの結果
-    pub type_check_result: TypeCheckResult,
+    type_check_result: TypeCheckResult,
 }
 impl TyLowerResult {
     /// 指定した関数の型を取得します。
     pub fn signature_by_function(&self, function_id: hir::Function) -> &Signature {
         &self.inference_result.signature_by_function[&function_id]
+    }
+
+    /// 指定した関数の型推論結果を取得します。
+    pub fn inference_body_by_function(
+        &self,
+        function: hir::Function,
+    ) -> Option<&InferenceBodyResult> {
+        self.inference_result
+            .inference_body_result_by_function
+            .get(&function)
+    }
+
+    /// 指定した関数の型チェック結果を取得します。
+    pub fn type_check_errors_by_function(
+        &self,
+        function: hir::Function,
+    ) -> Option<&Vec<TypeCheckError>> {
+        self.type_check_result.errors_by_function.get(&function)
     }
 }
 
@@ -52,8 +70,8 @@ mod tests {
     use expect_test::{expect, Expect};
 
     use crate::{
-        inference::{infer_pods, InferenceError, Signature},
-        InferenceResult,
+        inference::{InferenceError, Signature},
+        lower_pods, TyLowerResult, TypeCheckError,
     };
 
     fn check_pod_start_with_root_file(fixture: &str, expect: Expect) {
@@ -61,9 +79,9 @@ mod tests {
         let mut source_db = hir::FixtureDatabase::new(&db, fixture);
 
         let pods = hir::parse_pods(&db, "/main.nail", &mut source_db);
-        let inference_result = infer_pods(&db, &pods);
+        let ty_lower_result = lower_pods(&db, &pods);
 
-        expect.assert_eq(&TestingDebug::new(&db, &pods, &inference_result).debug());
+        expect.assert_eq(&TestingDebug::new(&db, &pods, &ty_lower_result).debug());
     }
 
     fn check_in_root_file(fixture: &str, expect: Expect) {
@@ -80,18 +98,18 @@ mod tests {
     struct TestingDebug<'a> {
         db: &'a dyn hir::HirMasterDatabase,
         pods: &'a hir::Pods,
-        inference_result: &'a InferenceResult,
+        ty_lower_result: &'a TyLowerResult,
     }
     impl<'a> TestingDebug<'a> {
         fn new(
             db: &'a dyn hir::HirMasterDatabase,
             pods: &'a hir::Pods,
-            inference_result: &'a InferenceResult,
+            ty_lower_result: &'a TyLowerResult,
         ) -> Self {
-            TestingDebug {
+            Self {
                 db,
                 pods,
-                inference_result,
+                ty_lower_result,
             }
         }
 
@@ -110,6 +128,7 @@ mod tests {
             msg.push_str("---\n");
             for (hir_file, function) in self.pods.root_pod.all_functions(self.db) {
                 let inference_body_result = self
+                    .ty_lower_result
                     .inference_result
                     .inference_body_result_by_function
                     .get(&function)
@@ -257,6 +276,25 @@ mod tests {
                     }
                     msg.push('\n');
                 }
+            }
+
+            msg.push_str("---\n");
+            for (hir_file, function) in self.pods.root_pod.all_functions(self.db) {
+                let type_check_errors = self
+                    .ty_lower_result
+                    .type_check_errors_by_function(function)
+                    .unwrap();
+                for error in type_check_errors {
+                    match error {
+                        TypeCheckError::Unresolved { expr } => {
+                            msg.push_str(&format!(
+                                "error Type is unknown: expr: {}",
+                                self.debug_simplify_expr(hir_file, *expr),
+                            ));
+                        }
+                    }
+                }
+                msg.push('\n');
             }
 
             msg
@@ -436,9 +474,8 @@ mod tests {
 
         fn debug_type_line(&self, function: hir::Function, expr_id: hir::ExprId) -> String {
             let ty = self
-                .inference_result
-                .inference_body_result_by_function
-                .get(&function)
+                .ty_lower_result
+                .inference_body_by_function(function)
                 .unwrap()
                 .type_by_expr
                 .get(&expr_id)

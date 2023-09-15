@@ -136,7 +136,6 @@ mod tests {
 
                 for error in &inference_body_result.errors {
                     match error {
-                        InferenceError::Unresolved { expr: _ } => todo!(),
                         InferenceError::MismatchedTypes {
                             expected_ty,
                             found_ty,

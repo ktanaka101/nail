@@ -3,11 +3,6 @@ use super::{Monotype, Signature};
 /// 型チェックのエラー
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum InferenceError {
-    /// 型を解決できない
-    Unresolved {
-        /// 対象の式
-        expr: hir::ExprId,
-    },
     /// 一致するべき型が一致しない
     MismatchedTypes {
         /// 期待される型

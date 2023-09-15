@@ -117,7 +117,7 @@ mod tests {
 
                 for error in &inference_body_result.errors {
                     match error {
-                        InferenceError::Unresolved { expr } => todo!(),
+                        InferenceError::Unresolved { expr: _ } => todo!(),
                         InferenceError::MismatchedTypes {
                             expected_ty,
                             found_ty,
@@ -329,25 +329,17 @@ mod tests {
                 hir::Type::Unknown => "<unknown>",
             };
 
-            let scope_origin = hir::ModuleScopeOrigin::Function { origin: function };
-
             let hir::Expr::Block(block) = body_expr else { panic!("Should be Block") };
 
             let mut body = "{\n".to_string();
             for stmt in &block.stmts {
-                body.push_str(&self.debug_stmt(
-                    hir_file,
-                    function,
-                    scope_origin,
-                    stmt,
-                    nesting + 1,
-                ));
+                body.push_str(&self.debug_stmt(hir_file, function, stmt, nesting + 1));
             }
             if let Some(tail) = block.tail {
                 let indent = indent(nesting + 1);
                 body.push_str(&format!(
                     "{indent}expr:{}",
-                    self.debug_expr(hir_file, function, scope_origin, tail, nesting + 1)
+                    self.debug_expr(hir_file, function, tail, nesting + 1)
                 ));
                 body.push_str(&format!(" {}\n", self.debug_type_line(function, tail)));
             }
@@ -413,7 +405,6 @@ mod tests {
             &self,
             hir_file: hir::HirFile,
             function: hir::Function,
-            scope_origin: hir::ModuleScopeOrigin,
             stmt: &hir::Stmt,
             nesting: usize,
         ) -> String {
@@ -421,8 +412,7 @@ mod tests {
                 hir::Stmt::VariableDef { name, value } => {
                     let indent = indent(nesting);
                     let name = name.text(self.db);
-                    let expr_str =
-                        self.debug_expr(hir_file, function, scope_origin, *value, nesting);
+                    let expr_str = self.debug_expr(hir_file, function, *value, nesting);
                     let mut stmt_str = format!("{indent}let {name} = {expr_str};");
 
                     let type_line = self.debug_type_line(function, *value);
@@ -435,8 +425,7 @@ mod tests {
                     has_semicolon,
                 } => {
                     let indent = indent(nesting);
-                    let expr_str =
-                        self.debug_expr(hir_file, function, scope_origin, *expr, nesting);
+                    let expr_str = self.debug_expr(hir_file, function, *expr, nesting);
                     let type_line = self.debug_type_line(function, *expr);
                     let maybe_semicolon = if *has_semicolon { ";" } else { "" };
                     format!("{indent}{expr_str}{maybe_semicolon} {type_line}\n")
@@ -462,7 +451,6 @@ mod tests {
             &self,
             hir_file: hir::HirFile,
             function: hir::Function,
-            scope_origin: hir::ModuleScopeOrigin,
             expr_id: hir::ExprId,
             nesting: usize,
         ) -> String {
@@ -484,8 +472,8 @@ mod tests {
                         ast::BinaryOp::GreaterThan(_) => ">",
                         ast::BinaryOp::LessThan(_) => "<",
                     };
-                    let lhs_str = self.debug_expr(hir_file, function, scope_origin, *lhs, nesting);
-                    let rhs_str = self.debug_expr(hir_file, function, scope_origin, *rhs, nesting);
+                    let lhs_str = self.debug_expr(hir_file, function, *lhs, nesting);
+                    let rhs_str = self.debug_expr(hir_file, function, *rhs, nesting);
                     format!("{lhs_str} {op} {rhs_str}")
                 }
                 hir::Expr::Unary { op, expr } => {
@@ -493,38 +481,29 @@ mod tests {
                         ast::UnaryOp::Neg(_) => "-",
                         ast::UnaryOp::Not(_) => "!",
                     };
-                    let expr_str =
-                        self.debug_expr(hir_file, function, scope_origin, *expr, nesting);
+                    let expr_str = self.debug_expr(hir_file, function, *expr, nesting);
                     format!("{op}{expr_str}")
                 }
                 hir::Expr::Call { callee, args } => {
                     let callee = self.debug_symbol(callee);
                     let args = args
                         .iter()
-                        .map(|arg| self.debug_expr(hir_file, function, scope_origin, *arg, nesting))
+                        .map(|arg| self.debug_expr(hir_file, function, *arg, nesting))
                         .collect::<Vec<_>>()
                         .join(", ");
 
                     format!("{callee}({args})")
                 }
                 hir::Expr::Block(block) => {
-                    let scope_origin = hir::ModuleScopeOrigin::Block { origin: expr_id };
-
                     let mut msg = "{\n".to_string();
                     for stmt in &block.stmts {
-                        msg.push_str(&self.debug_stmt(
-                            hir_file,
-                            function,
-                            scope_origin,
-                            stmt,
-                            nesting + 1,
-                        ));
+                        msg.push_str(&self.debug_stmt(hir_file, function, stmt, nesting + 1));
                     }
                     if let Some(tail) = block.tail {
                         let indent = indent(nesting + 1);
                         msg.push_str(&format!(
                             "{indent}expr:{}",
-                            self.debug_expr(hir_file, function, scope_origin, tail, nesting + 1)
+                            self.debug_expr(hir_file, function, tail, nesting + 1)
                         ));
                         msg.push_str(&format!(" {}\n", self.debug_type_line(function, tail)));
                     }
@@ -538,31 +517,13 @@ mod tests {
                     else_branch,
                 } => {
                     let mut msg = "if ".to_string();
-                    msg.push_str(&self.debug_expr(
-                        hir_file,
-                        function,
-                        scope_origin,
-                        *condition,
-                        nesting,
-                    ));
+                    msg.push_str(&self.debug_expr(hir_file, function, *condition, nesting));
                     msg.push(' ');
-                    msg.push_str(&self.debug_expr(
-                        hir_file,
-                        function,
-                        scope_origin,
-                        *then_branch,
-                        nesting,
-                    ));
+                    msg.push_str(&self.debug_expr(hir_file, function, *then_branch, nesting));
 
                     if let Some(else_branch) = else_branch {
                         msg.push_str(" else ");
-                        msg.push_str(&self.debug_expr(
-                            hir_file,
-                            function,
-                            scope_origin,
-                            *else_branch,
-                            nesting,
-                        ));
+                        msg.push_str(&self.debug_expr(hir_file, function, *else_branch, nesting));
                     }
 
                     msg
@@ -572,7 +533,7 @@ mod tests {
                     if let Some(value) = value {
                         msg.push_str(&format!(
                             " {}",
-                            &self.debug_expr(hir_file, function, scope_origin, *value, nesting,)
+                            &self.debug_expr(hir_file, function, *value, nesting,)
                         ));
                     }
 

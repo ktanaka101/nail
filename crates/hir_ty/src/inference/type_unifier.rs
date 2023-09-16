@@ -16,7 +16,9 @@ pub(crate) enum UnifyPurpose {
         /// 関数呼び出し対象のシグネチャ
         callee_signature: Signature,
         /// 引数の式
-        found_arg: hir::ExprId,
+        found_arg_expr: hir::ExprId,
+        /// 引数の位置
+        arg_pos: usize,
     },
     BinaryInteger {
         /// 数値演算子の対象式
@@ -70,13 +72,15 @@ fn build_unify_error_from_unify_purpose(
 ) -> InferenceError {
     match purpose {
         UnifyPurpose::CallArg {
-            found_arg,
+            found_arg_expr: found_arg,
             callee_signature: expected_signature,
-        } => InferenceError::MismaatchedSignature {
+            arg_pos,
+        } => InferenceError::MismaatchedTypeCallArg {
             expected_ty,
             found_ty,
-            signature: *expected_signature,
+            expected_signature: *expected_signature,
             found_expr: *found_arg,
+            arg_pos: *arg_pos,
         },
         UnifyPurpose::BinaryInteger { found_expr, op } => InferenceError::MismatchedBinaryInteger {
             expected_int_ty: expected_ty,

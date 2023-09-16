@@ -43,16 +43,18 @@ pub enum InferenceError {
         /// elseブランチの型
         else_branch_unit_ty: Monotype,
     },
-    /// 関数呼び出しの引数の数が一致しない
-    MismaatchedSignature {
-        /// 期待される型
+    /// 関数呼び出しの型が一致しない
+    MismaatchedTypeCallArg {
+        /// 期待される引数の型
         expected_ty: Monotype,
-        /// 呼び出そうとしている関数のシグネチャ
-        signature: Signature,
-        /// 実際の式
-        found_expr: hir::ExprId,
-        /// 実際の型
+        /// 実際の引数の型
         found_ty: Monotype,
+        /// 期待される引数を持つ関数シグネチャ
+        expected_signature: Signature,
+        /// 実際の引数式
+        found_expr: hir::ExprId,
+        /// 実際の引数の位置(0-indexed)
+        arg_pos: usize,
     },
     MismatchedBinaryInteger {
         /// 期待される型

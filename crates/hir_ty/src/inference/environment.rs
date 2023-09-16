@@ -202,8 +202,9 @@ impl<'a> InferBody<'a> {
                             // TODO: 引数の数が異なるエラーを追加
                             Monotype::Unknown
                         } else {
-                            for ((call_arg, call_arg_ty), signature_arg_ty) in call_args
+                            for (((arg_pos, call_arg), call_arg_ty), signature_arg_ty) in call_args
                                 .iter()
+                                .enumerate()
                                 .zip(call_args_ty)
                                 .zip(signature.params(self.db))
                             {
@@ -211,8 +212,9 @@ impl<'a> InferBody<'a> {
                                     signature_arg_ty,
                                     &call_arg_ty,
                                     &UnifyPurpose::CallArg {
-                                        found_arg: *call_arg,
+                                        found_arg_expr: *call_arg,
                                         callee_signature: signature,
+                                        arg_pos,
                                     },
                                 );
                             }

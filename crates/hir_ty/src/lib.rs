@@ -196,19 +196,21 @@ mod tests {
                                 self.debug_simplify_expr(hir_file, *then_branch),
                             ));
                         }
-                        InferenceError::MismaatchedSignature {
+                        InferenceError::MismaatchedTypeCallArg {
                             expected_ty,
-                            signature,
-                            found_expr,
                             found_ty,
+                            expected_signature,
+                            found_expr,
+                            arg_pos,
                         } => {
                             msg.push_str(
                             &format!(
-                                "error MismaatchedSignature: expected_ty: {}, found_ty: {}, found_expr: {}, signature: {}",
+                                "error MismaatchedSignature: expected_ty: {}, found_ty: {}, found_expr: {}, signature: {}, arg_pos: {}",
                                 self.debug_monotype(expected_ty),
                                 self.debug_monotype(found_ty),
                                 self.debug_simplify_expr(hir_file, *found_expr),
-                                self.debug_signature(signature),
+                                self.debug_signature(expected_signature),
+                                arg_pos
                             ));
                         }
                         InferenceError::MismatchedBinaryInteger {
@@ -1439,8 +1441,8 @@ mod tests {
                 }
 
                 ---
-                error MismaatchedSignature: expected_ty: bool, found_ty: string, found_expr: "aaa", signature: (bool, string) -> int
-                error MismaatchedSignature: expected_ty: string, found_ty: bool, found_expr: true, signature: (bool, string) -> int
+                error MismaatchedSignature: expected_ty: bool, found_ty: string, found_expr: "aaa", signature: (bool, string) -> int, arg_pos: 0
+                error MismaatchedSignature: expected_ty: string, found_ty: bool, found_expr: true, signature: (bool, string) -> int, arg_pos: 1
                 ---
             "#]],
         );

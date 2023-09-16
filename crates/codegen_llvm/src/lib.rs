@@ -153,16 +153,16 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         body.params
             .iter()
             .map(|(_, param)| match param.ty {
-                hir_ty::ResolvedType::Integer => {
+                hir_ty::Monotype::Integer => {
                     BasicMetadataTypeEnum::IntType(self.context.i64_type())
                 }
-                hir_ty::ResolvedType::String => self
+                hir_ty::Monotype::String => self
                     .context
                     .i8_type()
                     .vec_type(1)
                     .ptr_type(AddressSpace::default())
                     .into(),
-                hir_ty::ResolvedType::Bool => self.context.bool_type().into(),
+                hir_ty::Monotype::Bool => self.context.bool_type().into(),
                 _ => unimplemented!(),
             })
             .collect::<Vec<_>>()
@@ -197,22 +197,22 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
     fn gen_function_signatures(&mut self, db: &dyn hir::HirMasterDatabase) {
         for (idx, body) in self.mir_result.ref_bodies() {
             let params = self.body_to_params(body);
-            let return_type = body.locals[body.return_local].ty;
+            let return_type = body.locals[body.return_local].ty.clone();
 
             let fn_ty: FunctionType<'ctx> = match return_type {
-                hir_ty::ResolvedType::Unit => {
+                hir_ty::Monotype::Unit => {
                     let ty = self.context.struct_type(&[], false);
                     ty.fn_type(&params, false)
                 }
-                hir_ty::ResolvedType::Integer => {
+                hir_ty::Monotype::Integer => {
                     let ty = self.context.i64_type();
                     ty.fn_type(&params, false)
                 }
-                hir_ty::ResolvedType::String => {
+                hir_ty::Monotype::String => {
                     let ty = self.string_type();
                     ty.fn_type(&params, false)
                 }
-                hir_ty::ResolvedType::Bool => {
+                hir_ty::Monotype::Bool => {
                     let ty = self.context.bool_type();
                     ty.fn_type(&params, false)
                 }
@@ -256,12 +256,12 @@ mod tests {
     fn lower(
         fixture: &str,
     ) -> (
-        hir::TestingDatabase,
+        hir_ty::TestingDatabase,
         hir::Pods,
         hir_ty::TyLowerResult,
         mir::LowerResult,
     ) {
-        let db = hir::TestingDatabase::default();
+        let db = hir_ty::TestingDatabase::default();
         let mut source_db = FixtureDatabase::new(&db, fixture);
 
         let pods = hir::parse_pods(&db, "/main.nail", &mut source_db);

@@ -438,7 +438,7 @@ pub struct Environment {
 pub struct VariableId(u32);
 impl std::fmt::Display for VariableId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "_{}", self.0)
+        write!(f, "{}", self.0)
     }
 }
 

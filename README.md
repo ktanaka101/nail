@@ -1,18 +1,19 @@
 # Nail
 
-WIP
+## Summary
 
-## Summury
-
-We create robust and flexible programming languages.
-We want to create something like Rust with a Go runtime.
+🚀 Introducing Nail!  
+Merging the robustness of Rust with the simplicity of Go's runtime.  
+Just like Rust, if it compiles, it's likely to run bug-free (of course, not all bugs can be eliminated).  
+A memory-safe language powered by GC, embracing Rust's type system (with a touch of TypeScript) and concurrent model inspired by Go.  
+Step into the future with a language inspired by the best of Rust and Go. A refreshing take on modern programming!
 
 - Base: Rust
 - Memory Management: GC
-- Type System: Rust, if possible TypeScript
+- Type System: Rust, with hints of TypeScript
 - Concurrency: Go
 
-Furthermore, we want to make sure that once compiled, it works as intended.
+🔧 Note: While our vision remains consistent, the specific implementations to achieve our goals may undergo significant changes.
 
 ## Specification
 

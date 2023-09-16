@@ -152,7 +152,7 @@ mod tests {
                         } => {
                             msg.push_str(
                             &format!(
-                                "error MismatchedTypes: expected_ty: {}, found_ty: {}, expected_expr: {}, found_expr: {}",
+                                "error MismatchedTypes: expected_ty: {}, found_ty: {}, expected_expr: `{}`, found_expr: `{}`",
                                 self.debug_monotype(expected_ty),
                                 self.debug_monotype(found_ty),
                                 self.debug_simplify_expr(hir_file, *expected_expr),
@@ -166,7 +166,7 @@ mod tests {
                         } => {
                             msg.push_str(
                             &format!(
-                                "error MismatchedTypeIfCondition: expected_ty: {}, found_ty: {}, found_expr: {}",
+                                "error MismatchedTypeIfCondition: expected_ty: {}, found_ty: {}, found_expr: `{}`",
                                 self.debug_monotype(expected_condition_bool_ty),
                                 self.debug_monotype(found_condition_ty),
                                 self.debug_simplify_expr(hir_file, *found_condition_expr),
@@ -180,7 +180,7 @@ mod tests {
                         } => {
                             msg.push_str(
                             &format!(
-                                "error MismatchedTypeElseBranch: then_branch_ty: {}, else_branch_ty: {}, then_branch: {}, else_branch: {}",
+                                "error MismatchedTypeElseBranch: then_branch_ty: {}, else_branch_ty: {}, then_branch: `{}`, else_branch: `{}`",
                                 self.debug_monotype(then_branch_ty),
                                 self.debug_monotype(else_branch_ty),
                                 self.debug_simplify_expr(hir_file, *then_branch),
@@ -194,7 +194,7 @@ mod tests {
                         } => {
                             msg.push_str(
                             &format!(
-                                "error MismatchedTypeOnlyIfBranch: then_branch_ty: {}, else_branch_ty: {}, then_branch: {}",
+                                "error MismatchedTypeOnlyIfBranch: then_branch_ty: {}, else_branch_ty: {}, then_branch: `{}`",
                                 self.debug_monotype(then_branch_ty),
                                 self.debug_monotype(else_branch_unit_ty),
                                 self.debug_simplify_expr(hir_file, *then_branch),
@@ -209,7 +209,7 @@ mod tests {
                         } => {
                             msg.push_str(
                             &format!(
-                                "error MismaatchedSignature: expected_ty: {}, found_ty: {}, found_expr: {}, signature: {}, arg_pos: {}",
+                                "error MismaatchedSignature: expected_ty: {}, found_ty: {}, found_expr: `{}`, signature: {}, arg_pos: {}",
                                 self.debug_monotype(expected_ty),
                                 self.debug_monotype(found_ty),
                                 self.debug_simplify_expr(hir_file, *found_expr),
@@ -225,7 +225,7 @@ mod tests {
                         } => {
                             msg.push_str(
                             &format!(
-                                "error MismatchedBinaryInteger: op: {}, expected_ty: {}, found_ty: {}, found_expr: {}",
+                                "error MismatchedBinaryInteger: op: {}, expected_ty: {}, found_ty: {}, found_expr: `{}`",
                                 self.debug_binary_op(op),
                                 self.debug_monotype(expected_int_ty),
                                 self.debug_monotype(found_ty),
@@ -241,7 +241,7 @@ mod tests {
                         } => {
                             msg.push_str(
                             &format!(
-                                "error MismatchedBinaryCompare: op: {}, expected_ty: {}, found_ty: {}, expected_expr: {}, found_expr: {}",
+                                "error MismatchedBinaryCompare: op: {}, expected_ty: {}, found_ty: {}, expected_expr: `{}`, found_expr: `{}`",
                                 self.debug_binary_op(op),
                                 self.debug_monotype(compare_from_ty),
                                 self.debug_monotype(compare_to_ty),
@@ -257,7 +257,7 @@ mod tests {
                         } => {
                             msg.push_str(
                             &format!(
-                                "error MismatchedUnary: op: {}, expected_ty: {}, found_ty: {}, found_expr: {}",
+                                "error MismatchedUnary: op: {}, expected_ty: {}, found_ty: {}, found_expr: `{}`",
                                 self.debug_unary_op(op),
                                 self.debug_monotype(expected_ty),
                                 self.debug_monotype(found_ty),
@@ -272,7 +272,7 @@ mod tests {
                             if let Some(found_return_expr) = found_return_expr {
                                 msg.push_str(
                             &format!(
-                                "error MismatchedReturnType: expected_ty: {}, found_ty: {}, found_expr: {}",
+                                "error MismatchedReturnType: expected_ty: {}, found_ty: {}, found_expr: `{}`",
                                 self.debug_monotype(&expected_signature.return_type(self.db)),
                                 self.debug_monotype(found_ty),
                                 self.debug_simplify_expr(hir_file, *found_return_expr),
@@ -1039,24 +1039,24 @@ mod tests {
                 }
 
                 ---
-                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: string, found_expr: "aaa"
-                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: string, found_expr: "bbb"
-                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: string, found_expr: "aaa"
-                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: char, found_expr: 'a'
-                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: char, found_expr: 'a'
-                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: char, found_expr: 'a'
-                error MismatchedBinaryCompare: op: <, expected_ty: int, found_ty: char, expected_expr: 10, found_expr: 'a'
-                error MismatchedBinaryCompare: op: >, expected_ty: int, found_ty: char, expected_expr: 10, found_expr: 'a'
-                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: bool, found_expr: true
-                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: bool, found_expr: true
-                error MismatchedBinaryInteger: op: -, expected_ty: int, found_ty: bool, found_expr: true
-                error MismatchedBinaryInteger: op: -, expected_ty: int, found_ty: bool, found_expr: true
-                error MismatchedBinaryInteger: op: *, expected_ty: int, found_ty: bool, found_expr: true
-                error MismatchedBinaryInteger: op: *, expected_ty: int, found_ty: bool, found_expr: true
-                error MismatchedBinaryInteger: op: /, expected_ty: int, found_ty: bool, found_expr: true
-                error MismatchedBinaryInteger: op: /, expected_ty: int, found_ty: bool, found_expr: true
-                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: bool, found_expr: true
-                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: string, found_expr: "aaa"
+                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: string, found_expr: `"aaa"`
+                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: string, found_expr: `"bbb"`
+                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: string, found_expr: `"aaa"`
+                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: char, found_expr: `'a'`
+                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: char, found_expr: `'a'`
+                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: char, found_expr: `'a'`
+                error MismatchedBinaryCompare: op: <, expected_ty: int, found_ty: char, expected_expr: `10`, found_expr: `'a'`
+                error MismatchedBinaryCompare: op: >, expected_ty: int, found_ty: char, expected_expr: `10`, found_expr: `'a'`
+                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: bool, found_expr: `true`
+                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: bool, found_expr: `true`
+                error MismatchedBinaryInteger: op: -, expected_ty: int, found_ty: bool, found_expr: `true`
+                error MismatchedBinaryInteger: op: -, expected_ty: int, found_ty: bool, found_expr: `true`
+                error MismatchedBinaryInteger: op: *, expected_ty: int, found_ty: bool, found_expr: `true`
+                error MismatchedBinaryInteger: op: *, expected_ty: int, found_ty: bool, found_expr: `true`
+                error MismatchedBinaryInteger: op: /, expected_ty: int, found_ty: bool, found_expr: `true`
+                error MismatchedBinaryInteger: op: /, expected_ty: int, found_ty: bool, found_expr: `true`
+                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: bool, found_expr: `true`
+                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: string, found_expr: `"aaa"`
                 ---
             "#]],
         );
@@ -1074,8 +1074,8 @@ mod tests {
                 }
 
                 ---
-                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: string, found_expr: "aaa"
-                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: string, found_expr: "aaa"
+                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: string, found_expr: `"aaa"`
+                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: string, found_expr: `"aaa"`
                 ---
             "#]],
         );
@@ -1111,12 +1111,12 @@ mod tests {
                 }
 
                 ---
-                error MismatchedUnary: op: -, expected_ty: int, found_ty: string, found_expr: "aaa"
-                error MismatchedUnary: op: -, expected_ty: int, found_ty: char, found_expr: 'a'
-                error MismatchedUnary: op: -, expected_ty: int, found_ty: bool, found_expr: true
-                error MismatchedUnary: op: !, expected_ty: bool, found_ty: int, found_expr: 10
-                error MismatchedUnary: op: !, expected_ty: bool, found_ty: string, found_expr: "aaa"
-                error MismatchedUnary: op: !, expected_ty: bool, found_ty: char, found_expr: 'a'
+                error MismatchedUnary: op: -, expected_ty: int, found_ty: string, found_expr: `"aaa"`
+                error MismatchedUnary: op: -, expected_ty: int, found_ty: char, found_expr: `'a'`
+                error MismatchedUnary: op: -, expected_ty: int, found_ty: bool, found_expr: `true`
+                error MismatchedUnary: op: !, expected_ty: bool, found_ty: int, found_expr: `10`
+                error MismatchedUnary: op: !, expected_ty: bool, found_ty: string, found_expr: `"aaa"`
+                error MismatchedUnary: op: !, expected_ty: bool, found_ty: char, found_expr: `'a'`
                 ---
             "#]],
         )
@@ -1261,7 +1261,7 @@ mod tests {
                 }
 
                 ---
-                error MismatchedReturnType: expected_ty: (), found_ty: int, found_expr: 10
+                error MismatchedReturnType: expected_ty: (), found_ty: int, found_expr: `10`
                 ---
             "#]],
         );
@@ -1334,7 +1334,7 @@ mod tests {
                 }
 
                 ---
-                error MismatchedReturnType: expected_ty: (), found_ty: int, found_expr: { tail:{ tail:10 } }
+                error MismatchedReturnType: expected_ty: (), found_ty: int, found_expr: `{ tail:{ tail:10 } }`
                 ---
             "#]],
         );
@@ -1457,7 +1457,7 @@ mod tests {
                 }
 
                 ---
-                error MismatchedReturnType: expected_ty: (), found_ty: int, found_expr: res + 30
+                error MismatchedReturnType: expected_ty: (), found_ty: int, found_expr: `res + 30`
                 ---
             "#]],
         );
@@ -1484,8 +1484,8 @@ mod tests {
                 }
 
                 ---
-                error MismaatchedSignature: expected_ty: bool, found_ty: string, found_expr: "aaa", signature: (bool, string) -> int, arg_pos: 0
-                error MismaatchedSignature: expected_ty: string, found_ty: bool, found_expr: true, signature: (bool, string) -> int, arg_pos: 1
+                error MismaatchedSignature: expected_ty: bool, found_ty: string, found_expr: `"aaa"`, signature: (bool, string) -> int, arg_pos: 0
+                error MismaatchedSignature: expected_ty: string, found_ty: bool, found_expr: `true`, signature: (bool, string) -> int, arg_pos: 1
                 ---
             "#]],
         );
@@ -1538,7 +1538,7 @@ mod tests {
                 }
 
                 ---
-                error MismatchedTypeOnlyIfBranch: then_branch_ty: int, else_branch_ty: (), then_branch: { tail:10 }
+                error MismatchedTypeOnlyIfBranch: then_branch_ty: int, else_branch_ty: (), then_branch: `{ tail:10 }`
                 ---
             "#]],
         );
@@ -1610,8 +1610,8 @@ mod tests {
                 }
 
                 ---
-                error MismatchedTypeElseBranch: then_branch_ty: int, else_branch_ty: string, then_branch: { tail:10 }, else_branch: { tail:"aaa" }
-                error MismatchedReturnType: expected_ty: (), found_ty: int, found_expr: if true { tail:10 } else { tail:"aaa" }
+                error MismatchedTypeElseBranch: then_branch_ty: int, else_branch_ty: string, then_branch: `{ tail:10 }`, else_branch: `{ tail:"aaa" }`
+                error MismatchedReturnType: expected_ty: (), found_ty: int, found_expr: `if true { tail:10 } else { tail:"aaa" }`
                 ---
             "#]],
         );
@@ -1640,8 +1640,8 @@ mod tests {
                 }
 
                 ---
-                error MismatchedTypeIfCondition: expected_ty: bool, found_ty: int, found_expr: 10
-                error MismatchedReturnType: expected_ty: (), found_ty: string, found_expr: if 10 { tail:"aaa" } else { tail:"aaa" }
+                error MismatchedTypeIfCondition: expected_ty: bool, found_ty: int, found_expr: `10`
+                error MismatchedReturnType: expected_ty: (), found_ty: string, found_expr: `if 10 { tail:"aaa" } else { tail:"aaa" }`
                 ---
             "#]],
         );
@@ -1674,7 +1674,7 @@ mod tests {
                 }
 
                 ---
-                error MismatchedTypeElseBranch: then_branch_ty: (), else_branch_ty: bool, then_branch: { tail:none }, else_branch: { tail:true }
+                error MismatchedTypeElseBranch: then_branch_ty: (), else_branch_ty: bool, then_branch: `{ tail:none }`, else_branch: `{ tail:true }`
                 ---
             "#]],
         );
@@ -1704,7 +1704,7 @@ mod tests {
                 }
 
                 ---
-                error MismatchedTypeElseBranch: then_branch_ty: bool, else_branch_ty: (), then_branch: { tail:true }, else_branch: { tail:none }
+                error MismatchedTypeElseBranch: then_branch_ty: bool, else_branch_ty: (), then_branch: `{ tail:true }`, else_branch: `{ tail:none }`
                 ---
             "#]],
         );
@@ -1809,7 +1809,7 @@ mod tests {
                 }
 
                 ---
-                error MismatchedReturnType: expected_ty: int, found_ty: string, found_expr: "aaa"
+                error MismatchedReturnType: expected_ty: int, found_ty: string, found_expr: `"aaa"`
                 ---
             "#]],
         );
@@ -2045,7 +2045,7 @@ mod tests {
 
                 ---
                 error NotCallable: found_callee_ty: <unknown>, found_callee_symbol: <missing>
-                error MismatchedReturnType: expected_ty: int, found_ty: <unknown>, found_expr: <missing>()
+                error MismatchedReturnType: expected_ty: int, found_ty: <unknown>, found_expr: `<missing>()`
                 ---
                 error Type is unknown: expr: <missing>()
             "#]],

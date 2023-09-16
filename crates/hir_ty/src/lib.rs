@@ -295,7 +295,7 @@ mod tests {
                     .unwrap();
                 for error in type_check_errors {
                     match error {
-                        TypeCheckError::Unresolved { expr } => {
+                        TypeCheckError::UnresolvedType { expr } => {
                             msg.push_str(&format!(
                                 "error Type is unknown: expr: {}",
                                 self.debug_simplify_expr(hir_file, *expr),

@@ -24,7 +24,7 @@ pub fn check_type_pods(
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeCheckError {
     /// 型を解決できない
-    Unresolved {
+    UnresolvedType {
         /// 対象の式
         expr: hir::ExprId,
     },
@@ -98,7 +98,7 @@ impl<'a> FunctionTypeChecker<'a> {
     fn check_expr(&mut self, expr: hir::ExprId) {
         let ty = self.current_inference().type_by_expr[&expr].clone();
         if ty == Monotype::Unknown {
-            self.errors.push(TypeCheckError::Unresolved { expr });
+            self.errors.push(TypeCheckError::UnresolvedType { expr });
         }
 
         let expr = expr.lookup(self.hir_file.db(self.db));

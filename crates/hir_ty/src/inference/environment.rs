@@ -189,8 +189,8 @@ impl<'a> InferBody<'a> {
                 callee,
                 args: call_args,
             } => {
-                let ty = self.infer_symbol(callee);
-                match ty {
+                let callee_ty = self.infer_symbol(callee);
+                match callee_ty {
                     Monotype::Integer
                     | Monotype::Bool
                     | Monotype::Unit
@@ -199,7 +199,10 @@ impl<'a> InferBody<'a> {
                     | Monotype::Never
                     | Monotype::Unknown
                     | Monotype::Variable(_) => {
-                        // TODO: 関数ではないものを呼び出そうとしているエラーを追加
+                        self.unifier.add_error(InferenceError::NotCallable {
+                            found_callee_ty: callee_ty,
+                            found_callee_symbol: callee.clone(),
+                        });
                         Monotype::Unknown
                     }
                     Monotype::Function(signature) => {
@@ -209,8 +212,11 @@ impl<'a> InferBody<'a> {
                             .collect::<Vec<_>>();
 
                         if call_args_ty.len() != signature.params(self.db).len() {
-                            // TODO: 引数の数が異なるエラーを追加
-                            Monotype::Unknown
+                            self.unifier
+                                .add_error(InferenceError::MismatchedCallArgCount {
+                                    expected_callee_arg_count: signature.params(self.db).len(),
+                                    found_arg_count: call_args_ty.len(),
+                                });
                         } else {
                             for (((arg_pos, call_arg), call_arg_ty), signature_arg_ty) in call_args
                                 .iter()
@@ -228,9 +234,10 @@ impl<'a> InferBody<'a> {
                                     },
                                 );
                             }
-
-                            signature.return_type(self.db)
                         }
+
+                        // 引数の数が異なったとしても、関数の戻り値は返す。
+                        signature.return_type(self.db)
                     }
                 }
             }

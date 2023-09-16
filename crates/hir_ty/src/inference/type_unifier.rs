@@ -155,6 +155,13 @@ impl TypeUnifier {
         }
     }
 
+    /// エラーを追加します。
+    ///
+    /// 引数の数の違いや呼び出し対象の型が異なる等のUnify外を収集するために使用されます。
+    pub(crate) fn add_error(&mut self, error: InferenceError) {
+        self.errors.push(error);
+    }
+
     pub(crate) fn unify(
         &mut self,
         a_expected: &Monotype,

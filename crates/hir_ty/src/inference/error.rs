@@ -104,4 +104,18 @@ pub enum InferenceError {
         /// 実際の式
         found_return_expr: Option<hir::ExprId>,
     },
+    /// 呼び出しの引数の数が一致しない
+    MismatchedCallArgCount {
+        /// 期待される引数の数
+        expected_callee_arg_count: usize,
+        /// 実際の引数の数
+        found_arg_count: usize,
+    },
+    /// 呼び出そうとしている対象が関数ではない
+    NotCallable {
+        /// 呼び出し対象の型
+        found_callee_ty: Monotype,
+        /// 呼び出し対象のシンボル
+        found_callee_symbol: hir::Symbol,
+    },
 }

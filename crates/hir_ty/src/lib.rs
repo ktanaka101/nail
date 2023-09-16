@@ -285,6 +285,26 @@ mod tests {
                                 ));
                             }
                         }
+                        InferenceError::MismatchedCallArgCount {
+                            expected_callee_arg_count,
+                            found_arg_count,
+                        } => {
+                            msg.push_str(&format!(
+                                "error MismatchedCallArgCount: expected_arg_count: {}, found_arg_count: {}",
+                                expected_callee_arg_count,
+                                found_arg_count,
+                            ));
+                        }
+                        InferenceError::NotCallable {
+                            found_callee_ty,
+                            found_callee_symbol,
+                        } => {
+                            msg.push_str(&format!(
+                                "error NotCallable: found_callee_ty: {}, found_callee_symbol: {}",
+                                self.debug_monotype(found_callee_ty),
+                                self.debug_symbol(found_callee_symbol),
+                            ));
+                        }
                     }
                     msg.push('\n');
                 }
@@ -1872,6 +1892,63 @@ mod tests {
                 }
 
                 ---
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn call_callable_expr() {
+        check_in_root_file(
+            r#"
+                fn main() {
+                    let a = 10;
+                    a();
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    let a = 10; //: int
+                    a(); //: <unknown>
+                }
+
+                ---
+                error NotCallable: found_callee_ty: int, found_callee_symbol: a
+                ---
+                error Type is unknown: expr: a()
+            "#]],
+        );
+    }
+
+    #[test]
+    fn mismatched_arg_len() {
+        check_pod_start_with_root_file(
+            r#"
+                //- /main.nail
+                fn main() {
+                    callee(10);
+                    callee(10, "a");
+                    callee(10, "a", 30);
+                }
+                fn callee(a: int, b: string) -> int {
+                    10
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    fn:callee(10); //: int
+                    fn:callee(10, "a"); //: int
+                    fn:callee(10, "a", 30); //: int
+                }
+                fn callee(a: int, b: string) -> int {
+                    expr:10 //: int
+                }
+
+                ---
+                error MismatchedCallArgCount: expected_arg_count: 2, found_arg_count: 1
+                error MismatchedCallArgCount: expected_arg_count: 2, found_arg_count: 3
                 ---
             "#]],
         );

@@ -1748,8 +1748,8 @@ mod tests {
                 }
 
                 ---
-                error MismatchedReturnType: expected_ty: int, found_ty: int
                 error MismatchedReturnType: expected_ty: int, found_ty: !, found_expr: return
+                error MismatchedReturnType: expected_ty: int, found_ty: ()
                 ---
             "#]],
         );

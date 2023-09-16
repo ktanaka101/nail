@@ -364,8 +364,8 @@ impl<'a> InferBody<'a> {
                 } else {
                     // 何も指定しない場合は Unit を返すものとして扱う
                     self.unifier.unify(
-                        &Monotype::Unit,
                         &self.signature.return_type(self.db),
+                        &Monotype::Unit,
                         &UnifyPurpose::ReturnValue {
                             expected_signature: self.signature,
                             found_return_expr: None,

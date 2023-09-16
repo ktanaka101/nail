@@ -56,6 +56,7 @@ pub enum InferenceError {
         /// 実際の引数の位置(0-indexed)
         arg_pos: usize,
     },
+    /// 数値をとる二項演算子の型が一致しない
     MismatchedBinaryInteger {
         /// 期待される型
         expected_int_ty: Monotype,
@@ -66,6 +67,7 @@ pub enum InferenceError {
         /// 演算子
         op: ast::BinaryOp,
     },
+    /// 比較演算子の型が一致しない
     MismatchedBinaryCompare {
         /// 期待される型
         compare_from_ty: Monotype,
@@ -78,6 +80,7 @@ pub enum InferenceError {
         /// 演算子
         op: ast::BinaryOp,
     },
+    /// 単項演算子の型が一致しない
     MismatchedUnary {
         /// 期待される型
         expected_ty: Monotype,

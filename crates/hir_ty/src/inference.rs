@@ -14,6 +14,7 @@ pub use types::Monotype;
 
 use crate::HirTyMasterDatabase;
 
+/// Pod全体の型推論を行う
 pub fn infer_pods(db: &dyn HirTyMasterDatabase, pods: &hir::Pods) -> InferenceResult {
     let mut signature_by_function = HashMap::<hir::Function, Signature>::new();
     for (hir_file, function) in pods.root_pod.all_functions(db) {

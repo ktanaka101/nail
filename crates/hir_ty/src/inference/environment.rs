@@ -11,13 +11,17 @@ use super::{
 };
 use crate::HirTyMasterDatabase;
 
+/// 関数シグネチャ
 #[salsa::tracked]
 pub struct Signature {
+    /// 関数のパラメータ
     #[return_ref]
     pub params: Vec<Monotype>,
+    /// 関数の戻り値
     pub return_type: Monotype,
 }
 
+/// 関数内を型推論します。
 pub(crate) struct InferBody<'a> {
     db: &'a dyn HirTyMasterDatabase,
     pods: &'a hir::Pods,
@@ -28,8 +32,14 @@ pub(crate) struct InferBody<'a> {
     unifier: TypeUnifier,
     cxt: Context,
 
+    /// 環境のスタック
+    ///
+    /// スコープを入れ子にするために使用しています。
+    /// スコープに入る時にpushし、スコープから抜ける時はpopします。
     env_stack: Vec<Environment>,
     signature_by_function: &'a HashMap<hir::Function, Signature>,
+
+    /// 推論結果の式の型を記録するためのマップ
     type_by_expr: HashMap<hir::ExprId, Monotype>,
 }
 impl<'a> InferBody<'a> {
@@ -106,7 +116,7 @@ impl<'a> InferBody<'a> {
             hir::Stmt::VariableDef { name, value } => {
                 let ty = self.infer_expr(*value);
                 let ty_scheme = TypeScheme::new(ty);
-                self.mut_current_scope().bindings.insert(*name, ty_scheme);
+                self.mut_current_scope().insert(*name, ty_scheme);
             }
             hir::Stmt::ExprStmt {
                 expr,
@@ -125,7 +135,7 @@ impl<'a> InferBody<'a> {
                 self.infer_type(&param.ty)
             }
             hir::Symbol::Local { name, expr: _ } => {
-                let ty_scheme = self.current_scope().bindings.get(name).cloned();
+                let ty_scheme = self.current_scope().get(name).cloned();
                 if let Some(ty_scheme) = ty_scheme {
                     ty_scheme.instantiate(&mut self.cxt)
                 } else {
@@ -403,18 +413,21 @@ impl<'a> InferBody<'a> {
     }
 }
 
+/// Pod全体の型推論結果
 #[derive(Debug)]
 pub struct InferenceResult {
     pub signature_by_function: HashMap<hir::Function, Signature>,
     pub inference_body_result_by_function: HashMap<hir::Function, InferenceBodyResult>,
 }
 
+/// 関数内の型推論結果
 #[derive(Debug)]
 pub struct InferenceBodyResult {
     pub type_by_expr: HashMap<hir::ExprId, Monotype>,
     pub errors: Vec<InferenceError>,
 }
 
+/// Hindley-Milner型システムにおける型環境
 #[derive(Default)]
 pub struct Environment {
     bindings: HashMap<hir::Name, TypeScheme>,
@@ -444,16 +457,25 @@ impl Environment {
 
     fn with(&self) -> Environment {
         let mut copy = HashMap::<hir::Name, TypeScheme>::new();
+        // FIXME: clone かつサイズが不定なので遅いかも。
         copy.extend(self.bindings.clone());
 
         Environment { bindings: copy }
     }
 
+    fn get(&self, name: &hir::Name) -> Option<&TypeScheme> {
+        self.bindings.get(name)
+    }
+
+    fn insert(&mut self, name: hir::Name, ty_scheme: TypeScheme) {
+        self.bindings.insert(name, ty_scheme);
+    }
+
     #[allow(dead_code)]
     fn generalize(&self, ty: &Monotype, db: &dyn HirTyMasterDatabase) -> TypeScheme {
-        TypeScheme {
-            variables: ty.free_variables(db).sub(&self.free_variables(db)),
-            ty: ty.clone(),
-        }
+        TypeScheme::new_with_variables(
+            ty.clone(),
+            ty.free_variables(db).sub(&self.free_variables(db)),
+        )
     }
 }

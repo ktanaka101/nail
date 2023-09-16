@@ -6,9 +6,15 @@ use std::{
 use super::{environment::Context, types::Monotype};
 use crate::HirTyMasterDatabase;
 
+/// Hindley-Milner型推論における型スキーマ
+///
+/// 型変数を持つことができる型のテンプレートのようなものです。
+/// 現時点(2023-09-16)では型変数をサポートしていないため使用していません。
 #[derive(Clone)]
 pub struct TypeScheme {
+    /// `ty`が持つ型変数の集合
     pub variables: HashSet<u32>,
+    /// 型
     pub ty: Monotype,
 }
 
@@ -18,6 +24,10 @@ impl TypeScheme {
             variables: HashSet::new(),
             ty,
         }
+    }
+
+    pub fn new_with_variables(ty: Monotype, variables: HashSet<u32>) -> TypeScheme {
+        TypeScheme { variables, ty }
     }
 
     #[allow(dead_code)]

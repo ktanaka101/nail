@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use super::{environment::Context, type_scheme::TypeSubstitution, Signature};
 use crate::HirTyMasterDatabase;
 
+/// 単一の型
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Monotype {
     Integer,
@@ -17,13 +18,13 @@ pub enum Monotype {
 }
 
 impl Monotype {
-    pub fn gen_variable(cxt: &mut Context) -> Self {
+    pub(crate) fn gen_variable(cxt: &mut Context) -> Self {
         let monotype = Self::Variable(cxt.gen_counter);
         cxt.gen_counter += 1;
         monotype
     }
 
-    pub fn free_variables(&self, db: &dyn HirTyMasterDatabase) -> HashSet<u32> {
+    pub(crate) fn free_variables(&self, db: &dyn HirTyMasterDatabase) -> HashSet<u32> {
         match self {
             Monotype::Variable(id) => {
                 let mut set = HashSet::new();
@@ -43,7 +44,7 @@ impl Monotype {
         }
     }
 
-    pub fn apply(&self, subst: &TypeSubstitution) -> Monotype {
+    pub(crate) fn apply(&self, subst: &TypeSubstitution) -> Monotype {
         match self {
             Monotype::Integer
             | Monotype::Bool

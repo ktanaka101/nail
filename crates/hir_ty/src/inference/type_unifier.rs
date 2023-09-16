@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use super::{error::InferenceError, types::Monotype, Signature};
 
+/// 型の統一を行うための構造体
 #[derive(Default, Debug)]
 pub(crate) struct TypeUnifier {
     pub(crate) nodes: HashMap<Monotype, Node>,
@@ -140,11 +141,11 @@ fn build_unify_error_from_unify_purpose(
 }
 
 impl TypeUnifier {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Default::default()
     }
 
-    pub fn find(&mut self, ty: &Monotype) -> Monotype {
+    pub(crate) fn find(&mut self, ty: &Monotype) -> Monotype {
         let node = self.nodes.get(ty);
         if let Some(node) = node {
             node.topmost_parent().value
@@ -154,7 +155,12 @@ impl TypeUnifier {
         }
     }
 
-    pub fn unify(&mut self, a_expected: &Monotype, b_actual: &Monotype, purpose: &UnifyPurpose) {
+    pub(crate) fn unify(
+        &mut self,
+        a_expected: &Monotype,
+        b_actual: &Monotype,
+        purpose: &UnifyPurpose,
+    ) {
         let a_rep = self.find(a_expected);
         let b_rep = self.find(b_actual);
 

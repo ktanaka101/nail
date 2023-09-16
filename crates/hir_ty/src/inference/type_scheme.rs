@@ -30,7 +30,7 @@ impl TypeScheme {
     }
 
     /// 具体的な型を生成する
-    pub fn instantiate(&self, db: &dyn HirTyMasterDatabase, cxt: &mut Context) -> Monotype {
+    pub fn instantiate(&self, cxt: &mut Context) -> Monotype {
         let new_vars = self
             .variables
             .iter()

@@ -127,7 +127,7 @@ impl<'a> InferBody<'a> {
             hir::Symbol::Local { name, expr: _ } => {
                 let ty_scheme = self.current_scope().bindings.get(name).cloned();
                 if let Some(ty_scheme) = ty_scheme {
-                    ty_scheme.instantiate(self.db, &mut self.cxt)
+                    ty_scheme.instantiate(&mut self.cxt)
                 } else {
                     panic!("Unbound variable {symbol:?}");
                 }

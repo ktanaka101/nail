@@ -113,10 +113,10 @@ impl<'a> InferBody<'a> {
 
     fn infer_stmt(&mut self, stmt: &hir::Stmt) {
         match stmt {
-            hir::Stmt::VariableDef { name, value } => {
+            hir::Stmt::VariableDef { name: _, value } => {
                 let ty = self.infer_expr(*value);
                 let ty_scheme = TypeScheme::new(ty);
-                self.mut_current_scope().insert(*name, ty_scheme);
+                self.mut_current_scope().insert(*value, ty_scheme);
             }
             hir::Stmt::ExprStmt {
                 expr,
@@ -134,8 +134,8 @@ impl<'a> InferBody<'a> {
                 let param = param.data(self.hir_file.db(self.db));
                 self.infer_type(&param.ty)
             }
-            hir::Symbol::Local { name, expr: _ } => {
-                let ty_scheme = self.current_scope().get(name).cloned();
+            hir::Symbol::Local { name: _, expr } => {
+                let ty_scheme = self.current_scope().get(expr).cloned();
                 if let Some(ty_scheme) = ty_scheme {
                     ty_scheme.instantiate(&mut self.cxt)
                 } else {
@@ -430,7 +430,7 @@ pub struct InferenceBodyResult {
 /// Hindley-Milner型システムにおける型環境
 #[derive(Default)]
 pub struct Environment {
-    bindings: HashMap<hir::Name, TypeScheme>,
+    bindings: HashMap<hir::ExprId, TypeScheme>,
 }
 
 #[derive(Default)]
@@ -456,19 +456,19 @@ impl Environment {
     }
 
     fn with(&self) -> Environment {
-        let mut copy = HashMap::<hir::Name, TypeScheme>::new();
+        let mut copy = HashMap::new();
         // FIXME: clone かつサイズが不定なので遅いかも。
         copy.extend(self.bindings.clone());
 
         Environment { bindings: copy }
     }
 
-    fn get(&self, name: &hir::Name) -> Option<&TypeScheme> {
-        self.bindings.get(name)
+    fn get(&self, expr: &hir::ExprId) -> Option<&TypeScheme> {
+        self.bindings.get(expr)
     }
 
-    fn insert(&mut self, name: hir::Name, ty_scheme: TypeScheme) {
-        self.bindings.insert(name, ty_scheme);
+    fn insert(&mut self, expr: hir::ExprId, ty_scheme: TypeScheme) {
+        self.bindings.insert(expr, ty_scheme);
     }
 
     #[allow(dead_code)]

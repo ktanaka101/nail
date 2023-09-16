@@ -305,6 +305,12 @@ mod tests {
                                 self.debug_symbol(found_callee_symbol),
                             ));
                         }
+                        InferenceError::ModuleAsExpr { found_module } => {
+                            msg.push_str(&format!(
+                                "error ModuleAsExpr: found_module: {}",
+                                found_module.name(self.db).text(self.db)
+                            ));
+                        }
                     }
                     msg.push('\n');
                 }
@@ -460,7 +466,11 @@ mod tests {
             let path_name = self.debug_path(use_item.path(self.db));
             let item_name = use_item.name(self.db).text(self.db);
 
-            format!("{path_name}::{item_name}")
+            if path_name.is_empty() {
+                format!("use {item_name};\n")
+            } else {
+                format!("use {path_name}::{item_name};\n")
+            }
         }
 
         fn debug_item(&self, hir_file: hir::HirFile, item: hir::Item, nesting: usize) -> String {
@@ -761,8 +771,17 @@ mod tests {
                         hir::Item::Module(_) => {
                             format!("mod:{path}")
                         }
-                        hir::Item::UseItem(_) => {
-                            unreachable!()
+                        hir::Item::UseItem(use_item) => {
+                            let item = self
+                                .pods
+                                .resolution_map
+                                .item_by_use_item(&use_item)
+                                .unwrap();
+                            format!(
+                                "{}::{}",
+                                self.debug_resolution_status(item),
+                                use_item.name(self.db).text(self.db)
+                            )
                         }
                     }
                 }
@@ -1950,6 +1969,85 @@ mod tests {
                 error MismatchedCallArgCount: expected_arg_count: 2, found_arg_count: 1
                 error MismatchedCallArgCount: expected_arg_count: 2, found_arg_count: 3
                 ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn symbol_to_module() {
+        check_pod_start_with_root_file(
+            r#"
+                //- /main.nail
+                fn main() {
+                    aaa;
+                    aaa::bbb;
+                }
+
+                mod aaa {
+                    mod bbb {
+                    }
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    mod:aaa; //: <unknown>
+                    mod:aaa::bbb; //: <unknown>
+                }
+                mod aaa {
+                    mod bbb {
+                    }
+                }
+
+                ---
+                error ModuleAsExpr: found_module: aaa
+                error ModuleAsExpr: found_module: bbb
+                ---
+                error Type is unknown: expr: mod:aaa
+                error Type is unknown: expr: mod:aaa::bbb
+            "#]],
+        );
+    }
+
+    /// unimplements hir
+    #[test]
+    fn symbol_to_use_item() {
+        check_pod_start_with_root_file(
+            r#"
+                //- /main.nail
+                mod aaa;
+                use aaa:bbb;
+                fn main() -> int {
+                    bbb()
+                }
+
+                //- /aaa.nail
+                mod aaa {
+                    fn bbb() -> int {
+                        10
+                    }
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                mod aaa;
+                use aaa;
+                fn entry:main() -> int {
+                    expr:<missing>() //: <unknown>
+                }
+
+                //- /aaa.nail
+                mod aaa {
+                    fn bbb() -> int {
+                        expr:10 //: int
+                    }
+                }
+
+                ---
+                error NotCallable: found_callee_ty: <unknown>, found_callee_symbol: <missing>
+                error MismatchedReturnType: expected_ty: int, found_ty: <unknown>, found_expr: <missing>()
+                ---
+                error Type is unknown: expr: <missing>()
             "#]],
         );
     }

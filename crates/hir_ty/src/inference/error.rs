@@ -118,4 +118,9 @@ pub enum InferenceError {
         /// 呼び出し対象のシンボル
         found_callee_symbol: hir::Symbol,
     },
+    /// モジュールが式として型推論されようとしている
+    ModuleAsExpr {
+        /// 実際のモジュール
+        found_module: hir::Module,
+    },
 }

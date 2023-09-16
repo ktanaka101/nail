@@ -143,34 +143,40 @@ impl<'a> InferBody<'a> {
                 }
             }
             hir::Symbol::Missing { path } => {
-                let item = self.pods.resolution_map.item_by_symbol(path).unwrap();
-                match item {
-                    hir::ResolutionStatus::Unresolved | hir::ResolutionStatus::Error => {
-                        // 解決できないエラーを追加
-                        Monotype::Unknown
-                    }
-                    hir::ResolutionStatus::Resolved { path: _, item } => {
-                        match item {
-                            hir::Item::Function(function) => {
-                                let signature = self.signature_by_function.get(&function);
-                                if let Some(signature) = signature {
-                                    Monotype::Function(*signature)
-                                } else {
-                                    unreachable!("Function signature should be resolved.")
-                                }
-                            }
-                            hir::Item::Module(_) => {
-                                // モジュールを型推論使用としているエラーを追加
-                                Monotype::Unknown
-                            }
-                            hir::Item::UseItem(_) => {
-                                // 使用宣言を型推論使用としているエラーを追加
-                                Monotype::Unknown
-                            }
+                let resolution_status = self.pods.resolution_map.item_by_symbol(path).unwrap();
+                match self.resolve_resolution_status(resolution_status) {
+                    Some(item) => match item {
+                        hir::Item::Function(function) => {
+                            let signature = self.signature_by_function.get(&function).unwrap();
+                            Monotype::Function(*signature)
                         }
-                    }
+                        hir::Item::Module(module) => {
+                            self.unifier.add_error(InferenceError::ModuleAsExpr {
+                                found_module: module,
+                            });
+                            Monotype::Unknown
+                        }
+                        hir::Item::UseItem(_) => unreachable!("UseItem should be resolved."),
+                    },
+                    None => Monotype::Unknown,
                 }
             }
+        }
+    }
+
+    fn resolve_resolution_status(
+        &self,
+        resolution_status: hir::ResolutionStatus,
+    ) -> Option<hir::Item> {
+        match resolution_status {
+            hir::ResolutionStatus::Unresolved | hir::ResolutionStatus::Error => None,
+            hir::ResolutionStatus::Resolved { path: _, item } => match item {
+                hir::Item::Function(_) | hir::Item::Module(_) => Some(item),
+                hir::Item::UseItem(use_item) => {
+                    let resolution_status = self.pods.resolution_map.item_by_use_item(&use_item)?;
+                    self.resolve_resolution_status(resolution_status)
+                }
+            },
         }
     }
 

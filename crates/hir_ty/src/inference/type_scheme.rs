@@ -3,7 +3,10 @@ use std::{
     iter::FromIterator,
 };
 
-use super::{environment::Context, types::Monotype};
+use super::{
+    environment::{Context, VariableId},
+    types::Monotype,
+};
 use crate::HirTyMasterDatabase;
 
 /// Hindley-Milner型推論における型スキーマ
@@ -13,7 +16,7 @@ use crate::HirTyMasterDatabase;
 #[derive(Clone)]
 pub struct TypeScheme {
     /// `ty`が持つ型変数の集合
-    pub variables: HashSet<u32>,
+    pub variables: HashSet<VariableId>,
     /// 型
     pub ty: Monotype,
 }
@@ -26,12 +29,12 @@ impl TypeScheme {
         }
     }
 
-    pub fn new_with_variables(ty: Monotype, variables: HashSet<u32>) -> TypeScheme {
+    pub fn new_with_variables(ty: Monotype, variables: HashSet<VariableId>) -> TypeScheme {
         TypeScheme { variables, ty }
     }
 
     #[allow(dead_code)]
-    pub fn free_variables(&self, db: &dyn HirTyMasterDatabase) -> HashSet<u32> {
+    pub fn free_variables(&self, db: &dyn HirTyMasterDatabase) -> HashSet<VariableId> {
         self.ty
             .free_variables(db)
             .into_iter()
@@ -56,11 +59,11 @@ impl TypeScheme {
 
 #[derive(Default)]
 pub struct TypeSubstitution {
-    pub replacements: HashMap<u32, Monotype>,
+    pub replacements: HashMap<VariableId, Monotype>,
 }
 
 impl TypeSubstitution {
-    pub fn lookup(&self, id: u32) -> Option<Monotype> {
+    pub fn lookup(&self, id: VariableId) -> Option<Monotype> {
         self.replacements.get(&id).cloned()
     }
 }

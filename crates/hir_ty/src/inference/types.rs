@@ -1,6 +1,10 @@
 use std::collections::HashSet;
 
-use super::{environment::Context, type_scheme::TypeSubstitution, Signature};
+use super::{
+    environment::{Context, VariableId},
+    type_scheme::TypeSubstitution,
+    Signature,
+};
 use crate::HirTyMasterDatabase;
 
 /// 単一の型
@@ -11,7 +15,7 @@ pub enum Monotype {
     Unit,
     Char,
     String,
-    Variable(u32),
+    Variable(VariableId),
     Function(Signature),
     Never,
     Unknown,
@@ -19,12 +23,10 @@ pub enum Monotype {
 
 impl Monotype {
     pub(crate) fn gen_variable(cxt: &mut Context) -> Self {
-        let monotype = Self::Variable(cxt.gen_counter);
-        cxt.gen_counter += 1;
-        monotype
+        Monotype::Variable(cxt.gen_id())
     }
 
-    pub(crate) fn free_variables(&self, db: &dyn HirTyMasterDatabase) -> HashSet<u32> {
+    pub(crate) fn free_variables(&self, db: &dyn HirTyMasterDatabase) -> HashSet<VariableId> {
         match self {
             Monotype::Variable(id) => {
                 let mut set = HashSet::new();

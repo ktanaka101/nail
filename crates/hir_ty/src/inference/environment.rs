@@ -433,9 +433,27 @@ pub struct Environment {
     bindings: HashMap<hir::ExprId, TypeScheme>,
 }
 
+/// 型変数のID
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct VariableId(u32);
+impl std::fmt::Display for VariableId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "_{}", self.0)
+    }
+}
+
 #[derive(Default)]
 pub struct Context {
-    pub gen_counter: u32,
+    gen_counter: u32,
+}
+impl Context {
+    /// IDを生成します。IDは生成時に自動的にインクリメントされます。
+    pub(crate) fn gen_id(&mut self) -> VariableId {
+        let id = self.gen_counter;
+        self.gen_counter += 1;
+
+        VariableId(id)
+    }
 }
 
 impl Environment {
@@ -446,8 +464,8 @@ impl Environment {
     }
 
     #[allow(dead_code)]
-    fn free_variables(&self, db: &dyn HirTyMasterDatabase) -> HashSet<u32> {
-        let mut union = HashSet::<u32>::new();
+    fn free_variables(&self, db: &dyn HirTyMasterDatabase) -> HashSet<VariableId> {
+        let mut union = HashSet::new();
         for type_scheme in self.bindings.values() {
             union.extend(type_scheme.free_variables(db));
         }

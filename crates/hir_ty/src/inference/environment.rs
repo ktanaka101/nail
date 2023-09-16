@@ -68,12 +68,17 @@ impl<'a> InferBody<'a> {
 
     pub(crate) fn infer_body(mut self) -> InferenceBodyResult {
         let hir::Expr::Block(body) = self.hir_file.function_body_by_function(self.db, self.function).unwrap() else { panic!("Should be Block.") };
+        let mut has_never = false;
         for stmt in &body.stmts {
-            self.infer_stmt(stmt);
+            let is_never = self.infer_stmt(stmt);
+            if is_never {
+                has_never = true;
+            }
         }
 
         if let Some(tail) = &body.tail {
             let ty = self.infer_expr(*tail);
+            let ty = if has_never { Monotype::Never } else { ty };
             self.unifier.unify(
                 &self.signature.return_type(self.db),
                 &ty,
@@ -83,7 +88,11 @@ impl<'a> InferBody<'a> {
                 },
             );
         } else {
-            let ty = Monotype::Unit;
+            let ty = if has_never {
+                Monotype::Never
+            } else {
+                Monotype::Unit
+            };
             self.unifier.unify(
                 &self.signature.return_type(self.db),
                 &ty,
@@ -111,21 +120,22 @@ impl<'a> InferBody<'a> {
         }
     }
 
-    fn infer_stmt(&mut self, stmt: &hir::Stmt) {
-        match stmt {
+    fn infer_stmt(&mut self, stmt: &hir::Stmt) -> bool {
+        let ty = match stmt {
             hir::Stmt::VariableDef { name: _, value } => {
                 let ty = self.infer_expr(*value);
-                let ty_scheme = TypeScheme::new(ty);
+                let ty_scheme = TypeScheme::new(ty.clone());
                 self.mut_current_scope().insert(*value, ty_scheme);
+                ty
             }
             hir::Stmt::ExprStmt {
                 expr,
                 has_semicolon: _,
-            } => {
-                self.infer_expr(*expr);
-            }
-            hir::Stmt::Item { .. } => (),
-        }
+            } => self.infer_expr(*expr),
+            hir::Stmt::Item { .. } => return false,
+        };
+
+        ty == Monotype::Never
     }
 
     fn infer_symbol(&mut self, symbol: &hir::Symbol) -> Monotype {
@@ -322,8 +332,12 @@ impl<'a> InferBody<'a> {
             hir::Expr::Block(block) => {
                 self.entry_scope();
 
+                let mut has_never = false;
                 for stmt in &block.stmts {
-                    self.infer_stmt(stmt);
+                    let is_never = self.infer_stmt(stmt);
+                    if is_never {
+                        has_never = true;
+                    }
                 }
 
                 let ty = if let Some(tail) = &block.tail {
@@ -332,10 +346,17 @@ impl<'a> InferBody<'a> {
                     // 最後の式がない場合は Unit として扱う
                     Monotype::Unit
                 };
+                if ty == Monotype::Never {
+                    has_never = true;
+                }
 
                 self.exit_scope();
 
-                ty
+                if has_never {
+                    Monotype::Never
+                } else {
+                    ty
+                }
             }
             hir::Expr::If {
                 condition,
@@ -352,16 +373,18 @@ impl<'a> InferBody<'a> {
                 );
 
                 let then_ty = self.infer_expr(*then_branch);
+                let mut else_ty: Option<Monotype> = None;
                 if let Some(else_branch) = else_branch {
-                    let else_ty = self.infer_expr(*else_branch);
+                    let ty = self.infer_expr(*else_branch);
                     self.unifier.unify(
                         &then_ty,
-                        &else_ty,
+                        &ty,
                         &UnifyPurpose::IfThenElseBranch {
                             found_then_branch_expr: *then_branch,
                             found_else_branch_expr: *else_branch,
                         },
                     );
+                    else_ty = Some(ty);
                 } else {
                     // elseブランチがない場合は Unit として扱う
                     self.unifier.unify(
@@ -373,7 +396,17 @@ impl<'a> InferBody<'a> {
                     );
                 }
 
-                then_ty
+                if let Some(else_ty) = else_ty {
+                    if then_ty == Monotype::Never {
+                        else_ty
+                    } else {
+                        then_ty
+                    }
+                } else if then_ty == Monotype::Never {
+                    Monotype::Never
+                } else {
+                    then_ty
+                }
             }
             hir::Expr::Return { value } => {
                 if let Some(return_value) = value {

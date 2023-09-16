@@ -1669,12 +1669,36 @@ mod tests {
                         return 10; //: !
                     } else {
                         expr:true //: bool
-                    }; //: ()
+                    }; //: bool
                     expr:20 //: int
                 }
 
                 ---
-                error MismatchedTypeElseBranch: then_branch_ty: (), else_branch_ty: bool, then_branch: `{ tail:none }`, else_branch: `{ tail:true }`
+                ---
+            "#]],
+        );
+
+        check_in_root_file(
+            r#"
+                fn main() -> int {
+                    if true {
+                        return 10;
+                    } else {
+                        20
+                    }
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> int {
+                    expr:if true {
+                        return 10; //: !
+                    } else {
+                        expr:20 //: int
+                    } //: int
+                }
+
+                ---
                 ---
             "#]],
         );
@@ -1704,7 +1728,6 @@ mod tests {
                 }
 
                 ---
-                error MismatchedTypeElseBranch: then_branch_ty: bool, else_branch_ty: (), then_branch: `{ tail:true }`, else_branch: `{ tail:none }`
                 ---
             "#]],
         );
@@ -1729,7 +1752,7 @@ mod tests {
                         return 10; //: !
                     } else {
                         return 20; //: !
-                    }; //: ()
+                    }; //: !
                     expr:30 //: int
                 }
 

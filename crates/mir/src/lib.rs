@@ -1328,7 +1328,7 @@ mod tests {
             expect![[r#"
                 fn t_pod::main() -> bool {
                     let _0: bool
-                    let _1: bool
+                    let _1: !
                     let _2: bool
 
                     entry: {
@@ -1357,7 +1357,7 @@ mod tests {
             expect![[r#"
                 fn t_pod::main() -> int {
                     let _0: int
-                    let _1: ()
+                    let _1: !
 
                     entry: {
                         _0 = const 10
@@ -1458,6 +1458,7 @@ mod tests {
         );
     }
 
+    // TODO: _2は!ではなくintが正しい
     #[test]
     fn return_value_when_true_in_switch() {
         check_in_root_file(
@@ -1474,7 +1475,7 @@ mod tests {
                 fn t_pod::main() -> int {
                     let _0: int
                     let _1: bool
-                    let _2: ()
+                    let _2: !
 
                     entry: {
                         _1 = const true

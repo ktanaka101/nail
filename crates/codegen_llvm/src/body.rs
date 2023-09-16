@@ -46,7 +46,7 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                 hir_ty::Monotype::String => self.codegen.string_type().into(),
                 hir_ty::Monotype::Bool => self.codegen.bool_type().into(),
                 hir_ty::Monotype::Char => todo!(),
-                hir_ty::Monotype::Never => todo!(),
+                hir_ty::Monotype::Never => self.codegen.unit_type().into(),
                 hir_ty::Monotype::Function(_) => todo!(),
                 hir_ty::Monotype::Variable(_) => unreachable!(""),
                 hir_ty::Monotype::Unknown => unreachable!(),

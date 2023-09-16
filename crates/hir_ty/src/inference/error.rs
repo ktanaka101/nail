@@ -7,22 +7,21 @@ pub enum InferenceError {
     MismatchedTypes {
         /// 期待される型
         expected_ty: Monotype,
-        /// 実際の型
-        found_ty: Monotype,
-
         /// 期待される式
         expected_expr: hir::ExprId,
+        /// 実際の型
+        found_ty: Monotype,
         /// 実際の式
         found_expr: hir::ExprId,
     },
     /// Ifの条件式の型が一致しない
     MismatchedTypeIfCondition {
         /// 期待される型
-        expected_ty: Monotype,
-        /// 実際の式
-        found_expr: hir::ExprId,
+        expected_condition_bool_ty: Monotype,
         /// 実際の型
-        found_ty: Monotype,
+        found_condition_ty: Monotype,
+        /// 実際の式
+        found_condition_expr: hir::ExprId,
     },
     /// Ifのthenブランチとelseブランチの型が一致しない
     MismatchedTypeElseBranch {
@@ -41,6 +40,8 @@ pub enum InferenceError {
         then_branch_ty: Monotype,
         /// thenブランチの式
         then_branch: hir::ExprId,
+        /// elseブランチの型
+        else_branch_unit_ty: Monotype,
     },
     /// 関数呼び出しの引数の数が一致しない
     MismaatchedSignature {
@@ -55,7 +56,7 @@ pub enum InferenceError {
     },
     MismatchedBinaryInteger {
         /// 期待される型
-        expected_ty: Monotype,
+        expected_int_ty: Monotype,
         /// 実際の式
         found_expr: hir::ExprId,
         /// 実際の型
@@ -65,23 +66,23 @@ pub enum InferenceError {
     },
     MismatchedBinaryCompare {
         /// 期待される型
-        expected_ty: Monotype,
+        compare_from_ty: Monotype,
         /// 期待される型を持つ式
-        expected_expr: hir::ExprId,
-        /// 実際の式
-        found_expr: hir::ExprId,
+        compare_from_expr: hir::ExprId,
         /// 実際の型
-        found_ty: Monotype,
+        compare_to_ty: Monotype,
+        /// 実際の式
+        compare_to_expr: hir::ExprId,
         /// 演算子
         op: ast::BinaryOp,
     },
     MismatchedUnary {
         /// 期待される型
         expected_ty: Monotype,
-        /// 実際の式
-        found_expr: hir::ExprId,
         /// 実際の型
         found_ty: Monotype,
+        /// 実際の式
+        found_expr: hir::ExprId,
         /// 演算子
         op: ast::UnaryOp,
     },
@@ -96,6 +97,6 @@ pub enum InferenceError {
         /// 実際の型
         found_ty: Monotype,
         /// 実際の式
-        found_expr: Option<hir::ExprId>,
+        found_return_expr: Option<hir::ExprId>,
     },
 }

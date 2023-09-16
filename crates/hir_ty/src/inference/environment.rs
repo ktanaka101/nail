@@ -65,21 +65,21 @@ impl<'a> InferBody<'a> {
         if let Some(tail) = &body.tail {
             let ty = self.infer_expr(*tail);
             self.unifier.unify(
-                &ty,
                 &self.signature.return_type(self.db),
-                &UnifyPurpose::SelfReturnType {
+                &ty,
+                &UnifyPurpose::ReturnValue {
                     expected_signature: self.signature,
-                    found_expr: Some(*tail),
+                    found_return_expr: Some(*tail),
                 },
             );
         } else {
             let ty = Monotype::Unit;
             self.unifier.unify(
-                &ty,
                 &self.signature.return_type(self.db),
-                &UnifyPurpose::SelfReturnType {
+                &ty,
+                &UnifyPurpose::ReturnValue {
                     expected_signature: self.signature,
-                    found_expr: None,
+                    found_return_expr: None,
                 },
             );
         };
@@ -202,17 +202,17 @@ impl<'a> InferBody<'a> {
                             // TODO: 引数の数が異なるエラーを追加
                             Monotype::Unknown
                         } else {
-                            for ((call_arg, call_arg_ty), arg) in call_args
+                            for ((call_arg, call_arg_ty), signature_arg_ty) in call_args
                                 .iter()
                                 .zip(call_args_ty)
                                 .zip(signature.params(self.db))
                             {
                                 self.unifier.unify(
+                                    signature_arg_ty,
                                     &call_arg_ty,
-                                    arg,
                                     &UnifyPurpose::CallArg {
                                         found_arg: *call_arg,
-                                        expected_signature: signature,
+                                        callee_signature: signature,
                                     },
                                 );
                             }
@@ -257,8 +257,8 @@ impl<'a> InferBody<'a> {
                         &lhs_ty,
                         &rhs_ty,
                         &UnifyPurpose::BinaryCompare {
-                            expected_expr: *lhs,
-                            found_expr: *rhs,
+                            found_compare_from_expr: *lhs,
+                            found_compare_to_expr: *rhs,
                             op: op.clone(),
                         },
                     );
@@ -322,7 +322,7 @@ impl<'a> InferBody<'a> {
                     &Monotype::Bool,
                     &condition_ty,
                     &UnifyPurpose::IfCondition {
-                        found_expr: *condition,
+                        found_condition_expr: *condition,
                     },
                 );
 
@@ -333,17 +333,17 @@ impl<'a> InferBody<'a> {
                         &then_ty,
                         &else_ty,
                         &UnifyPurpose::IfThenElseBranch {
-                            expected_expr: *then_branch,
-                            found_expr: *else_branch,
+                            found_then_branch_expr: *then_branch,
+                            found_else_branch_expr: *else_branch,
                         },
                     );
                 } else {
                     // elseブランチがない場合は Unit として扱う
                     self.unifier.unify(
-                        &then_ty,
                         &Monotype::Unit,
+                        &then_ty,
                         &UnifyPurpose::IfThenOnlyBranch {
-                            found_expr: *then_branch,
+                            found_then_branch_expr: *then_branch,
                         },
                     );
                 }
@@ -354,11 +354,11 @@ impl<'a> InferBody<'a> {
                 if let Some(return_value) = value {
                     let ty = self.infer_expr(*return_value);
                     self.unifier.unify(
-                        &ty,
                         &self.signature.return_type(self.db),
+                        &ty,
                         &UnifyPurpose::ReturnValue {
                             expected_signature: self.signature,
-                            found_expr: Some(*return_value),
+                            found_return_expr: Some(*return_value),
                         },
                     );
                 } else {
@@ -368,7 +368,7 @@ impl<'a> InferBody<'a> {
                         &self.signature.return_type(self.db),
                         &UnifyPurpose::ReturnValue {
                             expected_signature: self.signature,
-                            found_expr: None,
+                            found_return_expr: None,
                         },
                     );
                 }

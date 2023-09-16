@@ -9,56 +9,56 @@ pub(crate) struct TypeUnifier {
 }
 
 /// 型推論の目的
+///
+/// エラーを具体的に収集するために使用されます。
 pub(crate) enum UnifyPurpose {
     CallArg {
         /// 関数呼び出し対象のシグネチャ
-        expected_signature: Signature,
-        /// 実際に得られた型を持つ式
+        callee_signature: Signature,
+        /// 引数の式
         found_arg: hir::ExprId,
     },
-    SelfReturnType {
-        expected_signature: Signature,
-        found_expr: Option<hir::ExprId>,
-    },
     BinaryInteger {
-        /// 実際に得られた型を持つ式
+        /// 数値演算子の対象式
         found_expr: hir::ExprId,
         /// 演算子
         op: ast::BinaryOp,
     },
     BinaryCompare {
-        /// 期待する型を持つ式
-        expected_expr: hir::ExprId,
-        /// 実際に得られた型を持つ式
-        found_expr: hir::ExprId,
+        /// 比較元の式
+        found_compare_from_expr: hir::ExprId,
+        /// 比較先の式
+        found_compare_to_expr: hir::ExprId,
         /// 演算子
         op: ast::BinaryOp,
     },
     Unary {
-        /// 実際に得られた型を持つ式
+        /// 単行演算子の対象式
         found_expr: hir::ExprId,
         /// 演算子
         op: ast::UnaryOp,
     },
     IfCondition {
-        /// 実際に得られた型を持つ式
-        found_expr: hir::ExprId,
+        /// If条件の式
+        found_condition_expr: hir::ExprId,
     },
     IfThenElseBranch {
-        /// 期待する型を持つ式
-        expected_expr: hir::ExprId,
-        /// 実際に得られた型を持つ式
-        found_expr: hir::ExprId,
+        /// Thenブランチの式
+        found_then_branch_expr: hir::ExprId,
+        /// Elseブランチの式
+        found_else_branch_expr: hir::ExprId,
     },
     IfThenOnlyBranch {
-        /// 実際に得られた型を持つ式
-        found_expr: hir::ExprId,
+        /// Thenブランチの式
+        found_then_branch_expr: hir::ExprId,
     },
     ReturnValue {
-        /// 期待する戻り値の型を持つ関数シグネチャ
+        /// 期待する関数のシグネチャ
         expected_signature: Signature,
-        /// 実際に得られた型を持つ式
-        found_expr: Option<hir::ExprId>,
+        /// 戻り値の式
+        ///
+        /// Noneの場合は`return;`のように指定なしを表す
+        found_return_expr: Option<hir::ExprId>,
     },
 }
 
@@ -71,36 +71,28 @@ fn build_unify_error_from_unify_purpose(
     match purpose {
         UnifyPurpose::CallArg {
             found_arg,
-            expected_signature,
+            callee_signature: expected_signature,
         } => InferenceError::MismaatchedSignature {
             expected_ty,
             found_ty,
             signature: *expected_signature,
             found_expr: *found_arg,
         },
-        UnifyPurpose::SelfReturnType {
-            expected_signature,
-            found_expr,
-        } => InferenceError::MismatchedTypeReturnValue {
-            expected_signature: *expected_signature,
-            found_ty,
-            found_expr: *found_expr,
-        },
         UnifyPurpose::BinaryInteger { found_expr, op } => InferenceError::MismatchedBinaryInteger {
-            expected_ty,
+            expected_int_ty: expected_ty,
             found_ty,
             found_expr: *found_expr,
             op: op.clone(),
         },
         UnifyPurpose::BinaryCompare {
-            expected_expr,
-            found_expr,
+            found_compare_from_expr,
+            found_compare_to_expr,
             op,
         } => InferenceError::MismatchedBinaryCompare {
-            expected_ty,
-            found_ty,
-            expected_expr: *expected_expr,
-            found_expr: *found_expr,
+            compare_from_ty: expected_ty,
+            compare_to_ty: found_ty,
+            compare_from_expr: *found_compare_from_expr,
+            compare_to_expr: *found_compare_to_expr,
             op: op.clone(),
         },
         UnifyPurpose::Unary { found_expr, op } => InferenceError::MismatchedUnary {
@@ -109,32 +101,35 @@ fn build_unify_error_from_unify_purpose(
             found_expr: *found_expr,
             op: op.clone(),
         },
-        UnifyPurpose::IfCondition { found_expr } => InferenceError::MismatchedTypeIfCondition {
-            expected_ty,
-            found_ty,
-            found_expr: *found_expr,
+        UnifyPurpose::IfCondition {
+            found_condition_expr,
+        } => InferenceError::MismatchedTypeIfCondition {
+            expected_condition_bool_ty: expected_ty,
+            found_condition_ty: found_ty,
+            found_condition_expr: *found_condition_expr,
         },
         UnifyPurpose::IfThenElseBranch {
-            expected_expr,
-            found_expr,
+            found_then_branch_expr,
+            found_else_branch_expr,
         } => InferenceError::MismatchedTypeElseBranch {
             then_branch_ty: expected_ty,
-            then_branch: *expected_expr,
+            then_branch: *found_then_branch_expr,
             else_branch_ty: found_ty,
-            else_branch: *found_expr,
+            else_branch: *found_else_branch_expr,
         },
-        UnifyPurpose::IfThenOnlyBranch { found_expr } => {
-            InferenceError::MismatchedTypeOnlyIfBranch {
-                then_branch_ty: found_ty,
-                then_branch: *found_expr,
-            }
-        }
+        UnifyPurpose::IfThenOnlyBranch {
+            found_then_branch_expr,
+        } => InferenceError::MismatchedTypeOnlyIfBranch {
+            then_branch_ty: found_ty,
+            then_branch: *found_then_branch_expr,
+            else_branch_unit_ty: expected_ty,
+        },
         UnifyPurpose::ReturnValue {
             expected_signature,
-            found_expr,
+            found_return_expr,
         } => InferenceError::MismatchedTypeReturnValue {
             found_ty,
-            found_expr: *found_expr,
+            found_return_expr: *found_return_expr,
             expected_signature: *expected_signature,
         },
     }
@@ -155,9 +150,9 @@ impl TypeUnifier {
         }
     }
 
-    pub fn unify(&mut self, a: &Monotype, b: &Monotype, purpose: &UnifyPurpose) {
-        let a_rep = self.find(a);
-        let b_rep = self.find(b);
+    pub fn unify(&mut self, a_expected: &Monotype, b_actual: &Monotype, purpose: &UnifyPurpose) {
+        let a_rep = self.find(a_expected);
+        let b_rep = self.find(b_actual);
 
         if a_rep == b_rep {
             return;
@@ -177,8 +172,8 @@ impl TypeUnifier {
                 //     self.unify(a_arg, b_arg, purpose);
                 // }
             }
-            (Monotype::Variable(_), b_rep) => self.unify_var(&a_rep, b_rep),
-            (a_rep, Monotype::Variable(_)) => self.unify_var(&b_rep, a_rep),
+            (Monotype::Variable(_), b_rep) => self.unify_var(b_rep, &a_rep),
+            (a_rep, Monotype::Variable(_)) => self.unify_var(a_rep, &b_rep),
             (_, _) => {
                 self.errors
                     .push(build_unify_error_from_unify_purpose(a_rep, b_rep, purpose));
@@ -186,7 +181,7 @@ impl TypeUnifier {
         }
     }
 
-    fn unify_var(&mut self, type_var: &Monotype, term: &Monotype) {
+    fn unify_var(&mut self, term: &Monotype, type_var: &Monotype) {
         assert!(matches!(type_var, Monotype::Variable(_)));
 
         let value = Some(Box::new(self.nodes.get(term).unwrap().clone()));

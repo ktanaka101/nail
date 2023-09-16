@@ -292,8 +292,9 @@ impl<'a> FunctionLower<'a> {
                     self.current_bb = Some(switch_bb.else_bb_idx);
 
                     match else_branch {
-                        Some(else_block) => {
-                            let else_block = match else_block.lookup(self.hir_file.db(self.db)) {
+                        Some(else_block_expr) => {
+                            let else_block = match else_block_expr.lookup(self.hir_file.db(self.db))
+                            {
                                 hir::Expr::Block(block) => block,
                                 _ => unreachable!(),
                             };
@@ -319,7 +320,7 @@ impl<'a> FunctionLower<'a> {
                                                     None => {
                                                         let idxes = self
                                                             .alloc_dest_bb_and_result_local(
-                                                                *then_branch,
+                                                                *else_block_expr,
                                                             );
                                                         dest_bb_and_result_local_idx = Some(idxes);
 

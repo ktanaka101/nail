@@ -1413,7 +1413,7 @@ mod tests {
     }
 
     #[test]
-    fn return_value_when_false_in_switch() {
+    fn return_value_in_else_branch() {
         check_in_root_file(
             r#"
                 fn main() -> int {
@@ -1458,9 +1458,8 @@ mod tests {
         );
     }
 
-    // TODO: _2は!ではなくintが正しい
     #[test]
-    fn return_value_when_true_in_switch() {
+    fn return_value_in_then_branch() {
         check_in_root_file(
             r#"
                 fn main() -> int {
@@ -1475,7 +1474,7 @@ mod tests {
                 fn t_pod::main() -> int {
                     let _0: int
                     let _1: bool
-                    let _2: !
+                    let _2: int
 
                     entry: {
                         _1 = const true

@@ -12,18 +12,19 @@
 //!   例えば、`if`式は、`then`ブロックと`else`ブロックを持つ基本ブロックに変換されます。
 //!   この構造は、LLVM IRの基本ブロックと制御フローに対応しており、LLVM IRへの変換が容易になります。
 #![warn(missing_docs)]
+#![feature(trait_upcasting)]
 
 mod body;
 
 use std::collections::HashMap;
 
 use body::FunctionLower;
-use hir_ty::ResolvedType;
+use hir_ty::Monotype;
 use la_arena::{Arena, Idx};
 
 /// HIRとTyped HIRからMIRを構築する
 pub fn lower_pods(
-    db: &dyn hir::HirMasterDatabase,
+    db: &dyn hir_ty::HirTyMasterDatabase,
     pods: &hir::Pods,
     hir_ty_result: &hir_ty::TyLowerResult,
 ) -> LowerResult {
@@ -181,7 +182,7 @@ pub struct Signature {
 #[derive(Debug)]
 pub struct Param {
     /// パラメータの型
-    pub ty: ResolvedType,
+    pub ty: Monotype,
     /// パラメータのローカル変数のインデックス
     pub idx: u64,
     /// パラメータの位置
@@ -194,7 +195,7 @@ pub type ParamIdx = Idx<Param>;
 #[derive(Debug)]
 pub struct Local {
     /// ローカル変数の型
-    pub ty: ResolvedType,
+    pub ty: Monotype,
     /// ローカル変数のインデックス
     pub idx: u64,
 }
@@ -449,12 +450,11 @@ pub enum BasicBlockKind {
 #[cfg(test)]
 mod tests {
     use expect_test::{expect, Expect};
-    use hir_ty::ResolvedType;
 
     use crate::lower_pods;
 
     fn check_pod_start_with_root_file(fixture: &str, expect: Expect) {
-        let db = hir::TestingDatabase::default();
+        let db = hir_ty::TestingDatabase::default();
         let mut source_db = hir::FixtureDatabase::new(&db, fixture);
 
         let pods = hir::parse_pods(&db, "/main.nail", &mut source_db);
@@ -687,16 +687,17 @@ mod tests {
             .join(", ")
     }
 
-    fn debug_ty(ty: &ResolvedType) -> String {
+    fn debug_ty(ty: &hir_ty::Monotype) -> String {
         match ty {
-            ResolvedType::Unknown => "unknown",
-            ResolvedType::Integer => "int",
-            ResolvedType::String => "string",
-            ResolvedType::Char => "char",
-            ResolvedType::Bool => "bool",
-            ResolvedType::Unit => "()",
-            ResolvedType::Never => "!",
-            ResolvedType::Function(_) => todo!(),
+            hir_ty::Monotype::Unit => "()",
+            hir_ty::Monotype::Integer => "int",
+            hir_ty::Monotype::Bool => "bool",
+            hir_ty::Monotype::Char => "char",
+            hir_ty::Monotype::String => "string",
+            hir_ty::Monotype::Never => "!",
+            hir_ty::Monotype::Unknown => "unknown",
+            hir_ty::Monotype::Variable(_) => unreachable!(),
+            hir_ty::Monotype::Function(_) => todo!(),
         }
         .to_string()
     }
@@ -1327,7 +1328,7 @@ mod tests {
             expect![[r#"
                 fn t_pod::main() -> bool {
                     let _0: bool
-                    let _1: bool
+                    let _1: !
                     let _2: bool
 
                     entry: {
@@ -1356,7 +1357,7 @@ mod tests {
             expect![[r#"
                 fn t_pod::main() -> int {
                     let _0: int
-                    let _1: ()
+                    let _1: !
 
                     entry: {
                         _0 = const 10
@@ -1412,7 +1413,7 @@ mod tests {
     }
 
     #[test]
-    fn return_value_when_false_in_switch() {
+    fn return_value_in_else_branch() {
         check_in_root_file(
             r#"
                 fn main() -> int {
@@ -1458,7 +1459,7 @@ mod tests {
     }
 
     #[test]
-    fn return_value_when_true_in_switch() {
+    fn return_value_in_then_branch() {
         check_in_root_file(
             r#"
                 fn main() -> int {
@@ -1473,7 +1474,7 @@ mod tests {
                 fn t_pod::main() -> int {
                     let _0: int
                     let _1: bool
-                    let _2: ()
+                    let _2: int
 
                     entry: {
                         _1 = const true

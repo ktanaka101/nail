@@ -1,370 +1,543 @@
+mod environment;
+mod error;
+mod type_scheme;
+mod type_unifier;
+mod types;
+
 use std::collections::HashMap;
 
-use la_arena::{Arena, Idx};
+use environment::Environment;
+pub use error::InferenceError;
+pub use type_scheme::TypeScheme;
+pub use types::Monotype;
 
-pub fn infer_pods(db: &dyn hir::HirMasterDatabase, pods: &hir::Pods) -> InferenceResult {
-    // TODO: 全てのPodを走査する
-    let pod = &pods.root_pod;
+use self::{
+    environment::Context,
+    type_unifier::{TypeUnifier, UnifyPurpose},
+};
+use crate::HirTyMasterDatabase;
 
-    // 依存関係を気にしなくていいようにシグネチャを先に解決しておく
-    let mut signatures = Arena::<Signature>::new();
-    let mut signature_by_function = HashMap::<hir::Function, Idx<Signature>>::new();
-
-    let functions = pod.all_functions(db);
-    for (hir_file, function) in functions.clone() {
-        let mut params = vec![];
-        for param in function.params(db) {
-            let ty = infer_ty(&param.data(hir_file.db(db)).ty);
-            params.push(ty);
-        }
-
-        let signature = Signature {
-            params,
-            return_type: infer_ty(&function.return_type(db)),
-        };
-        let signature_idx = signatures.alloc(signature);
-        signature_by_function.insert(function, signature_idx);
+/// Pod全体の型推論を行う
+pub fn infer_pods(db: &dyn HirTyMasterDatabase, pods: &hir::Pods) -> InferenceResult {
+    let mut signature_by_function = HashMap::<hir::Function, Signature>::new();
+    for (hir_file, function) in pods.root_pod.all_functions(db) {
+        let signature = lower_signature(db, hir_file, function);
+        signature_by_function.insert(function, signature);
     }
 
-    // 各関数内を型推論する
-    let mut inference_by_body = HashMap::<hir::Function, InferenceBodyResult>::new();
-    for (hir_file, function) in functions {
-        let type_inferencer = TypeInferencer::new(db, hir_file, &pods.resolution_map, function);
-        let inference_result = type_inferencer.infer();
-        inference_by_body.insert(function, inference_result);
+    let mut body_result_by_function = HashMap::<hir::Function, InferenceBodyResult>::new();
+    for (hir_file, function) in pods.root_pod.all_functions(db) {
+        let env = Environment::new();
+        let infer_body = InferBody::new(db, pods, hir_file, function, &signature_by_function, env);
+        let infer_body_result = infer_body.infer_body();
+
+        body_result_by_function.insert(function, infer_body_result);
     }
 
     InferenceResult {
-        inference_by_body,
-        signatures,
         signature_by_function,
+        inference_body_result_by_function: body_result_by_function,
     }
 }
 
-fn infer_ty(ty: &hir::Type) -> ResolvedType {
+#[salsa::tracked]
+pub(crate) fn lower_signature(
+    db: &dyn HirTyMasterDatabase,
+    hir_file: hir::HirFile,
+    function: hir::Function,
+) -> Signature {
+    let params = function
+        .params(db)
+        .iter()
+        .map(|param| {
+            let param_data = param.data(hir_file.db(db));
+            lower_type(&param_data.ty)
+        })
+        .collect::<Vec<_>>();
+
+    let return_type = lower_type(&function.return_type(db));
+
+    Signature::new(db, params, return_type)
+}
+
+fn lower_type(ty: &hir::Type) -> Monotype {
     match ty {
-        hir::Type::Unknown => ResolvedType::Unknown,
-        hir::Type::Integer => ResolvedType::Integer,
-        hir::Type::String => ResolvedType::String,
-        hir::Type::Char => ResolvedType::Char,
-        hir::Type::Boolean => ResolvedType::Bool,
-        hir::Type::Unit => ResolvedType::Unit,
+        hir::Type::Integer => Monotype::Integer,
+        hir::Type::String => Monotype::String,
+        hir::Type::Char => Monotype::Char,
+        hir::Type::Boolean => Monotype::Bool,
+        hir::Type::Unit => Monotype::Unit,
+        hir::Type::Unknown => Monotype::Unknown,
     }
-}
-
-/// 型推論の結果
-///
-/// 関数の引数と戻り値は必ず確定しているため、それより広い範囲で型推論を行う必要はありません。
-/// そのため、関数単位に結果を持ちます。
-#[derive(Debug)]
-pub struct InferenceBodyResult {
-    /// 関数内の式に対応する型
-    pub type_by_expr: HashMap<hir::ExprId, ResolvedType>,
-    /// 型推論中に発生したエラー
-    pub errors: Vec<InferenceError>,
-}
-
-/// 型推論の結果
-#[derive(Debug)]
-pub struct InferenceResult {
-    /// 関数に対応する型推論結果
-    pub inference_by_body: HashMap<hir::Function, InferenceBodyResult>,
-    /// 関数シグネチャ一覧
-    pub signatures: Arena<Signature>,
-    /// 関数に対応するシグネチャ
-    pub signature_by_function: HashMap<hir::Function, Idx<Signature>>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct InferenceContext {
-    type_by_expr: HashMap<hir::ExprId, ResolvedType>,
-    type_by_param: HashMap<hir::Param, ResolvedType>,
-    signatures: Arena<Signature>,
-    signature_by_function: HashMap<hir::Function, Idx<Signature>>,
-    errors: Vec<InferenceError>,
-}
-
-impl InferenceContext {
-    fn new() -> Self {
-        Self {
-            type_by_expr: HashMap::new(),
-            type_by_param: HashMap::new(),
-            signatures: Arena::new(),
-            signature_by_function: HashMap::new(),
-            errors: Vec::new(),
-        }
-    }
-}
-
-/// 型推論中に発生したエラー
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum InferenceError {}
-
-/// 解決後の型
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ResolvedType {
-    /// 未解決の型
-    Unknown,
-    /// 数値型
-    Integer,
-    /// 文字列型
-    String,
-    /// 文字型
-    Char,
-    /// 真偽値型
-    Bool,
-    /// 単一値型
-    Unit,
-    /// 値を取り得ないことを表す型
-    ///
-    /// 例えば、必ず`panic`を起こす関数の型は`Never`です。
-    Never,
-    /// 関数型
-    #[allow(dead_code)]
-    Function(Idx<Signature>),
 }
 
 /// 関数シグネチャ
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[salsa::tracked]
 pub struct Signature {
-    /// パラメータの型一覧
-    ///
-    /// パラメータの順番に対応しています。
-    pub params: Vec<ResolvedType>,
-    /// 戻り値の型
-    pub return_type: ResolvedType,
+    /// 関数のパラメータ
+    #[return_ref]
+    pub params: Vec<Monotype>,
+    /// 関数の戻り値
+    pub return_type: Monotype,
 }
 
-/// 型推論器
-struct TypeInferencer<'a> {
-    db: &'a dyn hir::HirMasterDatabase,
+/// 関数内を型推論します。
+pub(crate) struct InferBody<'a> {
+    db: &'a dyn HirTyMasterDatabase,
+    pods: &'a hir::Pods,
     hir_file: hir::HirFile,
-    resolution_map: &'a hir::ResolutionMap,
-    ctx: InferenceContext,
     function: hir::Function,
+    signature: Signature,
+
+    unifier: TypeUnifier,
+    cxt: Context,
+
+    /// 環境のスタック
+    ///
+    /// スコープを入れ子にするために使用しています。
+    /// スコープに入る時にpushし、スコープから抜ける時はpopします。
+    env_stack: Vec<Environment>,
+    signature_by_function: &'a HashMap<hir::Function, Signature>,
+
+    /// 推論結果の式の型を記録するためのマップ
+    type_by_expr: HashMap<hir::ExprId, Monotype>,
 }
-impl<'a> TypeInferencer<'a> {
-    fn new(
-        db: &'a dyn hir::HirMasterDatabase,
+impl<'a> InferBody<'a> {
+    pub(crate) fn new(
+        db: &'a dyn HirTyMasterDatabase,
+        pods: &'a hir::Pods,
         hir_file: hir::HirFile,
-        symbol_table: &'a hir::ResolutionMap,
         function: hir::Function,
+        signature_by_function: &'a HashMap<hir::Function, Signature>,
+        env: Environment,
     ) -> Self {
-        Self {
+        InferBody {
             db,
+            pods,
             hir_file,
-            resolution_map: symbol_table,
-            ctx: InferenceContext::new(),
             function,
+            signature: *signature_by_function.get(&function).unwrap(),
+
+            unifier: TypeUnifier::new(),
+            cxt: Context::default(),
+            env_stack: vec![env],
+            signature_by_function,
+            type_by_expr: HashMap::new(),
         }
     }
 
-    fn infer(mut self) -> InferenceBodyResult {
-        let body_ast_id = self.function.ast(self.db).body().unwrap();
-        let body = self
-            .hir_file
-            .db(self.db)
-            .function_body_by_ast_block(body_ast_id)
-            .unwrap();
-        match body {
-            hir::Expr::Block(block) => self.infer_block(block),
-            _ => unreachable!(),
+    pub(crate) fn infer_body(mut self) -> InferenceBodyResult {
+        let hir::Expr::Block(body) = self.hir_file.function_body_by_function(self.db, self.function).unwrap() else { panic!("Should be Block.") };
+        let mut has_never = false;
+        for stmt in &body.stmts {
+            let is_never = self.infer_stmt(stmt);
+            if is_never {
+                has_never = true;
+            }
+        }
+
+        if let Some(tail) = &body.tail {
+            let ty = self.infer_expr(*tail);
+            let ty = if has_never { Monotype::Never } else { ty };
+            self.unifier.unify(
+                &self.signature.return_type(self.db),
+                &ty,
+                &UnifyPurpose::ReturnValue {
+                    expected_signature: self.signature,
+                    found_return_expr: Some(*tail),
+                },
+            );
+        } else {
+            let ty = if has_never {
+                Monotype::Never
+            } else {
+                Monotype::Unit
+            };
+            self.unifier.unify(
+                &self.signature.return_type(self.db),
+                &ty,
+                &UnifyPurpose::ReturnValue {
+                    expected_signature: self.signature,
+                    found_return_expr: None,
+                },
+            );
         };
 
         InferenceBodyResult {
-            type_by_expr: self.ctx.type_by_expr,
-            errors: self.ctx.errors,
+            type_by_expr: self.type_by_expr,
+            errors: self.unifier.errors,
         }
     }
 
-    fn infer_stmts(&mut self, stmts: &[hir::Stmt]) {
-        for stmt in stmts {
-            match stmt {
-                hir::Stmt::ExprStmt { expr, .. } => {
-                    let ty = self.infer_expr_id(*expr);
-                    self.ctx.type_by_expr.insert(*expr, ty);
-                }
-                hir::Stmt::VariableDef { value, .. } => {
-                    let ty = self.infer_expr_id(*value);
-                    self.ctx.type_by_expr.insert(*value, ty);
-                }
-                hir::Stmt::Item { .. } => (),
-            }
+    fn infer_type(&mut self, ty: &hir::Type) -> Monotype {
+        match ty {
+            hir::Type::Integer => Monotype::Integer,
+            hir::Type::String => Monotype::String,
+            hir::Type::Char => Monotype::Char,
+            hir::Type::Boolean => Monotype::Bool,
+            hir::Type::Unit => Monotype::Unit,
+            hir::Type::Unknown => Monotype::Unknown,
         }
     }
 
-    fn infer_expr(&mut self, expr: &hir::Expr) -> ResolvedType {
-        match expr {
-            hir::Expr::Symbol(symbol) => match symbol {
-                hir::Symbol::Local { expr, .. } => self.infer_expr_id(*expr),
-                hir::Symbol::Param { param, .. } => {
-                    infer_ty(&param.data(self.hir_file.db(self.db)).ty)
-                }
-                // TODO: supports function, name resolution
-                hir::Symbol::Missing { path: _ } => ResolvedType::Unknown,
-            },
-            hir::Expr::Literal(literal) => match literal {
-                hir::Literal::Integer(_) => ResolvedType::Integer,
-                hir::Literal::String(_) => ResolvedType::String,
-                hir::Literal::Char(_) => ResolvedType::Char,
-                hir::Literal::Bool(_) => ResolvedType::Bool,
-            },
-            hir::Expr::Binary { op, lhs, rhs } => {
-                // TODO: supports string equal
-                let lhs_ty = self.infer_expr_id(*lhs);
-                let rhs_ty = self.infer_expr_id(*rhs);
+    fn infer_stmt(&mut self, stmt: &hir::Stmt) -> bool {
+        let ty = match stmt {
+            hir::Stmt::VariableDef { name: _, value } => {
+                let ty = self.infer_expr(*value);
+                let ty_scheme = TypeScheme::new(ty.clone());
+                self.mut_current_scope().insert(*value, ty_scheme);
+                ty
+            }
+            hir::Stmt::ExprStmt {
+                expr,
+                has_semicolon: _,
+            } => self.infer_expr(*expr),
+            hir::Stmt::Item { .. } => return false,
+        };
 
-                match op {
-                    ast::BinaryOp::Add(_)
-                    | ast::BinaryOp::Sub(_)
-                    | ast::BinaryOp::Mul(_)
-                    | ast::BinaryOp::Div(_) => {
-                        if rhs_ty == lhs_ty && (matches!(rhs_ty, ResolvedType::Integer)) {
-                            return rhs_ty;
-                        }
-                    }
-                    ast::BinaryOp::Equal(_) => {
-                        if rhs_ty == lhs_ty
-                            && (matches!(rhs_ty, ResolvedType::Integer | ResolvedType::Bool))
-                        {
-                            return ResolvedType::Bool;
-                        }
-                    }
-                    ast::BinaryOp::GreaterThan(_) | ast::BinaryOp::LessThan(_) => {
-                        if rhs_ty == lhs_ty && (matches!(rhs_ty, ResolvedType::Integer)) {
-                            return ResolvedType::Bool;
-                        }
-                    }
-                }
+        ty == Monotype::Never
+    }
 
-                match (lhs_ty, rhs_ty) {
-                    (ty, ResolvedType::Unknown) => {
-                        self.ctx.type_by_expr.insert(*rhs, ty);
-                        ty
-                    }
-                    (ResolvedType::Unknown, ty) => {
-                        self.ctx.type_by_expr.insert(*lhs, ty);
-                        ty
-                    }
-                    (_, _) => ResolvedType::Unknown,
+    fn infer_symbol(&mut self, symbol: &hir::Symbol) -> Monotype {
+        match symbol {
+            hir::Symbol::Param { name: _, param } => {
+                let param = param.data(self.hir_file.db(self.db));
+                self.infer_type(&param.ty)
+            }
+            hir::Symbol::Local { name: _, expr } => {
+                let ty_scheme = self.current_scope().get(expr).cloned();
+                if let Some(ty_scheme) = ty_scheme {
+                    ty_scheme.instantiate(&mut self.cxt)
+                } else {
+                    panic!("Unbound variable {symbol:?}");
                 }
             }
-            hir::Expr::Unary { op, expr } => {
-                let expr_ty = self.infer_expr_id(*expr);
-                match op {
-                    ast::UnaryOp::Neg(_) => {
-                        if expr_ty == ResolvedType::Integer {
-                            return ResolvedType::Integer;
-                        }
-                    }
-                    ast::UnaryOp::Not(_) => {
-                        if expr_ty == ResolvedType::Bool {
-                            return ResolvedType::Bool;
-                        }
-                    }
-                }
-
-                ResolvedType::Unknown
-            }
-            hir::Expr::Call { callee, args } => match callee {
-                hir::Symbol::Missing { path } => {
-                    let Some(resolution_status) = self.resolution_map.item_by_symbol(path) else { return ResolvedType::Unknown; };
-
-                    let resolved_item = match resolution_status {
-                        hir::ResolutionStatus::Resolved { path: _, item } => item,
-                        hir::ResolutionStatus::Unresolved | hir::ResolutionStatus::Error => {
-                            return ResolvedType::Unknown;
-                        }
-                    };
-
-                    match resolved_item {
+            hir::Symbol::Missing { path } => {
+                let resolution_status = self.pods.resolution_map.item_by_symbol(path).unwrap();
+                match self.resolve_resolution_status(resolution_status) {
+                    Some(item) => match item {
                         hir::Item::Function(function) => {
-                            for (i, arg) in args.iter().enumerate() {
-                                let param = function.params(self.db)[i];
-
-                                let arg_ty = self.infer_expr_id(*arg);
-                                let param_ty = infer_ty(&param.data(self.hir_file.db(self.db)).ty);
-
-                                if arg_ty == param_ty {
-                                    continue;
-                                }
-
-                                match (arg_ty, param_ty) {
-                                    (ResolvedType::Unknown, ResolvedType::Unknown) => (),
-                                    (ResolvedType::Unknown, ty) => {
-                                        self.ctx.type_by_expr.insert(*arg, ty);
-                                    }
-                                    (_, _) => (),
-                                }
-                            }
-
-                            infer_ty(&function.return_type(self.db))
+                            let signature = self.signature_by_function.get(&function).unwrap();
+                            Monotype::Function(*signature)
                         }
-                        hir::Item::Module(_) => unimplemented!(),
-                        hir::Item::UseItem(_) => unimplemented!(),
+                        hir::Item::Module(module) => {
+                            self.unifier.add_error(InferenceError::ModuleAsExpr {
+                                found_module: module,
+                            });
+                            Monotype::Unknown
+                        }
+                        hir::Item::UseItem(_) => unreachable!("UseItem should be resolved."),
+                    },
+                    None => Monotype::Unknown,
+                }
+            }
+        }
+    }
+
+    fn resolve_resolution_status(
+        &self,
+        resolution_status: hir::ResolutionStatus,
+    ) -> Option<hir::Item> {
+        match resolution_status {
+            hir::ResolutionStatus::Unresolved | hir::ResolutionStatus::Error => None,
+            hir::ResolutionStatus::Resolved { path: _, item } => match item {
+                hir::Item::Function(_) | hir::Item::Module(_) => Some(item),
+                hir::Item::UseItem(use_item) => {
+                    let resolution_status = self.pods.resolution_map.item_by_use_item(&use_item)?;
+                    self.resolve_resolution_status(resolution_status)
+                }
+            },
+        }
+    }
+
+    fn infer_expr(&mut self, expr_id: hir::ExprId) -> Monotype {
+        let expr = expr_id.lookup(self.hir_file.db(self.db));
+        let ty = match expr {
+            hir::Expr::Literal(literal) => match literal {
+                hir::Literal::Integer(_) => Monotype::Integer,
+                hir::Literal::String(_) => Monotype::String,
+                hir::Literal::Char(_) => Monotype::Char,
+                hir::Literal::Bool(_) => Monotype::Bool,
+            },
+            hir::Expr::Missing => Monotype::Unknown,
+            hir::Expr::Symbol(symbol) => self.infer_symbol(symbol),
+            hir::Expr::Call {
+                callee,
+                args: call_args,
+            } => {
+                let callee_ty = self.infer_symbol(callee);
+                match callee_ty {
+                    Monotype::Integer
+                    | Monotype::Bool
+                    | Monotype::Unit
+                    | Monotype::Char
+                    | Monotype::String
+                    | Monotype::Never
+                    | Monotype::Unknown
+                    | Monotype::Variable(_) => {
+                        self.unifier.add_error(InferenceError::NotCallable {
+                            found_callee_ty: callee_ty,
+                            found_callee_symbol: callee.clone(),
+                        });
+                        Monotype::Unknown
+                    }
+                    Monotype::Function(signature) => {
+                        let call_args_ty = call_args
+                            .iter()
+                            .map(|arg| self.infer_expr(*arg))
+                            .collect::<Vec<_>>();
+
+                        if call_args_ty.len() != signature.params(self.db).len() {
+                            self.unifier
+                                .add_error(InferenceError::MismatchedCallArgCount {
+                                    expected_callee_arg_count: signature.params(self.db).len(),
+                                    found_arg_count: call_args_ty.len(),
+                                });
+                        } else {
+                            for (((arg_pos, call_arg), call_arg_ty), signature_arg_ty) in call_args
+                                .iter()
+                                .enumerate()
+                                .zip(call_args_ty)
+                                .zip(signature.params(self.db))
+                            {
+                                self.unifier.unify(
+                                    signature_arg_ty,
+                                    &call_arg_ty,
+                                    &UnifyPurpose::CallArg {
+                                        found_arg_expr: *call_arg,
+                                        callee_signature: signature,
+                                        arg_pos,
+                                    },
+                                );
+                            }
+                        }
+
+                        // 引数の数が異なったとしても、関数の戻り値は返す。
+                        signature.return_type(self.db)
                     }
                 }
-                hir::Symbol::Local { .. } | hir::Symbol::Param { .. } => unimplemented!(),
+            }
+            hir::Expr::Binary { op, lhs, rhs } => match op {
+                ast::BinaryOp::Add(_)
+                | ast::BinaryOp::Sub(_)
+                | ast::BinaryOp::Mul(_)
+                | ast::BinaryOp::Div(_) => {
+                    let lhs_ty = self.infer_expr(*lhs);
+                    let rhs_ty = self.infer_expr(*rhs);
+                    self.unifier.unify(
+                        &Monotype::Integer,
+                        &lhs_ty,
+                        &UnifyPurpose::BinaryInteger {
+                            found_expr: *lhs,
+                            op: op.clone(),
+                        },
+                    );
+                    self.unifier.unify(
+                        &Monotype::Integer,
+                        &rhs_ty,
+                        &UnifyPurpose::BinaryInteger {
+                            found_expr: *rhs,
+                            op: op.clone(),
+                        },
+                    );
+
+                    Monotype::Integer
+                }
+                ast::BinaryOp::Equal(_)
+                | ast::BinaryOp::GreaterThan(_)
+                | ast::BinaryOp::LessThan(_) => {
+                    let lhs_ty = self.infer_expr(*lhs);
+                    let rhs_ty = self.infer_expr(*rhs);
+                    self.unifier.unify(
+                        &lhs_ty,
+                        &rhs_ty,
+                        &UnifyPurpose::BinaryCompare {
+                            found_compare_from_expr: *lhs,
+                            found_compare_to_expr: *rhs,
+                            op: op.clone(),
+                        },
+                    );
+
+                    Monotype::Bool
+                }
             },
-            hir::Expr::Block(block) => self.infer_block(block),
+            hir::Expr::Unary { op, expr } => match op {
+                ast::UnaryOp::Neg(_) => {
+                    let expr_ty = self.infer_expr(*expr);
+                    self.unifier.unify(
+                        &Monotype::Integer,
+                        &expr_ty,
+                        &UnifyPurpose::Unary {
+                            found_expr: *expr,
+                            op: op.clone(),
+                        },
+                    );
+
+                    Monotype::Integer
+                }
+                ast::UnaryOp::Not(_) => {
+                    let expr_ty = self.infer_expr(*expr);
+                    self.unifier.unify(
+                        &Monotype::Bool,
+                        &expr_ty,
+                        &UnifyPurpose::Unary {
+                            found_expr: *expr,
+                            op: op.clone(),
+                        },
+                    );
+
+                    Monotype::Bool
+                }
+            },
+            hir::Expr::Block(block) => {
+                self.entry_scope();
+
+                let mut has_never = false;
+                for stmt in &block.stmts {
+                    let is_never = self.infer_stmt(stmt);
+                    if is_never {
+                        has_never = true;
+                    }
+                }
+
+                let ty = if let Some(tail) = &block.tail {
+                    self.infer_expr(*tail)
+                } else {
+                    // 最後の式がない場合は Unit として扱う
+                    Monotype::Unit
+                };
+                if ty == Monotype::Never {
+                    has_never = true;
+                }
+
+                self.exit_scope();
+
+                if has_never {
+                    Monotype::Never
+                } else {
+                    ty
+                }
+            }
             hir::Expr::If {
                 condition,
                 then_branch,
                 else_branch,
             } => {
-                self.infer_expr_id(*condition);
-                let then_branch_ty = self.infer_expr_id(*then_branch);
-                let else_branch_ty = if let Some(else_branch) = else_branch {
-                    self.infer_expr_id(*else_branch)
-                } else {
-                    ResolvedType::Unit
-                };
+                let condition_ty = self.infer_expr(*condition);
+                self.unifier.unify(
+                    &Monotype::Bool,
+                    &condition_ty,
+                    &UnifyPurpose::IfCondition {
+                        found_condition_expr: *condition,
+                    },
+                );
 
-                match (then_branch_ty, else_branch_ty) {
-                    (ResolvedType::Unknown, ResolvedType::Unknown) => ResolvedType::Unknown,
-                    (ResolvedType::Unknown, ty) => {
-                        self.ctx.type_by_expr.insert(*then_branch, ty);
-                        ty
+                let then_ty = self.infer_expr(*then_branch);
+                let mut else_ty: Option<Monotype> = None;
+                if let Some(else_branch) = else_branch {
+                    let ty = self.infer_expr(*else_branch);
+                    self.unifier.unify(
+                        &then_ty,
+                        &ty,
+                        &UnifyPurpose::IfThenElseBranch {
+                            found_then_branch_expr: *then_branch,
+                            found_else_branch_expr: *else_branch,
+                        },
+                    );
+                    else_ty = Some(ty);
+                } else {
+                    // elseブランチがない場合は Unit として扱う
+                    self.unifier.unify(
+                        &Monotype::Unit,
+                        &then_ty,
+                        &UnifyPurpose::IfThenOnlyBranch {
+                            found_then_branch_expr: *then_branch,
+                        },
+                    );
+                }
+
+                if let Some(else_ty) = else_ty {
+                    if then_ty == Monotype::Never {
+                        else_ty
+                    } else {
+                        then_ty
                     }
-                    (ty, ResolvedType::Unknown) => {
-                        self.ctx.type_by_expr.insert(else_branch.unwrap(), ty);
-                        ty
-                    }
-                    (ty_a, ty_b) if ty_a == ty_b => ty_a,
-                    (_, _) => ResolvedType::Unknown,
+                } else if then_ty == Monotype::Never {
+                    Monotype::Never
+                } else {
+                    then_ty
                 }
             }
             hir::Expr::Return { value } => {
-                if let Some(value) = value {
-                    self.infer_expr_id(*value);
+                if let Some(return_value) = value {
+                    let ty = self.infer_expr(*return_value);
+                    self.unifier.unify(
+                        &self.signature.return_type(self.db),
+                        &ty,
+                        &UnifyPurpose::ReturnValue {
+                            expected_signature: self.signature,
+                            found_return_expr: Some(*return_value),
+                        },
+                    );
+                } else {
+                    // 何も指定しない場合は Unit を返すものとして扱う
+                    self.unifier.unify(
+                        &self.signature.return_type(self.db),
+                        &Monotype::Unit,
+                        &UnifyPurpose::ReturnValue {
+                            expected_signature: self.signature,
+                            found_return_expr: None,
+                        },
+                    );
                 }
-                ResolvedType::Never
+
+                // return自体の戻り値は Never として扱う
+                Monotype::Never
             }
-            hir::Expr::Missing => ResolvedType::Unknown,
-        }
-    }
+        };
 
-    fn infer_block(&mut self, block: &hir::Block) -> ResolvedType {
-        self.infer_stmts(&block.stmts);
-        if let Some(tail) = block.tail {
-            self.infer_expr_id(tail)
-        } else {
-            ResolvedType::Unit
-        }
-    }
-
-    fn infer_expr_id(&mut self, expr_id: hir::ExprId) -> ResolvedType {
-        if let Some(ty) = self.lookup_type(expr_id) {
-            return ty;
-        }
-
-        let ty = self.infer_expr(expr_id.lookup(self.hir_file.db(self.db)));
-        self.ctx.type_by_expr.insert(expr_id, ty);
+        self.type_by_expr.insert(expr_id, ty.clone());
 
         ty
     }
 
-    fn lookup_type(&self, expr_id: hir::ExprId) -> Option<ResolvedType> {
-        self.ctx.type_by_expr.get(&expr_id).copied()
+    fn entry_scope(&mut self) {
+        let env = self.env_stack.last().unwrap().with();
+        self.env_stack.push(env);
+    }
+
+    fn exit_scope(&mut self) {
+        self.env_stack.pop();
+    }
+
+    fn mut_current_scope(&mut self) -> &mut Environment {
+        self.env_stack.last_mut().unwrap()
+    }
+
+    fn current_scope(&self) -> &Environment {
+        self.env_stack.last().unwrap()
+    }
+}
+
+/// Pod全体の型推論結果
+#[derive(Debug)]
+pub struct InferenceResult {
+    pub(crate) signature_by_function: HashMap<hir::Function, Signature>,
+    pub(crate) inference_body_result_by_function: HashMap<hir::Function, InferenceBodyResult>,
+}
+
+/// 関数内の型推論結果
+#[derive(Debug)]
+pub struct InferenceBodyResult {
+    pub(crate) type_by_expr: HashMap<hir::ExprId, Monotype>,
+    pub(crate) errors: Vec<InferenceError>,
+}
+impl InferenceBodyResult {
+    pub fn type_by_expr(&self, expr: hir::ExprId) -> Option<&Monotype> {
+        self.type_by_expr.get(&expr)
+    }
+
+    pub fn errors(&self) -> &Vec<InferenceError> {
+        &self.errors
     }
 }

@@ -41,14 +41,16 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
         // register alloc locals.
         for (idx, local) in self.body.locals.iter() {
             let ty: BasicTypeEnum = match local.ty {
-                hir_ty::ResolvedType::Unit => self.codegen.unit_type().into(),
-                hir_ty::ResolvedType::Integer => self.codegen.integer_type().into(),
-                hir_ty::ResolvedType::String => self.codegen.string_type().into(),
-                hir_ty::ResolvedType::Bool => self.codegen.bool_type().into(),
-                hir_ty::ResolvedType::Char => todo!(),
-                hir_ty::ResolvedType::Never => todo!(),
-                hir_ty::ResolvedType::Function(_) => todo!(),
-                hir_ty::ResolvedType::Unknown => unreachable!(),
+                hir_ty::Monotype::Unit => self.codegen.unit_type().into(),
+                hir_ty::Monotype::Integer => self.codegen.integer_type().into(),
+                hir_ty::Monotype::String => self.codegen.string_type().into(),
+                hir_ty::Monotype::Bool => self.codegen.bool_type().into(),
+                hir_ty::Monotype::Char => todo!(),
+                // Never用にUnitを確保した方がいいかも？
+                hir_ty::Monotype::Never => continue,
+                hir_ty::Monotype::Function(_) => todo!(),
+                hir_ty::Monotype::Variable(_) => unreachable!(""),
+                hir_ty::Monotype::Unknown => unreachable!(),
             };
 
             let local_ptr = self

@@ -1,4 +1,4 @@
-//! HIRに型付けを行います。
+//! HIRに型付けを行います。型推論はHindley-Milner型推論ベースで行います。
 //! Typed HIRと呼びます。
 //!
 //! 以下のステップで行います。
@@ -9,22 +9,23 @@
 //! AST -----> HIR -------------------------------> MIR -----> LLVM IR
 //!                \-----> TypedHIR(このcrate) ---/
 //!
-//! 現時点の型推論は簡易なもので、Hindley-Milner型推論ベースに変更する予定です。
 
 #![feature(trait_upcasting)]
 // #[salsa::tracked]で生成される関数にドキュメントコメントが作成されないため警告が出てしまうため許可します。
 // #![warn(missing_docs)]
 
 mod checker;
+mod db;
 mod inference;
+mod testing;
 
 pub use checker::{TypeCheckError, TypeCheckResult};
-pub use inference::{
-    InferenceBodyResult, InferenceError, InferenceResult, ResolvedType, Signature,
-};
+pub use db::{HirTyMasterDatabase, Jar};
+pub use inference::{InferenceBodyResult, InferenceError, InferenceResult, Monotype, Signature};
+pub use testing::TestingDatabase;
 
 /// HIRを元にTypedHIRを構築します。
-pub fn lower_pods(db: &dyn hir::HirMasterDatabase, pods: &hir::Pods) -> TyLowerResult {
+pub fn lower_pods(db: &dyn HirTyMasterDatabase, pods: &hir::Pods) -> TyLowerResult {
     let inference_result = inference::infer_pods(db, pods);
     let type_check_result = checker::check_type_pods(db, pods, &inference_result);
 
@@ -38,33 +39,57 @@ pub fn lower_pods(db: &dyn hir::HirMasterDatabase, pods: &hir::Pods) -> TyLowerR
 #[derive(Debug)]
 pub struct TyLowerResult {
     /// 型推論の結果
-    pub inference_result: InferenceResult,
+    inference_result: InferenceResult,
     /// 型チェックの結果
-    pub type_check_result: TypeCheckResult,
+    type_check_result: TypeCheckResult,
 }
 impl TyLowerResult {
     /// 指定した関数の型を取得します。
-    pub fn signature_by_function(&self, function_id: hir::Function) -> &Signature {
-        let signature_idx = self.inference_result.signature_by_function[&function_id];
-        &self.inference_result.signatures[signature_idx]
+    pub fn signature_by_function(&self, function_id: hir::Function) -> Option<Signature> {
+        self.inference_result
+            .signature_by_function
+            .get(&function_id)
+            .copied()
+    }
+
+    /// 指定した関数の型推論結果を取得します。
+    pub fn inference_body_by_function(
+        &self,
+        function: hir::Function,
+    ) -> Option<&InferenceBodyResult> {
+        self.inference_result
+            .inference_body_result_by_function
+            .get(&function)
+    }
+
+    /// 指定した関数の型チェック結果を取得します。
+    pub fn type_check_errors_by_function(
+        &self,
+        function: hir::Function,
+    ) -> Option<&Vec<TypeCheckError>> {
+        self.type_check_result.errors_by_function.get(&function)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use expect_test::{expect, Expect};
-    use hir::{Name, Path, Symbol, TestingDatabase};
 
-    use super::*;
+    use crate::{
+        inference::{InferenceError, Monotype, Signature},
+        lower_pods,
+        testing::TestingDatabase,
+        HirTyMasterDatabase, TyLowerResult, TypeCheckError,
+    };
 
     fn check_pod_start_with_root_file(fixture: &str, expect: Expect) {
         let db = TestingDatabase::default();
         let mut source_db = hir::FixtureDatabase::new(&db, fixture);
 
         let pods = hir::parse_pods(&db, "/main.nail", &mut source_db);
-        let ty_result = lower_pods(&db, &pods);
+        let ty_lower_result = lower_pods(&db, &pods);
 
-        expect.assert_eq(&debug_file(&db, &ty_result, &pods.root_pod.root_hir_file));
+        expect.assert_eq(&TestingDebug::new(&db, &pods, &ty_lower_result).debug());
     }
 
     fn check_in_root_file(fixture: &str, expect: Expect) {
@@ -74,260 +99,702 @@ mod tests {
         check_pod_start_with_root_file(&fixture, expect);
     }
 
-    fn debug_file(
-        db: &dyn hir::HirMasterDatabase,
-        ty_lower_result: &TyLowerResult,
-        hir_file: &hir::HirFile,
-    ) -> String {
-        let mut msg = "".to_string();
+    fn indent(nesting: usize) -> String {
+        "    ".repeat(nesting)
+    }
 
-        let TyLowerResult {
-            type_check_result,
-            inference_result,
-        } = ty_lower_result;
-
-        for (_, signature) in inference_result.signatures.iter() {
-            let params = signature
-                .params
-                .iter()
-                .map(debug_type)
-                .collect::<Vec<String>>()
-                .join(", ");
-            msg.push_str(&format!(
-                "fn({params}) -> {}\n",
-                debug_type(&signature.return_type)
-            ));
-        }
-
-        msg.push_str("---\n");
-
-        for function in hir_file.functions(db) {
-            let inference_body_result = inference_result.inference_by_body.get(function).unwrap();
-
-            let mut indexes = inference_body_result
-                .type_by_expr
-                .keys()
-                .collect::<Vec<_>>();
-            indexes.sort();
-            for expr_id in indexes {
-                let expr = debug_hir_expr(db, expr_id, hir_file);
-                msg.push_str(&format!(
-                    "`{}`: {}\n",
-                    expr,
-                    debug_type(&inference_body_result.type_by_expr[expr_id])
-                ));
+    struct TestingDebug<'a> {
+        db: &'a dyn HirTyMasterDatabase,
+        pods: &'a hir::Pods,
+        ty_lower_result: &'a TyLowerResult,
+    }
+    impl<'a> TestingDebug<'a> {
+        fn new(
+            db: &'a dyn HirTyMasterDatabase,
+            pods: &'a hir::Pods,
+            ty_lower_result: &'a TyLowerResult,
+        ) -> Self {
+            Self {
+                db,
+                pods,
+                ty_lower_result,
             }
         }
 
-        msg.push_str("---\n");
+        fn debug(&self) -> String {
+            let mut msg = "".to_string();
 
-        for function in hir_file.functions(db) {
-            let type_check_errors = type_check_result.errors_by_function.get(function).unwrap();
+            msg.push_str(&self.debug_hir_file(self.pods.root_pod.root_hir_file));
+            msg.push('\n');
 
-            for error in type_check_errors {
-                match error {
-                    TypeCheckError::UnresolvedType { expr } => {
-                        msg.push_str(&format!(
-                            "error: `{}` is unresolved type.\n",
-                            debug_hir_expr(db, expr, hir_file),
-                        ));
-                    }
-                    TypeCheckError::MismatchedTypes {
-                        expected_expr,
-                        expected_ty,
-                        found_expr,
-                        found_ty,
-                    } => {
-                        msg.push_str(&format!(
-                            "error: expected {}, found {} by `{}` and `{}`\n",
-                            debug_type(expected_ty),
-                            debug_type(found_ty),
-                            debug_hir_expr(db, expected_expr, hir_file),
-                            debug_hir_expr(db, found_expr, hir_file)
-                        ));
-                    }
-                    TypeCheckError::MismaatchedSignature {
-                        expected_ty,
-                        found_expr,
-                        found_ty,
-                        ..
-                    } => msg.push_str(&format!(
-                        "error: expected {}, found {} by `{}`\n",
-                        debug_type(expected_ty),
-                        debug_type(found_ty),
-                        debug_hir_expr(db, found_expr, hir_file)
-                    )),
-                    TypeCheckError::MismatchedTypeIfCondition {
-                        expected_ty,
-                        found_expr,
-                        found_ty,
-                    } => {
-                        msg.push_str(&format!(
-                            "error: expected {}, found {} by `{}`\n",
-                            debug_type(expected_ty),
-                            debug_type(found_ty),
-                            debug_hir_expr(db, found_expr, hir_file)
-                        ));
-                    }
-                    TypeCheckError::MismatchedTypeElseBranch {
-                        expected_ty,
-                        found_expr,
-                        found_ty,
-                    } => {
-                        msg.push_str(&format!(
-                            "error: expected {}, found {} by `{}`\n",
-                            debug_type(expected_ty),
-                            debug_type(found_ty),
-                            debug_hir_expr(db, found_expr, hir_file)
-                        ));
-                    }
-                    TypeCheckError::MismatchedReturnType {
-                        expected_ty,
-                        found_expr,
-                        found_ty,
-                    } => {
-                        msg.push_str(&format!(
-                            "error: expected {}, found {}",
-                            debug_type(expected_ty),
-                            debug_type(found_ty)
-                        ));
-                        if let Some(found_expr) = found_expr {
-                            msg.push_str(&format!(
-                                " by `{}`",
-                                debug_hir_expr(db, found_expr, hir_file)
+            for (_nail_file, hir_file) in self.pods.root_pod.get_hir_files_order_registration_asc()
+            {
+                msg.push_str(&self.debug_hir_file(*hir_file));
+                msg.push('\n');
+            }
+
+            msg.push_str("---\n");
+            for (hir_file, function) in self.pods.root_pod.all_functions(self.db) {
+                let inference_body_result = self
+                    .ty_lower_result
+                    .inference_result
+                    .inference_body_result_by_function
+                    .get(&function)
+                    .unwrap();
+
+                for error in &inference_body_result.errors {
+                    match error {
+                        InferenceError::MismatchedTypes {
+                            expected_ty,
+                            found_ty,
+                            expected_expr,
+                            found_expr,
+                        } => {
+                            msg.push_str(
+                            &format!(
+                                "error MismatchedTypes: expected_ty: {}, found_ty: {}, expected_expr: `{}`, found_expr: `{}`",
+                                self.debug_monotype(expected_ty),
+                                self.debug_monotype(found_ty),
+                                self.debug_simplify_expr(hir_file, *expected_expr),
+                                self.debug_simplify_expr(hir_file, *found_expr),
                             ));
                         }
-                        msg.push('\n');
+                        InferenceError::MismatchedTypeIfCondition {
+                            expected_condition_bool_ty,
+                            found_condition_expr,
+                            found_condition_ty,
+                        } => {
+                            msg.push_str(
+                            &format!(
+                                "error MismatchedTypeIfCondition: expected_ty: {}, found_ty: {}, found_expr: `{}`",
+                                self.debug_monotype(expected_condition_bool_ty),
+                                self.debug_monotype(found_condition_ty),
+                                self.debug_simplify_expr(hir_file, *found_condition_expr),
+                            ));
+                        }
+                        InferenceError::MismatchedTypeElseBranch {
+                            then_branch_ty,
+                            then_branch,
+                            else_branch_ty,
+                            else_branch,
+                        } => {
+                            msg.push_str(
+                            &format!(
+                                "error MismatchedTypeElseBranch: then_branch_ty: {}, else_branch_ty: {}, then_branch: `{}`, else_branch: `{}`",
+                                self.debug_monotype(then_branch_ty),
+                                self.debug_monotype(else_branch_ty),
+                                self.debug_simplify_expr(hir_file, *then_branch),
+                                self.debug_simplify_expr(hir_file, *else_branch),
+                            ));
+                        }
+                        InferenceError::MismatchedTypeOnlyIfBranch {
+                            then_branch_ty,
+                            then_branch,
+                            else_branch_unit_ty,
+                        } => {
+                            msg.push_str(
+                            &format!(
+                                "error MismatchedTypeOnlyIfBranch: then_branch_ty: {}, else_branch_ty: {}, then_branch: `{}`",
+                                self.debug_monotype(then_branch_ty),
+                                self.debug_monotype(else_branch_unit_ty),
+                                self.debug_simplify_expr(hir_file, *then_branch),
+                            ));
+                        }
+                        InferenceError::MismaatchedTypeCallArg {
+                            expected_ty,
+                            found_ty,
+                            expected_signature,
+                            found_expr,
+                            arg_pos,
+                        } => {
+                            msg.push_str(
+                            &format!(
+                                "error MismaatchedSignature: expected_ty: {}, found_ty: {}, found_expr: `{}`, signature: {}, arg_pos: {}",
+                                self.debug_monotype(expected_ty),
+                                self.debug_monotype(found_ty),
+                                self.debug_simplify_expr(hir_file, *found_expr),
+                                self.debug_signature(expected_signature),
+                                arg_pos
+                            ));
+                        }
+                        InferenceError::MismatchedBinaryInteger {
+                            expected_int_ty,
+                            found_expr,
+                            found_ty,
+                            op,
+                        } => {
+                            msg.push_str(
+                            &format!(
+                                "error MismatchedBinaryInteger: op: {}, expected_ty: {}, found_ty: {}, found_expr: `{}`",
+                                self.debug_binary_op(op),
+                                self.debug_monotype(expected_int_ty),
+                                self.debug_monotype(found_ty),
+                                self.debug_simplify_expr(hir_file, *found_expr),
+                            ));
+                        }
+                        InferenceError::MismatchedBinaryCompare {
+                            compare_from_ty,
+                            compare_from_expr,
+                            compare_to_expr,
+                            compare_to_ty,
+                            op,
+                        } => {
+                            msg.push_str(
+                            &format!(
+                                "error MismatchedBinaryCompare: op: {}, expected_ty: {}, found_ty: {}, expected_expr: `{}`, found_expr: `{}`",
+                                self.debug_binary_op(op),
+                                self.debug_monotype(compare_from_ty),
+                                self.debug_monotype(compare_to_ty),
+                                self.debug_simplify_expr(hir_file, *compare_from_expr),
+                                self.debug_simplify_expr(hir_file, *compare_to_expr),
+                            ));
+                        }
+                        InferenceError::MismatchedUnary {
+                            expected_ty,
+                            found_expr,
+                            found_ty,
+                            op,
+                        } => {
+                            msg.push_str(
+                            &format!(
+                                "error MismatchedUnary: op: {}, expected_ty: {}, found_ty: {}, found_expr: `{}`",
+                                self.debug_unary_op(op),
+                                self.debug_monotype(expected_ty),
+                                self.debug_monotype(found_ty),
+                                self.debug_simplify_expr(hir_file, *found_expr),
+                            ));
+                        }
+                        InferenceError::MismatchedTypeReturnValue {
+                            expected_signature,
+                            found_ty,
+                            found_return_expr,
+                        } => {
+                            if let Some(found_return_expr) = found_return_expr {
+                                msg.push_str(
+                            &format!(
+                                "error MismatchedReturnType: expected_ty: {}, found_ty: {}, found_expr: `{}`",
+                                self.debug_monotype(&expected_signature.return_type(self.db)),
+                                self.debug_monotype(found_ty),
+                                self.debug_simplify_expr(hir_file, *found_return_expr),
+                            ));
+                            } else {
+                                msg.push_str(&format!(
+                                    "error MismatchedReturnType: expected_ty: {}, found_ty: {}",
+                                    self.debug_monotype(&expected_signature.return_type(self.db)),
+                                    self.debug_monotype(found_ty),
+                                ));
+                            }
+                        }
+                        InferenceError::MismatchedCallArgCount {
+                            expected_callee_arg_count,
+                            found_arg_count,
+                        } => {
+                            msg.push_str(&format!(
+                                "error MismatchedCallArgCount: expected_arg_count: {}, found_arg_count: {}",
+                                expected_callee_arg_count,
+                                found_arg_count,
+                            ));
+                        }
+                        InferenceError::NotCallable {
+                            found_callee_ty,
+                            found_callee_symbol,
+                        } => {
+                            msg.push_str(&format!(
+                                "error NotCallable: found_callee_ty: {}, found_callee_symbol: {}",
+                                self.debug_monotype(found_callee_ty),
+                                self.debug_symbol(found_callee_symbol),
+                            ));
+                        }
+                        InferenceError::ModuleAsExpr { found_module } => {
+                            msg.push_str(&format!(
+                                "error ModuleAsExpr: found_module: {}",
+                                found_module.name(self.db).text(self.db)
+                            ));
+                        }
+                    }
+                    msg.push('\n');
+                }
+            }
+
+            msg.push_str("---\n");
+            for (hir_file, function) in self.pods.root_pod.all_functions(self.db) {
+                let type_check_errors = self
+                    .ty_lower_result
+                    .type_check_errors_by_function(function)
+                    .unwrap();
+                for error in type_check_errors {
+                    match error {
+                        TypeCheckError::UnresolvedType { expr } => {
+                            msg.push_str(&format!(
+                                "error Type is unknown: expr: {}",
+                                self.debug_simplify_expr(hir_file, *expr),
+                            ));
+                        }
+                    }
+                    msg.push('\n');
+                }
+            }
+
+            msg
+        }
+
+        fn debug_signature(&self, signature: &Signature) -> String {
+            let params = signature
+                .params(self.db)
+                .iter()
+                .map(|param| self.debug_monotype(param))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let return_type = self.debug_monotype(&signature.return_type(self.db));
+
+            format!("({params}) -> {return_type}")
+        }
+
+        fn debug_hir_file(&self, hir_file: hir::HirFile) -> String {
+            let mut msg = format!(
+                "//- {}\n",
+                hir_file.file(self.db).file_path(self.db).to_str().unwrap()
+            );
+
+            for item in hir_file.top_level_items(self.db) {
+                msg.push_str(&self.debug_item(hir_file, *item, 0));
+            }
+
+            msg
+        }
+
+        fn debug_function(
+            &self,
+            hir_file: hir::HirFile,
+            function: hir::Function,
+            nesting: usize,
+        ) -> String {
+            let body_expr = hir_file
+                .db(self.db)
+                .function_body_by_ast_block(function.ast(self.db).body().unwrap())
+                .unwrap();
+
+            let name = function.name(self.db).text(self.db);
+            let params = function
+                .params(self.db)
+                .iter()
+                .map(|param| {
+                    let name = if let Some(name) = param.data(hir_file.db(self.db)).name {
+                        name.text(self.db)
+                    } else {
+                        "<missing>"
+                    };
+                    let ty = match param.data(hir_file.db(self.db)).ty {
+                        hir::Type::Integer => "int",
+                        hir::Type::String => "string",
+                        hir::Type::Char => "char",
+                        hir::Type::Boolean => "bool",
+                        hir::Type::Unit => "()",
+                        hir::Type::Unknown => "<unknown>",
+                    };
+                    format!("{name}: {ty}")
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            let return_type = match &function.return_type(self.db) {
+                hir::Type::Integer => "int",
+                hir::Type::String => "string",
+                hir::Type::Char => "char",
+                hir::Type::Boolean => "bool",
+                hir::Type::Unit => "()",
+                hir::Type::Unknown => "<unknown>",
+            };
+
+            let hir::Expr::Block(block) = body_expr else { panic!("Should be Block") };
+
+            let mut body = "{\n".to_string();
+            for stmt in &block.stmts {
+                body.push_str(&self.debug_stmt(hir_file, function, stmt, nesting + 1));
+            }
+            if let Some(tail) = block.tail {
+                let indent = indent(nesting + 1);
+                body.push_str(&format!(
+                    "{indent}expr:{}",
+                    self.debug_expr(hir_file, function, tail, nesting + 1)
+                ));
+                body.push_str(&format!(" {}\n", self.debug_type_line(function, tail)));
+            }
+            body.push_str(&format!("{}}}", indent(nesting)));
+
+            let is_entry_point = hir_file.entry_point(self.db) == Some(function);
+            format!(
+                "{}fn {}{name}({params}) -> {return_type} {body}\n",
+                indent(nesting),
+                if is_entry_point { "entry:" } else { "" }
+            )
+        }
+
+        fn debug_module(
+            &self,
+            hir_file: hir::HirFile,
+            module: hir::Module,
+            nesting: usize,
+        ) -> String {
+            let _scope_origin = hir::ModuleScopeOrigin::Module { origin: module };
+
+            let curr_indent = indent(nesting);
+
+            let module_name = module.name(self.db).text(self.db);
+
+            match module.kind(self.db) {
+                hir::ModuleKind::Inline { items } => {
+                    let mut module_str = "".to_string();
+                    module_str.push_str(&format!("{curr_indent}mod {module_name} {{\n"));
+                    for (i, item) in items.iter().enumerate() {
+                        module_str.push_str(&self.debug_item(hir_file, *item, nesting + 1));
+                        if i == items.len() - 1 {
+                            continue;
+                        }
+
+                        module_str.push('\n');
+                    }
+                    module_str.push_str(&format!("{curr_indent}}}\n"));
+                    module_str
+                }
+                hir::ModuleKind::Outline => {
+                    format!("{curr_indent}mod {module_name};\n")
+                }
+            }
+        }
+
+        fn debug_use_item(&self, use_item: hir::UseItem) -> String {
+            let path_name = self.debug_path(use_item.path(self.db));
+            let item_name = use_item.name(self.db).text(self.db);
+
+            if path_name.is_empty() {
+                format!("use {item_name};\n")
+            } else {
+                format!("use {path_name}::{item_name};\n")
+            }
+        }
+
+        fn debug_item(&self, hir_file: hir::HirFile, item: hir::Item, nesting: usize) -> String {
+            match item {
+                hir::Item::Function(function) => self.debug_function(hir_file, function, nesting),
+                hir::Item::Module(module) => self.debug_module(hir_file, module, nesting),
+                hir::Item::UseItem(use_item) => self.debug_use_item(use_item),
+            }
+        }
+
+        fn debug_stmt(
+            &self,
+            hir_file: hir::HirFile,
+            function: hir::Function,
+            stmt: &hir::Stmt,
+            nesting: usize,
+        ) -> String {
+            match stmt {
+                hir::Stmt::VariableDef { name, value } => {
+                    let indent = indent(nesting);
+                    let name = name.text(self.db);
+                    let expr_str = self.debug_expr(hir_file, function, *value, nesting);
+                    let mut stmt_str = format!("{indent}let {name} = {expr_str};");
+
+                    let type_line = self.debug_type_line(function, *value);
+                    stmt_str.push_str(&format!(" {type_line}\n"));
+
+                    stmt_str
+                }
+                hir::Stmt::ExprStmt {
+                    expr,
+                    has_semicolon,
+                } => {
+                    let indent = indent(nesting);
+                    let expr_str = self.debug_expr(hir_file, function, *expr, nesting);
+                    let type_line = self.debug_type_line(function, *expr);
+                    let maybe_semicolon = if *has_semicolon { ";" } else { "" };
+                    format!("{indent}{expr_str}{maybe_semicolon} {type_line}\n")
+                }
+                hir::Stmt::Item { item } => self.debug_item(hir_file, *item, nesting),
+            }
+        }
+
+        fn debug_type_line(&self, function: hir::Function, expr_id: hir::ExprId) -> String {
+            let ty = self
+                .ty_lower_result
+                .inference_body_by_function(function)
+                .unwrap()
+                .type_by_expr
+                .get(&expr_id)
+                .unwrap();
+
+            format!("//: {}", self.debug_monotype(ty))
+        }
+
+        fn debug_monotype(&self, monotype: &Monotype) -> String {
+            match monotype {
+                Monotype::Integer => "int".to_string(),
+                Monotype::Bool => "bool".to_string(),
+                Monotype::Unit => "()".to_string(),
+                Monotype::Char => "char".to_string(),
+                Monotype::String => "string".to_string(),
+                Monotype::Variable(id) => format!("${}", id),
+                Monotype::Function(signature) => self.debug_signature(signature),
+                Monotype::Never => "!".to_string(),
+                Monotype::Unknown => "<unknown>".to_string(),
+            }
+        }
+
+        fn debug_expr(
+            &self,
+            hir_file: hir::HirFile,
+            function: hir::Function,
+            expr_id: hir::ExprId,
+            nesting: usize,
+        ) -> String {
+            match expr_id.lookup(hir_file.db(self.db)) {
+                hir::Expr::Symbol(symbol) => self.debug_symbol(symbol),
+                hir::Expr::Literal(literal) => match literal {
+                    hir::Literal::Bool(b) => b.to_string(),
+                    hir::Literal::Char(c) => format!("'{c}'"),
+                    hir::Literal::String(s) => format!("\"{s}\""),
+                    hir::Literal::Integer(i) => i.to_string(),
+                },
+                hir::Expr::Binary { op, lhs, rhs } => {
+                    let op = match op {
+                        ast::BinaryOp::Add(_) => "+",
+                        ast::BinaryOp::Sub(_) => "-",
+                        ast::BinaryOp::Mul(_) => "*",
+                        ast::BinaryOp::Div(_) => "/",
+                        ast::BinaryOp::Equal(_) => "==",
+                        ast::BinaryOp::GreaterThan(_) => ">",
+                        ast::BinaryOp::LessThan(_) => "<",
+                    };
+                    let lhs_str = self.debug_expr(hir_file, function, *lhs, nesting);
+                    let rhs_str = self.debug_expr(hir_file, function, *rhs, nesting);
+                    format!("{lhs_str} {op} {rhs_str}")
+                }
+                hir::Expr::Unary { op, expr } => {
+                    let op = match op {
+                        ast::UnaryOp::Neg(_) => "-",
+                        ast::UnaryOp::Not(_) => "!",
+                    };
+                    let expr_str = self.debug_expr(hir_file, function, *expr, nesting);
+                    format!("{op}{expr_str}")
+                }
+                hir::Expr::Call { callee, args } => {
+                    let callee = self.debug_symbol(callee);
+                    let args = args
+                        .iter()
+                        .map(|arg| self.debug_expr(hir_file, function, *arg, nesting))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+
+                    format!("{callee}({args})")
+                }
+                hir::Expr::Block(block) => {
+                    let mut msg = "{\n".to_string();
+                    for stmt in &block.stmts {
+                        msg.push_str(&self.debug_stmt(hir_file, function, stmt, nesting + 1));
+                    }
+                    if let Some(tail) = block.tail {
+                        let indent = indent(nesting + 1);
+                        msg.push_str(&format!(
+                            "{indent}expr:{}",
+                            self.debug_expr(hir_file, function, tail, nesting + 1)
+                        ));
+                        msg.push_str(&format!(" {}\n", self.debug_type_line(function, tail)));
+                    }
+                    msg.push_str(&format!("{}}}", indent(nesting)));
+
+                    msg
+                }
+                hir::Expr::If {
+                    condition,
+                    then_branch,
+                    else_branch,
+                } => {
+                    let mut msg = "if ".to_string();
+                    msg.push_str(&self.debug_expr(hir_file, function, *condition, nesting));
+                    msg.push(' ');
+                    msg.push_str(&self.debug_expr(hir_file, function, *then_branch, nesting));
+
+                    if let Some(else_branch) = else_branch {
+                        msg.push_str(" else ");
+                        msg.push_str(&self.debug_expr(hir_file, function, *else_branch, nesting));
+                    }
+
+                    msg
+                }
+                hir::Expr::Return { value } => {
+                    let mut msg = "return".to_string();
+                    if let Some(value) = value {
+                        msg.push_str(&format!(
+                            " {}",
+                            &self.debug_expr(hir_file, function, *value, nesting,)
+                        ));
+                    }
+
+                    msg
+                }
+                hir::Expr::Missing => "<missing>".to_string(),
+            }
+        }
+
+        fn debug_simplify_expr(&self, hir_file: hir::HirFile, expr_id: hir::ExprId) -> String {
+            match expr_id.lookup(hir_file.db(self.db)) {
+                hir::Expr::Symbol(symbol) => self.debug_symbol(symbol),
+                hir::Expr::Literal(literal) => match literal {
+                    hir::Literal::Bool(b) => b.to_string(),
+                    hir::Literal::Char(c) => format!("'{c}'"),
+                    hir::Literal::String(s) => format!("\"{s}\""),
+                    hir::Literal::Integer(i) => i.to_string(),
+                },
+                hir::Expr::Binary { op, lhs, rhs } => {
+                    let op = match op {
+                        ast::BinaryOp::Add(_) => "+",
+                        ast::BinaryOp::Sub(_) => "-",
+                        ast::BinaryOp::Mul(_) => "*",
+                        ast::BinaryOp::Div(_) => "/",
+                        ast::BinaryOp::Equal(_) => "==",
+                        ast::BinaryOp::GreaterThan(_) => ">",
+                        ast::BinaryOp::LessThan(_) => "<",
+                    };
+                    let lhs_str = self.debug_simplify_expr(hir_file, *lhs);
+                    let rhs_str = self.debug_simplify_expr(hir_file, *rhs);
+                    format!("{lhs_str} {op} {rhs_str}")
+                }
+                hir::Expr::Unary { op, expr } => {
+                    let op = match op {
+                        ast::UnaryOp::Neg(_) => "-",
+                        ast::UnaryOp::Not(_) => "!",
+                    };
+                    let expr_str = self.debug_simplify_expr(hir_file, *expr);
+                    format!("{op}{expr_str}")
+                }
+                hir::Expr::Call { callee, args } => {
+                    let callee = self.debug_symbol(callee);
+                    let args = args
+                        .iter()
+                        .map(|arg| self.debug_simplify_expr(hir_file, *arg))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+
+                    format!("{callee}({args})")
+                }
+                hir::Expr::Block(block) => {
+                    let mut msg = "{ tail:".to_string();
+                    if let Some(tail) = block.tail {
+                        msg.push_str(&self.debug_simplify_expr(hir_file, tail));
+                    } else {
+                        msg.push_str("none");
+                    }
+                    msg.push_str(" }");
+
+                    msg
+                }
+                hir::Expr::If {
+                    condition,
+                    then_branch,
+                    else_branch,
+                } => {
+                    let cond_str = self.debug_simplify_expr(hir_file, *condition);
+                    let mut msg = format!(
+                        "if {cond_str} {}",
+                        self.debug_simplify_expr(hir_file, *then_branch)
+                    );
+
+                    if let Some(else_branch) = else_branch {
+                        msg.push_str(&format!(
+                            " else {}",
+                            self.debug_simplify_expr(hir_file, *else_branch)
+                        ));
+                    }
+
+                    msg
+                }
+                hir::Expr::Return { value } => {
+                    let mut msg = "return".to_string();
+                    if let Some(value) = value {
+                        msg.push_str(&format!(
+                            " {}",
+                            &self.debug_simplify_expr(hir_file, *value,)
+                        ));
+                    }
+
+                    msg
+                }
+                hir::Expr::Missing => "<missing>".to_string(),
+            }
+        }
+
+        fn debug_symbol(&self, symbol: &hir::Symbol) -> String {
+            match &symbol {
+                hir::Symbol::Local { name, expr: _ } => name.text(self.db).to_string(),
+                hir::Symbol::Param { name, .. } => {
+                    let name = name.text(self.db);
+                    format!("param:{name}")
+                }
+                hir::Symbol::Missing { path } => {
+                    let resolving_status = self.pods.resolution_map.item_by_symbol(path).unwrap();
+                    self.debug_resolution_status(resolving_status)
+                }
+            }
+        }
+
+        fn debug_binary_op(&self, op: &ast::BinaryOp) -> String {
+            match op {
+                ast::BinaryOp::Add(_) => "+",
+                ast::BinaryOp::Sub(_) => "-",
+                ast::BinaryOp::Mul(_) => "*",
+                ast::BinaryOp::Div(_) => "/",
+                ast::BinaryOp::Equal(_) => "==",
+                ast::BinaryOp::GreaterThan(_) => ">",
+                ast::BinaryOp::LessThan(_) => "<",
+            }
+            .to_string()
+        }
+
+        fn debug_unary_op(&self, op: &ast::UnaryOp) -> String {
+            match op {
+                ast::UnaryOp::Neg(_) => "-",
+                ast::UnaryOp::Not(_) => "!",
+            }
+            .to_string()
+        }
+
+        fn debug_resolution_status(&self, resolution_status: hir::ResolutionStatus) -> String {
+            match resolution_status {
+                hir::ResolutionStatus::Unresolved => "<unknown>".to_string(),
+                hir::ResolutionStatus::Error => "<missing>".to_string(),
+                hir::ResolutionStatus::Resolved { path, item } => {
+                    let path = self.debug_path(&path);
+                    match item {
+                        hir::Item::Function(_) => {
+                            format!("fn:{path}")
+                        }
+                        hir::Item::Module(_) => {
+                            format!("mod:{path}")
+                        }
+                        hir::Item::UseItem(use_item) => {
+                            let item = self
+                                .pods
+                                .resolution_map
+                                .item_by_use_item(&use_item)
+                                .unwrap();
+                            format!(
+                                "{}::{}",
+                                self.debug_resolution_status(item),
+                                use_item.name(self.db).text(self.db)
+                            )
+                        }
                     }
                 }
             }
         }
 
-        msg
-    }
-
-    fn debug_hir_expr(
-        db: &dyn hir::HirMasterDatabase,
-        expr_id: &hir::ExprId,
-        hir_file: &hir::HirFile,
-    ) -> String {
-        let expr = expr_id.lookup(hir_file.db(db));
-        match expr {
-            hir::Expr::Symbol(symbol) => match symbol {
-                hir::Symbol::Param { name, .. } => debug_name(db, *name),
-                hir::Symbol::Local { name, .. } => debug_name(db, *name),
-                hir::Symbol::Missing { path, .. } => debug_path(db, &path.path(db)),
-            },
-            hir::Expr::Missing => "<missing>".to_string(),
-            hir::Expr::Unary { op, expr } => {
-                let op = match op {
-                    ast::UnaryOp::Neg(_) => "-".to_string(),
-                    ast::UnaryOp::Not(_) => "!".to_string(),
-                };
-                let expr = debug_hir_expr(db, expr, hir_file);
-                format!("{op}{expr}")
-            }
-            hir::Expr::Binary { op, lhs, rhs } => {
-                let op = match op {
-                    ast::BinaryOp::Add(_) => "+",
-                    ast::BinaryOp::Sub(_) => "-",
-                    ast::BinaryOp::Mul(_) => "*",
-                    ast::BinaryOp::Div(_) => "/",
-                    ast::BinaryOp::Equal(_) => "==",
-                    ast::BinaryOp::GreaterThan(_) => ">",
-                    ast::BinaryOp::LessThan(_) => "<",
-                }
-                .to_string();
-                let lhs = debug_hir_expr(db, lhs, hir_file);
-                let rhs = debug_hir_expr(db, rhs, hir_file);
-
-                format!("{lhs} {op} {rhs}")
-            }
-            hir::Expr::Block(block) => {
-                if let Some(tail) = block.tail {
-                    format!("{{ .., {} }}", debug_hir_expr(db, &tail, hir_file))
-                } else {
-                    "{{ .. }}".to_string()
-                }
-            }
-            hir::Expr::Call { callee, args } => {
-                let name = debug_symbol(db, callee);
-                let args = args
-                    .iter()
-                    .map(|id| debug_hir_expr(db, id, hir_file))
-                    .collect::<Vec<String>>()
-                    .join(", ");
-
-                format!("{name}({args})")
-            }
-            hir::Expr::Literal(literal) => match literal {
-                hir::Literal::Bool(b) => b.to_string(),
-                hir::Literal::Char(c) => format!("'{c}'"),
-                hir::Literal::Integer(i) => i.to_string(),
-                hir::Literal::String(s) => format!("\"{s}\""),
-            },
-            hir::Expr::If {
-                condition,
-                then_branch,
-                else_branch,
-            } => {
-                let mut if_expr = format!(
-                    "if {} {}",
-                    debug_hir_expr(db, condition, hir_file),
-                    debug_hir_expr(db, then_branch, hir_file)
-                );
-                if let Some(else_branch) = else_branch {
-                    if_expr.push_str(&format!(
-                        " else {}",
-                        debug_hir_expr(db, else_branch, hir_file)
-                    ));
-                }
-
-                if_expr
-            }
-            hir::Expr::Return { value } => {
-                let mut msg = "return".to_string();
-                if let Some(value) = value {
-                    msg.push_str(&format!(" {}", debug_hir_expr(db, value, hir_file)));
-                }
-
-                msg
-            }
+        fn debug_path(&self, path: &hir::Path) -> String {
+            path.segments(self.db)
+                .iter()
+                .map(|segment| segment.text(self.db).to_string())
+                .collect::<Vec<_>>()
+                .join("::")
         }
-    }
-
-    fn debug_symbol(db: &dyn hir::HirMasterDatabase, symbol: &Symbol) -> String {
-        match symbol {
-            hir::Symbol::Param { name, .. } => debug_name(db, *name),
-            hir::Symbol::Local { name, .. } => debug_name(db, *name),
-            hir::Symbol::Missing { path, .. } => debug_path(db, &path.path(db)),
-        }
-    }
-
-    fn debug_name(db: &dyn hir::HirMasterDatabase, name: Name) -> String {
-        name.text(db).to_string()
-    }
-
-    fn debug_path(db: &dyn hir::HirMasterDatabase, path: &Path) -> String {
-        path.segments(db)
-            .iter()
-            .map(|segment| segment.text(db).to_string())
-            .collect::<Vec<_>>()
-            .join("::")
-    }
-
-    fn debug_type(ty: &ResolvedType) -> String {
-        match ty {
-            ResolvedType::Unknown => "unknown",
-            ResolvedType::Integer => "int",
-            ResolvedType::String => "string",
-            ResolvedType::Char => "char",
-            ResolvedType::Bool => "bool",
-            ResolvedType::Unit => "()",
-            ResolvedType::Never => "!",
-            ResolvedType::Function(_) => "fn",
-        }
-        .to_string()
     }
 
     #[test]
@@ -350,34 +817,23 @@ mod tests {
             }
         "#,
             expect![[r#"
-                fn(int) -> int
-                fn() -> int
+                //- /main.nail
+                fn fibonacci(x: int) -> int {
+                    expr:if param:x == 0 {
+                        expr:0 //: int
+                    } else {
+                        expr:if param:x == 1 {
+                            expr:1 //: int
+                        } else {
+                            expr:fn:fibonacci(param:x - 1) + fn:fibonacci(param:x - 2) //: int
+                        } //: int
+                    } //: int
+                }
+                fn entry:main() -> int {
+                    expr:fn:fibonacci(15) //: int
+                }
+
                 ---
-                `x`: int
-                `0`: int
-                `x == 0`: bool
-                `0`: int
-                `{ .., 0 }`: int
-                `x`: int
-                `1`: int
-                `x == 1`: bool
-                `1`: int
-                `{ .., 1 }`: int
-                `x`: int
-                `1`: int
-                `x - 1`: int
-                `x`: int
-                `2`: int
-                `x - 2`: int
-                `fibonacci(x - 1)`: int
-                `fibonacci(x - 2)`: int
-                `fibonacci(x - 1) + fibonacci(x - 2)`: int
-                `{ .., fibonacci(x - 1) + fibonacci(x - 2) }`: int
-                `if x == 1 { .., 1 } else { .., fibonacci(x - 1) + fibonacci(x - 2) }`: int
-                `{ .., if x == 1 { .., 1 } else { .., fibonacci(x - 1) + fibonacci(x - 2) } }`: int
-                `if x == 0 { .., 0 } else { .., if x == 1 { .., 1 } else { .., fibonacci(x - 1) + fibonacci(x - 2) } }`: int
-                `15`: int
-                `fibonacci(15)`: int
                 ---
             "#]],
         );
@@ -392,9 +848,12 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn entry:main() -> () {
+                    10; //: int
+                }
+
                 ---
-                `10`: int
                 ---
             "#]],
         );
@@ -409,9 +868,12 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn entry:main() -> () {
+                    "aaa"; //: string
+                }
+
                 ---
-                `"aaa"`: string
                 ---
             "#]],
         );
@@ -426,9 +888,12 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn entry:main() -> () {
+                    'a'; //: char
+                }
+
                 ---
-                `'a'`: char
                 ---
             "#]],
         );
@@ -443,9 +908,12 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn entry:main() -> () {
+                    true; //: bool
+                }
+
                 ---
-                `true`: bool
                 ---
             "#]],
         );
@@ -457,9 +925,12 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn entry:main() -> () {
+                    false; //: bool
+                }
+
                 ---
-                `false`: bool
                 ---
             "#]],
         );
@@ -474,9 +945,12 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn entry:main() -> () {
+                    let a = true; //: bool
+                }
+
                 ---
-                `true`: bool
                 ---
             "#]],
         )
@@ -494,12 +968,15 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn entry:main() -> () {
+                    let a = true; //: bool
+                    let b = 10; //: int
+                    let c = "aa"; //: string
+                    let d = 'a'; //: char
+                }
+
                 ---
-                `true`: bool
-                `10`: int
-                `"aa"`: string
-                `'a'`: char
                 ---
             "#]],
         )
@@ -535,82 +1012,52 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn entry:main() -> () {
+                    10 + 20 //: int
+                    "aaa" + "bbb" //: int
+                    10 + "aaa" //: int
+                    'a' + 'a' //: int
+                    10 + 'a' //: int
+                    10 < 'a' //: bool
+                    10 > 'a' //: bool
+                    true + true //: int
+                    true - true //: int
+                    true * true //: int
+                    true / true //: int
+                    true == true //: bool
+                    true < false //: bool
+                    true > false //: bool
+                    10 + true //: int
+                    10 + 10 + "aaa" //: int
+                    10 - 20 //: int
+                    10 * 20 //: int
+                    10 / 20 //: int
+                    10 == 20 //: bool
+                    10 < 20 //: bool
+                    10 > 20; //: bool
+                }
+
                 ---
-                `10`: int
-                `20`: int
-                `10 + 20`: int
-                `"aaa"`: string
-                `"bbb"`: string
-                `"aaa" + "bbb"`: unknown
-                `10`: int
-                `"aaa"`: string
-                `10 + "aaa"`: unknown
-                `'a'`: char
-                `'a'`: char
-                `'a' + 'a'`: unknown
-                `10`: int
-                `'a'`: char
-                `10 + 'a'`: unknown
-                `10`: int
-                `'a'`: char
-                `10 < 'a'`: unknown
-                `10`: int
-                `'a'`: char
-                `10 > 'a'`: unknown
-                `true`: bool
-                `true`: bool
-                `true + true`: unknown
-                `true`: bool
-                `true`: bool
-                `true - true`: unknown
-                `true`: bool
-                `true`: bool
-                `true * true`: unknown
-                `true`: bool
-                `true`: bool
-                `true / true`: unknown
-                `true`: bool
-                `true`: bool
-                `true == true`: bool
-                `true`: bool
-                `false`: bool
-                `true < false`: unknown
-                `true`: bool
-                `false`: bool
-                `true > false`: unknown
-                `10`: int
-                `true`: bool
-                `10 + true`: unknown
-                `10`: int
-                `"aaa"`: string
-                `10`: int
-                `10 + "aaa"`: int
-                `10 + 10 + "aaa"`: int
-                `10`: int
-                `20`: int
-                `10 - 20`: int
-                `10`: int
-                `20`: int
-                `10 * 20`: int
-                `10`: int
-                `20`: int
-                `10 / 20`: int
-                `10`: int
-                `20`: int
-                `10 == 20`: bool
-                `10`: int
-                `20`: int
-                `10 < 20`: bool
-                `10`: int
-                `20`: int
-                `10 > 20`: bool
+                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: string, found_expr: `"aaa"`
+                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: string, found_expr: `"bbb"`
+                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: string, found_expr: `"aaa"`
+                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: char, found_expr: `'a'`
+                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: char, found_expr: `'a'`
+                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: char, found_expr: `'a'`
+                error MismatchedBinaryCompare: op: <, expected_ty: int, found_ty: char, expected_expr: `10`, found_expr: `'a'`
+                error MismatchedBinaryCompare: op: >, expected_ty: int, found_ty: char, expected_expr: `10`, found_expr: `'a'`
+                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: bool, found_expr: `true`
+                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: bool, found_expr: `true`
+                error MismatchedBinaryInteger: op: -, expected_ty: int, found_ty: bool, found_expr: `true`
+                error MismatchedBinaryInteger: op: -, expected_ty: int, found_ty: bool, found_expr: `true`
+                error MismatchedBinaryInteger: op: *, expected_ty: int, found_ty: bool, found_expr: `true`
+                error MismatchedBinaryInteger: op: *, expected_ty: int, found_ty: bool, found_expr: `true`
+                error MismatchedBinaryInteger: op: /, expected_ty: int, found_ty: bool, found_expr: `true`
+                error MismatchedBinaryInteger: op: /, expected_ty: int, found_ty: bool, found_expr: `true`
+                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: bool, found_expr: `true`
+                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: string, found_expr: `"aaa"`
                 ---
-                error: expected int, found string by `10` and `"aaa"`
-                error: expected int, found char by `10` and `'a'`
-                error: expected int, found char by `10` and `'a'`
-                error: expected int, found char by `10` and `'a'`
-                error: expected int, found bool by `10` and `true`
             "#]],
         );
 
@@ -621,18 +1068,15 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn entry:main() -> () {
+                    10 + "aaa" + 10 + "aaa"; //: int
+                }
+
                 ---
-                `10`: int
-                `"aaa"`: string
-                `10`: int
-                `"aaa"`: string
-                `10 + "aaa"`: unknown
-                `10 + "aaa"`: unknown
-                `10 + "aaa" + 10 + "aaa"`: unknown
+                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: string, found_expr: `"aaa"`
+                error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: string, found_expr: `"aaa"`
                 ---
-                error: `10 + "aaa"` is unresolved type.
-                error: `10 + "aaa"` is unresolved type.
             "#]],
         );
     }
@@ -654,24 +1098,25 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn entry:main() -> () {
+                    let a = -10; //: int
+                    let b = -"aaa"; //: int
+                    let c = -'a'; //: int
+                    let d = -true; //: int
+                    let e = !10; //: bool
+                    let f = !"aaa"; //: bool
+                    let g = !'a'; //: bool
+                    let h = !true; //: bool
+                }
+
                 ---
-                `10`: int
-                `-10`: int
-                `"aaa"`: string
-                `-"aaa"`: unknown
-                `'a'`: char
-                `-'a'`: unknown
-                `true`: bool
-                `-true`: unknown
-                `10`: int
-                `!10`: unknown
-                `"aaa"`: string
-                `!"aaa"`: unknown
-                `'a'`: char
-                `!'a'`: unknown
-                `true`: bool
-                `!true`: bool
+                error MismatchedUnary: op: -, expected_ty: int, found_ty: string, found_expr: `"aaa"`
+                error MismatchedUnary: op: -, expected_ty: int, found_ty: char, found_expr: `'a'`
+                error MismatchedUnary: op: -, expected_ty: int, found_ty: bool, found_expr: `true`
+                error MismatchedUnary: op: !, expected_ty: bool, found_ty: int, found_expr: `10`
+                error MismatchedUnary: op: !, expected_ty: bool, found_ty: string, found_expr: `"aaa"`
+                error MismatchedUnary: op: !, expected_ty: bool, found_ty: char, found_expr: `'a'`
                 ---
             "#]],
         )
@@ -688,17 +1133,14 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> bool
+                //- /main.nail
+                fn entry:main() -> bool {
+                    let a = !true; //: bool
+                    let b = !false; //: bool
+                    expr:!a == !b //: bool
+                }
+
                 ---
-                `true`: bool
-                `!true`: bool
-                `false`: bool
-                `!false`: bool
-                `a`: bool
-                `b`: bool
-                `!a`: bool
-                `!b`: bool
-                `!a == !b`: bool
                 ---
             "#]],
         );
@@ -714,11 +1156,13 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> int
+                //- /main.nail
+                fn entry:main() -> int {
+                    let a = -10; //: int
+                    expr:a //: int
+                }
+
                 ---
-                `10`: int
-                `-10`: int
-                `a`: int
                 ---
             "#]],
         )
@@ -735,10 +1179,14 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn entry:main() -> () {
+                    {
+                        expr:10 //: int
+                    }; //: int
+                }
+
                 ---
-                `10`: int
-                `{ .., 10 }`: int
                 ---
             "#]],
         );
@@ -755,12 +1203,17 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn entry:main() -> () {
+                    {
+                        expr:{
+                            10 //: int
+                            expr:"aaa" //: string
+                        } //: string
+                    }; //: string
+                }
+
                 ---
-                `10`: int
-                `"aaa"`: string
-                `{ .., "aaa" }`: string
-                `{ .., { .., "aaa" } }`: string
                 ---
             "#]],
         );
@@ -777,15 +1230,17 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> int
+                //- /main.nail
+                fn entry:main() -> int {
+                    let a = 10; //: int
+                    let b = {
+                        let c = 20; //: int
+                        expr:a + c //: int
+                    }; //: int
+                    expr:b //: int
+                }
+
                 ---
-                `10`: int
-                `20`: int
-                `a`: int
-                `c`: int
-                `a + c`: int
-                `{ .., a + c }`: int
-                `b`: int
                 ---
             "#]],
         );
@@ -800,11 +1255,14 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn aaa() -> () {
+                    expr:10 //: int
+                }
+
                 ---
-                `10`: int
+                error MismatchedReturnType: expected_ty: (), found_ty: int, found_expr: `10`
                 ---
-                error: expected (), found int by `10`
             "#]],
         );
 
@@ -815,9 +1273,12 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn aaa() -> () {
+                    10; //: int
+                }
+
                 ---
-                `10`: int
                 ---
             "#]],
         );
@@ -834,12 +1295,17 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn aaa() -> () {
+                    {
+                        expr:10 //: int
+                    }; //: int
+                    {
+                        20; //: int
+                    }; //: ()
+                }
+
                 ---
-                `10`: int
-                `{ .., 10 }`: int
-                `20`: int
-                `{{ .. }}`: ()
                 ---
             "#]],
         );
@@ -858,13 +1324,18 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn aaa() -> () {
+                    expr:{
+                        expr:{
+                            expr:10 //: int
+                        } //: int
+                    } //: int
+                }
+
                 ---
-                `10`: int
-                `{ .., 10 }`: int
-                `{ .., { .., 10 } }`: int
+                error MismatchedReturnType: expected_ty: (), found_ty: int, found_expr: `{ tail:{ tail:10 } }`
                 ---
-                error: expected (), found int by `{ .., { .., 10 } }`
             "#]],
         );
 
@@ -879,11 +1350,16 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn aaa() -> () {
+                    expr:{
+                        expr:{
+                            10; //: int
+                        } //: ()
+                    } //: ()
+                }
+
                 ---
-                `10`: int
-                `{{ .. }}`: ()
-                `{ .., {{ .. }} }`: ()
                 ---
             "#]],
         );
@@ -899,11 +1375,16 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn aaa() -> () {
+                    expr:{
+                        {
+                            expr:10 //: int
+                        }; //: int
+                    } //: ()
+                }
+
                 ---
-                `10`: int
-                `{ .., 10 }`: int
-                `{{ .. }}`: ()
                 ---
             "#]],
         );
@@ -919,10 +1400,13 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> int
+                //- /main.nail
+                fn aaa() -> int {
+                    let a = 10; //: int
+                    expr:a //: int
+                }
+
                 ---
-                `10`: int
-                `a`: int
                 ---
             "#]],
         );
@@ -938,10 +1422,13 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn(int, string) -> ()
+                //- /main.nail
+                fn aaa(x: int, y: string) -> () {
+                    let a = param:x; //: int
+                    let b = param:y; //: string
+                }
+
                 ---
-                `x`: int
-                `y`: string
                 ---
             "#]],
         );
@@ -960,20 +1447,18 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
-                fn(bool, string) -> int
+                //- /main.nail
+                fn entry:main() -> () {
+                    fn aaa(x: bool, y: string) -> int {
+                        expr:10 + 20 //: int
+                    }
+                    let res = fn:aaa(true, "aaa"); //: int
+                    expr:res + 30 //: int
+                }
+
                 ---
-                `true`: bool
-                `"aaa"`: string
-                `aaa(true, "aaa")`: int
-                `res`: int
-                `30`: int
-                `res + 30`: int
-                `10`: int
-                `20`: int
-                `10 + 20`: int
+                error MismatchedReturnType: expected_ty: (), found_ty: int, found_expr: `res + 30`
                 ---
-                error: expected (), found int by `res + 30`
             "#]],
         );
     }
@@ -990,18 +1475,18 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
-                fn(bool, string) -> int
+                //- /main.nail
+                fn entry:main() -> () {
+                    fn aaa(x: bool, y: string) -> int {
+                        expr:10 + 20 //: int
+                    }
+                    fn:aaa("aaa", true); //: int
+                }
+
                 ---
-                `"aaa"`: string
-                `true`: bool
-                `aaa("aaa", true)`: int
-                `10`: int
-                `20`: int
-                `10 + 20`: int
+                error MismaatchedSignature: expected_ty: bool, found_ty: string, found_expr: `"aaa"`, signature: (bool, string) -> int, arg_pos: 0
+                error MismaatchedSignature: expected_ty: string, found_ty: bool, found_expr: `true`, signature: (bool, string) -> int, arg_pos: 1
                 ---
-                error: expected bool, found string by `"aaa"`
-                error: expected string, found bool by `true`
             "#]],
         );
     }
@@ -1019,14 +1504,16 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn entry:main() -> () {
+                    if true {
+                        expr:10 //: int
+                    } else {
+                        expr:20 //: int
+                    }; //: int
+                }
+
                 ---
-                `true`: bool
-                `10`: int
-                `{ .., 10 }`: int
-                `20`: int
-                `{ .., 20 }`: int
-                `if true { .., 10 } else { .., 20 }`: int
                 ---
             "#]],
         );
@@ -1043,15 +1530,16 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> int
+                //- /main.nail
+                fn entry:main() -> int {
+                    expr:if true {
+                        expr:10 //: int
+                    } //: int
+                }
+
                 ---
-                `true`: bool
-                `10`: int
-                `{ .., 10 }`: int
-                `if true { .., 10 }`: unknown
+                error MismatchedTypeOnlyIfBranch: then_branch_ty: int, else_branch_ty: (), then_branch: `{ tail:10 }`
                 ---
-                error: expected (), found int by `{ .., 10 }`
-                error: expected int, found unknown by `if true { .., 10 }`
             "#]],
         );
     }
@@ -1067,12 +1555,14 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn entry:main() -> () {
+                    expr:if true {
+                    } else {
+                    } //: ()
+                }
+
                 ---
-                `true`: bool
-                `{{ .. }}`: ()
-                `{{ .. }}`: ()
-                `if true {{ .. }} else {{ .. }}`: ()
                 ---
             "#]],
         );
@@ -1085,11 +1575,13 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn entry:main() -> () {
+                    expr:if true {
+                    } //: ()
+                }
+
                 ---
-                `true`: bool
-                `{{ .. }}`: ()
-                `if true {{ .. }}`: ()
                 ---
             "#]],
         );
@@ -1108,17 +1600,19 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn entry:main() -> () {
+                    expr:if true {
+                        expr:10 //: int
+                    } else {
+                        expr:"aaa" //: string
+                    } //: int
+                }
+
                 ---
-                `true`: bool
-                `10`: int
-                `{ .., 10 }`: int
-                `"aaa"`: string
-                `{ .., "aaa" }`: string
-                `if true { .., 10 } else { .., "aaa" }`: unknown
+                error MismatchedTypeElseBranch: then_branch_ty: int, else_branch_ty: string, then_branch: `{ tail:10 }`, else_branch: `{ tail:"aaa" }`
+                error MismatchedReturnType: expected_ty: (), found_ty: int, found_expr: `if true { tail:10 } else { tail:"aaa" }`
                 ---
-                error: expected int, found string by `{ .., 10 }` and `{ .., "aaa" }`
-                error: expected (), found unknown by `if true { .., 10 } else { .., "aaa" }`
             "#]],
         );
     }
@@ -1136,17 +1630,19 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn entry:main() -> () {
+                    expr:if 10 {
+                        expr:"aaa" //: string
+                    } else {
+                        expr:"aaa" //: string
+                    } //: string
+                }
+
                 ---
-                `10`: int
-                `"aaa"`: string
-                `{ .., "aaa" }`: string
-                `"aaa"`: string
-                `{ .., "aaa" }`: string
-                `if 10 { .., "aaa" } else { .., "aaa" }`: string
+                error MismatchedTypeIfCondition: expected_ty: bool, found_ty: int, found_expr: `10`
+                error MismatchedReturnType: expected_ty: (), found_ty: string, found_expr: `if 10 { tail:"aaa" } else { tail:"aaa" }`
                 ---
-                error: expected bool, found int by `10`
-                error: expected (), found string by `if 10 { .., "aaa" } else { .., "aaa" }`
             "#]],
         );
     }
@@ -1167,18 +1663,43 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> int
+                //- /main.nail
+                fn entry:main() -> int {
+                    let value = if true {
+                        return 10; //: !
+                    } else {
+                        expr:true //: bool
+                    }; //: bool
+                    expr:20 //: int
+                }
+
                 ---
-                `true`: bool
-                `10`: int
-                `return 10`: !
-                `{{ .. }}`: ()
-                `true`: bool
-                `{ .., true }`: bool
-                `if true {{ .. }} else { .., true }`: unknown
-                `20`: int
                 ---
-                error: expected (), found bool by `{{ .. }}` and `{ .., true }`
+            "#]],
+        );
+
+        check_in_root_file(
+            r#"
+                fn main() -> int {
+                    if true {
+                        return 10;
+                    } else {
+                        20
+                    }
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> int {
+                    expr:if true {
+                        return 10; //: !
+                    } else {
+                        expr:20 //: int
+                    } //: int
+                }
+
+                ---
+                ---
             "#]],
         );
 
@@ -1196,18 +1717,18 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> int
+                //- /main.nail
+                fn entry:main() -> int {
+                    let value = if true {
+                        expr:true //: bool
+                    } else {
+                        return 10; //: !
+                    }; //: bool
+                    expr:20 //: int
+                }
+
                 ---
-                `true`: bool
-                `true`: bool
-                `{ .., true }`: bool
-                `10`: int
-                `return 10`: !
-                `{{ .. }}`: ()
-                `if true { .., true } else {{ .. }}`: unknown
-                `20`: int
                 ---
-                error: expected bool, found () by `{ .., true }` and `{{ .. }}`
             "#]],
         );
 
@@ -1225,17 +1746,17 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> int
+                //- /main.nail
+                fn entry:main() -> int {
+                    let value = if true {
+                        return 10; //: !
+                    } else {
+                        return 20; //: !
+                    }; //: !
+                    expr:30 //: int
+                }
+
                 ---
-                `true`: bool
-                `10`: int
-                `return 10`: !
-                `{{ .. }}`: ()
-                `20`: int
-                `return 20`: !
-                `{{ .. }}`: ()
-                `if true {{ .. }} else {{ .. }}`: ()
-                `30`: int
                 ---
             "#]],
         );
@@ -1250,11 +1771,13 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
+                //- /main.nail
+                fn entry:main() -> () {
+                    expr:return //: !
+                }
+
                 ---
-                `return`: !
                 ---
-                error: expected (), found ! by `return`
             "#]],
         );
 
@@ -1265,12 +1788,13 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> int
+                //- /main.nail
+                fn entry:main() -> int {
+                    expr:return 10 //: !
+                }
+
                 ---
-                `10`: int
-                `return 10`: !
                 ---
-                error: expected int, found ! by `return 10`
             "#]],
         );
     }
@@ -1284,12 +1808,14 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> int
+                //- /main.nail
+                fn entry:main() -> int {
+                    expr:return //: !
+                }
+
                 ---
-                `return`: !
+                error MismatchedReturnType: expected_ty: int, found_ty: ()
                 ---
-                error: expected int, found ()
-                error: expected int, found ! by `return`
             "#]],
         );
 
@@ -1300,13 +1826,14 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> int
+                //- /main.nail
+                fn entry:main() -> int {
+                    expr:return "aaa" //: !
+                }
+
                 ---
-                `"aaa"`: string
-                `return "aaa"`: !
+                error MismatchedReturnType: expected_ty: int, found_ty: string, found_expr: `"aaa"`
                 ---
-                error: expected int, found string by `"aaa"`
-                error: expected int, found ! by `return "aaa"`
             "#]],
         );
     }
@@ -1337,15 +1864,28 @@ mod tests {
                 }
             "#,
             expect![[r#"
-                fn() -> ()
-                fn() -> bool
-                fn() -> string
-                fn() -> int
+                //- /main.nail
+                fn entry:main() -> () {
+                    return; //: !
+                }
+                mod module_aaa {
+                    mod module_bbb {
+                        fn function_aaa() -> bool {
+                            mod module_ccc {
+                                fn function_bbb() -> string {
+                                    expr:"aaa" //: string
+                                }
+                            }
+                            expr:true //: bool
+                        }
+                    }
+
+                    fn function_ccc() -> int {
+                        expr:30 //: int
+                    }
+                }
+
                 ---
-                `return`: !
-                `true`: bool
-                `"aaa"`: string
-                `30`: int
                 ---
             "#]],
         );
@@ -1358,30 +1898,179 @@ mod tests {
                 //- /main.nail
                 mod mod_aaa;
 
-                fn main() -> integer {
+                fn main() -> int {
                     mod_aaa::fn_aaa();
                     mod_aaa::mod_bbb::fn_bbb()
                 }
 
                 //- /mod_aaa.nail
                 mod mod_bbb;
-                fn fn_aaa() -> integer {
+                fn fn_aaa() -> int {
                     mod_bbb::fn_bbb()
                 }
 
                 //- /mod_aaa/mod_bbb.nail
-                fn fn_bbb() -> integer {
+                fn fn_bbb() -> int {
                     10
                 }
             "#,
             expect![[r#"
-                fn() -> unknown
-                fn() -> unknown
-                fn() -> unknown
+                //- /main.nail
+                mod mod_aaa;
+                fn entry:main() -> int {
+                    fn:mod_aaa::fn_aaa(); //: int
+                    expr:fn:mod_aaa::mod_bbb::fn_bbb() //: int
+                }
+
+                //- /mod_aaa.nail
+                mod mod_bbb;
+                fn fn_aaa() -> int {
+                    expr:fn:mod_bbb::fn_bbb() //: int
+                }
+
+                //- /mod_aaa/mod_bbb.nail
+                fn fn_bbb() -> int {
+                    expr:10 //: int
+                }
+
                 ---
-                `mod_aaa::fn_aaa()`: unknown
-                `mod_aaa::mod_bbb::fn_bbb()`: unknown
                 ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn call_callable_expr() {
+        check_in_root_file(
+            r#"
+                fn main() {
+                    let a = 10;
+                    a();
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    let a = 10; //: int
+                    a(); //: <unknown>
+                }
+
+                ---
+                error NotCallable: found_callee_ty: int, found_callee_symbol: a
+                ---
+                error Type is unknown: expr: a()
+            "#]],
+        );
+    }
+
+    #[test]
+    fn mismatched_arg_len() {
+        check_pod_start_with_root_file(
+            r#"
+                //- /main.nail
+                fn main() {
+                    callee(10);
+                    callee(10, "a");
+                    callee(10, "a", 30);
+                }
+                fn callee(a: int, b: string) -> int {
+                    10
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    fn:callee(10); //: int
+                    fn:callee(10, "a"); //: int
+                    fn:callee(10, "a", 30); //: int
+                }
+                fn callee(a: int, b: string) -> int {
+                    expr:10 //: int
+                }
+
+                ---
+                error MismatchedCallArgCount: expected_arg_count: 2, found_arg_count: 1
+                error MismatchedCallArgCount: expected_arg_count: 2, found_arg_count: 3
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn symbol_to_module() {
+        check_pod_start_with_root_file(
+            r#"
+                //- /main.nail
+                fn main() {
+                    aaa;
+                    aaa::bbb;
+                }
+
+                mod aaa {
+                    mod bbb {
+                    }
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    mod:aaa; //: <unknown>
+                    mod:aaa::bbb; //: <unknown>
+                }
+                mod aaa {
+                    mod bbb {
+                    }
+                }
+
+                ---
+                error ModuleAsExpr: found_module: aaa
+                error ModuleAsExpr: found_module: bbb
+                ---
+                error Type is unknown: expr: mod:aaa
+                error Type is unknown: expr: mod:aaa::bbb
+            "#]],
+        );
+    }
+
+    /// unimplements hir
+    #[test]
+    fn symbol_to_use_item() {
+        check_pod_start_with_root_file(
+            r#"
+                //- /main.nail
+                mod aaa;
+                use aaa:bbb;
+                fn main() -> int {
+                    bbb()
+                }
+
+                //- /aaa.nail
+                mod aaa {
+                    fn bbb() -> int {
+                        10
+                    }
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                mod aaa;
+                use aaa;
+                fn entry:main() -> int {
+                    expr:<missing>() //: <unknown>
+                }
+
+                //- /aaa.nail
+                mod aaa {
+                    fn bbb() -> int {
+                        expr:10 //: int
+                    }
+                }
+
+                ---
+                error NotCallable: found_callee_ty: <unknown>, found_callee_symbol: <missing>
+                error MismatchedReturnType: expected_ty: int, found_ty: <unknown>, found_expr: `<missing>()`
+                ---
+                error Type is unknown: expr: <missing>()
             "#]],
         );
     }

@@ -40,7 +40,7 @@ pub use db::{HirMasterDatabase, Jar};
 pub use input::{FixtureDatabase, NailFile, SourceDatabase, SourceDatabaseTrait};
 pub use item::{Function, Item, Module, ModuleKind, Param, Type, UseItem};
 use name_resolver::resolve_symbols;
-pub use name_resolver::{ResolutionMap, ResolutionStatus};
+pub use name_resolver::{ModuleScopeOrigin, ResolutionMap, ResolutionStatus};
 pub use testing::TestingDatabase;
 
 /// ビルド対象全体を表します。
@@ -90,6 +90,8 @@ impl Pod {
     }
 
     /// ファイルの登録順の昇順でHIR構築結果を返します。
+    ///
+    /// ルートファイルは含まれません。
     pub fn get_hir_files_order_registration_asc(&self) -> Vec<(NailFile, &HirFile)> {
         let mut lower_results = vec![];
         for file in &self.registration_order {

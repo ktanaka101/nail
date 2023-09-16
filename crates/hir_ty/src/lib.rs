@@ -21,7 +21,8 @@ mod testing;
 
 pub use checker::{TypeCheckError, TypeCheckResult};
 pub use db::{HirTyMasterDatabase, Jar};
-pub use inference::{InferenceBodyResult, InferenceResult, Signature};
+pub use inference::{InferenceBodyResult, InferenceError, InferenceResult, Monotype, Signature};
+pub use testing::TestingDatabase;
 
 /// HIRを元にTypedHIRを構築します。
 pub fn lower_pods(db: &dyn HirTyMasterDatabase, pods: &hir::Pods) -> TyLowerResult {
@@ -44,8 +45,8 @@ pub struct TyLowerResult {
 }
 impl TyLowerResult {
     /// 指定した関数の型を取得します。
-    pub fn signature_by_function(&self, function_id: hir::Function) -> &Signature {
-        &self.inference_result.signature_by_function[&function_id]
+    pub fn signature_by_function(&self, function_id: hir::Function) -> Signature {
+        self.inference_result.signature_by_function[&function_id]
     }
 
     /// 指定した関数の型推論結果を取得します。

@@ -45,8 +45,11 @@ pub struct TyLowerResult {
 }
 impl TyLowerResult {
     /// 指定した関数の型を取得します。
-    pub fn signature_by_function(&self, function_id: hir::Function) -> Signature {
-        self.inference_result.signature_by_function[&function_id]
+    pub fn signature_by_function(&self, function_id: hir::Function) -> Option<Signature> {
+        self.inference_result
+            .signature_by_function
+            .get(&function_id)
+            .copied()
     }
 
     /// 指定した関数の型推論結果を取得します。

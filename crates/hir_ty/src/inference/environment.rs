@@ -416,15 +416,24 @@ impl<'a> InferBody<'a> {
 /// Pod全体の型推論結果
 #[derive(Debug)]
 pub struct InferenceResult {
-    pub signature_by_function: HashMap<hir::Function, Signature>,
-    pub inference_body_result_by_function: HashMap<hir::Function, InferenceBodyResult>,
+    pub(crate) signature_by_function: HashMap<hir::Function, Signature>,
+    pub(crate) inference_body_result_by_function: HashMap<hir::Function, InferenceBodyResult>,
 }
 
 /// 関数内の型推論結果
 #[derive(Debug)]
 pub struct InferenceBodyResult {
-    pub type_by_expr: HashMap<hir::ExprId, Monotype>,
-    pub errors: Vec<InferenceError>,
+    pub(crate) type_by_expr: HashMap<hir::ExprId, Monotype>,
+    pub(crate) errors: Vec<InferenceError>,
+}
+impl InferenceBodyResult {
+    pub fn type_by_expr(&self, expr: hir::ExprId) -> Option<&Monotype> {
+        self.type_by_expr.get(&expr)
+    }
+
+    pub fn errors(&self) -> &Vec<InferenceError> {
+        &self.errors
+    }
 }
 
 /// Hindley-Milner型システムにおける型環境

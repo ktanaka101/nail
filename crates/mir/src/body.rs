@@ -39,7 +39,7 @@ impl<'a> FunctionLower<'a> {
         function: hir::Function,
     ) -> Self {
         let mut locals = Arena::new();
-        let signature = hir_ty_result.signature_by_function(function);
+        let signature = hir_ty_result.signature_by_function(function).unwrap();
         let return_local = locals.alloc(Local {
             ty: signature.return_type(db),
             idx: 0,
@@ -88,7 +88,10 @@ impl<'a> FunctionLower<'a> {
     }
 
     fn alloc_local(&mut self, expr: hir::ExprId) -> Idx<Local> {
-        let ty = &self.get_inference_by_function(self.function).type_by_expr[&expr];
+        let ty = self
+            .get_inference_by_function(self.function)
+            .type_by_expr(expr)
+            .unwrap();
         let local_idx = self.alloc_local_by_ty(ty.clone());
         self.local_by_hir.insert(expr, local_idx);
 
@@ -458,7 +461,8 @@ impl<'a> FunctionLower<'a> {
                             hir::Item::Function(function) => {
                                 let function_id = self.function_by_hir_function[&function];
 
-                                let signature = self.hir_ty_result.signature_by_function(function);
+                                let signature =
+                                    self.hir_ty_result.signature_by_function(function).unwrap();
                                 let called_local =
                                     self.alloc_local_by_ty(signature.return_type(self.db));
                                 let dest_place = Place::Local(called_local);
@@ -519,7 +523,10 @@ impl<'a> FunctionLower<'a> {
     }
 
     pub(crate) fn lower(mut self) -> Body {
-        let signature = self.hir_ty_result.signature_by_function(self.function);
+        let signature = self
+            .hir_ty_result
+            .signature_by_function(self.function)
+            .unwrap();
         for (param, param_ty) in self
             .function
             .params(self.db)

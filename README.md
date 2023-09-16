@@ -105,7 +105,7 @@ Implemented = ✅, Partially Implemented = 🚧, Not Implemented = ❌
   false || true // or
   !true // not
   ```
-- ❌ Assignment operators
+- 🚧 Assignment operators
   Only mutable variables can be assigned.
   ```rust
   let mut a = 10; // define variable
@@ -289,7 +289,7 @@ Implemented = ✅, Partially Implemented = 🚧, Not Implemented = ❌
       }
   }
   ```
-- ❌ Module reference
+- 🚧 Module reference
   Reference by specifying the path directly or using use. The reference method is the same for both file modules and in-file modules.
 
   ```rust
@@ -462,11 +462,11 @@ partial type V6IpAddress {
     address: Vec<u8>
 }
 
-fn is_empty(ip_address: IpAddress) -> bool {
+fn is_empty(ip_address: V4IpAddress) -> bool {
     ip_address.address.is_empty()
 }
 
-fn handle(ip_address: IpAddress) -> bool {
+fn handle(ip_address: V4IpAddress) -> bool {
     match ip_address {
         // IpAddressV4 and IpAddressV6 cannot be matched because I don't know what to pass to IpAddress.
         // It is close to the concept of Trait and Interface.

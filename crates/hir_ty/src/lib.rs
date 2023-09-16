@@ -261,15 +261,15 @@ mod tests {
                         InferenceError::MismatchedTypeReturnValue {
                             expected_signature,
                             found_ty,
-                            found_return_expr: found_expr,
+                            found_return_expr,
                         } => {
-                            if let Some(found_expr) = found_expr {
+                            if let Some(found_return_expr) = found_return_expr {
                                 msg.push_str(
                             &format!(
                                 "error MismatchedReturnType: expected_ty: {}, found_ty: {}, found_expr: {}",
                                 self.debug_monotype(&expected_signature.return_type(self.db)),
                                 self.debug_monotype(found_ty),
-                                self.debug_simplify_expr(hir_file, *found_expr),
+                                self.debug_simplify_expr(hir_file, *found_return_expr),
                             ));
                             } else {
                                 msg.push_str(&format!(
@@ -1709,7 +1709,6 @@ mod tests {
                 }
 
                 ---
-                error MismatchedReturnType: expected_ty: (), found_ty: !, found_expr: return
                 ---
             "#]],
         );
@@ -1727,7 +1726,6 @@ mod tests {
                 }
 
                 ---
-                error MismatchedReturnType: expected_ty: int, found_ty: !, found_expr: return 10
                 ---
             "#]],
         );
@@ -1748,7 +1746,6 @@ mod tests {
                 }
 
                 ---
-                error MismatchedReturnType: expected_ty: int, found_ty: !, found_expr: return
                 error MismatchedReturnType: expected_ty: int, found_ty: ()
                 ---
             "#]],
@@ -1768,7 +1765,6 @@ mod tests {
 
                 ---
                 error MismatchedReturnType: expected_ty: int, found_ty: string, found_expr: "aaa"
-                error MismatchedReturnType: expected_ty: int, found_ty: !, found_expr: return "aaa"
                 ---
             "#]],
         );

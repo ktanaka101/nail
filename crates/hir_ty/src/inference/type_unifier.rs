@@ -174,6 +174,9 @@ impl TypeUnifier {
             }
             (Monotype::Variable(_), b_rep) => self.unify_var(b_rep, &a_rep),
             (a_rep, Monotype::Variable(_)) => self.unify_var(a_rep, &b_rep),
+            // 実際の型がNever型の場合は、期待する型がなんであれ到達しないので型チェックする必要がない
+            // 期待する型がNever型の場合は、、値が渡ってはいけないので型チェックするべき。途中でreturnした場合など改善の余地があると思われる。
+            (_, Monotype::Never) => (),
             (_, _) => {
                 self.errors
                     .push(build_unify_error_from_unify_purpose(a_rep, b_rep, purpose));

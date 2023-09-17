@@ -54,9 +54,13 @@ fn execute(filepath: &str) -> Result<String> {
     }
 
     let ty_result = hir_ty::lower_pods(&db, &pods);
-    let errors = ty_result.errors();
-    if !errors.is_empty() {
-        return Err(anyhow::anyhow!("Ty error: {:?}", errors));
+    let type_inference_errors = ty_result.type_inference_errors();
+    if !type_inference_errors.is_empty() {
+        return Err(anyhow::anyhow!("Ty error: {:?}", type_inference_errors));
+    }
+    let type_check_errors = ty_result.type_check_errors();
+    if !type_check_errors.is_empty() {
+        return Err(anyhow::anyhow!("Ty error: {:?}", type_check_errors));
     }
 
     let mir_result = mir::lower_pods(&db, &pods, &ty_result);

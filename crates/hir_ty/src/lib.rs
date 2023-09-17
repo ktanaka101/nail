@@ -70,10 +70,22 @@ impl TyLowerResult {
         self.type_check_result.errors_by_function.get(&function)
     }
 
-    /// エラーを取得します。
+    /// 型推論エラーを取得します。
     ///
     /// TODO: 順不同ではなくす
-    pub fn errors(&self) -> Vec<TypeCheckError> {
+    pub fn type_inference_errors(&self) -> Vec<InferenceError> {
+        self.inference_result
+            .inference_body_result_by_function
+            .values()
+            .flat_map(|inference_body_result| &inference_body_result.errors)
+            .cloned()
+            .collect()
+    }
+
+    /// 型チェックエラーを取得します。
+    ///
+    /// TODO: 順不同ではなくす
+    pub fn type_check_errors(&self) -> Vec<TypeCheckError> {
         self.type_check_result
             .errors_by_function
             .values()

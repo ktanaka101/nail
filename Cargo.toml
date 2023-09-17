@@ -69,3 +69,5 @@ logos.opt-level = 3
 rowan.opt-level = 3
 smol_str.opt-level = 3
 text-size.opt-level = 3
+la-arena.opt-level = 3
+lasso.opt-level = 3

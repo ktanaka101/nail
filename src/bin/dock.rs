@@ -43,34 +43,30 @@ fn main() {
     }
 }
 
-fn lower(
-    filepath: &str,
-) -> (
-    base_db::SalsaDatabase,
-    hir::Pods,
-    hir_ty::TyLowerResult,
-    mir::LowerResult,
-) {
+fn execute(filepath: &str) -> Result<String> {
     let db = base_db::SalsaDatabase::default();
     let mut source_db = hir::SourceDatabase::new(&db, filepath.into());
 
     let pods = hir::parse_pods(&db, &mut source_db);
+    let errors = pods.root_pod.root_hir_file.errors(&db);
+    if !errors.is_empty() {
+        return Err(anyhow::anyhow!("Hir error: {:?}", errors));
+    }
+
     let ty_result = hir_ty::lower_pods(&db, &pods);
+    let errors = ty_result.errors();
+    if !errors.is_empty() {
+        return Err(anyhow::anyhow!("Ty error: {:?}", errors));
+    }
+
     let mir_result = mir::lower_pods(&db, &pods, &ty_result);
 
-    (db, pods, ty_result, mir_result)
-}
-
-fn execute(filepath: &str) -> Result<String> {
     let context = Context::create();
     let module = context.create_module("top");
     let builder = context.create_builder();
     let execution_engine = module
         .create_jit_execution_engine(OptimizationLevel::None)
         .unwrap();
-
-    let (db, _pods, _ty_hir_result, mir_result) = lower(filepath);
-
     let codegen_result = codegen_llvm::codegen(
         &db,
         &mir_result,

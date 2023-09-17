@@ -69,6 +69,18 @@ impl TyLowerResult {
     ) -> Option<&Vec<TypeCheckError>> {
         self.type_check_result.errors_by_function.get(&function)
     }
+
+    /// エラーを取得します。
+    ///
+    /// TODO: 順不同ではなくす
+    pub fn errors(&self) -> Vec<TypeCheckError> {
+        self.type_check_result
+            .errors_by_function
+            .values()
+            .flatten()
+            .cloned()
+            .collect()
+    }
 }
 
 #[cfg(test)]

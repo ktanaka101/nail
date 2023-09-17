@@ -9,7 +9,6 @@ edition = "2021"
 lasso = { workspace = true }
 la-arena = { workspace = true }
 salsa = { workspace = true }
-smol_str = { workspace = true }
 
 syntax = { workspace = true }
 ast = { workspace = true }

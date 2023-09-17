@@ -214,7 +214,7 @@ fn parse_module(
     registration_order.push(hir_file.file(db));
     hir_file_by_nail_file.insert(hir_file.file(db), hir_file);
 
-    let sub_dir = dir.join(format!("{module_name}"));
+    let sub_dir = dir.join(module_name);
     for sub_module in hir_file.modules(db) {
         if matches!(sub_module.kind(db), ModuleKind::Inline { .. }) {
             continue;

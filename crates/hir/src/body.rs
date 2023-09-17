@@ -955,7 +955,7 @@ mod tests {
         let db = TestingDatabase::default();
         let mut source_db = FixtureDatabase::new(&db, fixture);
 
-        let pods = parse_pods(&db, "/main.nail", &mut source_db);
+        let pods = parse_pods(&db, &mut source_db);
 
         expected.assert_eq(&debug_pods(&db, &pods));
     }

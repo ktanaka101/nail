@@ -86,7 +86,7 @@ mod tests {
         let db = TestingDatabase::default();
         let mut source_db = hir::FixtureDatabase::new(&db, fixture);
 
-        let pods = hir::parse_pods(&db, "/main.nail", &mut source_db);
+        let pods = hir::parse_pods(&db, &mut source_db);
         let ty_lower_result = lower_pods(&db, &pods);
 
         expect.assert_eq(&TestingDebug::new(&db, &pods, &ty_lower_result).debug());

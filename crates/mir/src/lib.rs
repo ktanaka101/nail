@@ -457,7 +457,7 @@ mod tests {
         let db = hir_ty::TestingDatabase::default();
         let mut source_db = hir::FixtureDatabase::new(&db, fixture);
 
-        let pods = hir::parse_pods(&db, "/main.nail", &mut source_db);
+        let pods = hir::parse_pods(&db, &mut source_db);
         let ty_hir_result = hir_ty::lower_pods(&db, &pods);
 
         let mir_result = lower_pods(&db, &pods, &ty_hir_result);

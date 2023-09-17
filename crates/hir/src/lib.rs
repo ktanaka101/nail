@@ -135,12 +135,8 @@ impl Pod {
 }
 
 /// ルートファイルをパースし、Pod全体を構築します。
-pub fn parse_pods(
-    db: &dyn HirMasterDatabase,
-    path: &str,
-    source_db: &mut dyn SourceDatabaseTrait,
-) -> Pods {
-    let pod = parse_pod(db, path, source_db);
+pub fn parse_pods(db: &dyn HirMasterDatabase, source_db: &mut dyn SourceDatabaseTrait) -> Pods {
+    let pod = parse_pod(db, source_db);
     let symbol_table = resolve_symbols(db, &pod);
 
     Pods {
@@ -150,16 +146,12 @@ pub fn parse_pods(
 }
 
 /// ルートファイル、サブファイルをパースし、Podを構築します。
-fn parse_pod(
-    db: &dyn HirMasterDatabase,
-    file_path: &str,
-    source_db: &mut dyn SourceDatabaseTrait,
-) -> Pod {
+fn parse_pod(db: &dyn HirMasterDatabase, source_db: &mut dyn SourceDatabaseTrait) -> Pod {
     let mut hir_file_by_nail_file = HashMap::new();
     let mut hir_file_by_module = HashMap::new();
     let mut registration_order = vec![];
 
-    let root_file_path = std::path::PathBuf::from(file_path);
+    let root_file_path = source_db.source_root().file_path(db);
     let nail_file = source_db.source_root();
 
     let ast_source = parse_to_ast(db, nail_file);

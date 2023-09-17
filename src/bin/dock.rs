@@ -54,7 +54,7 @@ fn lower(
     let db = base_db::SalsaDatabase::default();
     let mut source_db = hir::SourceDatabase::new(&db, filepath.into());
 
-    let pods = hir::parse_pods(&db, filepath, &mut source_db);
+    let pods = hir::parse_pods(&db, &mut source_db);
     let ty_result = hir_ty::lower_pods(&db, &pods);
     let mir_result = mir::lower_pods(&db, &pods, &ty_result);
 

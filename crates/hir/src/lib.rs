@@ -204,8 +204,8 @@ fn parse_module(
     source_db: &mut dyn SourceDatabaseTrait,
 ) {
     let module_name = module.name(db).text(db);
-    let file_path = dir.with_file_name(format!("{module_name}.nail"));
-    let nail_file = source_db.register_file_with_read(db, file_path);
+    let nail_file_path = dir.join(format!("{module_name}.nail"));
+    let nail_file = source_db.register_file_with_read(db, nail_file_path);
 
     let ast_source = parse_to_ast(db, nail_file);
     let hir_file = build_hir_file(db, ast_source);
@@ -214,7 +214,7 @@ fn parse_module(
     registration_order.push(hir_file.file(db));
     hir_file_by_nail_file.insert(hir_file.file(db), hir_file);
 
-    let sub_dir = dir.join(format!("{module_name}/_.nail"));
+    let sub_dir = dir.join(format!("{module_name}"));
     for sub_module in hir_file.modules(db) {
         if matches!(sub_module.kind(db), ModuleKind::Inline { .. }) {
             continue;

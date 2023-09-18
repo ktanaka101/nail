@@ -32,7 +32,7 @@ mod item;
 mod name_resolver;
 mod testing;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, marker::PhantomData};
 
 use ast::AstNode;
 pub use body::{BodyLower, ExprId, FunctionBodyId, HirFileDatabase};
@@ -155,7 +155,7 @@ fn parse_pod(db: &dyn HirMasterDatabase, source_db: &mut dyn SourceDatabaseTrait
     let root_file_path = root_nail_file.file_path(db);
 
     let ast_source = parse_to_ast(db, root_nail_file);
-    let root_hir_file = build_hir_file(db, ast_source);
+    let (root_hir_file, source_map) = build_hir_file(db, ast_source);
 
     let root_dir = root_file_path.parent().unwrap();
     for sub_module in root_hir_file.modules(db) {
@@ -208,7 +208,7 @@ fn parse_module(
     let nail_file = source_db.get_file(&nail_file_path).expect("todo");
 
     let ast_source = parse_to_ast(db, nail_file);
-    let hir_file = build_hir_file(db, ast_source);
+    let (hir_file, source_map) = build_hir_file(db, ast_source);
 
     hir_file_by_module.insert(module, hir_file);
     registration_order.push(hir_file.file(db));
@@ -237,6 +237,38 @@ fn parse_module(
 pub enum LowerError {
     /// エントリーポイントが見つからない場合
     UndefinedEntryPoint,
+}
+
+/// ファイル単位のソースコードとHIRのマッピング
+#[salsa::tracked]
+pub struct HirFileSourceMap {
+    /// ファイル
+    ///
+    /// 1ファイルにつき1つの[HirFileSourceMap]が生成されます。
+    pub file: NailFile,
+
+    /// 式とソースコードのマッピング
+    source_by_expr: HashMap<ExprId, ExprSource>,
+}
+
+/// ASTノードのIDです。
+///
+/// 1ファイル内でユニークです。
+/// IDからASTを参照し、ファイル内における位置を取得することができます。
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AstPtr<T: AstNode> {
+    /// ASTノード
+    pub node: ast::SyntaxNodePtr,
+    _ty: PhantomData<T>,
+}
+/// 式のAST位置です。
+pub type ExprSource = InFile<AstPtr<ast::Expr>>;
+
+/// 型引数をファイル内で一意として表現します。
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct InFile<T> {
+    pub file: NailFile,
+    pub value: T,
 }
 
 /// ファイル単位のHIR構築結果
@@ -303,7 +335,10 @@ pub fn parse_to_ast(db: &dyn HirMasterDatabase, nail_file: NailFile) -> AstSourc
 
 /// ASTを元に[HirFile]を構築します。
 #[salsa::tracked]
-fn build_hir_file(db: &dyn HirMasterDatabase, ast_source: AstSourceFile) -> HirFile {
+fn build_hir_file(
+    db: &dyn HirMasterDatabase,
+    ast_source: AstSourceFile,
+) -> (HirFile, HirFileSourceMap) {
     let file = ast_source.file(db);
     let source_file = ast_source.source(db);
 
@@ -326,7 +361,10 @@ fn build_hir_file(db: &dyn HirMasterDatabase, ast_source: AstSourceFile) -> HirF
         (vec![], None)
     };
 
-    HirFile::new(db, file, hir_file_db, top_level_items, entry_point, errors)
+    let hir_file = HirFile::new(db, file, hir_file_db, top_level_items, entry_point, errors);
+    let source_map = HirFileSourceMap::new(db, file, HashMap::new());
+
+    (hir_file, source_map)
 }
 
 /// トップレベルのアイテムからエントリポイントを取得します。

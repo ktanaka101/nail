@@ -9,6 +9,7 @@ pub struct Jar(
     crate::AstSourceFile,
     crate::build_hir_file,
     crate::HirFile,
+    crate::HirFileSourceMap,
     crate::Function,
     crate::Module,
     crate::UseItem,

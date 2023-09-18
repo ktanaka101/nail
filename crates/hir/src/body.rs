@@ -2,12 +2,13 @@ mod scopes;
 
 use std::collections::HashMap;
 
+use ast::AstNode;
 use la_arena::{Arena, Idx};
 
 use crate::{
-    body::scopes::ExprScopes, item::ParamData, Block, Expr, Function, HirMasterDatabase, Item,
-    Literal, Module, ModuleKind, NailFile, Name, NameSolutionPath, Param, Path, Stmt, Symbol, Type,
-    UseItem,
+    body::scopes::ExprScopes, item::ParamData, AstPtr, Block, Expr, ExprSource, Function,
+    HirMasterDatabase, InFile, Item, Literal, Module, ModuleKind, NailFile, Name, NameSolutionPath,
+    Param, Path, Stmt, Symbol, Type, UseItem,
 };
 
 /// 式を一意に識別するためのID
@@ -34,7 +35,7 @@ impl Ord for ExprId {
 ///
 /// TODO: [Expr]の代わりに`Block`等を使うようにし、構造を明確にする
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct FunctionBodyId(Idx<Expr>);
+pub struct FunctionBodyId(ExprId);
 
 /// 1ファイルに対応するDB
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -44,7 +45,6 @@ pub struct HirFileDatabase {
 
     params: Arena<ParamData>,
 
-    function_bodies: Arena<Expr>,
     exprs: Arena<Expr>,
     function_body_by_ast_block: HashMap<ast::BlockExpr, FunctionBodyId>,
 }
@@ -55,7 +55,6 @@ impl HirFileDatabase {
             functions: vec![],
             modules: vec![],
             params: Arena::new(),
-            function_bodies: Arena::new(),
             exprs: Arena::new(),
             function_body_by_ast_block: HashMap::new(),
         }
@@ -89,17 +88,12 @@ impl HirFileDatabase {
     /// 現状、関数本体は[Expr::Block]として表現されているため、[Expr]を返す
     pub fn function_body_by_ast_block(&self, ast_block: ast::BlockExpr) -> Option<&Expr> {
         self.function_body_id_by_ast_block(ast_block)
-            .map(|body_id| &self.function_bodies[body_id.0])
+            .map(|body_id| &self.exprs[body_id.0 .0])
     }
 
     /// 式を保存し、参照するためのIDを返す
     pub(crate) fn alloc_expr(&mut self, expr: Expr) -> ExprId {
         ExprId(self.exprs.alloc(expr))
-    }
-
-    /// 関数本体を保存し、参照するためのIDを返す
-    pub(crate) fn alloc_function_body(&mut self, expr: Expr) -> FunctionBodyId {
-        FunctionBodyId(self.function_bodies.alloc(expr))
     }
 
     /// パラメータを保存し、参照するためのIDを返す
@@ -120,6 +114,7 @@ pub struct BodyLower<'a> {
     scopes: ExprScopes,
     params: HashMap<Name, Param>,
     hir_file_db: &'a mut HirFileDatabase,
+    source_by_expr: HashMap<ExprId, ExprSource>,
 }
 
 impl<'a> BodyLower<'a> {
@@ -134,6 +129,7 @@ impl<'a> BodyLower<'a> {
             scopes: ExprScopes::new(),
             params,
             hir_file_db,
+            source_by_expr: HashMap::new(),
         }
     }
 
@@ -191,11 +187,19 @@ impl<'a> BodyLower<'a> {
             function.param_by_name(db).clone(),
             self.hir_file_db,
         );
-        let body_expr = body_lower.lower_block(db, ast_block.clone());
-        let body_id = self.hir_file_db.alloc_function_body(body_expr);
+        let body_expr = body_lower.lower_block(db, &ast_block);
+        let source_by_expr = body_lower.source_by_expr;
+
+        let body_expr = self.alloc_expr(
+            &ast::Expr::cast(ast_block.syntax().clone()).unwrap(),
+            body_expr,
+        );
+
+        // キーはファイル内で一意なので重複する心配はない
+        self.source_by_expr.extend(source_by_expr.into_iter());
         self.hir_file_db
             .function_body_by_ast_block
-            .insert(ast_block, body_id);
+            .insert(ast_block, FunctionBodyId(body_expr));
 
         Some(function)
     }
@@ -273,15 +277,14 @@ impl<'a> BodyLower<'a> {
         let result = match ast_stmt {
             ast::Stmt::VariableDef(def) => {
                 let expr = self.lower_expr(db, def.value());
-                let id = self.hir_file_db.alloc_expr(expr);
                 let name = Name::new(db, def.name()?.name().to_owned());
-                self.scopes.define(name, id);
-                Stmt::VariableDef { name, value: id }
+                self.scopes.define(name, expr);
+                Stmt::VariableDef { name, value: expr }
             }
             ast::Stmt::ExprStmt(ast) => {
                 let expr = self.lower_expr(db, ast.expr());
                 Stmt::ExprStmt {
-                    expr: self.hir_file_db.alloc_expr(expr),
+                    expr,
                     has_semicolon: ast.semicolon().is_some(),
                 }
             }
@@ -302,25 +305,26 @@ impl<'a> BodyLower<'a> {
         }
     }
 
-    fn lower_expr(&mut self, db: &dyn HirMasterDatabase, ast_expr: Option<ast::Expr>) -> Expr {
+    fn lower_expr(&mut self, db: &dyn HirMasterDatabase, ast_expr: Option<ast::Expr>) -> ExprId {
         if let Some(ast) = ast_expr {
-            match ast {
+            let expr = match &ast {
                 ast::Expr::BinaryExpr(ast) => self.lower_binary(db, ast),
                 ast::Expr::Literal(ast) => self.lower_literal(ast),
-                ast::Expr::ParenExpr(ast) => self.lower_expr(db, ast.expr()),
+                ast::Expr::ParenExpr(ast) => return self.lower_expr(db, ast.expr()),
                 ast::Expr::UnaryExpr(ast) => self.lower_unary(db, ast),
                 ast::Expr::PathExpr(ast) => self.lower_path_expr(db, ast),
                 ast::Expr::CallExpr(ast) => self.lower_call(db, ast),
                 ast::Expr::BlockExpr(ast) => self.lower_block(db, ast),
                 ast::Expr::IfExpr(ast) => self.lower_if(db, ast),
                 ast::Expr::ReturnExpr(ast) => self.lower_return(db, ast),
-            }
+            };
+            self.alloc_expr(&ast, expr)
         } else {
-            Expr::Missing
+            self.hir_file_db.alloc_expr(Expr::Missing)
         }
     }
 
-    fn lower_literal(&self, ast_literal: ast::Literal) -> Expr {
+    fn lower_literal(&self, ast_literal: &ast::Literal) -> Expr {
         match ast_literal.kind() {
             ast::LiteralKind::Integer(int) => {
                 if let Some(value) = int.value() {
@@ -353,35 +357,44 @@ impl<'a> BodyLower<'a> {
         }
     }
 
+    fn alloc_expr(&mut self, ast_expr: &ast::Expr, expr: Expr) -> ExprId {
+        let expr_id = self.hir_file_db.alloc_expr(expr);
+        self.source_by_expr.insert(
+            expr_id,
+            InFile {
+                file: self.file,
+                value: AstPtr {
+                    node: syntax::SyntaxNodePtr::new(ast_expr.syntax()),
+                    _ty: std::marker::PhantomData,
+                },
+            },
+        );
+
+        expr_id
+    }
+
     fn lower_binary(
         &mut self,
         db: &dyn HirMasterDatabase,
-        ast_binary_expr: ast::BinaryExpr,
+        ast_binary_expr: &ast::BinaryExpr,
     ) -> Expr {
         let op = ast_binary_expr.op().unwrap();
 
         let lhs = self.lower_expr(db, ast_binary_expr.lhs());
         let rhs = self.lower_expr(db, ast_binary_expr.rhs());
 
-        Expr::Binary {
-            op,
-            lhs: self.hir_file_db.alloc_expr(lhs),
-            rhs: self.hir_file_db.alloc_expr(rhs),
-        }
+        Expr::Binary { op, lhs, rhs }
     }
 
-    fn lower_unary(&mut self, db: &dyn HirMasterDatabase, ast_unary_expr: ast::UnaryExpr) -> Expr {
+    fn lower_unary(&mut self, db: &dyn HirMasterDatabase, ast_unary_expr: &ast::UnaryExpr) -> Expr {
         let op = ast_unary_expr.op().unwrap();
 
         let expr = self.lower_expr(db, ast_unary_expr.expr());
 
-        Expr::Unary {
-            op,
-            expr: self.hir_file_db.alloc_expr(expr),
-        }
+        Expr::Unary { op, expr }
     }
 
-    fn lower_path_expr(&mut self, db: &dyn HirMasterDatabase, ast_path: ast::PathExpr) -> Expr {
+    fn lower_path_expr(&mut self, db: &dyn HirMasterDatabase, ast_path: &ast::PathExpr) -> Expr {
         let path = Path::new(
             db,
             ast_path
@@ -425,16 +438,16 @@ impl<'a> BodyLower<'a> {
         self.params.get(&name).copied()
     }
 
-    fn lower_call(&mut self, db: &dyn HirMasterDatabase, ast_call: ast::CallExpr) -> Expr {
+    fn lower_call(&mut self, db: &dyn HirMasterDatabase, ast_call: &ast::CallExpr) -> Expr {
         let args = ast_call.args().unwrap();
         let args = args
             .args()
-            .map(|arg| {
-                let expr = self.lower_expr(db, arg.expr());
-                self.hir_file_db.alloc_expr(expr)
-            })
+            .map(|arg| self.lower_expr(db, arg.expr()))
             .collect();
-        let callee = match self.lower_expr(db, ast_call.callee()) {
+        let callee = match self
+            .lower_expr(db, ast_call.callee())
+            .lookup(self.hir_file_db)
+        {
             Expr::Symbol(symbol) => symbol,
             Expr::Binary { .. } => todo!(),
             Expr::Literal(_) => todo!(),
@@ -446,10 +459,13 @@ impl<'a> BodyLower<'a> {
             Expr::Missing => todo!(),
         };
 
-        Expr::Call { callee, args }
+        Expr::Call {
+            callee: callee.clone(),
+            args,
+        }
     }
 
-    fn lower_block(&mut self, db: &dyn HirMasterDatabase, ast_block: ast::BlockExpr) -> Expr {
+    fn lower_block(&mut self, db: &dyn HirMasterDatabase, ast_block: &ast::BlockExpr) -> Expr {
         self.scopes.enter(ast_block.clone());
 
         let mut stmts = vec![];
@@ -476,20 +492,26 @@ impl<'a> BodyLower<'a> {
         Expr::Block(Block {
             stmts,
             tail,
-            ast: ast_block,
+            ast: ast_block.clone(),
         })
     }
 
-    fn lower_if(&mut self, db: &dyn HirMasterDatabase, ast_if: ast::IfExpr) -> Expr {
+    fn lower_if(&mut self, db: &dyn HirMasterDatabase, ast_if: &ast::IfExpr) -> Expr {
         let condition = self.lower_expr(db, ast_if.condition());
-        let condition = self.hir_file_db.alloc_expr(condition);
 
-        let then_branch = self.lower_block(db, ast_if.then_branch().unwrap());
-        let then_branch = self.hir_file_db.alloc_expr(then_branch);
+        let ast_then_branch = ast_if.then_branch().unwrap();
+        let then_branch = self.lower_block(db, &ast_then_branch);
+        let then_branch = self.alloc_expr(
+            &ast::Expr::cast(ast_then_branch.syntax().clone()).unwrap(),
+            then_branch,
+        );
 
-        let else_branch = if let Some(else_branch) = ast_if.else_branch() {
-            let else_branch = self.lower_block(db, else_branch);
-            Some(self.hir_file_db.alloc_expr(else_branch))
+        let else_branch = if let Some(ast_else_branch) = ast_if.else_branch() {
+            let else_branch = self.lower_block(db, &ast_else_branch);
+            Some(self.alloc_expr(
+                &ast::Expr::cast(ast_else_branch.syntax().clone()).unwrap(),
+                else_branch,
+            ))
         } else {
             None
         };
@@ -501,10 +523,10 @@ impl<'a> BodyLower<'a> {
         }
     }
 
-    fn lower_return(&mut self, db: &dyn HirMasterDatabase, ast_return: ast::ReturnExpr) -> Expr {
+    fn lower_return(&mut self, db: &dyn HirMasterDatabase, ast_return: &ast::ReturnExpr) -> Expr {
         let value = if let Some(value) = ast_return.value() {
             let value = self.lower_expr(db, Some(value));
-            Some(self.hir_file_db.alloc_expr(value))
+            Some(value)
         } else {
             None
         };

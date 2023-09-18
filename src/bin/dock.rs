@@ -48,43 +48,12 @@ async fn main() {
     }
 }
 
-fn collect_nail_files(dir: &path::Path) -> Vec<path::PathBuf> {
-    assert!(dir.is_dir());
-
-    let mut nail_files = vec![];
-
-    let read_dir = std::fs::read_dir(dir).expect("Failed to read root directory.");
-    for child_dir_entry in read_dir {
-        if let Ok(child_entry) = child_dir_entry {
-            let child_path = child_entry.path();
-            if child_path.is_file() && child_path.extension().unwrap() == "nail" {
-                nail_files.push(child_path);
-            } else {
-                nail_files.append(&mut collect_nail_files(&child_path));
-            }
-        } else {
-            panic!("Failed to read file in root directory.");
-        }
-    }
-
-    nail_files
-}
-
-async fn read_nail_file(file_path: path::PathBuf) -> (path::PathBuf, Result<String, io::Error>) {
-    let contents = tokio::fs::read_to_string(&file_path).await;
-    (file_path, contents)
-}
-
-async fn execute(root_nail_file_path: &str) -> Result<String> {
-    let root_nail_file_path = path::PathBuf::try_from(root_nail_file_path).unwrap();
-
-    let db = base_db::SalsaDatabase::default();
-
-    let root_contents = std::fs::read_to_string(&root_nail_file_path).unwrap();
-    let root_file = hir::NailFile::new(&db, root_nail_file_path.clone(), root_contents, true);
-
+async fn read_files(
+    db: &dyn hir::HirMasterDatabase,
+    root_nail_file_path: &path::Path,
+) -> HashMap<path::PathBuf, hir::NailFile> {
     let mut nail_file_paths = collect_nail_files(root_nail_file_path.parent().unwrap());
-    nail_file_paths.push(root_nail_file_path);
+    nail_file_paths.push(root_nail_file_path.into());
 
     let mut read_file_futures = tokio::task::JoinSet::new();
     for nail_file_path in nail_file_paths {
@@ -95,12 +64,53 @@ async fn execute(root_nail_file_path: &str) -> Result<String> {
     while let Some(contents) = read_file_futures.join_next().await {
         let (file_path, contents) = contents.expect("Failed to read file.");
         if let Ok(contents) = contents {
-            let nail_file = hir::NailFile::new(&db, file_path.clone(), contents, false);
+            let nail_file = hir::NailFile::new(db, file_path.clone(), contents, false);
             file_by_path.insert(file_path, nail_file);
         } else {
         }
     }
 
+    return file_by_path;
+
+    fn collect_nail_files(dir: &path::Path) -> Vec<path::PathBuf> {
+        assert!(dir.is_dir());
+
+        let mut nail_files = vec![];
+
+        let read_dir = std::fs::read_dir(dir).expect("Failed to read root directory.");
+        for child_dir_entry in read_dir {
+            if let Ok(child_entry) = child_dir_entry {
+                let child_path = child_entry.path();
+                if child_path.is_file() && child_path.extension().unwrap() == "nail" {
+                    nail_files.push(child_path);
+                } else {
+                    nail_files.append(&mut collect_nail_files(&child_path));
+                }
+            } else {
+                panic!("Failed to read file in root directory.");
+            }
+        }
+
+        nail_files
+    }
+
+    async fn read_nail_file(
+        file_path: path::PathBuf,
+    ) -> (path::PathBuf, Result<String, io::Error>) {
+        let contents = tokio::fs::read_to_string(&file_path).await;
+        (file_path, contents)
+    }
+}
+
+async fn execute(root_nail_file_path: &str) -> Result<String> {
+    let root_nail_file_path = path::PathBuf::try_from(root_nail_file_path).unwrap();
+
+    let db = base_db::SalsaDatabase::default();
+
+    let root_contents = std::fs::read_to_string(&root_nail_file_path).unwrap();
+    let root_file = hir::NailFile::new(&db, root_nail_file_path.clone(), root_contents, true);
+
+    let file_by_path = read_files(&db, &root_nail_file_path).await;
     let mut source_db = hir::SourceDatabase::new(root_file, file_by_path);
 
     let pods = hir::parse_pods(&db, &mut source_db);

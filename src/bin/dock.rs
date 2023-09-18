@@ -51,13 +51,12 @@ async fn main() {
 /// ルートファイルのディレクトリ配下のNailファイルをすべて読み込み、ファイルパスと内容のマッピングを返す。
 async fn read_nail_files(
     db: &dyn hir::HirMasterDatabase,
-    root_nail_file_path: &path::Path,
-) -> HashMap<path::PathBuf, hir::NailFile> {
-    let mut nail_file_paths = collect_nail_files(root_nail_file_path.parent().unwrap());
-    nail_file_paths.push(root_nail_file_path.into());
+    root_nail_file_path: path::PathBuf,
+) -> (hir::NailFile, HashMap<path::PathBuf, hir::NailFile>) {
+    let nail_file_paths_exclude_root = collect_nail_files(root_nail_file_path.parent().unwrap());
 
     let mut read_file_futures = tokio::task::JoinSet::new();
-    for nail_file_path in nail_file_paths {
+    for nail_file_path in nail_file_paths_exclude_root {
         read_file_futures.spawn(read_nail_file(nail_file_path));
     }
 
@@ -71,7 +70,11 @@ async fn read_nail_files(
         }
     }
 
-    return file_by_path;
+    let root_contents = std::fs::read_to_string(&root_nail_file_path).unwrap();
+    let root_file = hir::NailFile::new(db, root_nail_file_path.clone(), root_contents, true);
+    file_by_path.insert(root_nail_file_path, root_file);
+
+    return (root_file, file_by_path);
 
     fn collect_nail_files(dir: &path::Path) -> Vec<path::PathBuf> {
         assert!(dir.is_dir());
@@ -108,10 +111,7 @@ async fn execute(root_nail_file_path: &str) -> Result<String> {
 
     let db = base_db::SalsaDatabase::default();
 
-    let root_contents = std::fs::read_to_string(&root_nail_file_path).unwrap();
-    let root_file = hir::NailFile::new(&db, root_nail_file_path.clone(), root_contents, true);
-
-    let file_by_path = read_nail_files(&db, &root_nail_file_path).await;
+    let (root_file, file_by_path) = read_nail_files(&db, root_nail_file_path).await;
     let mut source_db = hir::SourceDatabase::new(root_file, file_by_path);
 
     let pods = hir::parse_pods(&db, &mut source_db);

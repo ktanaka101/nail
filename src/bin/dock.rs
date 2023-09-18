@@ -3,7 +3,7 @@
 use std::{
     collections::HashMap,
     ffi::{c_char, CString},
-    path,
+    io, path,
 };
 
 use anyhow::Result;
@@ -28,13 +28,14 @@ enum Command {
     },
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let args = Cli::parse();
     match args.command {
         Command::Run { path } => {
             let Some(path)  = path else { panic!("The path must be specified.(Help: --path {{path}})"); };
 
-            match execute(&path) {
+            match execute(&path).await {
                 Ok(output) => {
                     println!("{}", output);
                 }
@@ -69,7 +70,12 @@ fn collect_nail_files(dir: &path::Path) -> Vec<path::PathBuf> {
     nail_files
 }
 
-fn execute(root_nail_file_path: &str) -> Result<String> {
+async fn read_nail_file(file_path: path::PathBuf) -> (path::PathBuf, Result<String, io::Error>) {
+    let contents = tokio::fs::read_to_string(&file_path).await;
+    (file_path, contents)
+}
+
+async fn execute(root_nail_file_path: &str) -> Result<String> {
     let root_nail_file_path = path::PathBuf::try_from(root_nail_file_path).unwrap();
 
     let db = base_db::SalsaDatabase::default();
@@ -80,11 +86,19 @@ fn execute(root_nail_file_path: &str) -> Result<String> {
     let mut nail_file_paths = collect_nail_files(root_nail_file_path.parent().unwrap());
     nail_file_paths.push(root_nail_file_path);
 
-    let mut file_by_path = HashMap::<path::PathBuf, hir::NailFile>::new();
+    let mut read_file_futures = tokio::task::JoinSet::new();
     for nail_file_path in nail_file_paths {
-        let contents = std::fs::read_to_string(&nail_file_path).unwrap();
-        let file = hir::NailFile::new(&db, nail_file_path.clone(), contents, false);
-        file_by_path.insert(nail_file_path, file);
+        read_file_futures.spawn(read_nail_file(nail_file_path));
+    }
+
+    let mut file_by_path = HashMap::<path::PathBuf, hir::NailFile>::new();
+    while let Some(contents) = read_file_futures.join_next().await {
+        let (file_path, contents) = contents.expect("Failed to read file.");
+        if let Ok(contents) = contents {
+            let nail_file = hir::NailFile::new(&db, file_path.clone(), contents, false);
+            file_by_path.insert(file_path, nail_file);
+        } else {
+        }
     }
 
     let mut source_db = hir::SourceDatabase::new(root_file, file_by_path);

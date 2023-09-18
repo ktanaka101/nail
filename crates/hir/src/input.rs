@@ -1,3 +1,9 @@
+//! HIRの入力を定義します。
+//!
+//! HIRでは、ファイルシステムに依存しないようにします。
+//! ファイルパスとファイル内容のパスを扱いますが、それをHIR以外のクレートから受け取ります。
+//! HIRを使用する側は、事前にファイルシステムから読み込んでおく必要があります。
+
 use std::collections::HashMap;
 
 /// 入力元のNailファイルです。
@@ -19,12 +25,8 @@ pub struct NailFile {
 pub trait SourceDatabaseTrait {
     /// エントリポイントとなるファイルのIDを返す
     fn source_root(&self) -> NailFile;
-    /// 指定したファイルパスからファイル読み込みと登録を行い、登録したファイルを返す
-    fn register_file_with_read(
-        &mut self,
-        db: &dyn crate::HirMasterDatabase,
-        path: std::path::PathBuf,
-    ) -> NailFile;
+    /// 登録済みの中からNailファイル情報を返す
+    fn get_file(&self, path: &std::path::Path) -> Option<NailFile>;
 }
 
 /// テスト用のFixture
@@ -175,20 +177,8 @@ impl SourceDatabaseTrait for FixtureDatabase {
         self.source_root
     }
 
-    /// 保持しているファイルパスを元に、ファイルIDを取得します。
-    /// 本来、ファイルパスが存在しない場合は、そのファイルを読み込み保存しますが、
-    /// テスト用のため、ファイルシステムを使用する代わりにpanicします。
-    ///
-    /// # Panics
-    ///
-    /// ファイルパスが見つからない場合はpanicします。
-    fn register_file_with_read(
-        &mut self,
-        _db: &dyn crate::HirMasterDatabase,
-        path: std::path::PathBuf,
-    ) -> NailFile {
-        let Some(file) = self.file_by_path.get(&path).copied() else { panic!("Not found file. Help: [FixtureDatabase::new] docs comment.") };
-        file
+    fn get_file(&self, path: &std::path::Path) -> Option<NailFile> {
+        self.file_by_path.get(path).copied()
     }
 }
 
@@ -202,13 +192,9 @@ impl SourceDatabase {
     ///
     /// # Arguments
     ///
-    /// * `root_file_path` - ソースコードのルートファイルのパス
-    pub fn new(db: &dyn crate::HirMasterDatabase, root_file_path: std::path::PathBuf) -> Self {
-        let contents = std::fs::read_to_string(&root_file_path).unwrap();
-        let root_file = NailFile::new(db, root_file_path.clone(), contents, true);
-        let mut file_by_path = HashMap::new();
-        file_by_path.insert(root_file_path, root_file);
-
+    /// * `root_file` - ソースコードのルートファイル
+    /// * `file_by_path` - ファイルパスとNailファイルのマップ。ルートファイルも含めてください。
+    pub fn new(root_file: NailFile, file_by_path: HashMap<std::path::PathBuf, NailFile>) -> Self {
         Self {
             source_root: root_file,
             file_by_path,
@@ -220,15 +206,7 @@ impl SourceDatabaseTrait for SourceDatabase {
         self.source_root
     }
 
-    fn register_file_with_read(
-        &mut self,
-        db: &dyn crate::HirMasterDatabase,
-        file_path: std::path::PathBuf,
-    ) -> NailFile {
-        let contents = std::fs::read_to_string(&file_path).unwrap();
-        let file = NailFile::new(db, file_path.clone(), contents, false);
-        self.file_by_path.insert(file_path, file);
-
-        file
+    fn get_file(&self, path: &std::path::Path) -> Option<NailFile> {
+        self.file_by_path.get(path).copied()
     }
 }

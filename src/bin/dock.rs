@@ -1,6 +1,9 @@
 //! Dock is Nail project's build system and package manager.
 
-use std::ffi::{c_char, CString};
+use std::{
+    collections::HashMap,
+    ffi::{c_char, CString},
+};
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -43,9 +46,13 @@ fn main() {
     }
 }
 
-fn execute(filepath: &str) -> Result<String> {
+fn execute(root_nail_file_path: &str) -> Result<String> {
     let db = base_db::SalsaDatabase::default();
-    let mut source_db = hir::SourceDatabase::new(&db, filepath.into());
+    let file_by_path = HashMap::<std::path::PathBuf, hir::NailFile>::new();
+    let root_contents = std::fs::read_to_string(root_nail_file_path).unwrap();
+    let root_file = hir::NailFile::new(&db, root_nail_file_path.into(), root_contents, true);
+
+    let mut source_db = hir::SourceDatabase::new(root_file, file_by_path);
 
     let pods = hir::parse_pods(&db, &mut source_db);
     let errors = pods.root_pod.root_hir_file.errors(&db);

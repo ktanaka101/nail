@@ -151,10 +151,10 @@ fn parse_pod(db: &dyn HirMasterDatabase, source_db: &mut dyn SourceDatabaseTrait
     let mut hir_file_by_module = HashMap::new();
     let mut registration_order = vec![];
 
-    let root_file_path = source_db.source_root().file_path(db);
-    let nail_file = source_db.source_root();
+    let root_nail_file = source_db.source_root();
+    let root_file_path = root_nail_file.file_path(db);
 
-    let ast_source = parse_to_ast(db, nail_file);
+    let ast_source = parse_to_ast(db, root_nail_file);
     let root_hir_file = build_hir_file(db, ast_source);
 
     let root_dir = root_file_path.parent().unwrap();
@@ -205,7 +205,7 @@ fn parse_module(
 ) {
     let module_name = module.name(db).text(db);
     let nail_file_path = dir.join(format!("{module_name}.nail"));
-    let nail_file = source_db.register_file_with_read(db, nail_file_path);
+    let nail_file = source_db.get_file(&nail_file_path).expect("todo");
 
     let ast_source = parse_to_ast(db, nail_file);
     let hir_file = build_hir_file(db, ast_source);

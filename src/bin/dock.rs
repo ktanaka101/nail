@@ -48,6 +48,7 @@ async fn main() {
     }
 }
 
+/// ルートファイルのディレクトリ配下のNailファイルをすべて読み込み、ファイルパスと内容のマッピングを返す。
 async fn read_nail_files(
     db: &dyn hir::HirMasterDatabase,
     root_nail_file_path: &path::Path,

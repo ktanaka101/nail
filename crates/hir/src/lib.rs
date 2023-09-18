@@ -239,13 +239,12 @@ pub enum LowerError {
     UndefinedEntryPoint,
 }
 
-/// HIR構築結果
+/// ファイル単位のHIR構築結果
 #[salsa::tracked]
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HirFile {
     /// ファイル
     ///
-    /// 1ファイルにつき1つの[LowerResult]が生成されます。
+    /// 1ファイルにつき1つの[HirFile]が生成されます。
     pub file: NailFile,
 
     /// ボディ構築時に共有されるコンテキスト

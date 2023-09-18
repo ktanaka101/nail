@@ -48,7 +48,7 @@ async fn main() {
     }
 }
 
-async fn read_files(
+async fn read_nail_files(
     db: &dyn hir::HirMasterDatabase,
     root_nail_file_path: &path::Path,
 ) -> HashMap<path::PathBuf, hir::NailFile> {
@@ -110,7 +110,7 @@ async fn execute(root_nail_file_path: &str) -> Result<String> {
     let root_contents = std::fs::read_to_string(&root_nail_file_path).unwrap();
     let root_file = hir::NailFile::new(&db, root_nail_file_path.clone(), root_contents, true);
 
-    let file_by_path = read_files(&db, &root_nail_file_path).await;
+    let file_by_path = read_nail_files(&db, &root_nail_file_path).await;
     let mut source_db = hir::SourceDatabase::new(root_file, file_by_path);
 
     let pods = hir::parse_pods(&db, &mut source_db);

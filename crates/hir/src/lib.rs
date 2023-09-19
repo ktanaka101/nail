@@ -264,7 +264,7 @@ pub struct HirFileSourceMap {
     pub file: NailFile,
 
     /// 式とソースコードのマッピング
-    source_by_expr: HashMap<ExprId, ExprSource>,
+    pub source_by_expr: HashMap<ExprId, ExprSource>,
 }
 
 /// ASTノードのIDです。

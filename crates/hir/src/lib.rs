@@ -65,10 +65,18 @@ pub struct Pod {
     /// ルートファイルのHIR構築結果
     pub root_hir_file: HirFile,
 
+    /// ルートファイルのソースコードとHIRのマッピング
+    pub root_source_map: HirFileSourceMap,
+
     /// ファイル別のHIR構築結果
     ///
     /// ルートファイルは含まれません。
     hir_file_by_nail_file: HashMap<NailFile, HirFile>,
+
+    /// ファイル別のソースコードとHIRのマッピング
+    ///
+    /// ルートファイルは含まれません。
+    source_map_by_nail_file: HashMap<NailFile, HirFileSourceMap>,
 
     /// モジュール別のHIR構築結果
     ///
@@ -149,13 +157,14 @@ pub fn parse_pods(db: &dyn HirMasterDatabase, source_db: &mut dyn SourceDatabase
 fn parse_pod(db: &dyn HirMasterDatabase, source_db: &mut dyn SourceDatabaseTrait) -> Pod {
     let mut hir_file_by_nail_file = HashMap::new();
     let mut hir_file_by_module = HashMap::new();
+    let mut source_map_by_nail_file = HashMap::new();
     let mut registration_order = vec![];
 
     let root_nail_file = source_db.source_root();
     let root_file_path = root_nail_file.file_path(db);
 
     let ast_source = parse_to_ast(db, root_nail_file);
-    let (root_hir_file, source_map) = build_hir_file(db, ast_source);
+    let (root_hir_file, root_source_map) = build_hir_file(db, ast_source);
 
     let root_dir = root_file_path.parent().unwrap();
     for sub_module in root_hir_file.modules(db) {
@@ -169,6 +178,7 @@ fn parse_pod(db: &dyn HirMasterDatabase, source_db: &mut dyn SourceDatabaseTrait
             root_dir,
             &mut hir_file_by_nail_file,
             &mut hir_file_by_module,
+            &mut source_map_by_nail_file,
             &mut registration_order,
             source_db,
         );
@@ -178,8 +188,11 @@ fn parse_pod(db: &dyn HirMasterDatabase, source_db: &mut dyn SourceDatabaseTrait
         name: Name::new(db, "t_pod".to_string()),
         root_nail_file: source_db.source_root(),
         root_hir_file,
+        root_source_map,
+
         hir_file_by_nail_file,
         hir_file_by_module,
+        source_map_by_nail_file,
         registration_order,
     }
 }
@@ -200,6 +213,7 @@ fn parse_module(
     dir: &std::path::Path,
     hir_file_by_nail_file: &mut HashMap<NailFile, HirFile>,
     hir_file_by_module: &mut HashMap<Module, HirFile>,
+    source_map_by_nail_file: &mut HashMap<NailFile, HirFileSourceMap>,
     registration_order: &mut Vec<NailFile>,
     source_db: &mut dyn SourceDatabaseTrait,
 ) {
@@ -213,6 +227,7 @@ fn parse_module(
     hir_file_by_module.insert(module, hir_file);
     registration_order.push(hir_file.file(db));
     hir_file_by_nail_file.insert(hir_file.file(db), hir_file);
+    source_map_by_nail_file.insert(hir_file.file(db), source_map);
 
     let sub_dir = dir.join(module_name);
     for sub_module in hir_file.modules(db) {
@@ -226,6 +241,7 @@ fn parse_module(
             &sub_dir,
             hir_file_by_nail_file,
             hir_file_by_module,
+            source_map_by_nail_file,
             registration_order,
             source_db,
         );

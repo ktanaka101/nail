@@ -144,7 +144,7 @@ impl<'a> InferBody<'a> {
                 &ty,
                 &UnifyPurpose::ReturnValue {
                     expected_signature: self.signature,
-                    found_return_expr: Some(*tail),
+                    found_value: Some(*tail),
                 },
             );
         } else {
@@ -158,7 +158,7 @@ impl<'a> InferBody<'a> {
                 &ty,
                 &UnifyPurpose::ReturnValue {
                     expected_signature: self.signature,
-                    found_return_expr: None,
+                    found_value: None,
                 },
             );
         };
@@ -198,7 +198,7 @@ impl<'a> InferBody<'a> {
         ty == Monotype::Never
     }
 
-    fn infer_symbol(&mut self, symbol: &hir::Symbol) -> Monotype {
+    fn infer_symbol(&mut self, symbol: &hir::Symbol, source_expr: hir::ExprId) -> Monotype {
         match symbol {
             hir::Symbol::Param { name: _, param } => {
                 let param = param.data(self.hir_file.db(self.db));
@@ -223,6 +223,7 @@ impl<'a> InferBody<'a> {
                         hir::Item::Module(module) => {
                             self.unifier.add_error(InferenceError::ModuleAsExpr {
                                 found_module: module,
+                                found_expr: source_expr,
                             });
                             Monotype::Unknown
                         }
@@ -260,12 +261,12 @@ impl<'a> InferBody<'a> {
                 hir::Literal::Bool(_) => Monotype::Bool,
             },
             hir::Expr::Missing => Monotype::Unknown,
-            hir::Expr::Symbol(symbol) => self.infer_symbol(symbol),
+            hir::Expr::Symbol(symbol) => self.infer_symbol(symbol, expr_id),
             hir::Expr::Call {
                 callee,
                 args: call_args,
             } => {
-                let callee_ty = self.infer_symbol(callee);
+                let callee_ty = self.infer_symbol(callee, expr_id);
                 match callee_ty {
                     Monotype::Integer
                     | Monotype::Bool
@@ -278,6 +279,7 @@ impl<'a> InferBody<'a> {
                         self.unifier.add_error(InferenceError::NotCallable {
                             found_callee_ty: callee_ty,
                             found_callee_symbol: callee.clone(),
+                            found_callee_expr: expr_id,
                         });
                         Monotype::Unknown
                     }
@@ -474,9 +476,10 @@ impl<'a> InferBody<'a> {
                     self.unifier.unify(
                         &self.signature.return_type(self.db),
                         &ty,
-                        &UnifyPurpose::ReturnValue {
+                        &UnifyPurpose::ReturnExpr {
                             expected_signature: self.signature,
                             found_return_expr: Some(*return_value),
+                            found_return: expr_id,
                         },
                     );
                 } else {
@@ -484,9 +487,10 @@ impl<'a> InferBody<'a> {
                     self.unifier.unify(
                         &self.signature.return_type(self.db),
                         &Monotype::Unit,
-                        &UnifyPurpose::ReturnValue {
+                        &UnifyPurpose::ReturnExpr {
                             expected_signature: self.signature,
                             found_return_expr: None,
+                            found_return: expr_id,
                         },
                     );
                 }

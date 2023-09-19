@@ -55,13 +55,23 @@ pub(crate) enum UnifyPurpose {
         /// Thenブランチの式
         found_then_branch_expr: hir::ExprId,
     },
-    ReturnValue {
+    ReturnExpr {
         /// 期待する関数のシグネチャ
         expected_signature: Signature,
         /// 戻り値の式
         ///
         /// Noneの場合は`return;`のように指定なしを表す
         found_return_expr: Option<hir::ExprId>,
+        /// return式自体
+        found_return: hir::ExprId,
+    },
+    ReturnValue {
+        /// 期待する関数のシグネチャ
+        expected_signature: Signature,
+        /// 戻り値の式
+        ///
+        /// Noneの場合はブロック最後の式がないことを表します
+        found_value: Option<hir::ExprId>,
     },
 }
 
@@ -129,12 +139,22 @@ fn build_unify_error_from_unify_purpose(
             then_branch: *found_then_branch_expr,
             else_branch_unit_ty: expected_ty,
         },
-        UnifyPurpose::ReturnValue {
+        UnifyPurpose::ReturnExpr {
             expected_signature,
             found_return_expr,
-        } => InferenceError::MismatchedTypeReturnValue {
+            found_return,
+        } => InferenceError::MismatchedTypeReturnExpr {
             found_ty,
             found_return_expr: *found_return_expr,
+            expected_signature: *expected_signature,
+            found_return: *found_return,
+        },
+        UnifyPurpose::ReturnValue {
+            expected_signature,
+            found_value,
+        } => InferenceError::MismatchedTypeReturnValue {
+            found_ty,
+            found_last_expr: *found_value,
             expected_signature: *expected_signature,
         },
     }

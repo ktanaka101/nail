@@ -114,7 +114,7 @@ pub struct BodyLower<'a> {
     scopes: ExprScopes,
     params: HashMap<Name, Param>,
     hir_file_db: &'a mut HirFileDatabase,
-    source_by_expr: HashMap<ExprId, ExprSource>,
+    pub source_by_expr: HashMap<ExprId, ExprSource>,
 }
 
 impl<'a> BodyLower<'a> {

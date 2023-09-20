@@ -377,8 +377,9 @@ fn build_hir_file(
         (vec![], None)
     };
 
+    let source_by_expr = root_file_body.source_by_expr;
     let hir_file = HirFile::new(db, file, hir_file_db, top_level_items, entry_point, errors);
-    let source_map = HirFileSourceMap::new(db, file, HashMap::new());
+    let source_map = HirFileSourceMap::new(db, file, source_by_expr);
 
     (hir_file, source_map)
 }

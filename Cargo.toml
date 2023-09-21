@@ -8,17 +8,11 @@ license = "MIT"
 default-run = "dock"
 
 [dependencies]
-anyhow = { workspace = true }
 clap = { workspace = true }
 tokio = { workspace = true }
-inkwell = { workspace = true }
 
-base_db = { workspace = true }
+dock = { workspace = true }
 lsp = { workspace = true }
-hir = { workspace = true }
-hir_ty = { workspace = true }
-mir = { workspace = true }
-codegen_llvm = { workspace = true }
 
 [workspace]
 members = ["crates/*"]
@@ -49,6 +43,7 @@ thiserror = "1.0"
 tokio = { version = "1.32", features = ["full"] }
 tower-lsp = "0.17"
 
+dock = { path = "crates/dock" }
 lexer = { path = "crates/lexer" }
 syntax = { path = "crates/syntax" }
 parser = { path = "crates/parser" }

@@ -1,0 +1,22 @@
+[package]
+name = "dock"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ariadne = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true }
+inkwell = { workspace = true }
+
+ast = { workspace = true }
+base_db = { workspace = true }
+lsp = { workspace = true }
+hir = { workspace = true }
+hir_ty = { workspace = true }
+mir = { workspace = true }
+codegen_llvm = { workspace = true }
+
+[dev-dependencies]

@@ -8,6 +8,7 @@ use anyhow::Result;
 use ariadne::{Label, Report, ReportKind, Source};
 use codegen_llvm::CodegenContext;
 use inkwell::{context::Context, OptimizationLevel};
+use thiserror::Error;
 use tokio::io;
 
 /// ルートファイルのディレクトリ配下のNailファイルをすべて読み込み、ファイルパスと内容のマッピングを返す。
@@ -69,7 +70,23 @@ async fn read_nail_files(
     }
 }
 
-pub async fn execute(root_nail_file_path: &str) -> Result<String> {
+#[derive(Error, Debug)]
+pub enum ExecutionError {
+    #[error("Compile nail error")]
+    Nail,
+
+    #[error("IO error")]
+    Io(#[from] io::Error),
+}
+
+/// Nailプログラムを実行します。
+///
+/// 通常の結果は`write_dest_out`、エラーは`write_dest_err`に書き込まれます。
+pub async fn execute(
+    root_nail_file_path: &str,
+    write_dest_out: &mut impl std::io::Write,
+    write_dest_err: &mut impl std::io::Write,
+) -> Result<(), ExecutionError> {
     let root_nail_file_path = path::PathBuf::try_from(root_nail_file_path).unwrap();
 
     let db = base_db::SalsaDatabase::default();
@@ -80,21 +97,22 @@ pub async fn execute(root_nail_file_path: &str) -> Result<String> {
     let pods = hir::parse_pods(&db, &mut source_db);
     let errors = pods.root_pod.root_hir_file.errors(&db);
     if !errors.is_empty() {
-        return Err(anyhow::anyhow!("Hir error: {:?}", errors));
+        write_dest_err.write_all(format!("Hir error: {:?}", errors).as_bytes())?;
+        return Err(ExecutionError::Nail);
     }
 
     let ty_result = hir_ty::lower_pods(&db, &pods);
     let type_inference_errors = ty_result.type_inference_errors();
     if !type_inference_errors.is_empty() {
         for error in &type_inference_errors {
-            print_error(&db, &pods.root_pod.root_source_map, error);
+            print_error(&db, &pods.root_pod.root_source_map, error, write_dest_err);
         }
-
-        return Err(anyhow::anyhow!("Ty error: {:?}", type_inference_errors));
+        return Err(ExecutionError::Nail);
     }
     let type_check_errors = ty_result.type_check_errors();
     if !type_check_errors.is_empty() {
-        return Err(anyhow::anyhow!("Ty error: {:?}", type_check_errors));
+        write_dest_err.write_all(format!("Ty error: {:?}", type_check_errors).as_bytes())?;
+        return Err(ExecutionError::Nail);
     }
 
     let mir_result = mir::lower_pods(&db, &pods, &ty_result);
@@ -123,14 +141,16 @@ pub async fn execute(root_nail_file_path: &str) -> Result<String> {
             .into_string()
             .unwrap()
     };
+    write_dest_out.write_all(result_string.as_bytes())?;
 
-    Ok(result_string)
+    Ok(())
 }
 
 fn print_error(
     db: &base_db::SalsaDatabase,
     source_map: &hir::HirFileSourceMap,
     error: &hir_ty::InferenceError,
+    write_dest_err: &mut impl std::io::Write,
 ) {
     use hir_ty::InferenceError;
     let file = source_map.file(db);
@@ -159,10 +179,13 @@ fn print_error(
             )
             .with_label(Label::new((file.file_path(db).to_str().unwrap(), 0..1)))
             .finish()
-            .eprint((
-                file.file_path(db).to_str().unwrap(),
-                Source::from(file.contents(db)),
-            ))
+            .write(
+                (
+                    file.file_path(db).to_str().unwrap(),
+                    Source::from(file.contents(db)),
+                ),
+                write_dest_err,
+            )
             .unwrap();
         }
         InferenceError::MismatchedTypeIfCondition {
@@ -238,10 +261,13 @@ fn print_error(
                 .with_message(format!("expected {return_type}, actual: {found_ty}")),
             )
             .finish()
-            .eprint((
-                file.file_path(db).to_str().unwrap(),
-                Source::from(file.contents(db)),
-            ))
+            .write(
+                (
+                    file.file_path(db).to_str().unwrap(),
+                    Source::from(file.contents(db)),
+                ),
+                write_dest_err,
+            )
             .unwrap();
         }
         InferenceError::MismatchedTypeReturnValue {

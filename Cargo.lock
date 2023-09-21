@@ -413,6 +413,7 @@ dependencies = [
  "inkwell",
  "lsp",
  "mir",
+ "thiserror",
  "tokio",
 ]
 

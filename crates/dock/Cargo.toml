@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 ariadne = { workspace = true }
 anyhow = { workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true }
 inkwell = { workspace = true }
 

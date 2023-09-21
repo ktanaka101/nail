@@ -1,5 +1,7 @@
 //! Dock is Nail project's build system and package manager.
 
+use std::io;
+
 use clap::{Parser, Subcommand};
 
 #[derive(Debug, Parser)]
@@ -25,13 +27,18 @@ async fn main() {
     match args.command {
         Command::Run { path } => {
             let Some(path)  = path else { panic!("The path must be specified.(Help: --path {{path}})"); };
+            let out = &mut io::stdout();
+            let err = &mut io::stderr();
 
-            match dock::execute(&path).await {
-                Ok(output) => {
-                    println!("{}", output);
-                }
-                Err(e) => {
-                    eprintln!("Error: {}", e);
+            match dock::execute(&path, out, err).await {
+                Ok(_) => (),
+                Err(err) => {
+                    match err {
+                        dock::ExecutionError::Io(e) => {
+                            eprintln!("IO error: {}", e);
+                        }
+                        dock::ExecutionError::Nail => (),
+                    }
                     std::process::exit(1);
                 }
             }

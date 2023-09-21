@@ -159,7 +159,7 @@ fn print_error(
             )
             .with_label(Label::new((file.file_path(db).to_str().unwrap(), 0..1)))
             .finish()
-            .print((
+            .eprint((
                 file.file_path(db).to_str().unwrap(),
                 Source::from(file.contents(db)),
             ))
@@ -238,7 +238,7 @@ fn print_error(
                 .with_message(format!("expected {return_type}, actual: {found_ty}")),
             )
             .finish()
-            .print((
+            .eprint((
                 file.file_path(db).to_str().unwrap(),
                 Source::from(file.contents(db)),
             ))

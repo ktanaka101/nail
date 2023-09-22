@@ -408,6 +408,7 @@ dependencies = [
  "ast",
  "base_db",
  "codegen_llvm",
+ "expect-test",
  "hir",
  "hir_ty",
  "inkwell",

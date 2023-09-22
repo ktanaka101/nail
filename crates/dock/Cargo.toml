@@ -21,3 +21,4 @@ mir = { workspace = true }
 codegen_llvm = { workspace = true }
 
 [dev-dependencies]
+expect-test = { workspace = true }

@@ -8,6 +8,16 @@ mod tests {
         let mut out = Vec::new();
         let mut err = Vec::new();
 
+        let main_file_contents =
+            std::fs::read_to_string(format!("tests/type_check/{dir_name}/main.nail")).unwrap();
+        // //---stdoutで区切ることで、標準出力と標準エラー出力をテストする
+        // //---stderrは必ず//--stdoutより後に書くことが前提
+        let mut main_contents = main_file_contents
+            .split("//---stdout")
+            .next()
+            .unwrap()
+            .to_string();
+
         dock::execute(
             std::env::current_dir()
                 .unwrap()
@@ -23,10 +33,21 @@ mod tests {
         .await
         .unwrap_err();
 
-        expect_file![format!("type_check/{dir_name}/main.nail.stdout")]
-            .assert_eq(&String::from_utf8(out).unwrap());
-        expect_file![format!("type_check/{dir_name}/main.nail.stderr")]
-            .assert_eq(&String::from_utf8(err).unwrap());
+        let stdout = String::from_utf8(out).unwrap();
+        let stderr = String::from_utf8(err).unwrap();
+
+        main_contents.push_str("//---stdout\n");
+        if !stdout.is_empty() {
+            main_contents.push('\n');
+            main_contents.push_str(&stdout);
+        }
+        main_contents.push_str("//---stderr\n");
+        if !stderr.is_empty() {
+            main_contents.push('\n');
+            main_contents.push_str(&stderr);
+        }
+
+        expect_file![format!("type_check/{dir_name}/main.nail")].assert_eq(&main_contents);
     }
 
     #[tokio::test]

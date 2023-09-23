@@ -1,7 +1,0 @@
-Error: 
-   ╭─[/workspaces/nail/crates/dock/tests/type_check/return_type/main.nail:2:3]
-   │
- 2 │   return 10;
-   │   ────┬────  
-   │       ╰────── expected string, actual: int
-───╯

@@ -41,7 +41,11 @@ async fn read_nail_files(
     return (root_file, file_by_path);
 
     fn collect_nail_files(dir: &path::Path) -> Vec<path::PathBuf> {
-        assert!(dir.is_dir());
+        assert!(
+            dir.is_dir(),
+            "assertion failed: dir.is_dir(), dir: {:?}",
+            dir
+        );
 
         let mut nail_files = vec![];
 
@@ -51,7 +55,7 @@ async fn read_nail_files(
                 let child_path = child_entry.path();
                 if child_path.is_file() && child_path.extension().unwrap() == "nail" {
                     nail_files.push(child_path);
-                } else {
+                } else if child_path.is_dir() {
                     nail_files.append(&mut collect_nail_files(&child_path));
                 }
             } else {

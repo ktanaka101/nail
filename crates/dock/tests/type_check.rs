@@ -18,6 +18,7 @@ mod tests {
                 .unwrap(),
             &mut out,
             &mut err,
+            false,
         )
         .await
         .unwrap_err();

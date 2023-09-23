@@ -90,6 +90,7 @@ pub async fn execute(
     root_nail_file_path: &str,
     write_dest_out: &mut impl std::io::Write,
     write_dest_err: &mut impl std::io::Write,
+    enabled_color: bool,
 ) -> Result<(), ExecutionError> {
     let root_nail_file_path = path::PathBuf::try_from(root_nail_file_path).unwrap();
 
@@ -107,9 +108,16 @@ pub async fn execute(
 
     let ty_result = hir_ty::lower_pods(&db, &pods);
     let type_inference_errors = ty_result.type_inference_errors();
+    let config = ariadne::Config::default().with_color(enabled_color);
     if !type_inference_errors.is_empty() {
         for error in &type_inference_errors {
-            print_error(&db, &pods.root_pod.root_source_map, error, write_dest_err);
+            print_error(
+                &db,
+                &pods.root_pod.root_source_map,
+                error,
+                write_dest_err,
+                config,
+            );
         }
         return Err(ExecutionError::Nail);
     }
@@ -155,6 +163,7 @@ fn print_error(
     source_map: &hir::HirFileSourceMap,
     error: &hir_ty::InferenceError,
     write_dest_err: &mut impl std::io::Write,
+    config: ariadne::Config,
 ) {
     use hir_ty::InferenceError;
     let file = source_map.file(db);
@@ -182,6 +191,7 @@ fn print_error(
                 offset.into(),
             )
             .with_label(Label::new((file.file_path(db).to_str().unwrap(), 0..1)))
+            .with_config(config)
             .finish()
             .write(
                 (
@@ -264,6 +274,7 @@ fn print_error(
                 ))
                 .with_message(format!("expected {return_type}, actual: {found_ty}")),
             )
+            .with_config(config)
             .finish()
             .write(
                 (

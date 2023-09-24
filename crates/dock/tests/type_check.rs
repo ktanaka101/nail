@@ -18,7 +18,7 @@ mod tests {
             .unwrap()
             .to_string();
 
-        dock::execute(
+        match dock::execute(
             std::env::current_dir()
                 .unwrap()
                 .join(PathBuf::from(&format!(
@@ -31,7 +31,13 @@ mod tests {
             false,
         )
         .await
-        .unwrap_err();
+        {
+            Ok(_) => (),
+            Err(e) => match e {
+                dock::ExecutionError::Nail => (),
+                dock::ExecutionError::Io(e) => panic!("io error: {e}"),
+            },
+        }
 
         let stdout = String::from_utf8(out).unwrap();
         let stderr = String::from_utf8(err).unwrap();
@@ -40,6 +46,7 @@ mod tests {
         if !stdout.is_empty() {
             main_contents.push('\n');
             main_contents.push_str(&stdout);
+            main_contents.push('\n');
         }
         main_contents.push_str("//---stderr\n");
         if !stderr.is_empty() {
@@ -53,5 +60,10 @@ mod tests {
     #[tokio::test]
     async fn return_type_match() {
         check("return_type_match").await;
+    }
+
+    #[tokio::test]
+    async fn return_type_mismatch_error() {
+        check("return_type_mismatch_error").await;
     }
 }

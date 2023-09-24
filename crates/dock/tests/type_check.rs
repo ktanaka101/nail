@@ -51,7 +51,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn return_type() {
-        check("return_type").await;
+    async fn return_type_match() {
+        check("return_type_match").await;
     }
 }

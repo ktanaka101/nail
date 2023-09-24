@@ -66,4 +66,9 @@ mod tests {
     async fn return_type_mismatch_error() {
         check("return_type_mismatch_error").await;
     }
+
+    #[tokio::test]
+    async fn return_no_expr_treated_as_unit() {
+        check("return_no_expr_treated_as_unit").await;
+    }
 }

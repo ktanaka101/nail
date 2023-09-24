@@ -158,6 +158,121 @@ pub async fn execute(
     Ok(())
 }
 
+#[derive(Debug)]
+struct Diagnostic {
+    file: hir::NailFile,
+    message: Message,
+}
+impl Diagnostic {
+    fn from_error(
+        db: &base_db::SalsaDatabase,
+        source_map: &hir::HirFileSourceMap,
+        error: &hir_ty::InferenceError,
+    ) -> Self {
+        use hir_ty::InferenceError;
+        let file = source_map.file(db);
+
+        match error {
+            InferenceError::MismatchedTypeIfCondition {
+                expected_condition_bool_ty,
+                found_condition_ty,
+                found_condition_expr,
+            } => {
+                let text_range = found_condition_expr.text_range(db, source_map);
+                let cond_type = type_to_string(db, expected_condition_bool_ty);
+                let found_cond_ty = type_to_string(db, found_condition_ty);
+
+                Diagnostic {
+                    file,
+                    message: Message {
+                        message: format!("expected {cond_type}, actual: {found_cond_ty}"),
+                        range: (text_range.start().into())..(text_range.end().into()),
+                    },
+                }
+            }
+            InferenceError::MismatchedTypeElseBranch {
+                then_branch_ty,
+                then_branch,
+                else_branch_ty,
+                else_branch,
+            } => todo!(),
+            InferenceError::MismatchedTypeOnlyIfBranch {
+                then_branch_ty,
+                then_branch,
+                else_branch_unit_ty,
+            } => todo!(),
+            InferenceError::MismaatchedTypeCallArg {
+                expected_ty,
+                found_ty,
+                expected_signature,
+                found_expr,
+                arg_pos,
+            } => todo!(),
+            InferenceError::MismatchedBinaryInteger {
+                expected_int_ty,
+                found_expr,
+                found_ty,
+                op,
+            } => todo!(),
+            InferenceError::MismatchedBinaryCompare {
+                compare_from_ty,
+                compare_from_expr,
+                compare_to_ty,
+                compare_to_expr,
+                op,
+            } => todo!(),
+            InferenceError::MismatchedUnary {
+                expected_ty,
+                found_ty,
+                found_expr,
+                op,
+            } => todo!(),
+            InferenceError::MismatchedTypeReturnExpr {
+                expected_signature,
+                found_ty,
+                found_return_expr,
+                found_return,
+            } => {
+                let text_range = found_return.text_range(db, source_map);
+                let return_type = expected_signature.return_type(db);
+                let return_type = type_to_string(db, &return_type);
+                let found_ty = type_to_string(db, found_ty);
+
+                Diagnostic {
+                    file,
+                    message: Message {
+                        message: format!("expected {return_type}, actual: {found_ty}"),
+                        range: (text_range.start().into())..(text_range.end().into()),
+                    },
+                }
+            }
+            InferenceError::MismatchedTypeReturnValue {
+                expected_signature,
+                found_ty,
+                found_last_expr,
+            } => todo!(),
+            InferenceError::MismatchedCallArgCount {
+                expected_callee_arg_count,
+                found_arg_count,
+            } => todo!(),
+            InferenceError::NotCallable {
+                found_callee_ty,
+                found_callee_symbol,
+                found_callee_expr,
+            } => todo!(),
+            InferenceError::ModuleAsExpr {
+                found_module,
+                found_expr,
+            } => todo!(),
+        }
+    }
+}
+#[derive(Debug)]
+struct Message {
+    range: std::ops::Range<usize>,
+    message: String,
+}
+
 fn print_error(
     db: &base_db::SalsaDatabase,
     source_map: &hir::HirFileSourceMap,
@@ -165,132 +280,30 @@ fn print_error(
     write_dest_err: &mut impl std::io::Write,
     config: ariadne::Config,
 ) {
-    use hir_ty::InferenceError;
-    let file = source_map.file(db);
+    let diagnostic = Diagnostic::from_error(db, source_map, error);
 
-    match error {
-        InferenceError::MismatchedTypeIfCondition {
-            expected_condition_bool_ty,
-            found_condition_ty,
-            found_condition_expr,
-        } => {
-            let text_range = found_condition_expr.text_range(db, source_map);
-            let cond_type = type_to_string(db, expected_condition_bool_ty);
-            let found_cond_ty = type_to_string(db, found_condition_ty);
-
-            Report::build(
-                ReportKind::Error,
-                file.file_path(db).to_str().unwrap(),
-                text_range.start().into(),
-            )
-            .with_label(
-                Label::new((
-                    file.file_path(db).to_str().unwrap(),
-                    (text_range.start().into())..(text_range.end().into()),
-                ))
-                .with_message(format!("expected {cond_type}, actual: {found_cond_ty}")),
-            )
-            .with_config(config)
-            .finish()
-            .write(
-                (
-                    file.file_path(db).to_str().unwrap(),
-                    Source::from(file.contents(db)),
-                ),
-                write_dest_err,
-            )
-            .unwrap();
-        }
-        InferenceError::MismatchedTypeElseBranch {
-            then_branch_ty,
-            then_branch,
-            else_branch_ty,
-            else_branch,
-        } => todo!(),
-        InferenceError::MismatchedTypeOnlyIfBranch {
-            then_branch_ty,
-            then_branch,
-            else_branch_unit_ty,
-        } => todo!(),
-        InferenceError::MismaatchedTypeCallArg {
-            expected_ty,
-            found_ty,
-            expected_signature,
-            found_expr,
-            arg_pos,
-        } => todo!(),
-        InferenceError::MismatchedBinaryInteger {
-            expected_int_ty,
-            found_expr,
-            found_ty,
-            op,
-        } => todo!(),
-        InferenceError::MismatchedBinaryCompare {
-            compare_from_ty,
-            compare_from_expr,
-            compare_to_ty,
-            compare_to_expr,
-            op,
-        } => todo!(),
-        InferenceError::MismatchedUnary {
-            expected_ty,
-            found_ty,
-            found_expr,
-            op,
-        } => todo!(),
-        InferenceError::MismatchedTypeReturnExpr {
-            expected_signature,
-            found_ty,
-            found_return_expr,
-            found_return,
-        } => {
-            let text_range = found_return.text_range(db, source_map);
-            let return_type = expected_signature.return_type(db);
-            let return_type = type_to_string(db, &return_type);
-            let found_ty = type_to_string(db, found_ty);
-
-            Report::build(
-                ReportKind::Error,
-                file.file_path(db).to_str().unwrap(),
-                text_range.start().into(),
-            )
-            .with_label(
-                Label::new((
-                    file.file_path(db).to_str().unwrap(),
-                    (text_range.start().into())..(text_range.end().into()),
-                ))
-                .with_message(format!("expected {return_type}, actual: {found_ty}")),
-            )
-            .with_config(config)
-            .finish()
-            .write(
-                (
-                    file.file_path(db).to_str().unwrap(),
-                    Source::from(file.contents(db)),
-                ),
-                write_dest_err,
-            )
-            .unwrap();
-        }
-        InferenceError::MismatchedTypeReturnValue {
-            expected_signature,
-            found_ty,
-            found_last_expr,
-        } => todo!(),
-        InferenceError::MismatchedCallArgCount {
-            expected_callee_arg_count,
-            found_arg_count,
-        } => todo!(),
-        InferenceError::NotCallable {
-            found_callee_ty,
-            found_callee_symbol,
-            found_callee_expr,
-        } => todo!(),
-        InferenceError::ModuleAsExpr {
-            found_module,
-            found_expr,
-        } => todo!(),
-    };
+    Report::build(
+        ReportKind::Error,
+        diagnostic.file.file_path(db).to_str().unwrap(),
+        diagnostic.message.range.start,
+    )
+    .with_label(
+        Label::new((
+            diagnostic.file.file_path(db).to_str().unwrap(),
+            diagnostic.message.range,
+        ))
+        .with_message(diagnostic.message.message),
+    )
+    .with_config(config)
+    .finish()
+    .write(
+        (
+            diagnostic.file.file_path(db).to_str().unwrap(),
+            Source::from(diagnostic.file.contents(db)),
+        ),
+        write_dest_err,
+    )
+    .unwrap();
 }
 
 fn type_to_string(db: &base_db::SalsaDatabase, ty: &hir_ty::Monotype) -> String {

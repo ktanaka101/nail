@@ -173,7 +173,34 @@ fn print_error(
             expected_condition_bool_ty,
             found_condition_ty,
             found_condition_expr,
-        } => todo!(),
+        } => {
+            let text_range = found_condition_expr.text_range(db, source_map);
+            let cond_type = type_to_string(db, expected_condition_bool_ty);
+            let found_cond_ty = type_to_string(db, found_condition_ty);
+
+            Report::build(
+                ReportKind::Error,
+                file.file_path(db).to_str().unwrap(),
+                text_range.start().into(),
+            )
+            .with_label(
+                Label::new((
+                    file.file_path(db).to_str().unwrap(),
+                    (text_range.start().into())..(text_range.end().into()),
+                ))
+                .with_message(format!("expected {cond_type}, actual: {found_cond_ty}")),
+            )
+            .with_config(config)
+            .finish()
+            .write(
+                (
+                    file.file_path(db).to_str().unwrap(),
+                    Source::from(file.contents(db)),
+                ),
+                write_dest_err,
+            )
+            .unwrap();
+        }
         InferenceError::MismatchedTypeElseBranch {
             then_branch_ty,
             then_branch,
@@ -217,14 +244,7 @@ fn print_error(
             found_return_expr,
             found_return,
         } => {
-            let text_range = source_map
-                .source_by_expr(db)
-                .get(found_return)
-                .unwrap()
-                .clone()
-                .value
-                .node
-                .text_range();
+            let text_range = found_return.text_range(db, source_map);
             let return_type = expected_signature.return_type(db);
             let return_type = type_to_string(db, &return_type);
             let found_ty = type_to_string(db, found_ty);

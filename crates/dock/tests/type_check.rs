@@ -63,12 +63,22 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn return_type_mismatch_error() {
-        check("return_type_mismatch_error").await;
+    async fn return_type_mismatch() {
+        check("return_type_mismatch").await;
     }
 
     #[tokio::test]
     async fn return_no_expr_treated_as_unit() {
         check("return_no_expr_treated_as_unit").await;
+    }
+
+    #[tokio::test]
+    async fn condition_type_match() {
+        check("condition_type_match").await;
+    }
+
+    #[tokio::test]
+    async fn condition_type_mismatch() {
+        check("condition_type_mismatch").await;
     }
 }

@@ -7,8 +7,8 @@ use la_arena::{Arena, Idx};
 
 use crate::{
     body::scopes::ExprScopes, item::ParamData, AstPtr, Block, Expr, ExprSource, Function,
-    HirMasterDatabase, InFile, Item, Literal, Module, ModuleKind, NailFile, Name, NameSolutionPath,
-    Param, Path, Stmt, Symbol, Type, UseItem,
+    HirFileSourceMap, HirMasterDatabase, InFile, Item, Literal, Module, ModuleKind, NailFile, Name,
+    NameSolutionPath, Param, Path, Stmt, Symbol, Type, UseItem,
 };
 
 /// 式を一意に識別するためのID
@@ -18,6 +18,22 @@ impl ExprId {
     /// このIDに対応する式を取得する
     pub fn lookup(self, ctx: &HirFileDatabase) -> &Expr {
         &ctx.exprs[self.0]
+    }
+}
+impl ExprId {
+    pub fn text_range(
+        &self,
+        db: &dyn HirMasterDatabase,
+        source_map: &HirFileSourceMap,
+    ) -> ast::TextRange {
+        source_map
+            .source_by_expr(db)
+            .get(self)
+            .unwrap()
+            .clone()
+            .value
+            .node
+            .text_range()
     }
 }
 impl PartialOrd for ExprId {

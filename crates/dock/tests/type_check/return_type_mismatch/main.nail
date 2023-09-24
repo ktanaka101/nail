@@ -6,7 +6,7 @@ fn main() -> string {
 //---stderr
 
 Error: 
-   ╭─[/workspaces/nail/crates/dock/tests/type_check/return_type_mismatch_error/main.nail:2:3]
+   ╭─[/workspaces/nail/crates/dock/tests/type_check/return_type_mismatch/main.nail:2:3]
    │
  2 │   return 10;
    │   ────┬────  

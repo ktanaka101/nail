@@ -1,0 +1,22 @@
+fn main() {
+  if true {
+  }
+
+  return;
+}
+
+fn f() {
+  if false {
+  }
+
+  return;
+}
+
+//---stdout
+
+{
+  "nail_type": "Unit",
+  "value": null
+}
+
+//---stderr

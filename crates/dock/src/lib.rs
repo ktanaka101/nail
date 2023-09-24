@@ -169,39 +169,6 @@ fn print_error(
     let file = source_map.file(db);
 
     match error {
-        InferenceError::MismatchedTypes {
-            expected_ty,
-            expected_expr,
-            found_ty,
-            found_expr,
-        } => {
-            let offset = source_map
-                .source_by_expr(db)
-                .get(found_expr)
-                .unwrap()
-                .clone()
-                .value
-                .node
-                .text_range()
-                .start();
-
-            Report::build(
-                ReportKind::Error,
-                file.file_path(db).to_str().unwrap(),
-                offset.into(),
-            )
-            .with_label(Label::new((file.file_path(db).to_str().unwrap(), 0..1)))
-            .with_config(config)
-            .finish()
-            .write(
-                (
-                    file.file_path(db).to_str().unwrap(),
-                    Source::from(file.contents(db)),
-                ),
-                write_dest_err,
-            )
-            .unwrap();
-        }
         InferenceError::MismatchedTypeIfCondition {
             expected_condition_bool_ty,
             found_condition_ty,

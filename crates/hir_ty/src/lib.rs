@@ -168,21 +168,6 @@ mod tests {
 
                 for error in &inference_body_result.errors {
                     match error {
-                        InferenceError::MismatchedTypes {
-                            expected_ty,
-                            found_ty,
-                            expected_expr,
-                            found_expr,
-                        } => {
-                            msg.push_str(
-                            &format!(
-                                "error MismatchedTypes: expected_ty: {}, found_ty: {}, expected_expr: `{}`, found_expr: `{}`",
-                                self.debug_monotype(expected_ty),
-                                self.debug_monotype(found_ty),
-                                self.debug_simplify_expr(hir_file, *expected_expr),
-                                self.debug_simplify_expr(hir_file, *found_expr),
-                            ));
-                        }
                         InferenceError::MismatchedTypeIfCondition {
                             expected_condition_bool_ty,
                             found_condition_expr,

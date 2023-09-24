@@ -3,17 +3,6 @@ use super::{Monotype, Signature};
 /// 型チェックのエラー
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum InferenceError {
-    /// 一致するべき型が一致しない
-    MismatchedTypes {
-        /// 期待される型
-        expected_ty: Monotype,
-        /// 期待される式
-        expected_expr: hir::ExprId,
-        /// 実際の型
-        found_ty: Monotype,
-        /// 実際の式
-        found_expr: hir::ExprId,
-    },
     /// Ifの条件式の型が一致しない
     MismatchedTypeIfCondition {
         /// 期待される型

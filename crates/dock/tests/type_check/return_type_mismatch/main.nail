@@ -5,7 +5,7 @@ fn main() -> string {
 //---stdout
 //---stderr
 
-Error: 
+Error: Mismatched type in return expression
    ╭─[/workspaces/nail/crates/dock/tests/type_check/return_type_mismatch/main.nail:2:3]
    │
  2 │   return 10;

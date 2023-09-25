@@ -161,7 +161,9 @@ pub async fn execute(
 #[derive(Debug)]
 struct Diagnostic {
     file: hir::NailFile,
-    message: Message,
+    title: String,
+    head_offset: usize,
+    messages: Vec<Message>,
 }
 impl Diagnostic {
     fn from_error(
@@ -184,10 +186,12 @@ impl Diagnostic {
 
                 Diagnostic {
                     file,
-                    message: Message {
+                    title: "Mismatched type in if condition".to_string(),
+                    head_offset: text_range.start().into(),
+                    messages: vec![Message {
                         message: format!("expected {cond_type}, actual: {found_cond_ty}"),
                         range: (text_range.start().into())..(text_range.end().into()),
-                    },
+                    }],
                 }
             }
             InferenceError::MismatchedTypeElseBranch {
@@ -240,10 +244,12 @@ impl Diagnostic {
 
                 Diagnostic {
                     file,
-                    message: Message {
+                    title: "Mismatched type in return expression".to_string(),
+                    head_offset: text_range.start().into(),
+                    messages: vec![Message {
                         message: format!("expected {return_type}, actual: {found_ty}"),
                         range: (text_range.start().into())..(text_range.end().into()),
-                    },
+                    }],
                 }
             }
             InferenceError::MismatchedTypeReturnValue {
@@ -281,29 +287,23 @@ fn print_error(
     config: ariadne::Config,
 ) {
     let diagnostic = Diagnostic::from_error(db, source_map, error);
+    let file = diagnostic.file;
+    let file_path = file.file_path(db).to_str().unwrap().to_string();
+    let labels = diagnostic
+        .messages
+        .into_iter()
+        .map(|message| Label::new((&file_path, message.range)).with_message(message.message));
 
-    Report::build(
-        ReportKind::Error,
-        diagnostic.file.file_path(db).to_str().unwrap(),
-        diagnostic.message.range.start,
-    )
-    .with_label(
-        Label::new((
-            diagnostic.file.file_path(db).to_str().unwrap(),
-            diagnostic.message.range,
-        ))
-        .with_message(diagnostic.message.message),
-    )
-    .with_config(config)
-    .finish()
-    .write(
-        (
-            diagnostic.file.file_path(db).to_str().unwrap(),
-            Source::from(diagnostic.file.contents(db)),
-        ),
-        write_dest_err,
-    )
-    .unwrap();
+    Report::build(ReportKind::Error, &file_path, diagnostic.head_offset)
+        .with_message(diagnostic.title)
+        .with_labels(labels)
+        .with_config(config)
+        .finish()
+        .write(
+            (&file_path, Source::from(diagnostic.file.contents(db))),
+            write_dest_err,
+        )
+        .unwrap();
 }
 
 fn type_to_string(db: &base_db::SalsaDatabase, ty: &hir_ty::Monotype) -> String {

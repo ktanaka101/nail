@@ -81,4 +81,14 @@ mod tests {
     async fn condition_type_mismatch() {
         check("condition_type_mismatch").await;
     }
+
+    #[tokio::test]
+    async fn then_else_branch_match() {
+        check("then_else_branch_match").await;
+    }
+
+    #[tokio::test]
+    async fn then_else_branch_mismatch() {
+        check("then_else_branch_mismatch").await;
+    }
 }

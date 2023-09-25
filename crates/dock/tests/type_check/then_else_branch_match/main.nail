@@ -1,0 +1,17 @@
+fn main() {
+  if true {
+    "aaa"
+  } else {
+    "bbb"
+  }
+
+  return;
+}
+//---stdout
+
+{
+  "nail_type": "Unit",
+  "value": null
+}
+
+//---stderr

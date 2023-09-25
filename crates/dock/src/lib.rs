@@ -113,6 +113,7 @@ pub async fn execute(
         for error in &type_inference_errors {
             print_error(
                 &db,
+                pods.root_pod.root_hir_file.db(&db),
                 &pods.root_pod.root_source_map,
                 error,
                 write_dest_err,
@@ -168,6 +169,7 @@ struct Diagnostic {
 impl Diagnostic {
     fn from_error(
         db: &base_db::SalsaDatabase,
+        file_db: &hir::HirFileDatabase,
         source_map: &hir::HirFileSourceMap,
         error: &hir_ty::InferenceError,
     ) -> Self {
@@ -199,7 +201,46 @@ impl Diagnostic {
                 then_branch,
                 else_branch_ty,
                 else_branch,
-            } => todo!(),
+            } => {
+                let then_branch_range = then_branch.text_range(db, source_map);
+                let else_branch_range = else_branch.text_range(db, source_map);
+                let hir::Expr::Block(then_block) =  then_branch.lookup(file_db) else { unreachable!() };
+                let then_tail_range: std::ops::Range<usize> = if let Some(tail) = then_block.tail {
+                    tail.text_range(db, source_map).into()
+                } else {
+                    then_branch_range.end().into()..then_branch_range.end().into()
+                };
+                let hir::Expr::Block(else_block) =  else_branch.lookup(file_db) else { unreachable!() };
+                let else_tail_range: std::ops::Range<usize> = if let Some(tail) = else_block.tail {
+                    tail.text_range(db, source_map).into()
+                } else {
+                    else_branch_range.end().into()..else_branch_range.end().into()
+                };
+
+                let then_branch_ty = type_to_string(db, then_branch_ty);
+                let else_branch_ty = type_to_string(db, else_branch_ty);
+
+                Diagnostic {
+                    file,
+                    title: "Mismatched type if branch and else branch".to_string(),
+                    head_offset: then_branch_range.start().into(),
+                    messages: vec![
+                        Message {
+                            message: format!("expected {then_branch_ty}, actual: {else_branch_ty}"),
+                            range: (then_branch_range.start().into())
+                                ..(else_branch_range.end().into()),
+                        },
+                        Message {
+                            range: then_tail_range,
+                            message: format!("Type is {then_branch_ty}"),
+                        },
+                        Message {
+                            range: else_tail_range,
+                            message: format!("Type is {else_branch_ty}"),
+                        },
+                    ],
+                }
+            }
             InferenceError::MismatchedTypeOnlyIfBranch {
                 then_branch_ty,
                 then_branch,
@@ -281,12 +322,13 @@ struct Message {
 
 fn print_error(
     db: &base_db::SalsaDatabase,
+    file_db: &hir::HirFileDatabase,
     source_map: &hir::HirFileSourceMap,
     error: &hir_ty::InferenceError,
     write_dest_err: &mut impl std::io::Write,
     config: ariadne::Config,
 ) {
-    let diagnostic = Diagnostic::from_error(db, source_map, error);
+    let diagnostic = Diagnostic::from_error(db, file_db, source_map, error);
     let file = diagnostic.file;
     let file_path = file.file_path(db).to_str().unwrap().to_string();
     let labels = diagnostic

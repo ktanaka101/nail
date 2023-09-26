@@ -71,8 +71,6 @@ impl TyLowerResult {
     }
 
     /// 型推論エラーを取得します。
-    ///
-    /// TODO: 順不同ではなくす
     pub fn type_inference_errors(&self) -> Vec<InferenceError> {
         self.inference_result
             .inference_body_result_by_function
@@ -83,8 +81,6 @@ impl TyLowerResult {
     }
 
     /// 型チェックエラーを取得します。
-    ///
-    /// TODO: 順不同ではなくす
     pub fn type_check_errors(&self) -> Vec<TypeCheckError> {
         self.type_check_result
             .errors_by_function

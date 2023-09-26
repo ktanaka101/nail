@@ -655,6 +655,7 @@ dependencies = [
  "ast",
  "expect-test",
  "hir",
+ "indexmap",
  "la-arena",
  "parser",
  "salsa-2022",

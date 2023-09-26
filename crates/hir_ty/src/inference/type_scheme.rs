@@ -1,7 +1,6 @@
-use std::{
-    collections::{HashMap, HashSet},
-    iter::FromIterator,
-};
+use std::{collections::HashSet, iter::FromIterator};
+
+use indexmap::{IndexMap, IndexSet};
 
 use super::{
     environment::{Context, VariableId},
@@ -16,7 +15,7 @@ use crate::HirTyMasterDatabase;
 #[derive(Clone)]
 pub struct TypeScheme {
     /// `ty`が持つ型変数の集合
-    pub variables: HashSet<VariableId>,
+    pub variables: IndexSet<VariableId>,
     /// 型
     pub ty: Monotype,
 }
@@ -24,12 +23,12 @@ pub struct TypeScheme {
 impl TypeScheme {
     pub fn new(ty: Monotype) -> TypeScheme {
         TypeScheme {
-            variables: HashSet::new(),
+            variables: IndexSet::new(),
             ty,
         }
     }
 
-    pub fn new_with_variables(ty: Monotype, variables: HashSet<VariableId>) -> TypeScheme {
+    pub fn new_with_variables(ty: Monotype, variables: IndexSet<VariableId>) -> TypeScheme {
         TypeScheme { variables, ty }
     }
 
@@ -50,7 +49,7 @@ impl TypeScheme {
             .map(|v| (*v, Monotype::gen_variable(cxt)));
 
         let replacement = TypeSubstitution {
-            replacements: HashMap::from_iter(new_vars),
+            replacements: IndexMap::from_iter(new_vars),
         };
 
         self.ty.apply(&replacement)
@@ -59,7 +58,7 @@ impl TypeScheme {
 
 #[derive(Default)]
 pub struct TypeSubstitution {
-    pub replacements: HashMap<VariableId, Monotype>,
+    pub replacements: IndexMap<VariableId, Monotype>,
 }
 
 impl TypeSubstitution {

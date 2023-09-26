@@ -8,6 +8,7 @@ use std::collections::HashMap;
 
 use environment::Environment;
 pub use error::InferenceError;
+use indexmap::IndexMap;
 pub use type_scheme::TypeScheme;
 pub use types::Monotype;
 
@@ -25,7 +26,7 @@ pub fn infer_pods(db: &dyn HirTyMasterDatabase, pods: &hir::Pods) -> InferenceRe
         signature_by_function.insert(function, signature);
     }
 
-    let mut body_result_by_function = HashMap::<hir::Function, InferenceBodyResult>::new();
+    let mut body_result_by_function = IndexMap::<hir::Function, InferenceBodyResult>::new();
     for (hir_file, function) in pods.root_pod.all_functions(db) {
         let env = Environment::new();
         let infer_body = InferBody::new(db, pods, hir_file, function, &signature_by_function, env);
@@ -527,7 +528,7 @@ impl<'a> InferBody<'a> {
 #[derive(Debug)]
 pub struct InferenceResult {
     pub(crate) signature_by_function: HashMap<hir::Function, Signature>,
-    pub(crate) inference_body_result_by_function: HashMap<hir::Function, InferenceBodyResult>,
+    pub(crate) inference_body_result_by_function: IndexMap<hir::Function, InferenceBodyResult>,
 }
 
 /// 関数内の型推論結果

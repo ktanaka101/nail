@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use indexmap::IndexSet;
 
 use super::{
     environment::{Context, VariableId},
@@ -26,16 +26,16 @@ impl Monotype {
         Monotype::Variable(cxt.gen_id())
     }
 
-    pub(crate) fn free_variables(&self, db: &dyn HirTyMasterDatabase) -> HashSet<VariableId> {
+    pub(crate) fn free_variables(&self, db: &dyn HirTyMasterDatabase) -> IndexSet<VariableId> {
         match self {
             Monotype::Variable(id) => {
-                let mut set = HashSet::new();
+                let mut set = IndexSet::new();
                 set.insert(*id);
 
                 set
             }
             Monotype::Function(signature) => {
-                let mut set = HashSet::new();
+                let mut set = IndexSet::new();
                 for arg in signature.params(db).iter() {
                     set.extend(arg.free_variables(db));
                 }

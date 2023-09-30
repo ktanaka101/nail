@@ -331,7 +331,38 @@ impl Diagnostic {
                 compare_to_ty,
                 compare_to_expr,
                 op,
-            } => todo!(),
+            } => {
+                let compare_from_range = compare_from_expr.text_range(db, source_map);
+                let compare_to_range = compare_to_expr.text_range(db, source_map);
+                let compare_from_ty = type_to_string(db, compare_from_ty);
+                let compare_to_ty = type_to_string(db, compare_to_ty);
+
+                let op = match op {
+                    ast::BinaryOp::Equal(_) => "==",
+                    ast::BinaryOp::GreaterThan(_) => ">",
+                    ast::BinaryOp::LessThan(_) => "<",
+                    ast::BinaryOp::Add(_)
+                    | ast::BinaryOp::Sub(_)
+                    | ast::BinaryOp::Mul(_)
+                    | ast::BinaryOp::Div(_) => unreachable!(),
+                };
+
+                Diagnostic {
+                    file,
+                    title: format!("Mismatched type in binary compare expression `{op}`"),
+                    head_offset: compare_from_range.start().into(),
+                    messages: vec![
+                        Message {
+                            range: compare_from_range.into(),
+                            message: format!("Type is {compare_from_ty}"),
+                        },
+                        Message {
+                            range: compare_to_range.into(),
+                            message: format!("Type is {compare_to_ty}"),
+                        },
+                    ],
+                }
+            }
             InferenceError::MismatchedUnary {
                 expected_ty,
                 found_ty,

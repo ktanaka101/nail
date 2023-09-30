@@ -1,0 +1,49 @@
+fn main() {
+  10 + "aaa";
+  "bbb" + 20;
+
+  30 - "ccc";
+  40 * "ddd";
+  50 / "eee";
+
+
+  return;
+}
+//---stdout
+//---stderr
+
+Error: Mismatched type in binary integer expression `+`
+   ╭─[/workspaces/nail/crates/dock/tests/type_check/binary_integer_mismatch/main.nail:2:8]
+   │
+ 2 │   10 + "aaa";
+   │        ──┬──  
+   │          ╰──── expected int, actual: string
+───╯
+Error: Mismatched type in binary integer expression `+`
+   ╭─[/workspaces/nail/crates/dock/tests/type_check/binary_integer_mismatch/main.nail:3:3]
+   │
+ 3 │   "bbb" + 20;
+   │   ──┬──  
+   │     ╰──── expected int, actual: string
+───╯
+Error: Mismatched type in binary integer expression `-`
+   ╭─[/workspaces/nail/crates/dock/tests/type_check/binary_integer_mismatch/main.nail:5:8]
+   │
+ 5 │   30 - "ccc";
+   │        ──┬──  
+   │          ╰──── expected int, actual: string
+───╯
+Error: Mismatched type in binary integer expression `*`
+   ╭─[/workspaces/nail/crates/dock/tests/type_check/binary_integer_mismatch/main.nail:6:8]
+   │
+ 6 │   40 * "ddd";
+   │        ──┬──  
+   │          ╰──── expected int, actual: string
+───╯
+Error: Mismatched type in binary integer expression `/`
+   ╭─[/workspaces/nail/crates/dock/tests/type_check/binary_integer_mismatch/main.nail:7:8]
+   │
+ 7 │   50 / "eee";
+   │        ──┬──  
+   │          ╰──── expected int, actual: string
+───╯

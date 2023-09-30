@@ -111,4 +111,14 @@ mod tests {
     async fn call_arg_type_mismatch() {
         check("call_arg_type_mismatch").await;
     }
+
+    #[tokio::test]
+    async fn binary_integer_match() {
+        check("binary_integer_match").await;
+    }
+
+    #[tokio::test]
+    async fn binary_integer_mismatch() {
+        check("binary_integer_mismatch").await;
+    }
 }

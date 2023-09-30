@@ -300,7 +300,31 @@ impl Diagnostic {
                 found_expr,
                 found_ty,
                 op,
-            } => todo!(),
+            } => {
+                let text_range = found_expr.text_range(db, source_map);
+                let expected_ty = type_to_string(db, expected_int_ty);
+                let found_ty = type_to_string(db, found_ty);
+
+                let op = match op {
+                    ast::BinaryOp::Add(_) => "+",
+                    ast::BinaryOp::Sub(_) => "-",
+                    ast::BinaryOp::Mul(_) => "*",
+                    ast::BinaryOp::Div(_) => "/",
+                    ast::BinaryOp::Equal(_)
+                    | ast::BinaryOp::GreaterThan(_)
+                    | ast::BinaryOp::LessThan(_) => unreachable!(),
+                };
+
+                Diagnostic {
+                    file,
+                    title: format!("Mismatched type in binary integer expression `{op}`"),
+                    head_offset: text_range.start().into(),
+                    messages: vec![Message {
+                        message: format!("expected {expected_ty}, actual: {found_ty}"),
+                        range: (text_range.start().into())..(text_range.end().into()),
+                    }],
+                }
+            }
             InferenceError::MismatchedBinaryCompare {
                 compare_from_ty,
                 compare_from_expr,

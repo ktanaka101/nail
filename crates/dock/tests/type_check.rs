@@ -101,4 +101,14 @@ mod tests {
     async fn then_only_branch_mismatch() {
         check("then_only_branch_mismatch").await;
     }
+
+    #[tokio::test]
+    async fn call_arg_type_match() {
+        check("call_arg_type_match").await;
+    }
+
+    #[tokio::test]
+    async fn call_arg_type_mismatch() {
+        check("call_arg_type_mismatch").await;
+    }
 }

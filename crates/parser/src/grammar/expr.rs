@@ -406,45 +406,45 @@ mod tests {
                 SourceFile@0..30
                   ExprStmt@0..30
                     BinaryExpr@0..30
-                      BinaryExpr@0..18
-                        BinaryExpr@0..6
-                          Literal@0..2
+                      BinaryExpr@0..17
+                        BinaryExpr@0..5
+                          Literal@0..1
                             Integer@0..1 "1"
-                            Whitespace@1..2 " "
+                          Whitespace@1..2 " "
                           Plus@2..3 "+"
                           Whitespace@3..4 " "
-                          Literal@4..6
+                          Literal@4..5
                             Integer@4..5 "2"
-                            Whitespace@5..6 " "
+                        Whitespace@5..6 " "
                         Minus@6..7 "-"
                         Whitespace@7..8 " "
-                        BinaryExpr@8..18
-                          BinaryExpr@8..14
-                            Literal@8..10
+                        BinaryExpr@8..17
+                          BinaryExpr@8..13
+                            Literal@8..9
                               Integer@8..9 "3"
-                              Whitespace@9..10 " "
+                            Whitespace@9..10 " "
                             Star@10..11 "*"
                             Whitespace@11..12 " "
-                            Literal@12..14
+                            Literal@12..13
                               Integer@12..13 "4"
-                              Whitespace@13..14 " "
+                          Whitespace@13..14 " "
                           Slash@14..15 "/"
                           Whitespace@15..16 " "
-                          Literal@16..18
+                          Literal@16..17
                             Integer@16..17 "5"
-                            Whitespace@17..18 " "
+                      Whitespace@17..18 " "
                       Eq2@18..20 "=="
                       Whitespace@20..21 " "
                       BinaryExpr@21..30
-                        BinaryExpr@21..27
-                          Literal@21..23
+                        BinaryExpr@21..26
+                          Literal@21..22
                             Integer@21..22 "6"
-                            Whitespace@22..23 " "
+                          Whitespace@22..23 " "
                           LAngle@23..24 "<"
                           Whitespace@24..25 " "
-                          Literal@25..27
+                          Literal@25..26
                             Integer@25..26 "7"
-                            Whitespace@26..27 " "
+                        Whitespace@26..27 " "
                         RAngle@27..28 ">"
                         Whitespace@28..29 " "
                         Literal@29..30
@@ -511,21 +511,21 @@ mod tests {
                 SourceFile@0..14
                   ExprStmt@0..14
                     BinaryExpr@0..14
-                      BinaryExpr@0..6
-                        Literal@0..2
+                      BinaryExpr@0..5
+                        Literal@0..1
                           Integer@0..1 "1"
-                          Whitespace@1..2 " "
+                        Whitespace@1..2 " "
                         Plus@2..3 "+"
                         Whitespace@3..4 " "
-                        Literal@4..6
+                        Literal@4..5
                           Integer@4..5 "2"
-                          Whitespace@5..6 " "
+                      Whitespace@5..6 " "
                       Eq2@6..8 "=="
                       Whitespace@8..9 " "
                       BinaryExpr@9..14
-                        Literal@9..11
+                        Literal@9..10
                           Integer@9..10 "3"
-                          Whitespace@10..11 " "
+                        Whitespace@10..11 " "
                         Star@11..12 "*"
                         Whitespace@12..13 " "
                         Literal@13..14
@@ -658,10 +658,10 @@ mod tests {
             "999   ",
             expect![[r#"
                 SourceFile@0..6
-                  ExprStmt@0..6
-                    Literal@0..6
+                  ExprStmt@0..3
+                    Literal@0..3
                       Integer@0..3 "999"
-                      Whitespace@3..6 "   "
+                  Whitespace@3..6 "   "
             "#]],
         );
     }
@@ -673,10 +673,10 @@ mod tests {
             expect![[r#"
                 SourceFile@0..9
                   Whitespace@0..1 " "
-                  ExprStmt@1..9
-                    Literal@1..9
+                  ExprStmt@1..4
+                    Literal@1..4
                       Integer@1..4 "123"
-                      Whitespace@4..9 "     "
+                  Whitespace@4..9 "     "
             "#]],
         );
     }
@@ -753,10 +753,10 @@ mod tests {
             "'a let b = 10",
             expect![[r#"
                 SourceFile@0..13
-                  ExprStmt@0..3
-                    Literal@0..3
+                  ExprStmt@0..2
+                    Literal@0..2
                       Char@0..2 "'a"
-                      Whitespace@2..3 " "
+                  Whitespace@2..3 " "
                   VariableDef@3..13
                     LetKw@3..6 "let"
                     Whitespace@6..7 " "
@@ -778,21 +778,21 @@ mod tests {
             expect![[r#"
                 SourceFile@0..12
                   Whitespace@0..1 " "
-                  ExprStmt@1..12
-                    BinaryExpr@1..12
-                      Literal@1..3
+                  ExprStmt@1..11
+                    BinaryExpr@1..11
+                      Literal@1..2
                         Integer@1..2 "1"
-                        Whitespace@2..3 " "
+                      Whitespace@2..3 " "
                       Plus@3..4 "+"
                       Whitespace@4..7 "   "
-                      BinaryExpr@7..12
+                      BinaryExpr@7..11
                         Literal@7..8
                           Integer@7..8 "2"
                         Star@8..9 "*"
                         Whitespace@9..10 " "
-                        Literal@10..12
+                        Literal@10..11
                           Integer@10..11 "3"
-                          Whitespace@11..12 " "
+                  Whitespace@11..12 " "
             "#]],
         );
     }
@@ -805,18 +805,18 @@ mod tests {
                 SourceFile@0..15
                   ExprStmt@0..15
                     BinaryExpr@0..15
-                      CallExpr@0..7
+                      CallExpr@0..6
                         PathExpr@0..3
                           Path@0..3
                             PathSegment@0..3
                               Ident@0..3 "foo"
-                        ArgList@3..7
+                        ArgList@3..6
                           LParen@3..4 "("
                           Arg@4..5
                             Literal@4..5
                               Integer@4..5 "1"
                           RParen@5..6 ")"
-                          Whitespace@6..7 " "
+                      Whitespace@6..7 " "
                       Plus@7..8 "+"
                       Whitespace@8..9 " "
                       CallExpr@9..15
@@ -881,10 +881,10 @@ mod tests {
                     BlockExpr@0..5
                       LCurly@0..1 "{"
                       Whitespace@1..2 " "
-                      ExprStmt@2..4
-                        Literal@2..4
+                      ExprStmt@2..3
+                        Literal@2..3
                           Integer@2..3 "1"
-                          Whitespace@3..4 " "
+                      Whitespace@3..4 " "
                       RCurly@4..5 "}"
             "#]],
         );
@@ -896,14 +896,14 @@ mod tests {
             "{ 1 ",
             expect![[r#"
                 SourceFile@0..4
-                  ExprStmt@0..4
-                    BlockExpr@0..4
+                  ExprStmt@0..3
+                    BlockExpr@0..3
                       LCurly@0..1 "{"
                       Whitespace@1..2 " "
-                      ExprStmt@2..4
-                        Literal@2..4
+                      ExprStmt@2..3
+                        Literal@2..3
                           Integer@2..3 "1"
-                          Whitespace@3..4 " "
+                  Whitespace@3..4 " "
                 error at 3..4: expected '+', '-', '*', '/', '==', '<', '>', ';' or '}'
             "#]],
         );
@@ -922,26 +922,26 @@ mod tests {
                     BlockExpr@0..24
                       LCurly@0..1 "{"
                       Whitespace@1..4 "\n  "
-                      VariableDef@4..17
+                      VariableDef@4..14
                         LetKw@4..7 "let"
                         Whitespace@7..8 " "
                         Ident@8..9 "a"
                         Whitespace@9..10 " "
                         Eq@10..11 "="
                         Whitespace@11..12 " "
-                        Literal@12..17
+                        Literal@12..14
                           Integer@12..14 "10"
-                          Whitespace@14..17 "\n  "
-                      ExprStmt@17..23
-                        BlockExpr@17..23
+                      Whitespace@14..17 "\n  "
+                      ExprStmt@17..22
+                        BlockExpr@17..22
                           LCurly@17..18 "{"
                           Whitespace@18..19 " "
-                          ExprStmt@19..21
-                            Literal@19..21
+                          ExprStmt@19..20
+                            Literal@19..20
                               Integer@19..20 "1"
-                              Whitespace@20..21 " "
+                          Whitespace@20..21 " "
                           RCurly@21..22 "}"
-                          Whitespace@22..23 "\n"
+                      Whitespace@22..23 "\n"
                       RCurly@23..24 "}"
             "#]],
         );
@@ -1042,12 +1042,12 @@ mod tests {
                       BlockExpr@0..5
                         LCurly@0..1 "{"
                         Whitespace@1..2 " "
-                        ExprStmt@2..4
-                          PathExpr@2..4
-                            Path@2..4
-                              PathSegment@2..4
+                        ExprStmt@2..3
+                          PathExpr@2..3
+                            Path@2..3
+                              PathSegment@2..3
                                 Ident@2..3 "a"
-                                Whitespace@3..4 " "
+                        Whitespace@3..4 " "
                         RCurly@4..5 "}"
                       ArgList@5..7
                         LParen@5..6 "("
@@ -1185,12 +1185,12 @@ mod tests {
                             Ident@0..1 "a"
                       ArgList@1..5
                         LParen@1..2 "("
-                        Arg@2..4
-                          PathExpr@2..4
-                            Path@2..4
-                              PathSegment@2..4
+                        Arg@2..3
+                          PathExpr@2..3
+                            Path@2..3
+                              PathSegment@2..3
                                 Ident@2..3 "x"
-                                Whitespace@3..4 " "
+                        Whitespace@3..4 " "
                         Error@4..5
                           Ident@4..5 "y"
                   ExprStmt@5..6
@@ -1218,11 +1218,11 @@ mod tests {
                         LParen@1..2 "("
                         Arg@2..7
                           BinaryExpr@2..7
-                            PathExpr@2..4
-                              Path@2..4
-                                PathSegment@2..4
+                            PathExpr@2..3
+                              Path@2..3
+                                PathSegment@2..3
                                   Ident@2..3 "x"
-                                  Whitespace@3..4 " "
+                            Whitespace@3..4 " "
                             Plus@4..5 "+"
                             Whitespace@5..6 " "
                             PathExpr@6..7
@@ -1249,20 +1249,20 @@ mod tests {
                           BlockExpr@2..11
                             LCurly@2..3 "{"
                             Whitespace@3..4 " "
-                            ExprStmt@4..10
-                              BinaryExpr@4..10
-                                PathExpr@4..6
-                                  Path@4..6
-                                    PathSegment@4..6
+                            ExprStmt@4..9
+                              BinaryExpr@4..9
+                                PathExpr@4..5
+                                  Path@4..5
+                                    PathSegment@4..5
                                       Ident@4..5 "x"
-                                      Whitespace@5..6 " "
+                                Whitespace@5..6 " "
                                 Plus@6..7 "+"
                                 Whitespace@7..8 " "
-                                PathExpr@8..10
-                                  Path@8..10
-                                    PathSegment@8..10
+                                PathExpr@8..9
+                                  Path@8..9
+                                    PathSegment@8..9
                                       Ident@8..9 "y"
-                                      Whitespace@9..10 " "
+                            Whitespace@9..10 " "
                             RCurly@10..11 "}"
                         RParen@11..12 ")"
             "#]],
@@ -1279,16 +1279,16 @@ mod tests {
                     IfExpr@0..14
                       IfKw@0..2 "if"
                       Whitespace@2..3 " "
-                      Literal@3..8
+                      Literal@3..7
                         TrueKw@3..7 "true"
-                        Whitespace@7..8 " "
+                      Whitespace@7..8 " "
                       BlockExpr@8..14
                         LCurly@8..9 "{"
                         Whitespace@9..10 " "
-                        ExprStmt@10..13
-                          Literal@10..13
+                        ExprStmt@10..12
+                          Literal@10..12
                             Integer@10..12 "10"
-                            Whitespace@12..13 " "
+                        Whitespace@12..13 " "
                         RCurly@13..14 "}"
             "#]],
         );
@@ -1301,27 +1301,27 @@ mod tests {
                     IfExpr@0..26
                       IfKw@0..2 "if"
                       Whitespace@2..3 " "
-                      Literal@3..8
+                      Literal@3..7
                         TrueKw@3..7 "true"
-                        Whitespace@7..8 " "
-                      BlockExpr@8..15
+                      Whitespace@7..8 " "
+                      BlockExpr@8..14
                         LCurly@8..9 "{"
                         Whitespace@9..10 " "
-                        ExprStmt@10..13
-                          Literal@10..13
+                        ExprStmt@10..12
+                          Literal@10..12
                             Integer@10..12 "10"
-                            Whitespace@12..13 " "
+                        Whitespace@12..13 " "
                         RCurly@13..14 "}"
-                        Whitespace@14..15 " "
+                      Whitespace@14..15 " "
                       ElseKw@15..19 "else"
                       Whitespace@19..20 " "
                       BlockExpr@20..26
                         LCurly@20..21 "{"
                         Whitespace@21..22 " "
-                        ExprStmt@22..25
-                          Literal@22..25
+                        ExprStmt@22..24
+                          Literal@22..24
                             Integer@22..24 "20"
-                            Whitespace@24..25 " "
+                        Whitespace@24..25 " "
                         RCurly@25..26 "}"
             "#]],
         )
@@ -1343,27 +1343,27 @@ mod tests {
                     IfExpr@8..34
                       IfKw@8..10 "if"
                       Whitespace@10..11 " "
-                      Literal@11..16
+                      Literal@11..15
                         TrueKw@11..15 "true"
-                        Whitespace@15..16 " "
-                      BlockExpr@16..23
+                      Whitespace@15..16 " "
+                      BlockExpr@16..22
                         LCurly@16..17 "{"
                         Whitespace@17..18 " "
-                        ExprStmt@18..21
-                          Literal@18..21
+                        ExprStmt@18..20
+                          Literal@18..20
                             Integer@18..20 "10"
-                            Whitespace@20..21 " "
+                        Whitespace@20..21 " "
                         RCurly@21..22 "}"
-                        Whitespace@22..23 " "
+                      Whitespace@22..23 " "
                       ElseKw@23..27 "else"
                       Whitespace@27..28 " "
                       BlockExpr@28..34
                         LCurly@28..29 "{"
                         Whitespace@29..30 " "
-                        ExprStmt@30..33
-                          Literal@30..33
+                        ExprStmt@30..32
+                          Literal@30..32
                             Integer@30..32 "20"
-                            Whitespace@32..33 " "
+                        Whitespace@32..33 " "
                         RCurly@33..34 "}"
             "#]],
         )
@@ -1379,24 +1379,24 @@ mod tests {
                     IfExpr@0..21
                       IfKw@0..2 "if"
                       Whitespace@2..3 " "
-                      BlockExpr@3..10
+                      BlockExpr@3..9
                         LCurly@3..4 "{"
                         Whitespace@4..5 " "
-                        ExprStmt@5..8
-                          Literal@5..8
+                        ExprStmt@5..7
+                          Literal@5..7
                             Integer@5..7 "10"
-                            Whitespace@7..8 " "
+                        Whitespace@7..8 " "
                         RCurly@8..9 "}"
-                        Whitespace@9..10 " "
+                      Whitespace@9..10 " "
                       ElseKw@10..14 "else"
                       Whitespace@14..15 " "
                       BlockExpr@15..21
                         LCurly@15..16 "{"
                         Whitespace@16..17 " "
-                        ExprStmt@17..20
-                          Literal@17..20
+                        ExprStmt@17..19
+                          Literal@17..19
                             Integer@17..19 "20"
-                            Whitespace@19..20 " "
+                        Whitespace@19..20 " "
                         RCurly@20..21 "}"
             "#]],
         );
@@ -1412,18 +1412,18 @@ mod tests {
                     IfExpr@0..19
                       IfKw@0..2 "if"
                       Whitespace@2..3 " "
-                      Literal@3..8
+                      Literal@3..7
                         TrueKw@3..7 "true"
-                        Whitespace@7..8 " "
+                      Whitespace@7..8 " "
                       ElseKw@8..12 "else"
                       Whitespace@12..13 " "
                       BlockExpr@13..19
                         LCurly@13..14 "{"
                         Whitespace@14..15 " "
-                        ExprStmt@15..18
-                          Literal@15..18
+                        ExprStmt@15..17
+                          Literal@15..17
                             Integer@15..17 "20"
-                            Whitespace@17..18 " "
+                        Whitespace@17..18 " "
                         RCurly@18..19 "}"
             "#]],
         );
@@ -1435,30 +1435,30 @@ mod tests {
             "if true { 10 } { 20 }",
             expect![[r#"
                 SourceFile@0..21
-                  ExprStmt@0..15
-                    IfExpr@0..15
+                  ExprStmt@0..14
+                    IfExpr@0..14
                       IfKw@0..2 "if"
                       Whitespace@2..3 " "
-                      Literal@3..8
+                      Literal@3..7
                         TrueKw@3..7 "true"
-                        Whitespace@7..8 " "
-                      BlockExpr@8..15
+                      Whitespace@7..8 " "
+                      BlockExpr@8..14
                         LCurly@8..9 "{"
                         Whitespace@9..10 " "
-                        ExprStmt@10..13
-                          Literal@10..13
+                        ExprStmt@10..12
+                          Literal@10..12
                             Integer@10..12 "10"
-                            Whitespace@12..13 " "
+                        Whitespace@12..13 " "
                         RCurly@13..14 "}"
-                        Whitespace@14..15 " "
+                  Whitespace@14..15 " "
                   ExprStmt@15..21
                     BlockExpr@15..21
                       LCurly@15..16 "{"
                       Whitespace@16..17 " "
-                      ExprStmt@17..20
-                        Literal@17..20
+                      ExprStmt@17..19
+                        Literal@17..19
                           Integer@17..19 "20"
-                          Whitespace@19..20 " "
+                      Whitespace@19..20 " "
                       RCurly@20..21 "}"
             "#]],
         );
@@ -1474,18 +1474,18 @@ mod tests {
                     IfExpr@0..19
                       IfKw@0..2 "if"
                       Whitespace@2..3 " "
-                      Literal@3..8
+                      Literal@3..7
                         TrueKw@3..7 "true"
-                        Whitespace@7..8 " "
-                      BlockExpr@8..15
+                      Whitespace@7..8 " "
+                      BlockExpr@8..14
                         LCurly@8..9 "{"
                         Whitespace@9..10 " "
-                        ExprStmt@10..13
-                          Literal@10..13
+                        ExprStmt@10..12
+                          Literal@10..12
                             Integer@10..12 "10"
-                            Whitespace@12..13 " "
+                        Whitespace@12..13 " "
                         RCurly@13..14 "}"
-                        Whitespace@14..15 " "
+                      Whitespace@14..15 " "
                       ElseKw@15..19 "else"
             "#]],
         );
@@ -1501,33 +1501,33 @@ mod tests {
                     IfExpr@0..30
                       IfKw@0..2 "if"
                       Whitespace@2..3 " "
-                      BlockExpr@3..12
+                      BlockExpr@3..11
                         LCurly@3..4 "{"
                         Whitespace@4..5 " "
-                        ExprStmt@5..10
-                          Literal@5..10
+                        ExprStmt@5..9
+                          Literal@5..9
                             TrueKw@5..9 "true"
-                            Whitespace@9..10 " "
+                        Whitespace@9..10 " "
                         RCurly@10..11 "}"
-                        Whitespace@11..12 " "
-                      BlockExpr@12..19
+                      Whitespace@11..12 " "
+                      BlockExpr@12..18
                         LCurly@12..13 "{"
                         Whitespace@13..14 " "
-                        ExprStmt@14..17
-                          Literal@14..17
+                        ExprStmt@14..16
+                          Literal@14..16
                             Integer@14..16 "10"
-                            Whitespace@16..17 " "
+                        Whitespace@16..17 " "
                         RCurly@17..18 "}"
-                        Whitespace@18..19 " "
+                      Whitespace@18..19 " "
                       ElseKw@19..23 "else"
                       Whitespace@23..24 " "
                       BlockExpr@24..30
                         LCurly@24..25 "{"
                         Whitespace@25..26 " "
-                        ExprStmt@26..29
-                          Literal@26..29
+                        ExprStmt@26..28
+                          Literal@26..28
                             Integer@26..28 "20"
-                            Whitespace@28..29 " "
+                        Whitespace@28..29 " "
                         RCurly@29..30 "}"
             "#]],
         );
@@ -1541,9 +1541,9 @@ mod tests {
                 SourceFile@0..8
                   ExprStmt@0..8
                     BinaryExpr@0..8
-                      Literal@0..3
+                      Literal@0..2
                         Integer@0..2 "10"
-                        Whitespace@2..3 " "
+                      Whitespace@2..3 " "
                       Eq2@3..5 "=="
                       Whitespace@5..6 " "
                       Literal@6..8
@@ -1601,138 +1601,138 @@ mod tests {
             expect![[r#"
                 SourceFile@0..378
                   Whitespace@0..17 "\n                "
-                  ExprStmt@17..43
-                    ReturnExpr@17..43
+                  ExprStmt@17..26
+                    ReturnExpr@17..26
                       ReturnKw@17..23 "return"
                       Whitespace@23..24 " "
-                      Literal@24..43
+                      Literal@24..26
                         Integer@24..26 "10"
-                        Whitespace@26..43 "\n                "
-                  ExprStmt@43..70
-                    ReturnExpr@43..70
+                  Whitespace@26..43 "\n                "
+                  ExprStmt@43..53
+                    ReturnExpr@43..53
                       ReturnKw@43..49 "return"
                       Whitespace@49..50 " "
-                      Literal@50..70
+                      Literal@50..53
                         Char@50..53 "'a'"
-                        Whitespace@53..70 "\n                "
-                  ExprStmt@70..99
-                    ReturnExpr@70..99
+                  Whitespace@53..70 "\n                "
+                  ExprStmt@70..82
+                    ReturnExpr@70..82
                       ReturnKw@70..76 "return"
                       Whitespace@76..77 " "
-                      Literal@77..99
+                      Literal@77..82
                         String@77..82 "\"aaa\""
-                        Whitespace@82..99 "\n                "
-                  ExprStmt@99..127
-                    ReturnExpr@99..127
+                  Whitespace@82..99 "\n                "
+                  ExprStmt@99..110
+                    ReturnExpr@99..110
                       ReturnKw@99..105 "return"
                       Whitespace@105..106 " "
-                      Literal@106..127
+                      Literal@106..110
                         TrueKw@106..110 "true"
-                        Whitespace@110..127 "\n                "
-                  ExprStmt@127..156
-                    ReturnExpr@127..156
+                  Whitespace@110..127 "\n                "
+                  ExprStmt@127..139
+                    ReturnExpr@127..139
                       ReturnKw@127..133 "return"
                       Whitespace@133..134 " "
-                      Literal@134..156
+                      Literal@134..139
                         FalseKw@134..139 "false"
-                        Whitespace@139..156 "\n                "
-                  ExprStmt@156..183
-                    ReturnExpr@156..183
+                  Whitespace@139..156 "\n                "
+                  ExprStmt@156..166
+                    ReturnExpr@156..166
                       ReturnKw@156..162 "return"
                       Whitespace@162..163 " "
-                      UnaryExpr@163..183
+                      UnaryExpr@163..166
                         Minus@163..164 "-"
-                        Literal@164..183
+                        Literal@164..166
                           Integer@164..166 "10"
-                          Whitespace@166..183 "\n                "
-                  ExprStmt@183..211
-                    ReturnExpr@183..211
+                  Whitespace@166..183 "\n                "
+                  ExprStmt@183..194
+                    ReturnExpr@183..194
                       ReturnKw@183..189 "return"
                       Whitespace@189..190 " "
-                      ParenExpr@190..211
+                      ParenExpr@190..194
                         LParen@190..191 "("
                         Literal@191..193
                           Integer@191..193 "10"
                         RParen@193..194 ")"
-                        Whitespace@194..211 "\n                "
-                  ExprStmt@211..244
-                    ReturnExpr@211..244
+                  Whitespace@194..211 "\n                "
+                  ExprStmt@211..227
+                    ReturnExpr@211..227
                       ReturnKw@211..217 "return"
                       Whitespace@217..218 " "
-                      ParenExpr@218..244
+                      ParenExpr@218..227
                         LParen@218..219 "("
                         BinaryExpr@219..226
-                          Literal@219..222
+                          Literal@219..221
                             Integer@219..221 "10"
-                            Whitespace@221..222 " "
+                          Whitespace@221..222 " "
                           Plus@222..223 "+"
                           Whitespace@223..224 " "
                           Literal@224..226
                             Integer@224..226 "20"
                         RParen@226..227 ")"
-                        Whitespace@227..244 "\n                "
-                  ExprStmt@244..269
-                    ReturnExpr@244..269
+                  Whitespace@227..244 "\n                "
+                  ExprStmt@244..252
+                    ReturnExpr@244..252
                       ReturnKw@244..250 "return"
                       Whitespace@250..251 " "
-                      PathExpr@251..269
-                        Path@251..269
-                          PathSegment@251..269
+                      PathExpr@251..252
+                        Path@251..252
+                          PathSegment@251..252
                             Ident@251..252 "a"
-                            Whitespace@252..269 "\n                "
-                  ExprStmt@269..319
-                    ReturnExpr@269..319
+                  Whitespace@252..269 "\n                "
+                  ExprStmt@269..302
+                    ReturnExpr@269..302
                       ReturnKw@269..275 "return"
                       Whitespace@275..276 " "
-                      IfExpr@276..319
+                      IfExpr@276..302
                         IfKw@276..278 "if"
                         Whitespace@278..279 " "
-                        Literal@279..284
+                        Literal@279..283
                           TrueKw@279..283 "true"
-                          Whitespace@283..284 " "
-                        BlockExpr@284..291
+                        Whitespace@283..284 " "
+                        BlockExpr@284..290
                           LCurly@284..285 "{"
                           Whitespace@285..286 " "
-                          ExprStmt@286..289
-                            Literal@286..289
+                          ExprStmt@286..288
+                            Literal@286..288
                               Integer@286..288 "10"
-                              Whitespace@288..289 " "
+                          Whitespace@288..289 " "
                           RCurly@289..290 "}"
-                          Whitespace@290..291 " "
+                        Whitespace@290..291 " "
                         ElseKw@291..295 "else"
                         Whitespace@295..296 " "
-                        BlockExpr@296..319
+                        BlockExpr@296..302
                           LCurly@296..297 "{"
                           Whitespace@297..298 " "
-                          ExprStmt@298..301
-                            Literal@298..301
+                          ExprStmt@298..300
+                            Literal@298..300
                               Integer@298..300 "20"
-                              Whitespace@300..301 " "
+                          Whitespace@300..301 " "
                           RCurly@301..302 "}"
-                          Whitespace@302..319 "\n                "
-                  ExprStmt@319..349
-                    ReturnExpr@319..349
+                  Whitespace@302..319 "\n                "
+                  ExprStmt@319..332
+                    ReturnExpr@319..332
                       ReturnKw@319..325 "return"
                       Whitespace@325..326 " "
-                      BlockExpr@326..349
+                      BlockExpr@326..332
                         LCurly@326..327 "{"
                         Whitespace@327..328 " "
-                        ExprStmt@328..331
-                          Literal@328..331
+                        ExprStmt@328..330
+                          Literal@328..330
                             Integer@328..330 "10"
-                            Whitespace@330..331 " "
+                        Whitespace@330..331 " "
                         RCurly@331..332 "}"
-                        Whitespace@332..349 "\n                "
-                  ExprStmt@349..378
-                    ReturnExpr@349..378
+                  Whitespace@332..349 "\n                "
+                  ExprStmt@349..365
+                    ReturnExpr@349..365
                       ReturnKw@349..355 "return"
                       Whitespace@355..356 " "
-                      ReturnExpr@356..378
+                      ReturnExpr@356..365
                         ReturnKw@356..362 "return"
                         Whitespace@362..363 " "
-                        Literal@363..378
+                        Literal@363..365
                           Integer@363..365 "10"
-                          Whitespace@365..378 "\n            "
+                  Whitespace@365..378 "\n            "
             "#]],
         );
     }

@@ -142,23 +142,23 @@ mod tests {
                     FnKw@0..2 "fn"
                     Whitespace@2..3 " "
                     Ident@3..4 "x"
-                    ParamList@4..7
+                    ParamList@4..6
                       LParen@4..5 "("
                       RParen@5..6 ")"
-                      Whitespace@6..7 " "
+                    Whitespace@6..7 " "
                     BlockExpr@7..18
                       LCurly@7..8 "{"
                       Whitespace@8..9 " "
-                      ExprStmt@9..11
-                        Error@9..11
+                      ExprStmt@9..10
+                        Error@9..10
                           Slash@9..10 "/"
-                          Whitespace@10..11 " "
-                      ExprStmt@11..17
-                        PathExpr@11..17
-                          Path@11..17
-                            PathSegment@11..17
+                      Whitespace@10..11 " "
+                      ExprStmt@11..16
+                        PathExpr@11..16
+                          Path@11..16
+                            PathSegment@11..16
                               Ident@11..16 "hello"
-                              Whitespace@16..17 " "
+                      Whitespace@16..17 " "
                       RCurly@17..18 "}"
                 error at 9..10: expected '}', 'let', 'fn', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if' or 'return', but found '/'
             "#]],
@@ -178,39 +178,95 @@ fn x() {
             expect![[r#"
                 SourceFile@0..69
                   Whitespace@0..1 "\n"
-                  FunctionDef@1..69
+                  FunctionDef@1..56
                     FnKw@1..3 "fn"
                     Whitespace@3..4 " "
                     Ident@4..5 "x"
-                    ParamList@5..8
+                    ParamList@5..7
                       LParen@5..6 "("
                       RParen@6..7 ")"
-                      Whitespace@7..8 " "
-                    BlockExpr@8..69
+                    Whitespace@7..8 " "
+                    BlockExpr@8..56
                       LCurly@8..9 "{"
                       Whitespace@9..14 "\n    "
-                      ExprStmt@14..55
-                        BinaryExpr@14..55
-                          BinaryExpr@14..39
-                            Literal@14..20
+                      ExprStmt@14..43
+                        BinaryExpr@14..43
+                          BinaryExpr@14..23
+                            Literal@14..15
                               Integer@14..15 "1"
-                              Whitespace@15..20 "\n    "
+                            Whitespace@15..20 "\n    "
                             Plus@20..21 "+"
                             Whitespace@21..22 " "
-                            Literal@22..39
+                            Literal@22..23
                               Integer@22..23 "1"
-                              Whitespace@23..24 " "
-                              CommentSingle@24..34 "// Add one"
-                              Whitespace@34..39 "\n    "
+                          Whitespace@23..24 " "
+                          CommentSingle@24..34 "// Add one"
+                          Whitespace@34..39 "\n    "
                           Plus@39..40 "+"
                           Whitespace@40..41 " "
-                          Literal@41..55
+                          Literal@41..43
                             Integer@41..43 "10"
-                            Whitespace@43..44 " "
-                            CommentSingle@44..54 "// Add ten"
-                            Whitespace@54..55 "\n"
+                      Whitespace@43..44 " "
+                      CommentSingle@44..54 "// Add ten"
+                      Whitespace@54..55 "\n"
                       RCurly@55..56 "}"
-                      Whitespace@56..69 "\n            "
+                  Whitespace@56..69 "\n            "
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_tail_trivia() {
+        check_debug_tree(
+            r#"
+fn x() {
+    1
+
+}
+
+fn y() {
+    2
+
+}
+
+            "#,
+            expect![[r#"
+                SourceFile@0..51
+                  Whitespace@0..1 "\n"
+                  FunctionDef@1..18
+                    FnKw@1..3 "fn"
+                    Whitespace@3..4 " "
+                    Ident@4..5 "x"
+                    ParamList@5..7
+                      LParen@5..6 "("
+                      RParen@6..7 ")"
+                    Whitespace@7..8 " "
+                    BlockExpr@8..18
+                      LCurly@8..9 "{"
+                      Whitespace@9..14 "\n    "
+                      ExprStmt@14..15
+                        Literal@14..15
+                          Integer@14..15 "1"
+                      Whitespace@15..17 "\n\n"
+                      RCurly@17..18 "}"
+                  Whitespace@18..20 "\n\n"
+                  FunctionDef@20..37
+                    FnKw@20..22 "fn"
+                    Whitespace@22..23 " "
+                    Ident@23..24 "y"
+                    ParamList@24..26
+                      LParen@24..25 "("
+                      RParen@25..26 ")"
+                    Whitespace@26..27 " "
+                    BlockExpr@27..37
+                      LCurly@27..28 "{"
+                      Whitespace@28..33 "\n    "
+                      ExprStmt@33..34
+                        Literal@33..34
+                          Integer@33..34 "2"
+                      Whitespace@34..36 "\n\n"
+                      RCurly@36..37 "}"
+                  Whitespace@37..51 "\n\n            "
             "#]],
         );
     }

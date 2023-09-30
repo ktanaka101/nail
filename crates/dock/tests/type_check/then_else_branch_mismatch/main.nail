@@ -13,17 +13,15 @@ fn main() {
 Error: Mismatched type if branch and else branch
    ╭─[/workspaces/nail/crates/dock/tests/type_check/then_else_branch_mismatch/main.nail:2:11]
    │
- 2 │ ╭─────▶   if true {
- 3 │ │ ╭───▶     "aaa"
- 4 │ │ ├───▶   } else {
-   │ │ │                  
-   │ │ ╰────────────────── Type is string
- 5 │ │   ╭─▶     10
- 6 │ │   ├─▶   }
-   │ │   │         
-   │ │   ╰───────── Type is int
-   ┆ ┆       
- 8 │ ├─────▶   return;
-   │ │                   
-   │ ╰─────────────────── expected string, actual: int
+ 2 │ ╭─▶   if true {
+ 3 │ │       "aaa"
+   │ │       ──┬──  
+   │ │         ╰──── Type is string
+   ┆ ┆   
+ 5 │ │       10
+   │ │       ─┬  
+   │ │        ╰── Type is int
+ 6 │ ├─▶   }
+   │ │         
+   │ ╰───────── expected string, actual: int
 ───╯

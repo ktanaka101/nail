@@ -19,13 +19,13 @@ Error: Mismatched type in if condition
    ╭─[/workspaces/nail/crates/dock/tests/type_check/condition_type_mismatch/main.nail:2:6]
    │
  2 │   if 10 {
-   │      ─┬─  
-   │       ╰─── expected bool, actual: int
+   │      ─┬  
+   │       ╰── expected bool, actual: int
 ───╯
 Error: Mismatched type in if condition
    ╭─[/workspaces/nail/crates/dock/tests/type_check/condition_type_mismatch/main.nail:9:6]
    │
  9 │   if "aaa" {
-   │      ───┬──  
-   │         ╰──── expected bool, actual: string
+   │      ──┬──  
+   │        ╰──── expected bool, actual: string
 ───╯

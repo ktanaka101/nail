@@ -99,23 +99,35 @@ impl<'l, 'input> Sink<'l, 'input> {
         }
         let steps = step_builder.finish();
 
-        for step in steps {
+        let steps_len = steps.len();
+        for (i, step) in steps.into_iter().enumerate() {
             match step {
                 Step::StartNode { kind } => {
+                    // 最初のノードでトリビアを取り込むとSourceRootより外にトリビアが出てしまうので、
+                    // 最初のノードではトリビアを取り込まないようにします。
+                    if i != 0 {
+                        self.eat_trivia();
+                    }
+
                     self.builder.start_node(NailLanguage::kind_to_raw(kind));
                 }
                 Step::AddToken => {
+                    self.eat_trivia();
                     self.token();
                 }
                 Step::FinishNode => {
+                    // トリビアが余らないようにするために、最後のノードを閉じる前にトリビアを取り込みます。
+                    // SourceRootの末尾に取り込まれます。
+                    if (steps_len - 1) == i {
+                        self.eat_trivia();
+                    }
+
                     self.builder.finish_node();
                 }
                 Step::Error(error) => {
                     self.errors.push(error);
                 }
             }
-
-            self.eat_trivia();
         }
 
         Parse {

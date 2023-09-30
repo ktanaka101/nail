@@ -228,7 +228,7 @@ impl Diagnostic {
                         Message {
                             message: format!("expected {then_branch_ty}, actual: {else_branch_ty}"),
                             range: (then_branch_range.start().into())
-                                ..(else_branch_range.end().into()),
+                                ..(else_branch_range.start().into()),
                         },
                         Message {
                             range: then_tail_range,

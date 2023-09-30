@@ -17,11 +17,10 @@ Error: Mismatched type if branch and else branch
  3 │ │       "aaa"
    │ │       ──┬──  
    │ │         ╰──── Type is string
-   ┆ ┆   
- 5 │ │       10
-   │ │       ─┬  
-   │ │        ╰── Type is int
- 6 │ ├─▶   }
-   │ │         
-   │ ╰───────── expected string, actual: int
+ 4 │ ├─▶   } else {
+   │ │                
+   │ ╰──────────────── expected string, actual: int
+ 5 │         10
+   │         ─┬  
+   │          ╰── Type is int
 ───╯

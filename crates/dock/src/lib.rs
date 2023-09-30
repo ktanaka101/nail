@@ -245,7 +245,35 @@ impl Diagnostic {
                 then_branch_ty,
                 then_branch,
                 else_branch_unit_ty,
-            } => todo!(),
+            } => {
+                let then_branch_range = then_branch.text_range(db, source_map);
+                let hir::Expr::Block(then_block) =  then_branch.lookup(file_db) else { unreachable!() };
+                let then_tail_range: std::ops::Range<usize> = if let Some(tail) = then_block.tail {
+                    tail.text_range(db, source_map).into()
+                } else {
+                    unreachable!("末尾の式がない場合は必ずUnitなのでエラーとならないはずです。");
+                };
+
+                let then_branch_ty = type_to_string(db, then_branch_ty);
+                let else_branch_ty = type_to_string(db, else_branch_unit_ty);
+
+                Diagnostic {
+                    file,
+                    title: "Mismatched type if branch and else branch".to_string(),
+                    head_offset: then_branch_range.start().into(),
+                    messages: vec![
+                        Message {
+                            message: format!("expected {else_branch_ty}, actual {then_branch_ty}"),
+                            range: (then_branch_range.start().into())
+                                ..(then_branch_range.end().into()),
+                        },
+                        Message {
+                            range: then_tail_range,
+                            message: format!("Type is {then_branch_ty}"),
+                        },
+                    ],
+                }
+            }
             InferenceError::MismaatchedTypeCallArg {
                 expected_ty,
                 found_ty,

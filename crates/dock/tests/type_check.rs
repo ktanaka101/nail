@@ -91,4 +91,14 @@ mod tests {
     async fn then_else_branch_mismatch() {
         check("then_else_branch_mismatch").await;
     }
+
+    #[tokio::test]
+    async fn then_only_branch_match() {
+        check("then_only_branch_match").await;
+    }
+
+    #[tokio::test]
+    async fn then_only_branch_mismatch() {
+        check("then_only_branch_mismatch").await;
+    }
 }

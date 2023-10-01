@@ -392,7 +392,7 @@ impl Diagnostic {
             InferenceError::MismatchedTypeReturnExpr {
                 expected_signature,
                 found_ty,
-                found_return_expr,
+                found_return_expr: _,
                 found_return,
             } => {
                 let text_range = found_return.text_range(db, source_map);

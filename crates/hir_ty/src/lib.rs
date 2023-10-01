@@ -293,6 +293,7 @@ mod tests {
                         }
                         InferenceError::MismatchedTypeReturnValue {
                             expected_signature,
+                            expected_function: _,
                             found_ty,
                             found_last_expr,
                         } => {

@@ -6,6 +6,7 @@ use std::{
 
 use anyhow::Result;
 use ariadne::{Label, Report, ReportKind, Source};
+use ast::AstNode;
 use codegen_llvm::CodegenContext;
 use inkwell::{context::Context, OptimizationLevel};
 use thiserror::Error;
@@ -411,9 +412,55 @@ impl Diagnostic {
             }
             InferenceError::MismatchedTypeReturnValue {
                 expected_signature,
+                expected_function,
                 found_ty,
                 found_last_expr,
-            } => todo!(),
+            } => {
+                if let Some(found_last_expr) = found_last_expr {
+                    let text_range = found_last_expr.text_range(db, source_map);
+                    let return_type = expected_signature.return_type(db);
+                    let return_type = type_to_string(db, &return_type);
+                    let found_ty = type_to_string(db, found_ty);
+
+                    Diagnostic {
+                        file,
+                        title: "Mismatched type in return value".to_string(),
+                        head_offset: text_range.start().into(),
+                        messages: vec![Message {
+                            message: format!("expected {return_type}, actual: {found_ty}"),
+                            range: (text_range.start().into())..(text_range.end().into()),
+                        }],
+                    }
+                } else {
+                    let text_range = {
+                        source_map
+                            .source_by_function(db)
+                            .get(expected_function)
+                            .unwrap()
+                            .value
+                            .return_type()
+                            .unwrap()
+                            .syntax()
+                            .text_range()
+                    };
+
+                    let return_type = expected_signature.return_type(db);
+                    let return_type = type_to_string(db, &return_type);
+                    let found_ty = type_to_string(db, found_ty);
+
+                    Diagnostic {
+                        file,
+                        title: "Mismatched type in return value".to_string(),
+                        head_offset: text_range.start().into(),
+                        messages: vec![Message {
+                            message: format!(
+                                "expected {return_type}, actual: {found_ty} as its body has tail"
+                            ),
+                            range: (text_range.start().into())..(text_range.end().into()),
+                        }],
+                    }
+                }
+            }
             InferenceError::MismatchedCallArgCount {
                 expected_callee_arg_count,
                 found_arg_count,

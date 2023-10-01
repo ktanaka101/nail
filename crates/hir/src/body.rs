@@ -7,8 +7,8 @@ use la_arena::{Arena, Idx};
 
 use crate::{
     body::scopes::ExprScopes, item::ParamData, AstPtr, Block, Expr, ExprSource, Function,
-    HirFileSourceMap, HirMasterDatabase, InFile, Item, Literal, Module, ModuleKind, NailFile, Name,
-    NameSolutionPath, Param, Path, Stmt, Symbol, Type, UseItem,
+    FunctionSource, HirFileSourceMap, HirMasterDatabase, InFile, Item, Literal, Module, ModuleKind,
+    NailFile, Name, NameSolutionPath, Param, Path, Stmt, Symbol, Type, UseItem,
 };
 
 /// 式を一意に識別するためのID
@@ -131,6 +131,7 @@ pub struct BodyLower<'a> {
     params: HashMap<Name, Param>,
     hir_file_db: &'a mut HirFileDatabase,
     pub source_by_expr: HashMap<ExprId, ExprSource>,
+    pub source_by_function: HashMap<Function, FunctionSource>,
 }
 
 impl<'a> BodyLower<'a> {
@@ -146,6 +147,7 @@ impl<'a> BodyLower<'a> {
             params,
             hir_file_db,
             source_by_expr: HashMap::new(),
+            source_by_function: HashMap::new(),
         }
     }
 
@@ -195,8 +197,15 @@ impl<'a> BodyLower<'a> {
             Type::Unit
         };
 
-        let function = Function::new(db, name, params, param_by_name, return_type, def);
+        let function = Function::new(db, name, params, param_by_name, return_type, def.clone());
         self.hir_file_db.functions.push(function);
+        self.source_by_function.insert(
+            function,
+            FunctionSource {
+                file: self.file,
+                value: def,
+            },
+        );
 
         let mut body_lower = BodyLower::new(
             self.file,
@@ -205,6 +214,7 @@ impl<'a> BodyLower<'a> {
         );
         let body_expr = body_lower.lower_block(db, &ast_block);
         let source_by_expr = body_lower.source_by_expr;
+        let source_by_function = body_lower.source_by_function;
 
         let body_expr = self.alloc_expr(
             &ast::Expr::cast(ast_block.syntax().clone()).unwrap(),
@@ -213,6 +223,8 @@ impl<'a> BodyLower<'a> {
 
         // キーはファイル内で一意なので重複する心配はない
         self.source_by_expr.extend(source_by_expr.into_iter());
+        self.source_by_function
+            .extend(source_by_function.into_iter());
         self.hir_file_db
             .function_body_by_ast_block
             .insert(ast_block, FunctionBodyId(body_expr));

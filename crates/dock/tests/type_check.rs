@@ -136,4 +136,14 @@ mod tests {
     async fn binary_compare_mismatch() {
         check("binary_compare_mismatch").await;
     }
+
+    #[tokio::test]
+    async fn tail_type_match() {
+        check("tail_type_match").await;
+    }
+
+    #[tokio::test]
+    async fn tail_type_mismatch() {
+        check("tail_type_mismatch").await;
+    }
 }

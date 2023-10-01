@@ -95,6 +95,8 @@ pub enum InferenceError {
     MismatchedTypeReturnValue {
         /// 期待される型
         expected_signature: Signature,
+        /// 期待される関数
+        expected_function: hir::Function,
         /// ブロック最後の式
         found_ty: Monotype,
         /// ブロック最後の式

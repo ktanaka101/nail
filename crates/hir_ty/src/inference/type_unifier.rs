@@ -68,6 +68,8 @@ pub(crate) enum UnifyPurpose {
     ReturnValue {
         /// 期待する関数のシグネチャ
         expected_signature: Signature,
+        /// 期待する関数
+        expected_function: hir::Function,
         /// 戻り値の式
         ///
         /// Noneの場合はブロック最後の式がないことを表します
@@ -151,11 +153,13 @@ fn build_unify_error_from_unify_purpose(
         },
         UnifyPurpose::ReturnValue {
             expected_signature,
+            expected_function,
             found_value,
         } => InferenceError::MismatchedTypeReturnValue {
             found_ty,
             found_last_expr: *found_value,
             expected_signature: *expected_signature,
+            expected_function: expected_function.clone(),
         },
     }
 }

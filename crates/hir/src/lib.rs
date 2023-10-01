@@ -265,6 +265,9 @@ pub struct HirFileSourceMap {
 
     /// 式とソースコードのマッピング
     pub source_by_expr: HashMap<ExprId, ExprSource>,
+
+    /// 式とソースコードのマッピング
+    pub source_by_function: HashMap<Function, FunctionSource>,
 }
 
 /// ASTノードのIDです。
@@ -279,6 +282,8 @@ pub struct AstPtr<T: AstNode> {
 }
 /// 式のAST位置です。
 pub type ExprSource = InFile<AstPtr<ast::Expr>>;
+/// 関数定義のAST位置です。
+pub type FunctionSource = InFile<ast::FunctionDef>;
 
 /// 型引数をファイル内で一意として表現します。
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -378,8 +383,9 @@ fn build_hir_file(
     };
 
     let source_by_expr = root_file_body.source_by_expr;
+    let source_by_function = root_file_body.source_by_function;
     let hir_file = HirFile::new(db, file, hir_file_db, top_level_items, entry_point, errors);
-    let source_map = HirFileSourceMap::new(db, file, source_by_expr);
+    let source_map = HirFileSourceMap::new(db, file, source_by_expr, source_by_function);
 
     (hir_file, source_map)
 }

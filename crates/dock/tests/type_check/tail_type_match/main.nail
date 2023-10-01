@@ -1,0 +1,14 @@
+fn main() {
+  let a = 10;
+}
+fn f1() -> int {
+  10
+}
+//---stdout
+
+{
+  "nail_type": "Unit",
+  "value": null
+}
+
+//---stderr

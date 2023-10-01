@@ -145,6 +145,7 @@ impl<'a> InferBody<'a> {
                 &ty,
                 &UnifyPurpose::ReturnValue {
                     expected_signature: self.signature,
+                    expected_function: self.function,
                     found_value: Some(*tail),
                 },
             );
@@ -159,6 +160,7 @@ impl<'a> InferBody<'a> {
                 &ty,
                 &UnifyPurpose::ReturnValue {
                     expected_signature: self.signature,
+                    expected_function: self.function,
                     found_value: None,
                 },
             );

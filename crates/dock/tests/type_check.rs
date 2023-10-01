@@ -123,6 +123,16 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn unary_match() {
+        check("unary_match").await;
+    }
+
+    #[tokio::test]
+    async fn unary_mismatch() {
+        check("unary_mismatch").await;
+    }
+
+    #[tokio::test]
     async fn binary_compare_mismatch() {
         check("binary_compare_mismatch").await;
     }

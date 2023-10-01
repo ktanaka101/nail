@@ -368,7 +368,26 @@ impl Diagnostic {
                 found_ty,
                 found_expr,
                 op,
-            } => todo!(),
+            } => {
+                let text_range = found_expr.text_range(db, source_map);
+                let expected_ty = type_to_string(db, expected_ty);
+                let found_ty = type_to_string(db, found_ty);
+
+                let op = match op {
+                    ast::UnaryOp::Not(_) => "!",
+                    ast::UnaryOp::Neg(_) => "-",
+                };
+
+                Diagnostic {
+                    file,
+                    title: format!("Mismatched type in unary expression `{op}`"),
+                    head_offset: text_range.start().into(),
+                    messages: vec![Message {
+                        message: format!("expected {expected_ty}, actual: {found_ty}"),
+                        range: (text_range.start().into())..(text_range.end().into()),
+                    }],
+                }
+            }
             InferenceError::MismatchedTypeReturnExpr {
                 expected_signature,
                 found_ty,

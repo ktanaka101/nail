@@ -14,9 +14,8 @@ fn f() {
 
 //---stdout
 
-{
-  "nail_type": "Unit",
-  "value": null
-}
-
+// {
+//   "nail_type": "Unit",
+//   "value": null
+// }
 //---stderr

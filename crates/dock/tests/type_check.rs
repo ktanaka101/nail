@@ -36,8 +36,17 @@ mod tests {
             },
         }
 
+        fn normalize(stdout_or_stderr: String) -> String {
+            stdout_or_stderr
+                .lines()
+                .map(|line| format!("// {}", line))
+                .collect::<Vec<String>>()
+                .join("\n")
+        }
         let stdout = String::from_utf8(out).unwrap();
         let stderr = String::from_utf8(err).unwrap();
+        let stdout = normalize(stdout);
+        let stderr = normalize(stderr);
 
         main_contents.push_str("//---stdout\n");
         if !stdout.is_empty() {

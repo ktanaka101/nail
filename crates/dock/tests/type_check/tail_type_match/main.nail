@@ -6,9 +6,8 @@ fn f1() -> int {
 }
 //---stdout
 
-{
-  "nail_type": "Unit",
-  "value": null
-}
-
+// {
+//   "nail_type": "Unit",
+//   "value": null
+// }
 //---stderr

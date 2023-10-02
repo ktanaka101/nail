@@ -4,9 +4,8 @@ fn main() -> string {
 
 //---stdout
 
-{
-  "nail_type": "String",
-  "value": "aaa"
-}
-
+// {
+//   "nail_type": "String",
+//   "value": "aaa"
+// }
 //---stderr

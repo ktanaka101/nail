@@ -9,10 +9,10 @@ fn f() -> string {
 //---stdout
 //---stderr
 
-Error: Mismatched type in return expression
-   ╭─[/workspaces/nail/crates/dock/tests/type_check/return_no_expr_treated_as_unit/main.nail:6:3]
-   │
- 6 │   return;
-   │   ───┬──  
-   │      ╰──── expected string, actual: ()
-───╯
+// Error: Mismatched type in return expression
+//    ╭─[/workspaces/nail/crates/dock/tests/type_check/return_no_expr_treated_as_unit/main.nail:6:3]
+//    │
+//  6 │   return;
+//    │   ───┬──  
+//    │      ╰──── expected string, actual: ()
+// ───╯

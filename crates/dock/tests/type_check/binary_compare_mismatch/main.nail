@@ -7,21 +7,21 @@ fn main() {
 //---stdout
 //---stderr
 
-Error: Mismatched type in binary compare expression `==`
-   ╭─[/workspaces/nail/crates/dock/tests/type_check/binary_compare_mismatch/main.nail:2:3]
-   │
- 2 │   10 == "aaa";
-   │   ─┬    ──┬──  
-   │    ╰─────────── Type is int
-   │           │    
-   │           ╰──── Type is string
-───╯
-Error: Mismatched type in binary compare expression `==`
-   ╭─[/workspaces/nail/crates/dock/tests/type_check/binary_compare_mismatch/main.nail:3:3]
-   │
- 3 │   "aaa" == 10;
-   │   ──┬──    ─┬  
-   │     ╰────────── Type is string
-   │             │  
-   │             ╰── Type is int
-───╯
+// Error: Mismatched type in binary compare expression `==`
+//    ╭─[/workspaces/nail/crates/dock/tests/type_check/binary_compare_mismatch/main.nail:2:3]
+//    │
+//  2 │   10 == "aaa";
+//    │   ─┬    ──┬──  
+//    │    ╰─────────── Type is int
+//    │           │    
+//    │           ╰──── Type is string
+// ───╯
+// Error: Mismatched type in binary compare expression `==`
+//    ╭─[/workspaces/nail/crates/dock/tests/type_check/binary_compare_mismatch/main.nail:3:3]
+//    │
+//  3 │   "aaa" == 10;
+//    │   ──┬──    ─┬  
+//    │     ╰────────── Type is string
+//    │             │  
+//    │             ╰── Type is int
+// ───╯

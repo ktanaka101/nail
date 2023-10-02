@@ -8,14 +8,14 @@ fn main() {
 //---stdout
 //---stderr
 
-Error: Mismatched type if branch and else branch
-   ╭─[/workspaces/nail/crates/dock/tests/type_check/then_only_branch_mismatch/main.nail:2:11]
-   │
- 2 │ ╭─▶   if true {
- 3 │ │       "aaa"
-   │ │       ──┬──  
-   │ │         ╰──── Type is string
- 4 │ ├─▶   }
-   │ │         
-   │ ╰───────── expected (), actual string
-───╯
+// Error: Mismatched type if branch and else branch
+//    ╭─[/workspaces/nail/crates/dock/tests/type_check/then_only_branch_mismatch/main.nail:2:11]
+//    │
+//  2 │ ╭─▶   if true {
+//  3 │ │       "aaa"
+//    │ │       ──┬──  
+//    │ │         ╰──── Type is string
+//  4 │ ├─▶   }
+//    │ │         
+//    │ ╰───────── expected (), actual string
+// ───╯

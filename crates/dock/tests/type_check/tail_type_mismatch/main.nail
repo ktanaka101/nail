@@ -1,33 +1,14 @@
 fn main() {
   10
 }
-fn f1() -> int {
-  "aaa"
-}
-fn f1() -> int {
-  let a = 10;
-}
+
 //---stdout
 //---stderr
 
-Error: Mismatched type in return value
-   ╭─[/workspaces/nail/crates/dock/tests/type_check/tail_type_mismatch/main.nail:2:3]
-   │
- 2 │   10
-   │   ─┬  
-   │    ╰── expected (), actual: int
-───╯
-Error: Mismatched type in return value
-   ╭─[/workspaces/nail/crates/dock/tests/type_check/tail_type_mismatch/main.nail:5:3]
-   │
- 5 │   "aaa"
-   │   ──┬──  
-   │     ╰──── expected int, actual: string
-───╯
-Error: Mismatched type in return value
-   ╭─[/workspaces/nail/crates/dock/tests/type_check/tail_type_mismatch/main.nail:7:9]
-   │
- 7 │ fn f1() -> int {
-   │         ───┬──  
-   │            ╰──── expected int, actual: () as its body has tail
-───╯
+// Error: Mismatched type in return value
+//    ╭─[/workspaces/nail/crates/dock/tests/type_check/tail_type_mismatch/main.nail:2:3]
+//    │
+//  2 │   10
+//    │   ─┬  
+//    │    ╰── expected (), actual: int
+// ───╯

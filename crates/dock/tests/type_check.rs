@@ -115,8 +115,18 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn binary_integer_mismatch() {
+        check("binary_integer_mismatch").await;
+    }
+
+    #[tokio::test]
     async fn binary_compare_match() {
         check("binary_compare_match").await;
+    }
+
+    #[tokio::test]
+    async fn binary_compare_mismatch() {
+        check("binary_compare_mismatch").await;
     }
 
     #[tokio::test]
@@ -127,11 +137,6 @@ mod tests {
     #[tokio::test]
     async fn unary_mismatch() {
         check("unary_mismatch").await;
-    }
-
-    #[tokio::test]
-    async fn binary_compare_mismatch() {
-        check("binary_compare_mismatch").await;
     }
 
     #[tokio::test]

@@ -507,9 +507,21 @@ impl Diagnostic {
                 }
             }
             InferenceError::ModuleAsExpr {
-                found_module,
+                found_module: _,
                 found_expr,
-            } => todo!(),
+            } => {
+                let text_range = found_expr.text_range(db, source_map);
+
+                Diagnostic {
+                    file,
+                    title: "Module as expression".to_string(),
+                    head_offset: text_range.start().into(),
+                    messages: vec![Message {
+                        message: "expected <expression>".to_string(),
+                        range: (text_range.start().into())..(text_range.end().into()),
+                    }],
+                }
+            }
         }
     }
 }

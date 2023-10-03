@@ -176,4 +176,9 @@ mod tests {
     async fn not_callable() {
         check("not_callable").await;
     }
+
+    #[tokio::test]
+    async fn module_as_expr() {
+        check("module_as_expr").await;
+    }
 }

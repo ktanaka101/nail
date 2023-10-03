@@ -181,4 +181,9 @@ mod tests {
     async fn module_as_expr() {
         check("module_as_expr").await;
     }
+
+    #[tokio::test]
+    async fn mod_project() {
+        check("mod_project").await;
+    }
 }

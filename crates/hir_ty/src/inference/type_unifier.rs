@@ -159,7 +159,7 @@ fn build_unify_error_from_unify_purpose(
             found_ty,
             found_last_expr: *found_value,
             expected_signature: *expected_signature,
-            expected_function: expected_function.clone(),
+            expected_function: *expected_function,
         },
     }
 }

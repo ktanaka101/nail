@@ -108,14 +108,20 @@ pub async fn execute(
     }
 
     let ty_result = hir_ty::lower_pods(&db, &pods);
-    let type_inference_errors = ty_result.type_inference_errors();
+    let type_inference_errors = ty_result.type_inference_errors_with_function();
     let config = ariadne::Config::default().with_color(enabled_color);
     if !type_inference_errors.is_empty() {
-        for error in &type_inference_errors {
+        for (function, error) in &type_inference_errors {
+            let hir_file = pods.root_pod.get_hir_file_by_function(*function).unwrap();
+            let source_map = pods
+                .root_pod
+                .source_map_by_function(&db, *function)
+                .unwrap();
+
             print_error(
                 &db,
-                pods.root_pod.root_hir_file.db(&db),
-                &pods.root_pod.root_source_map,
+                hir_file.db(&db),
+                source_map,
                 error,
                 write_dest_err,
                 config,

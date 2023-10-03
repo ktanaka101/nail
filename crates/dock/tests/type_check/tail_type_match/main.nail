@@ -4,10 +4,12 @@ fn main() {
 fn f1() -> int {
   10
 }
+
 //---stdout
 
 // {
 //   "nail_type": "Unit",
 //   "value": null
 // }
+
 //---stderr

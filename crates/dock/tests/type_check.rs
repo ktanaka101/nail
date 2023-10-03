@@ -13,7 +13,7 @@ mod tests {
         // //---stdoutで区切ることで、標準出力と標準エラー出力をテストする
         // //---stderrは必ず//--stdoutより後に書くことが前提
         let (main_contents, _) = main_file_contents.split_once("//---stdout").unwrap();
-        let mut main_contents = main_contents.clone().to_string();
+        let mut main_contents = main_contents.trim().to_string();
 
         match dock::execute(
             std::env::current_dir()
@@ -48,16 +48,18 @@ mod tests {
         let stdout = normalize(stdout);
         let stderr = normalize(stderr);
 
+        main_contents.push_str("\n\n");
         main_contents.push_str("//---stdout\n");
         if !stdout.is_empty() {
             main_contents.push('\n');
             main_contents.push_str(&stdout);
-            main_contents.push('\n');
+            main_contents.push_str("\n\n");
         }
         main_contents.push_str("//---stderr\n");
         if !stderr.is_empty() {
             main_contents.push('\n');
             main_contents.push_str(&stderr);
+            main_contents.push('\n');
         }
 
         expect_file![format!("type_check/{dir_name}/main.nail")].assert_eq(&main_contents);

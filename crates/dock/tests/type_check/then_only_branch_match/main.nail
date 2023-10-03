@@ -12,10 +12,12 @@ fn main() {
 
   return;
 }
+
 //---stdout
 
 // {
 //   "nail_type": "Unit",
 //   "value": null
 // }
+
 //---stderr

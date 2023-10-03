@@ -108,6 +108,8 @@ pub enum InferenceError {
         expected_callee_arg_count: usize,
         /// 実際の引数の数
         found_arg_count: usize,
+        /// 実際の呼び出し式
+        found_expr: hir::ExprId,
     },
     /// 呼び出そうとしている対象が関数ではない
     NotCallable {

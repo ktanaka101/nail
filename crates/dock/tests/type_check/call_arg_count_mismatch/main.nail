@@ -1,0 +1,35 @@
+fn main() {
+  f1();
+  f1(10);
+  f1(10, "aaa", 30);
+
+  return;
+}
+
+fn f1(x: int, y: string) {
+}
+
+//---stdout
+//---stderr
+
+// Error: Mismatched argument count in call
+//    ╭─[/workspaces/nail/crates/dock/tests/type_check/call_arg_count_mismatch/main.nail:2:3]
+//    │
+//  2 │   f1();
+//    │   ──┬─  
+//    │     ╰─── expected 2 argument, found: 0
+// ───╯
+// Error: Mismatched argument count in call
+//    ╭─[/workspaces/nail/crates/dock/tests/type_check/call_arg_count_mismatch/main.nail:3:3]
+//    │
+//  3 │   f1(10);
+//    │   ───┬──  
+//    │      ╰──── expected 2 argument, found: 1
+// ───╯
+// Error: Mismatched argument count in call
+//    ╭─[/workspaces/nail/crates/dock/tests/type_check/call_arg_count_mismatch/main.nail:4:3]
+//    │
+//  4 │   f1(10, "aaa", 30);
+//    │   ────────┬────────  
+//    │           ╰────────── expected 2 argument, found: 3
+// ───╯

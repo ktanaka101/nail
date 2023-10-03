@@ -316,6 +316,7 @@ mod tests {
                         InferenceError::MismatchedCallArgCount {
                             expected_callee_arg_count,
                             found_arg_count,
+                            found_expr: _,
                         } => {
                             msg.push_str(&format!(
                                 "error MismatchedCallArgCount: expected_arg_count: {}, found_arg_count: {}",

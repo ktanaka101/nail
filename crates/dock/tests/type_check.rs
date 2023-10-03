@@ -157,4 +157,14 @@ mod tests {
     async fn tail_type_mismatch() {
         check("tail_type_mismatch").await;
     }
+
+    #[tokio::test]
+    async fn call_arg_count_match() {
+        check("call_arg_count_match").await;
+    }
+
+    #[tokio::test]
+    async fn call_arg_count_mismatch() {
+        check("call_arg_count_mismatch").await;
+    }
 }

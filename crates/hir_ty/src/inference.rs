@@ -297,6 +297,7 @@ impl<'a> InferBody<'a> {
                                 .add_error(InferenceError::MismatchedCallArgCount {
                                     expected_callee_arg_count: signature.params(self.db).len(),
                                     found_arg_count: call_args_ty.len(),
+                                    found_expr: expr_id,
                                 });
                         } else {
                             for (((arg_pos, call_arg), call_arg_ty), signature_arg_ty) in call_args

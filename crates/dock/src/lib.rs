@@ -464,7 +464,30 @@ impl Diagnostic {
             InferenceError::MismatchedCallArgCount {
                 expected_callee_arg_count,
                 found_arg_count,
-            } => todo!(),
+                found_expr,
+            } => {
+                let text_range = source_map
+                    .source_by_expr(db)
+                    .get(found_expr)
+                    .unwrap()
+                    .value
+                    .node
+                    .text_range();
+                let expected_callee_arg_count = *expected_callee_arg_count;
+                let found_arg_count = *found_arg_count;
+
+                Diagnostic {
+                    file,
+                    title: "Mismatched argument count in call".to_string(),
+                    head_offset: text_range.start().into(),
+                    messages: vec![Message {
+                        message: format!(
+                            "expected {expected_callee_arg_count} argument, found: {found_arg_count}"
+                        ),
+                        range: (text_range.start().into())..(text_range.end().into()),
+                    }],
+                }
+            }
             InferenceError::NotCallable {
                 found_callee_ty,
                 found_callee_symbol,

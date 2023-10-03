@@ -12,7 +12,9 @@ mod tests {
             std::fs::read_to_string(format!("tests/type_check/{dir_name}/main.nail")).unwrap();
         // //---stdoutで区切ることで、標準出力と標準エラー出力をテストする
         // //---stderrは必ず//---stdoutより後に書くことが前提
-        let (main_contents, _) = main_file_contents.split_once("//---stdout").unwrap();
+        let (main_contents, _) = main_file_contents
+            .split_once("//---stdout")
+            .unwrap_or((&main_file_contents, ""));
         let mut main_contents = main_contents.trim().to_string();
 
         match dock::execute(

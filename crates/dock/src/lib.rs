@@ -490,9 +490,22 @@ impl Diagnostic {
             }
             InferenceError::NotCallable {
                 found_callee_ty,
-                found_callee_symbol,
+                found_callee_symbol: _,
                 found_callee_expr,
-            } => todo!(),
+            } => {
+                let text_range = found_callee_expr.text_range(db, source_map);
+                let found_callee_ty = type_to_string(db, found_callee_ty);
+
+                Diagnostic {
+                    file,
+                    title: "Not callable".to_string(),
+                    head_offset: text_range.start().into(),
+                    messages: vec![Message {
+                        message: format!("expected <function>, found: {found_callee_ty}"),
+                        range: (text_range.start().into())..(text_range.end().into()),
+                    }],
+                }
+            }
             InferenceError::ModuleAsExpr {
                 found_module,
                 found_expr,

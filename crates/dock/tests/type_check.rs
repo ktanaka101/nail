@@ -169,4 +169,9 @@ mod tests {
     async fn call_arg_count_mismatch() {
         check("call_arg_count_mismatch").await;
     }
+
+    #[tokio::test]
+    async fn not_callable() {
+        check("not_callable").await;
+    }
 }

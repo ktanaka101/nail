@@ -15,13 +15,13 @@ fn f1() -> int {
 //    ╭─[/workspaces/nail/crates/dock/tests/type_check/mod_project/main.nail:8:3]
 //    │
 //  8 │   sub::build_string()
-//    │   ─────────┬─────────
+//    │   ─────────┬─────────  
 //    │            ╰─────────── expected int, actual: string
 // ───╯
 // Error: Mismatched type in return value
 //    ╭─[/workspaces/nail/crates/dock/tests/type_check/mod_project/sub.nail:2:3]
 //    │
 //  2 │   true
-//    │   ──┬─
+//    │   ──┬─  
 //    │     ╰─── expected string, actual: bool
 // ───╯

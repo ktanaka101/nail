@@ -3,6 +3,7 @@ mod tests {
     use std::path::PathBuf;
 
     use expect_test::expect_file;
+    use regex::Regex;
 
     async fn check(dir_name: &str) {
         let mut out = Vec::new();
@@ -39,11 +40,18 @@ mod tests {
         }
 
         fn normalize(stdout_or_stderr: String) -> String {
-            stdout_or_stderr
+            return stdout_or_stderr
                 .lines()
+                .map(normalize_path)
                 .map(|line| format!("// {}", line))
                 .collect::<Vec<String>>()
-                .join("\n")
+                .join("\n");
+
+            /// 環境が異なってもテストが通るようにパスを正規化します。
+            fn normalize_path(line: &str) -> String {
+                let re = Regex::new(r"(\[.*?)/crates/").unwrap();
+                re.replace(line, "[/{nail}/crates/").to_string()
+            }
         }
         let stdout = String::from_utf8(out).unwrap();
         let stderr = String::from_utf8(err).unwrap();

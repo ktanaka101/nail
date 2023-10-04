@@ -414,6 +414,7 @@ dependencies = [
  "inkwell",
  "lsp",
  "mir",
+ "regex",
  "thiserror",
  "tokio",
 ]

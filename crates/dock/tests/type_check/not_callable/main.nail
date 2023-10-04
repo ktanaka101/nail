@@ -9,14 +9,14 @@ fn main() {
 //---stderr
 
 // Error: Not callable
-//    ╭─[/workspaces/nail/crates/dock/tests/type_check/not_callable/main.nail:3:3]
+//    ╭─[/{nail}/crates/dock/tests/type_check/not_callable/main.nail:3:3]
 //    │
 //  3 │   a();
 //    │   ─┬─  
 //    │    ╰─── expected <function>, found: int
 // ───╯
 // Error: Not callable
-//    ╭─[/workspaces/nail/crates/dock/tests/type_check/not_callable/main.nail:5:3]
+//    ╭─[/{nail}/crates/dock/tests/type_check/not_callable/main.nail:5:3]
 //    │
 //  5 │   b();
 //    │   ─┬─  

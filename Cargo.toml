@@ -34,6 +34,7 @@ lasso = "0.6"
 logos = "0.12"
 num-derive = "0.3"
 num-traits = "0.2"
+regex = "1"
 rowan = "0.15"
 salsa = { git = "https://github.com/salsa-rs/salsa", package = "salsa-2022" }
 serde = { version = "1.0", features = ["derive"] }

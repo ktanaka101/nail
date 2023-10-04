@@ -9,7 +9,7 @@ mod aaa {
 //---stderr
 
 // Error: Module as expression
-//    ╭─[/workspaces/nail/crates/dock/tests/type_check/module_as_expr/main.nail:2:11]
+//    ╭─[/{nail}/crates/dock/tests/type_check/module_as_expr/main.nail:2:11]
 //    │
 //  2 │   let a = aaa;
 //    │           ─┬─  

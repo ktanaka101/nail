@@ -6,7 +6,7 @@ fn main() {
 //---stderr
 
 // Error: Mismatched type in return value
-//    ╭─[/workspaces/nail/crates/dock/tests/type_check/tail_type_mismatch/main.nail:2:3]
+//    ╭─[/{nail}/crates/dock/tests/type_check/tail_type_mismatch/main.nail:2:3]
 //    │
 //  2 │   10
 //    │   ─┬  

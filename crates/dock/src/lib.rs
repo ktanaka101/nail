@@ -16,7 +16,7 @@ use tokio::io;
 async fn read_nail_files(
     db: &dyn hir::HirMasterDatabase,
     root_nail_file_path: path::PathBuf,
-) -> (hir::NailFile, HashMap<path::PathBuf, hir::NailFile>) {
+) -> Result<(hir::NailFile, HashMap<path::PathBuf, hir::NailFile>), ExecutionError> {
     let nail_file_paths_exclude_root = collect_nail_files(root_nail_file_path.parent().unwrap());
 
     let mut read_file_futures = tokio::task::JoinSet::new();
@@ -26,20 +26,20 @@ async fn read_nail_files(
 
     let mut file_by_path = HashMap::<path::PathBuf, hir::NailFile>::new();
     while let Some(contents) = read_file_futures.join_next().await {
-        let (file_path, contents) = contents.expect("Failed to read file.");
-        if let Ok(contents) = contents {
-            let nail_file = hir::NailFile::new(db, file_path.clone(), contents, false);
-            file_by_path.insert(file_path, nail_file);
-        } else {
-            panic!("Failed to read file.");
-        }
+        let (file_path, contents) = match contents {
+            Ok((path, Ok(content))) => (path, content),
+            Ok((_, Err(e))) => Err(e)?,
+            Err(e) => Err(e)?,
+        };
+        let nail_file = hir::NailFile::new(db, file_path.clone(), contents, false);
+        file_by_path.insert(file_path, nail_file);
     }
 
     let root_contents = std::fs::read_to_string(&root_nail_file_path).unwrap();
     let root_file = hir::NailFile::new(db, root_nail_file_path.clone(), root_contents, true);
     file_by_path.insert(root_nail_file_path, root_file);
 
-    return (root_file, file_by_path);
+    return Ok((root_file, file_by_path));
 
     fn collect_nail_files(dir: &path::Path) -> Vec<path::PathBuf> {
         assert!(
@@ -82,6 +82,9 @@ pub enum ExecutionError {
 
     #[error("IO error")]
     Io(#[from] io::Error),
+
+    #[error("Join error")]
+    Join(#[from] tokio::task::JoinError),
 }
 
 /// Nailプログラムを実行します。
@@ -97,7 +100,7 @@ pub async fn execute(
 
     let db = base_db::SalsaDatabase::default();
 
-    let (root_file, file_by_path) = read_nail_files(&db, root_nail_file_path).await;
+    let (root_file, file_by_path) = read_nail_files(&db, root_nail_file_path).await?;
     let mut source_db = hir::SourceDatabase::new(root_file, file_by_path);
 
     let pods = hir::parse_pods(&db, &mut source_db);

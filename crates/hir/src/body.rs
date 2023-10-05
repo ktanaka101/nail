@@ -29,7 +29,7 @@ impl ExprId {
         source_map
             .source_by_expr(db)
             .get(self)
-            .unwrap()
+            .expect("BUG: There should always be an expression in the source map.")
             .clone()
             .value
             .node

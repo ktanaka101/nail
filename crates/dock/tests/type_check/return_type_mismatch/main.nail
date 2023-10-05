@@ -1,0 +1,14 @@
+fn main() -> string {
+  return 10;
+}
+
+//---stdout
+//---stderr
+
+// Error: Mismatched type in return expression
+//    ╭─[/{nail}/crates/dock/tests/type_check/return_type_mismatch/main.nail:2:3]
+//    │
+//  2 │   return 10;
+//    │   ────┬────  
+//    │       ╰────── expected string, actual: int
+// ───╯

@@ -1,0 +1,14 @@
+fn main() {
+  10
+}
+
+//---stdout
+//---stderr
+
+// Error: Mismatched type in return value
+//    ╭─[/{nail}/crates/dock/tests/type_check/tail_type_mismatch/main.nail:2:3]
+//    │
+//  2 │   10
+//    │   ─┬  
+//    │    ╰── expected (), actual: int
+// ───╯

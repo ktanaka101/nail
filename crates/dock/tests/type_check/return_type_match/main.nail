@@ -1,0 +1,12 @@
+fn main() -> string {
+  return "aaa";
+}
+
+//---stdout
+
+// {
+//   "nail_type": "String",
+//   "value": "aaa"
+// }
+
+//---stderr

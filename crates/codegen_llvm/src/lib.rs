@@ -450,24 +450,29 @@ mod tests {
                   %load2 = load i64, ptr %"0", align 8
                   ret i64 %load2
 
+                bb0:                                              ; preds = %bb1, %then0
+                  %load3 = load i64, ptr %"4", align 8
+                  store i64 %load3, ptr %"0", align 8
+                  br label %exit
+
                 then0:                                            ; preds = %entry
                   store i64 0, ptr %"4", align 8
                   br label %bb0
 
                 else0:                                            ; preds = %entry
-                  %compare_number3 = icmp eq i64 %0, 1
-                  store i1 %compare_number3, ptr %"6", align 1
-                  %load4 = load i1, ptr %"6", align 1
-                  store i1 %load4, ptr %"5", align 1
-                  %load5 = load i1, ptr %"5", align 1
-                  switch i1 %load5, label %else1 [
+                  %compare_number4 = icmp eq i64 %0, 1
+                  store i1 %compare_number4, ptr %"6", align 1
+                  %load5 = load i1, ptr %"6", align 1
+                  store i1 %load5, ptr %"5", align 1
+                  %load6 = load i1, ptr %"5", align 1
+                  switch i1 %load6, label %else1 [
                     i1 true, label %then1
                   ]
 
-                bb0:                                              ; preds = %bb1, %then0
-                  %load6 = load i64, ptr %"4", align 8
-                  store i64 %load6, ptr %"0", align 8
-                  br label %exit
+                bb1:                                              ; preds = %bb3, %then1
+                  %load7 = load i64, ptr %"7", align 8
+                  store i64 %load7, ptr %"4", align 8
+                  br label %bb0
 
                 then1:                                            ; preds = %else0
                   store i64 1, ptr %"7", align 8
@@ -476,15 +481,10 @@ mod tests {
                 else1:                                            ; preds = %else0
                   %sub_number = sub i64 %0, 1
                   store i64 %sub_number, ptr %"8", align 8
-                  %load7 = load i64, ptr %"8", align 8
-                  %call = call i64 @fibonacci(i64 %load7)
+                  %load8 = load i64, ptr %"8", align 8
+                  %call = call i64 @fibonacci(i64 %load8)
                   store i64 %call, ptr %"9", align 8
                   br label %bb2
-
-                bb1:                                              ; preds = %bb3, %then1
-                  %load8 = load i64, ptr %"7", align 8
-                  store i64 %load8, ptr %"4", align 8
-                  br label %bb0
 
                 bb2:                                              ; preds = %else1
                   %sub_number9 = sub i64 %0, 2

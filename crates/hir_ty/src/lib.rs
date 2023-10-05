@@ -71,20 +71,20 @@ impl TyLowerResult {
     }
 
     /// 型推論エラーを取得します。
-    ///
-    /// TODO: 順不同ではなくす
-    pub fn type_inference_errors(&self) -> Vec<InferenceError> {
+    pub fn type_inference_errors_with_function(&self) -> Vec<(hir::Function, InferenceError)> {
         self.inference_result
             .inference_body_result_by_function
-            .values()
-            .flat_map(|inference_body_result| &inference_body_result.errors)
-            .cloned()
+            .iter()
+            .flat_map(|(function, inference_body_result)| {
+                inference_body_result
+                    .errors
+                    .iter()
+                    .map(|error| (*function, error.clone()))
+            })
             .collect()
     }
 
     /// 型チェックエラーを取得します。
-    ///
-    /// TODO: 順不同ではなくす
     pub fn type_check_errors(&self) -> Vec<TypeCheckError> {
         self.type_check_result
             .errors_by_function
@@ -168,21 +168,6 @@ mod tests {
 
                 for error in &inference_body_result.errors {
                     match error {
-                        InferenceError::MismatchedTypes {
-                            expected_ty,
-                            found_ty,
-                            expected_expr,
-                            found_expr,
-                        } => {
-                            msg.push_str(
-                            &format!(
-                                "error MismatchedTypes: expected_ty: {}, found_ty: {}, expected_expr: `{}`, found_expr: `{}`",
-                                self.debug_monotype(expected_ty),
-                                self.debug_monotype(found_ty),
-                                self.debug_simplify_expr(hir_file, *expected_expr),
-                                self.debug_simplify_expr(hir_file, *found_expr),
-                            ));
-                        }
                         InferenceError::MismatchedTypeIfCondition {
                             expected_condition_bool_ty,
                             found_condition_expr,
@@ -288,10 +273,11 @@ mod tests {
                                 self.debug_simplify_expr(hir_file, *found_expr),
                             ));
                         }
-                        InferenceError::MismatchedTypeReturnValue {
+                        InferenceError::MismatchedTypeReturnExpr {
                             expected_signature,
                             found_ty,
                             found_return_expr,
+                            found_return: _,
                         } => {
                             if let Some(found_return_expr) = found_return_expr {
                                 msg.push_str(
@@ -309,9 +295,32 @@ mod tests {
                                 ));
                             }
                         }
+                        InferenceError::MismatchedTypeReturnValue {
+                            expected_signature,
+                            expected_function: _,
+                            found_ty,
+                            found_last_expr,
+                        } => {
+                            if let Some(found_last_expr) = found_last_expr {
+                                msg.push_str(
+                            &format!(
+                                "error MismatchedTypeReturnValue: expected_ty: {}, found_ty: {}, found_expr: `{}`",
+                                self.debug_monotype(&expected_signature.return_type(self.db)),
+                                self.debug_monotype(found_ty),
+                                self.debug_simplify_expr(hir_file, *found_last_expr),
+                            ));
+                            } else {
+                                msg.push_str(&format!(
+                                    "error MismatchedTypeReturnValue: expected_ty: {}, found_ty: {}",
+                                    self.debug_monotype(&expected_signature.return_type(self.db)),
+                                    self.debug_monotype(found_ty),
+                                ));
+                            }
+                        }
                         InferenceError::MismatchedCallArgCount {
                             expected_callee_arg_count,
                             found_arg_count,
+                            found_expr: _,
                         } => {
                             msg.push_str(&format!(
                                 "error MismatchedCallArgCount: expected_arg_count: {}, found_arg_count: {}",
@@ -322,6 +331,7 @@ mod tests {
                         InferenceError::NotCallable {
                             found_callee_ty,
                             found_callee_symbol,
+                            found_callee_expr: _,
                         } => {
                             msg.push_str(&format!(
                                 "error NotCallable: found_callee_ty: {}, found_callee_symbol: {}",
@@ -329,7 +339,10 @@ mod tests {
                                 self.debug_symbol(found_callee_symbol),
                             ));
                         }
-                        InferenceError::ModuleAsExpr { found_module } => {
+                        InferenceError::ModuleAsExpr {
+                            found_module,
+                            found_expr: _,
+                        } => {
                             msg.push_str(&format!(
                                 "error ModuleAsExpr: found_module: {}",
                                 found_module.name(self.db).text(self.db)
@@ -1285,7 +1298,7 @@ mod tests {
                 }
 
                 ---
-                error MismatchedReturnType: expected_ty: (), found_ty: int, found_expr: `10`
+                error MismatchedTypeReturnValue: expected_ty: (), found_ty: int, found_expr: `10`
                 ---
             "#]],
         );
@@ -1358,7 +1371,7 @@ mod tests {
                 }
 
                 ---
-                error MismatchedReturnType: expected_ty: (), found_ty: int, found_expr: `{ tail:{ tail:10 } }`
+                error MismatchedTypeReturnValue: expected_ty: (), found_ty: int, found_expr: `{ tail:{ tail:10 } }`
                 ---
             "#]],
         );
@@ -1481,7 +1494,7 @@ mod tests {
                 }
 
                 ---
-                error MismatchedReturnType: expected_ty: (), found_ty: int, found_expr: `res + 30`
+                error MismatchedTypeReturnValue: expected_ty: (), found_ty: int, found_expr: `res + 30`
                 ---
             "#]],
         );
@@ -1635,7 +1648,7 @@ mod tests {
 
                 ---
                 error MismatchedTypeElseBranch: then_branch_ty: int, else_branch_ty: string, then_branch: `{ tail:10 }`, else_branch: `{ tail:"aaa" }`
-                error MismatchedReturnType: expected_ty: (), found_ty: int, found_expr: `if true { tail:10 } else { tail:"aaa" }`
+                error MismatchedTypeReturnValue: expected_ty: (), found_ty: int, found_expr: `if true { tail:10 } else { tail:"aaa" }`
                 ---
             "#]],
         );
@@ -1665,7 +1678,7 @@ mod tests {
 
                 ---
                 error MismatchedTypeIfCondition: expected_ty: bool, found_ty: int, found_expr: `10`
-                error MismatchedReturnType: expected_ty: (), found_ty: string, found_expr: `if 10 { tail:"aaa" } else { tail:"aaa" }`
+                error MismatchedTypeReturnValue: expected_ty: (), found_ty: string, found_expr: `if 10 { tail:"aaa" } else { tail:"aaa" }`
                 ---
             "#]],
         );
@@ -2092,7 +2105,7 @@ mod tests {
 
                 ---
                 error NotCallable: found_callee_ty: <unknown>, found_callee_symbol: <missing>
-                error MismatchedReturnType: expected_ty: int, found_ty: <unknown>, found_expr: `<missing>()`
+                error MismatchedTypeReturnValue: expected_ty: int, found_ty: <unknown>, found_expr: `<missing>()`
                 ---
                 error Type is unknown: expr: <missing>()
             "#]],

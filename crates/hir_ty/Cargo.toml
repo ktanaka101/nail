@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 la-arena = { workspace = true }
+indexmap = { workspace = true }
 
 ast = { workspace = true }
 hir = { workspace = true }

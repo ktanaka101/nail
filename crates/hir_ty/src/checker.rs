@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use indexmap::IndexMap;
 
 use crate::inference::{InferenceBodyResult, InferenceResult, Monotype};
 
@@ -9,7 +9,7 @@ pub fn check_type_pods(
 ) -> TypeCheckResult {
     // TODO: 全てのPodをチェックする
     let pod = &pods.root_pod;
-    let mut errors_by_function = HashMap::new();
+    let mut errors_by_function = IndexMap::new();
 
     for (hir_file, function) in pod.all_functions(db) {
         let type_checker = FunctionTypeChecker::new(db, infer_result, hir_file, function);
@@ -34,7 +34,7 @@ pub enum TypeCheckError {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TypeCheckResult {
     /// 関数別の型チェックエラー一覧
-    pub errors_by_function: HashMap<hir::Function, Vec<TypeCheckError>>,
+    pub errors_by_function: IndexMap<hir::Function, Vec<TypeCheckError>>,
 }
 
 struct FunctionTypeChecker<'a> {

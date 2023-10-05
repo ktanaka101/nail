@@ -1,0 +1,24 @@
+fn main() {
+    callee("a", 10);
+}
+fn callee(a: int, b: string) -> int {
+    10
+}
+
+//---stdout
+//---stderr
+
+// Error: Mismatched type in call argument
+//    ╭─[/{nail}/crates/dock/tests/type_check/call_arg_type_mismatch/main.nail:2:12]
+//    │
+//  2 │     callee("a", 10);
+//    │            ─┬─  
+//    │             ╰─── expected int, actual: string
+// ───╯
+// Error: Mismatched type in call argument
+//    ╭─[/{nail}/crates/dock/tests/type_check/call_arg_type_mismatch/main.nail:2:17]
+//    │
+//  2 │     callee("a", 10);
+//    │                 ─┬  
+//    │                  ╰── expected string, actual: int
+// ───╯

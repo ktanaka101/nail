@@ -1,0 +1,17 @@
+fn main() {
+  let a = aaa;
+}
+
+mod aaa {
+}
+
+//---stdout
+//---stderr
+
+// Error: Module as expression
+//    ╭─[/{nail}/crates/dock/tests/type_check/module_as_expr/main.nail:2:11]
+//    │
+//  2 │   let a = aaa;
+//    │           ─┬─  
+//    │            ╰─── expected <expression>
+// ───╯

@@ -5,6 +5,8 @@ pub mod validation;
 
 pub use ast_node::*;
 pub use nodes::*;
+pub use rowan::TextRange;
+pub use syntax::SyntaxNodePtr;
 use syntax::{SyntaxKind, SyntaxNode};
 pub use tokens::*;
 

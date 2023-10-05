@@ -8,23 +8,18 @@ license = "MIT"
 default-run = "dock"
 
 [dependencies]
-anyhow = { workspace = true }
 clap = { workspace = true }
 tokio = { workspace = true }
-inkwell = { workspace = true }
 
-base_db = { workspace = true }
+dock = { workspace = true }
 lsp = { workspace = true }
-hir = { workspace = true }
-hir_ty = { workspace = true }
-mir = { workspace = true }
-codegen_llvm = { workspace = true }
 
 [workspace]
 members = ["crates/*"]
 
 [workspace.dependencies]
 anyhow = "1.0"
+ariadne = { version = "0.3", features = ["auto-color"] }
 clap = { version = "4.4", features = ["derive"] }
 drop_bomb = "0.1"
 either = "1.9.0"
@@ -39,6 +34,7 @@ lasso = "0.6"
 logos = "0.12"
 num-derive = "0.3"
 num-traits = "0.2"
+regex = "1"
 rowan = "0.15"
 salsa = { git = "https://github.com/salsa-rs/salsa", package = "salsa-2022" }
 serde = { version = "1.0", features = ["derive"] }
@@ -48,6 +44,7 @@ thiserror = "1.0"
 tokio = { version = "1.32", features = ["full"] }
 tower-lsp = "0.17"
 
+dock = { path = "crates/dock" }
 lexer = { path = "crates/lexer" }
 syntax = { path = "crates/syntax" }
 parser = { path = "crates/parser" }

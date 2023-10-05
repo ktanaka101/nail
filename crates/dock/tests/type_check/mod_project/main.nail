@@ -1,0 +1,27 @@
+mod sub;
+
+fn main() -> string {
+  sub::build_string()
+}
+
+fn f1() -> int {
+  sub::build_string()
+}
+
+//---stdout
+//---stderr
+
+// Error: Mismatched type in return value
+//    ╭─[/{nail}/crates/dock/tests/type_check/mod_project/main.nail:8:3]
+//    │
+//  8 │   sub::build_string()
+//    │   ─────────┬─────────  
+//    │            ╰─────────── expected int, actual: string
+// ───╯
+// Error: Mismatched type in return value
+//    ╭─[/{nail}/crates/dock/tests/type_check/mod_project/sub.nail:2:3]
+//    │
+//  2 │   true
+//    │   ──┬─  
+//    │     ╰─── expected string, actual: bool
+// ───╯

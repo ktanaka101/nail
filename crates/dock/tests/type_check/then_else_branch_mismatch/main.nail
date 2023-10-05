@@ -1,0 +1,27 @@
+fn main() {
+  if true {
+    "aaa"
+  } else {
+    10
+  }
+
+  return;
+}
+
+//---stdout
+//---stderr
+
+// Error: Mismatched type if branch and else branch
+//    ╭─[/{nail}/crates/dock/tests/type_check/then_else_branch_mismatch/main.nail:2:11]
+//    │
+//  2 │ ╭─▶   if true {
+//  3 │ │       "aaa"
+//    │ │       ──┬──  
+//    │ │         ╰──── Type is string
+//  4 │ ├─▶   } else {
+//    │ │                
+//    │ ╰──────────────── expected string, actual: int
+//  5 │         10
+//    │         ─┬  
+//    │          ╰── Type is int
+// ───╯

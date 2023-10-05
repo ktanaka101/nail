@@ -1,7 +1,6 @@
-use std::{
-    collections::{HashMap, HashSet},
-    ops::Sub,
-};
+use std::ops::Sub;
+
+use indexmap::{IndexMap, IndexSet};
 
 use super::{type_scheme::TypeScheme, types::Monotype};
 use crate::HirTyMasterDatabase;
@@ -9,7 +8,7 @@ use crate::HirTyMasterDatabase;
 /// Hindley-Milner型システムにおける型環境
 #[derive(Default)]
 pub struct Environment {
-    bindings: HashMap<hir::ExprId, TypeScheme>,
+    bindings: IndexMap<hir::ExprId, TypeScheme>,
 }
 
 /// 型変数のID
@@ -38,13 +37,13 @@ impl Context {
 impl Environment {
     pub fn new() -> Self {
         Environment {
-            bindings: HashMap::new(),
+            bindings: IndexMap::new(),
         }
     }
 
     #[allow(dead_code)]
-    fn free_variables(&self, db: &dyn HirTyMasterDatabase) -> HashSet<VariableId> {
-        let mut union = HashSet::new();
+    fn free_variables(&self, db: &dyn HirTyMasterDatabase) -> IndexSet<VariableId> {
+        let mut union = IndexSet::new();
         for type_scheme in self.bindings.values() {
             union.extend(type_scheme.free_variables(db));
         }
@@ -53,7 +52,7 @@ impl Environment {
     }
 
     pub(crate) fn with(&self) -> Environment {
-        let mut copy = HashMap::new();
+        let mut copy = IndexMap::new();
         // FIXME: clone かつサイズが不定なので遅いかも。
         copy.extend(self.bindings.clone());
 

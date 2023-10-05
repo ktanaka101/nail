@@ -231,7 +231,7 @@ impl<'a> FunctionLower<'a> {
                     cond_local_idx
                 };
 
-                let mut dest_bb_and_result_local_idx: Option<(Idx<BasicBlock>, Idx<Local>)> = None;
+                let dest_bb_and_result_local_idx = self.alloc_dest_bb_and_result_local(expr_id);
 
                 let switch_bb = self.alloc_switch_bb();
                 self.add_termination_to_current_bb(Termination::Switch {
@@ -240,6 +240,7 @@ impl<'a> FunctionLower<'a> {
                     else_bb: switch_bb.else_bb_idx,
                 });
 
+                let mut has_return_in_then_branch = false;
                 {
                     self.current_bb = Some(switch_bb.then_bb_idx);
 
@@ -248,46 +249,38 @@ impl<'a> FunctionLower<'a> {
                         _ => unreachable!(),
                     };
 
-                    let mut has_return = false;
                     for stmt in &then_block.stmts {
                         match self.lower_stmt(stmt) {
                             LoweredStmt::Return => {
-                                has_return = true;
+                                has_return_in_then_branch = true;
                                 break;
                             }
                             LoweredStmt::Unit => (),
                         }
                     }
-                    if !has_return {
+                    if !has_return_in_then_branch {
                         if let Some(tail) = then_block.tail {
                             match self.lower_expr(tail) {
                                 LoweredExpr::Operand(operand) => {
-                                    let (dest_bb_idx, result_local_idx) =
-                                        match dest_bb_and_result_local_idx {
-                                            Some(idxes) => idxes,
-                                            None => {
-                                                let idxes = self
-                                                    .alloc_dest_bb_and_result_local(*then_branch);
-                                                dest_bb_and_result_local_idx = Some(idxes);
-
-                                                idxes
-                                            }
-                                        };
-
                                     self.add_statement_to_current_bb(Statement::Assign {
-                                        place: Place::Local(result_local_idx),
+                                        place: Place::Local(dest_bb_and_result_local_idx.1),
                                         value: operand.into(),
                                     });
                                     self.add_termination_to_current_bb(Termination::Goto(
-                                        dest_bb_idx,
+                                        dest_bb_and_result_local_idx.0,
                                     ));
                                 }
                                 LoweredExpr::Return => (),
                             };
+                        } else {
+                            self.add_termination_to_current_bb(Termination::Goto(
+                                dest_bb_and_result_local_idx.0,
+                            ));
                         }
                     }
                 }
 
+                let mut has_return_in_else_branch = false;
                 {
                     self.current_bb = Some(switch_bb.else_bb_idx);
 
@@ -299,79 +292,58 @@ impl<'a> FunctionLower<'a> {
                                 _ => unreachable!(),
                             };
 
-                            let mut has_return = false;
                             for stmt in &else_block.stmts {
                                 match self.lower_stmt(stmt) {
                                     LoweredStmt::Return => {
-                                        has_return = true;
+                                        has_return_in_else_branch = true;
                                         break;
                                     }
                                     LoweredStmt::Unit => (),
                                 }
                             }
 
-                            if !has_return {
+                            if !has_return_in_else_branch {
                                 if let Some(tail) = else_block.tail {
                                     match self.lower_expr(tail) {
                                         LoweredExpr::Operand(operand) => {
-                                            let (dest_bb_idx, result_local_idx) =
-                                                match dest_bb_and_result_local_idx {
-                                                    Some(idxes) => idxes,
-                                                    None => {
-                                                        let idxes = self
-                                                            .alloc_dest_bb_and_result_local(
-                                                                *else_block_expr,
-                                                            );
-                                                        dest_bb_and_result_local_idx = Some(idxes);
-
-                                                        idxes
-                                                    }
-                                                };
-
                                             self.add_statement_to_current_bb(Statement::Assign {
-                                                place: Place::Local(result_local_idx),
+                                                place: Place::Local(dest_bb_and_result_local_idx.1),
                                                 value: operand.into(),
                                             });
                                             self.add_termination_to_current_bb(Termination::Goto(
-                                                dest_bb_idx,
+                                                dest_bb_and_result_local_idx.0,
                                             ));
                                         }
                                         LoweredExpr::Return => (),
                                     };
+                                } else {
+                                    self.add_termination_to_current_bb(Termination::Goto(
+                                        dest_bb_and_result_local_idx.0,
+                                    ));
                                 }
                             }
-
-                            if let Some((dest_bb_idx, result_local_idx)) =
-                                dest_bb_and_result_local_idx
-                            {
-                                self.current_bb = Some(dest_bb_idx);
-                                LoweredExpr::Operand(Operand::Place(Place::Local(result_local_idx)))
-                            } else {
-                                LoweredExpr::Return
-                            }
                         }
-                        None => match dest_bb_and_result_local_idx {
-                            Some((dest_bb_idx, result_local_idx)) => {
-                                let unit = Operand::Constant(Constant::Unit);
-                                self.add_statement_to_current_bb(Statement::Assign {
-                                    place: Place::Local(result_local_idx),
-                                    value: unit.into(),
-                                });
+                        None => {
+                            let unit = Operand::Constant(Constant::Unit);
+                            self.add_statement_to_current_bb(Statement::Assign {
+                                place: Place::Local(dest_bb_and_result_local_idx.1),
+                                value: unit.into(),
+                            });
 
-                                self.add_termination_to_current_bb(Termination::Goto(dest_bb_idx));
-                                self.current_bb = Some(dest_bb_idx);
-
-                                LoweredExpr::Operand(Operand::Place(Place::Local(result_local_idx)))
-                            }
-                            None => {
-                                let dest_bb_idx = self.alloc_standard_bb();
-                                self.add_termination_to_current_bb(Termination::Goto(dest_bb_idx));
-                                self.current_bb = Some(dest_bb_idx);
-
-                                LoweredExpr::Operand(Operand::Constant(Constant::Unit))
-                            }
-                        },
+                            self.add_termination_to_current_bb(Termination::Goto(
+                                dest_bb_and_result_local_idx.0,
+                            ));
+                        }
                     }
+                }
+
+                self.current_bb = Some(dest_bb_and_result_local_idx.0);
+                if has_return_in_then_branch && has_return_in_else_branch {
+                    LoweredExpr::Return
+                } else {
+                    LoweredExpr::Operand(Operand::Place(Place::Local(
+                        dest_bb_and_result_local_idx.1,
+                    )))
                 }
             }
             hir::Expr::Binary { op, lhs, rhs } => {

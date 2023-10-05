@@ -1,0 +1,23 @@
+fn main() {
+  if true {
+  }
+
+  if true {
+    let a = 10;
+  }
+
+  if true {
+    10;
+  }
+
+  return;
+}
+
+//---stdout
+
+// {
+//   "nail_type": "Unit",
+//   "value": null
+// }
+
+//---stderr

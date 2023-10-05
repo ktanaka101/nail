@@ -8,6 +8,7 @@ use std::collections::HashMap;
 
 use environment::Environment;
 pub use error::InferenceError;
+use indexmap::IndexMap;
 pub use type_scheme::TypeScheme;
 pub use types::Monotype;
 
@@ -25,7 +26,7 @@ pub fn infer_pods(db: &dyn HirTyMasterDatabase, pods: &hir::Pods) -> InferenceRe
         signature_by_function.insert(function, signature);
     }
 
-    let mut body_result_by_function = HashMap::<hir::Function, InferenceBodyResult>::new();
+    let mut body_result_by_function = IndexMap::<hir::Function, InferenceBodyResult>::new();
     for (hir_file, function) in pods.root_pod.all_functions(db) {
         let env = Environment::new();
         let infer_body = InferBody::new(db, pods, hir_file, function, &signature_by_function, env);
@@ -144,7 +145,8 @@ impl<'a> InferBody<'a> {
                 &ty,
                 &UnifyPurpose::ReturnValue {
                     expected_signature: self.signature,
-                    found_return_expr: Some(*tail),
+                    expected_function: self.function,
+                    found_value: Some(*tail),
                 },
             );
         } else {
@@ -158,7 +160,8 @@ impl<'a> InferBody<'a> {
                 &ty,
                 &UnifyPurpose::ReturnValue {
                     expected_signature: self.signature,
-                    found_return_expr: None,
+                    expected_function: self.function,
+                    found_value: None,
                 },
             );
         };
@@ -198,7 +201,7 @@ impl<'a> InferBody<'a> {
         ty == Monotype::Never
     }
 
-    fn infer_symbol(&mut self, symbol: &hir::Symbol) -> Monotype {
+    fn infer_symbol(&mut self, symbol: &hir::Symbol, source_expr: hir::ExprId) -> Monotype {
         match symbol {
             hir::Symbol::Param { name: _, param } => {
                 let param = param.data(self.hir_file.db(self.db));
@@ -223,6 +226,7 @@ impl<'a> InferBody<'a> {
                         hir::Item::Module(module) => {
                             self.unifier.add_error(InferenceError::ModuleAsExpr {
                                 found_module: module,
+                                found_expr: source_expr,
                             });
                             Monotype::Unknown
                         }
@@ -260,12 +264,12 @@ impl<'a> InferBody<'a> {
                 hir::Literal::Bool(_) => Monotype::Bool,
             },
             hir::Expr::Missing => Monotype::Unknown,
-            hir::Expr::Symbol(symbol) => self.infer_symbol(symbol),
+            hir::Expr::Symbol(symbol) => self.infer_symbol(symbol, expr_id),
             hir::Expr::Call {
                 callee,
                 args: call_args,
             } => {
-                let callee_ty = self.infer_symbol(callee);
+                let callee_ty = self.infer_symbol(callee, expr_id);
                 match callee_ty {
                     Monotype::Integer
                     | Monotype::Bool
@@ -278,6 +282,7 @@ impl<'a> InferBody<'a> {
                         self.unifier.add_error(InferenceError::NotCallable {
                             found_callee_ty: callee_ty,
                             found_callee_symbol: callee.clone(),
+                            found_callee_expr: expr_id,
                         });
                         Monotype::Unknown
                     }
@@ -292,6 +297,7 @@ impl<'a> InferBody<'a> {
                                 .add_error(InferenceError::MismatchedCallArgCount {
                                     expected_callee_arg_count: signature.params(self.db).len(),
                                     found_arg_count: call_args_ty.len(),
+                                    found_expr: expr_id,
                                 });
                         } else {
                             for (((arg_pos, call_arg), call_arg_ty), signature_arg_ty) in call_args
@@ -474,9 +480,10 @@ impl<'a> InferBody<'a> {
                     self.unifier.unify(
                         &self.signature.return_type(self.db),
                         &ty,
-                        &UnifyPurpose::ReturnValue {
+                        &UnifyPurpose::ReturnExpr {
                             expected_signature: self.signature,
                             found_return_expr: Some(*return_value),
+                            found_return: expr_id,
                         },
                     );
                 } else {
@@ -484,9 +491,10 @@ impl<'a> InferBody<'a> {
                     self.unifier.unify(
                         &self.signature.return_type(self.db),
                         &Monotype::Unit,
-                        &UnifyPurpose::ReturnValue {
+                        &UnifyPurpose::ReturnExpr {
                             expected_signature: self.signature,
                             found_return_expr: None,
+                            found_return: expr_id,
                         },
                     );
                 }
@@ -523,7 +531,7 @@ impl<'a> InferBody<'a> {
 #[derive(Debug)]
 pub struct InferenceResult {
     pub(crate) signature_by_function: HashMap<hir::Function, Signature>,
-    pub(crate) inference_body_result_by_function: HashMap<hir::Function, InferenceBodyResult>,
+    pub(crate) inference_body_result_by_function: IndexMap<hir::Function, InferenceBodyResult>,
 }
 
 /// 関数内の型推論結果

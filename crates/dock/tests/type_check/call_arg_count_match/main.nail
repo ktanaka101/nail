@@ -1,0 +1,21 @@
+fn main() {
+  f1(10);
+  f2(20, "aaa");
+
+  return;
+}
+
+fn f1(x: int) {
+}
+
+fn f2(x: int, y: string) {
+}
+
+//---stdout
+
+// {
+//   "nail_type": "Unit",
+//   "value": null
+// }
+
+//---stderr

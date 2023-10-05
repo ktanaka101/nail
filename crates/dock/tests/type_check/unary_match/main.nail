@@ -1,0 +1,15 @@
+fn main() {
+  -20;
+  !true;
+
+  return;
+}
+
+//---stdout
+
+// {
+//   "nail_type": "Unit",
+//   "value": null
+// }
+
+//---stderr

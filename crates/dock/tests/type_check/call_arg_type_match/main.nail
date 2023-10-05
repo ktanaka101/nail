@@ -1,0 +1,17 @@
+fn main() {
+  f1(10, "");
+
+  return;
+}
+
+fn f1(x: int, y: string) {
+}
+
+//---stdout
+
+// {
+//   "nail_type": "Unit",
+//   "value": null
+// }
+
+//---stderr

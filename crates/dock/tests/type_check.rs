@@ -36,6 +36,7 @@ mod tests {
             Err(e) => match e {
                 dock::ExecutionError::Nail => (),
                 dock::ExecutionError::Io(e) => panic!("io error: {e}"),
+                dock::ExecutionError::Join(e) => panic!("join error: {e}"),
             },
         }
 

@@ -38,6 +38,9 @@ async fn main() {
                             eprintln!("IO error: {}", e);
                         }
                         dock::ExecutionError::Nail => (),
+                        dock::ExecutionError::Join(e) => {
+                            eprintln!("Join error: {}", e);
+                        }
                     }
                     std::process::exit(1);
                 }

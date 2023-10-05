@@ -41,6 +41,9 @@ async fn main() {
                         dock::ExecutionError::Join(e) => {
                             eprintln!("Join error: {}", e);
                         }
+                        dock::ExecutionError::InvalidRootNailFilePath(e) => {
+                            eprintln!("Invalid root nail file path: {}", e);
+                        }
                     }
                     std::process::exit(1);
                 }

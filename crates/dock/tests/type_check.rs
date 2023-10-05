@@ -34,6 +34,8 @@ mod tests {
         {
             Ok(_) => (),
             Err(e) => match e {
+                // 型チェックのエラーはExecutionError::Nailで返るため何もしない
+                // それ以外は型チェック以外のエラーなのでpanicしてテストを失敗させる
                 dock::ExecutionError::Nail => (),
                 dock::ExecutionError::Io(e) => panic!("io error: {e}"),
                 dock::ExecutionError::Join(e) => panic!("join error: {e}"),

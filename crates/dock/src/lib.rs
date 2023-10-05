@@ -80,6 +80,9 @@ pub enum ExecutionError {
     #[error("Compile nail error")]
     Nail,
 
+    #[error("Invalid root nail file path: `{0}`")]
+    InvalidRootNailFilePath(String),
+
     #[error("IO error")]
     Io(#[from] io::Error),
 
@@ -91,12 +94,14 @@ pub enum ExecutionError {
 ///
 /// 通常の結果は`write_dest_out`、エラーは`write_dest_err`に書き込まれます。
 pub async fn execute(
-    root_nail_file_path: &str,
+    root_nail_file_path_str: &str,
     write_dest_out: &mut impl std::io::Write,
     write_dest_err: &mut impl std::io::Write,
     enabled_color: bool,
 ) -> Result<(), ExecutionError> {
-    let root_nail_file_path = path::PathBuf::try_from(root_nail_file_path).unwrap();
+    let root_nail_file_path = path::PathBuf::try_from(root_nail_file_path_str).map_err(|_| {
+        ExecutionError::InvalidRootNailFilePath(root_nail_file_path_str.to_string())
+    })?;
 
     let db = base_db::SalsaDatabase::default();
 

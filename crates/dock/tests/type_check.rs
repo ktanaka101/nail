@@ -37,6 +37,9 @@ mod tests {
                 dock::ExecutionError::Nail => (),
                 dock::ExecutionError::Io(e) => panic!("io error: {e}"),
                 dock::ExecutionError::Join(e) => panic!("join error: {e}"),
+                dock::ExecutionError::InvalidRootNailFilePath(e) => {
+                    panic!("invalid root nail file path: {e}")
+                }
             },
         }
 

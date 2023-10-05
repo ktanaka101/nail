@@ -44,17 +44,18 @@ mod tests {
         }
 
         fn normalize(stdout_or_stderr: String) -> String {
+            let path_pattern = Regex::new(r"(\[.*?)/crates/").unwrap();
+
             return stdout_or_stderr
                 .lines()
-                .map(normalize_path)
+                .map(|line| normalize_path(line, &path_pattern))
                 .map(|line| format!("// {}", line))
                 .collect::<Vec<String>>()
                 .join("\n");
 
             /// 環境が異なってもテストが通るようにパスを正規化します。
-            fn normalize_path(line: &str) -> String {
-                let re = Regex::new(r"(\[.*?)/crates/").unwrap();
-                re.replace(line, "[/{nail}/crates/").to_string()
+            fn normalize_path(line: &str, path_pattern: &Regex) -> String {
+                path_pattern.replace(line, "[/{nail}/crates/").to_string()
             }
         }
         let stdout = String::from_utf8(out).unwrap();

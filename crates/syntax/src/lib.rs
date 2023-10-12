@@ -65,6 +65,7 @@ pub enum SyntaxKind {
     IfKw,
     ElseKw,
     ReturnKw,
+    WhileKw,
 
     // identifier
     Ident,
@@ -131,6 +132,7 @@ impl From<TokenKind> for SyntaxKind {
             TokenKind::IfKw => Self::IfKw,
             TokenKind::ElseKw => Self::ElseKw,
             TokenKind::ReturnKw => Self::ReturnKw,
+            TokenKind::WhileKw => Self::WhileKw,
 
             TokenKind::Ident => Self::Ident,
 

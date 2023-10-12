@@ -33,6 +33,7 @@ pub enum SyntaxKind {
     ReturnExpr,
     ExprStmt,
     PathExpr,
+    WhileExpr,
 
     // statement nodes
     VariableDef,

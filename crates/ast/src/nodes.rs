@@ -96,6 +96,8 @@ pub enum Expr {
     BlockExpr(BlockExpr),
     IfExpr(IfExpr),
     ReturnExpr(ReturnExpr),
+    LoopExpr(LoopExpr),
+    WhileExpr(WhileExpr),
 }
 impl Ast for Expr {}
 impl AstNode for Expr {
@@ -111,6 +113,8 @@ impl AstNode for Expr {
                 | SyntaxKind::BlockExpr
                 | SyntaxKind::IfExpr
                 | SyntaxKind::ReturnExpr
+                | SyntaxKind::LoopExpr
+                | SyntaxKind::WhileExpr
         )
     }
 
@@ -125,6 +129,8 @@ impl AstNode for Expr {
             SyntaxKind::BlockExpr => Self::BlockExpr(BlockExpr { syntax }),
             SyntaxKind::IfExpr => Self::IfExpr(IfExpr { syntax }),
             SyntaxKind::ReturnExpr => Self::ReturnExpr(ReturnExpr { syntax }),
+            SyntaxKind::LoopExpr => Self::LoopExpr(LoopExpr { syntax }),
+            SyntaxKind::WhileExpr => Self::WhileExpr(WhileExpr { syntax }),
             _ => return None,
         };
 
@@ -142,6 +148,8 @@ impl AstNode for Expr {
             Expr::BlockExpr(it) => it.syntax(),
             Expr::IfExpr(it) => it.syntax(),
             Expr::ReturnExpr(it) => it.syntax(),
+            Expr::LoopExpr(it) => it.syntax(),
+            Expr::WhileExpr(it) => it.syntax(),
         }
     }
 }
@@ -330,6 +338,13 @@ impl IfExpr {
 def_ast_node!(ReturnExpr);
 impl ReturnExpr {
     pub fn value(&self) -> Option<Expr> {
+        ast_node::child_node(self)
+    }
+}
+
+def_ast_node!(LoopExpr);
+impl LoopExpr {
+    pub fn body(&self) -> Option<BlockExpr> {
         ast_node::child_node(self)
     }
 }

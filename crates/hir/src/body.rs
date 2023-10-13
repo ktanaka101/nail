@@ -345,6 +345,8 @@ impl<'a> BodyLower<'a> {
                 ast::Expr::BlockExpr(ast) => self.lower_block(db, ast),
                 ast::Expr::IfExpr(ast) => self.lower_if(db, ast),
                 ast::Expr::ReturnExpr(ast) => self.lower_return(db, ast),
+                ast::Expr::LoopExpr(_ast) => todo!(),
+                ast::Expr::WhileExpr(_ast) => todo!(),
             };
             self.alloc_expr(&ast, expr)
         } else {

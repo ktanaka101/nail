@@ -33,6 +33,7 @@ pub enum SyntaxKind {
     ReturnExpr,
     ExprStmt,
     PathExpr,
+    LoopExpr,
     WhileExpr,
 
     // statement nodes
@@ -66,6 +67,7 @@ pub enum SyntaxKind {
     IfKw,
     ElseKw,
     ReturnKw,
+    LoopKw,
     WhileKw,
 
     // identifier
@@ -133,7 +135,7 @@ impl From<TokenKind> for SyntaxKind {
             TokenKind::IfKw => Self::IfKw,
             TokenKind::ElseKw => Self::ElseKw,
             TokenKind::ReturnKw => Self::ReturnKw,
-            TokenKind::LoopKw => todo!(),
+            TokenKind::LoopKw => Self::LoopKw,
             TokenKind::WhileKw => Self::WhileKw,
 
             TokenKind::Ident => Self::Ident,

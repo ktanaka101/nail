@@ -7,7 +7,7 @@ use crate::{
 };
 
 /// 式の最初に現れる可能性があるトークンの集合
-pub(super) const EXPR_FIRST: [TokenKind; 14] = [
+pub(super) const EXPR_FIRST: [TokenKind; 15] = [
     TokenKind::StringLiteral,
     TokenKind::CharLiteral(false),
     TokenKind::CharLiteral(true),
@@ -21,6 +21,7 @@ pub(super) const EXPR_FIRST: [TokenKind; 14] = [
     TokenKind::LCurly,
     TokenKind::IfKw,
     TokenKind::ReturnKw,
+    TokenKind::LoopKw,
     TokenKind::WhileKw,
 ];
 
@@ -168,6 +169,8 @@ fn parse_lhs(parser: &mut Parser) -> Option<CompletedNodeMarker> {
         parse_if(parser)
     } else if parser.at(TokenKind::ReturnKw) {
         parse_return(parser)
+    } else if parser.at(TokenKind::LoopKw) {
+        parse_loop(parser)
     } else if parser.at(TokenKind::WhileKw) {
         parse_while(parser)
     } else {
@@ -348,6 +351,21 @@ fn parse_return(parser: &mut Parser) -> CompletedNodeMarker {
     }
 
     marker.complete(parser, SyntaxKind::ReturnExpr)
+}
+
+/// `loop`式のパース
+fn parse_loop(parser: &mut Parser) -> CompletedNodeMarker {
+    assert!(parser.at(TokenKind::LoopKw));
+
+    let marker = parser.start();
+    parser.bump();
+    parse_expr(parser);
+
+    if parser.at(TokenKind::LCurly) {
+        parse_block(parser);
+    }
+
+    marker.complete(parser, SyntaxKind::LoopExpr)
 }
 
 /// `while`式のパース
@@ -883,7 +901,7 @@ mod tests {
                         Literal@1..2
                           Integer@1..2 "1"
                         Plus@2..3 "+"
-                error at 2..3: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if', 'return' or 'while'
+                error at 2..3: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if', 'return', 'loop' or 'while'
                 error at 2..3: expected ')'
             "#]],
         );
@@ -1215,7 +1233,7 @@ mod tests {
                     Error@5..6
                       RParen@5..6 ")"
                 error at 4..5: expected '::', '+', '-', '*', '/', '==', '<', '>', ',' or ')', but found identifier
-                error at 5..6: expected '+', '-', '*', '/', '==', '<', '>', ';', 'let', 'fn', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', '{', 'if', 'return' or 'while', but found ')'
+                error at 5..6: expected '+', '-', '*', '/', '==', '<', '>', ';', 'let', 'fn', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', '{', 'if', 'return', 'loop' or 'while', but found ')'
             "#]],
         );
     }
@@ -1841,6 +1859,38 @@ mod tests {
                               PathSegment@14..15
                                 Ident@14..15 "g"
                         RParen@15..16 ")"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_loop() {
+        check_debug_tree_in_block(
+            "loop { 10; 20; 30 }",
+            expect![[r#"
+                SourceFile@0..19
+                  ExprStmt@0..19
+                    LoopExpr@0..19
+                      LoopKw@0..4 "loop"
+                      Whitespace@4..5 " "
+                      BlockExpr@5..19
+                        LCurly@5..6 "{"
+                        Whitespace@6..7 " "
+                        ExprStmt@7..10
+                          Literal@7..9
+                            Integer@7..9 "10"
+                          Semicolon@9..10 ";"
+                        Whitespace@10..11 " "
+                        ExprStmt@11..14
+                          Literal@11..13
+                            Integer@11..13 "20"
+                          Semicolon@13..14 ";"
+                        Whitespace@14..15 " "
+                        ExprStmt@15..17
+                          Literal@15..17
+                            Integer@15..17 "30"
+                        Whitespace@17..18 " "
+                        RCurly@18..19 "}"
             "#]],
         );
     }

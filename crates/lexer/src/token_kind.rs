@@ -41,6 +41,9 @@ pub enum TokenKind {
     /// `return`
     #[token("return")]
     ReturnKw,
+    /// `while`
+    #[token("while")]
+    WhileKw,
 
     // identifier
     /// `[A-Za-z_][A-Za-z0-9_]*`
@@ -170,6 +173,7 @@ impl fmt::Display for TokenKind {
             Self::IfKw => "'if'",
             Self::ElseKw => "'else'",
             Self::ReturnKw => "'return'",
+            Self::WhileKw => "'while'",
             Self::Ident => "identifier",
             Self::IntegerLiteral => "integerLiteral",
             Self::StringLiteral => "stringLiteral",
@@ -269,6 +273,11 @@ mod tests {
     #[test]
     fn lex_return_keyword() {
         check("return", TokenKind::ReturnKw);
+    }
+
+    #[test]
+    fn lex_while_keyword() {
+        check("while", TokenKind::WhileKw);
     }
 
     #[test]

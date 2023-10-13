@@ -334,6 +334,17 @@ impl ReturnExpr {
     }
 }
 
+def_ast_node!(WhileExpr);
+impl WhileExpr {
+    pub fn condition(&self) -> Option<Expr> {
+        ast_node::child_node(self)
+    }
+
+    pub fn body(&self) -> Option<BlockExpr> {
+        self.syntax().children().skip(1).find_map(BlockExpr::cast)
+    }
+}
+
 def_ast_node!(FunctionDef);
 impl FunctionDef {
     pub fn params(&self) -> Option<ParamList> {

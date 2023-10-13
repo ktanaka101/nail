@@ -7,7 +7,7 @@ use crate::{
 };
 
 /// 式の最初に現れる可能性があるトークンの集合
-pub(super) const EXPR_FIRST: [TokenKind; 13] = [
+pub(super) const EXPR_FIRST: [TokenKind; 14] = [
     TokenKind::StringLiteral,
     TokenKind::CharLiteral(false),
     TokenKind::CharLiteral(true),
@@ -21,6 +21,7 @@ pub(super) const EXPR_FIRST: [TokenKind; 13] = [
     TokenKind::LCurly,
     TokenKind::IfKw,
     TokenKind::ReturnKw,
+    TokenKind::WhileKw,
 ];
 
 /// アイテムの最初に現れる可能性があるトークンの集合
@@ -167,6 +168,8 @@ fn parse_lhs(parser: &mut Parser) -> Option<CompletedNodeMarker> {
         parse_if(parser)
     } else if parser.at(TokenKind::ReturnKw) {
         parse_return(parser)
+    } else if parser.at(TokenKind::WhileKw) {
+        parse_while(parser)
     } else {
         parser.error_with_recovery_set_only_default_on_block();
         maybe_call_marker.destroy(parser);
@@ -345,6 +348,21 @@ fn parse_return(parser: &mut Parser) -> CompletedNodeMarker {
     }
 
     marker.complete(parser, SyntaxKind::ReturnExpr)
+}
+
+/// `while`式のパース
+fn parse_while(parser: &mut Parser) -> CompletedNodeMarker {
+    assert!(parser.at(TokenKind::WhileKw));
+
+    let marker = parser.start();
+    parser.bump();
+    parse_expr(parser);
+
+    if parser.at(TokenKind::LCurly) {
+        parse_block(parser);
+    }
+
+    marker.complete(parser, SyntaxKind::WhileExpr)
 }
 
 #[cfg(test)]
@@ -865,7 +883,7 @@ mod tests {
                         Literal@1..2
                           Integer@1..2 "1"
                         Plus@2..3 "+"
-                error at 2..3: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if' or 'return'
+                error at 2..3: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if', 'return' or 'while'
                 error at 2..3: expected ')'
             "#]],
         );
@@ -1197,7 +1215,7 @@ mod tests {
                     Error@5..6
                       RParen@5..6 ")"
                 error at 4..5: expected '::', '+', '-', '*', '/', '==', '<', '>', ',' or ')', but found identifier
-                error at 5..6: expected '+', '-', '*', '/', '==', '<', '>', ';', 'let', 'fn', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', '{', 'if' or 'return', but found ')'
+                error at 5..6: expected '+', '-', '*', '/', '==', '<', '>', ';', 'let', 'fn', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', '{', 'if', 'return' or 'while', but found ')'
             "#]],
         );
     }
@@ -1823,6 +1841,114 @@ mod tests {
                               PathSegment@14..15
                                 Ident@14..15 "g"
                         RParen@15..16 ")"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_while() {
+        check_debug_tree_in_block(
+            "while true { 10; 20; 30 }",
+            expect![[r#"
+                SourceFile@0..25
+                  ExprStmt@0..25
+                    WhileExpr@0..25
+                      WhileKw@0..5 "while"
+                      Whitespace@5..6 " "
+                      Literal@6..10
+                        TrueKw@6..10 "true"
+                      Whitespace@10..11 " "
+                      BlockExpr@11..25
+                        LCurly@11..12 "{"
+                        Whitespace@12..13 " "
+                        ExprStmt@13..16
+                          Literal@13..15
+                            Integer@13..15 "10"
+                          Semicolon@15..16 ";"
+                        Whitespace@16..17 " "
+                        ExprStmt@17..20
+                          Literal@17..19
+                            Integer@17..19 "20"
+                          Semicolon@19..20 ";"
+                        Whitespace@20..21 " "
+                        ExprStmt@21..23
+                          Literal@21..23
+                            Integer@21..23 "30"
+                        Whitespace@23..24 " "
+                        RCurly@24..25 "}"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_while_empty_block() {
+        check_debug_tree_in_block(
+            "while true { }",
+            expect![[r#"
+                SourceFile@0..14
+                  ExprStmt@0..14
+                    WhileExpr@0..14
+                      WhileKw@0..5 "while"
+                      Whitespace@5..6 " "
+                      Literal@6..10
+                        TrueKw@6..10 "true"
+                      Whitespace@10..11 " "
+                      BlockExpr@11..14
+                        LCurly@11..12 "{"
+                        Whitespace@12..13 " "
+                        RCurly@13..14 "}"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_while_loss_block() {
+        check_debug_tree_in_block(
+            "while true",
+            expect![[r#"
+                SourceFile@0..10
+                  ExprStmt@0..10
+                    WhileExpr@0..10
+                      WhileKw@0..5 "while"
+                      Whitespace@5..6 " "
+                      Literal@6..10
+                        TrueKw@6..10 "true"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_while_cond_block() {
+        check_debug_tree_in_block(
+            "while { 10; true } { 20 }",
+            expect![[r#"
+                SourceFile@0..25
+                  ExprStmt@0..25
+                    WhileExpr@0..25
+                      WhileKw@0..5 "while"
+                      Whitespace@5..6 " "
+                      BlockExpr@6..18
+                        LCurly@6..7 "{"
+                        Whitespace@7..8 " "
+                        ExprStmt@8..11
+                          Literal@8..10
+                            Integer@8..10 "10"
+                          Semicolon@10..11 ";"
+                        Whitespace@11..12 " "
+                        ExprStmt@12..16
+                          Literal@12..16
+                            TrueKw@12..16 "true"
+                        Whitespace@16..17 " "
+                        RCurly@17..18 "}"
+                      Whitespace@18..19 " "
+                      BlockExpr@19..25
+                        LCurly@19..20 "{"
+                        Whitespace@20..21 " "
+                        ExprStmt@21..23
+                          Literal@21..23
+                            Integer@21..23 "20"
+                        Whitespace@23..24 " "
+                        RCurly@24..25 "}"
             "#]],
         );
     }

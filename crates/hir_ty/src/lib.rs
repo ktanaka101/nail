@@ -669,7 +669,12 @@ mod tests {
 
                     msg
                 }
-                hir::Expr::Loop { .. } => todo!(),
+                hir::Expr::Loop { block } => {
+                    let mut msg = "loop ".to_string();
+                    msg.push_str(&self.debug_expr(hir_file, function, *block, nesting));
+
+                    msg
+                }
                 hir::Expr::Missing => "<missing>".to_string(),
             }
         }
@@ -757,7 +762,12 @@ mod tests {
 
                     msg
                 }
-                hir::Expr::Loop { .. } => todo!(),
+                hir::Expr::Loop { block } => {
+                    let mut msg = "loop ".to_string();
+                    msg.push_str(&self.debug_simplify_expr(hir_file, *block));
+
+                    msg
+                }
                 hir::Expr::Missing => "<missing>".to_string(),
             }
         }
@@ -1872,6 +1882,32 @@ mod tests {
 
                 ---
                 error MismatchedReturnType: expected_ty: int, found_ty: string, found_expr: `"aaa"`
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn infer_loop() {
+        check_in_root_file(
+            r#"
+                fn main() {
+                    loop {
+                        10;
+                        20;
+                    }
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    expr:loop {
+                        10; //: int
+                        20; //: int
+                    } //: !
+                }
+
+                ---
                 ---
             "#]],
         );

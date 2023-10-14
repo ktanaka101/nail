@@ -675,6 +675,8 @@ mod tests {
 
                     msg
                 }
+                hir::Expr::Continue => todo!(),
+                hir::Expr::Break { .. } => todo!(),
                 hir::Expr::Missing => "<missing>".to_string(),
             }
         }
@@ -768,6 +770,8 @@ mod tests {
 
                     msg
                 }
+                hir::Expr::Continue => todo!(),
+                hir::Expr::Break { .. } => todo!(),
                 hir::Expr::Missing => "<missing>".to_string(),
             }
         }

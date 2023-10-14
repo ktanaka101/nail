@@ -34,6 +34,8 @@ pub enum SyntaxKind {
     ExprStmt,
     PathExpr,
     LoopExpr,
+    ContinueExpr,
+    BreakExpr,
     WhileExpr,
 
     // statement nodes

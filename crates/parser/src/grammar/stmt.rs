@@ -262,7 +262,7 @@ mod tests {
                     Error@8..10
                       Integer@8..10 "10"
                 error at 8..10: expected '=', but found integerLiteral
-                error at 8..10: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if', 'return', 'loop' or 'while'
+                error at 8..10: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while'
             "#]],
         )
     }
@@ -309,7 +309,7 @@ mod tests {
                       Path@16..17
                         PathSegment@16..17
                           Ident@16..17 "a"
-                error at 8..11: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if', 'return', 'loop' or 'while', but found 'let'
+                error at 8..11: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found 'let'
             "#]],
         );
     }

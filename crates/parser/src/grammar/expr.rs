@@ -22,9 +22,9 @@ pub(super) const EXPR_FIRST: [TokenKind; 17] = [
     TokenKind::IfKw,
     TokenKind::ReturnKw,
     TokenKind::LoopKw,
-    TokenKind::WhileKw,
     TokenKind::ContinueKw,
     TokenKind::BreakKw,
+    TokenKind::WhileKw,
 ];
 
 /// アイテムの最初に現れる可能性があるトークンの集合

@@ -460,7 +460,7 @@ impl<'a> ModuleScopesBuilder<'a> {
             Expr::Block(_block) => {
                 self.build_block(hir_file, current_scope_idx, expr);
             }
-            Expr::Loop { block } => self.build_block(hir_file, current_scope_idx, *block),
+            Expr::Loop { block } => self.build_expr(hir_file, current_scope_idx, *block),
             Expr::Continue => (),
             Expr::Break { value } => {
                 if let Some(value) = value {

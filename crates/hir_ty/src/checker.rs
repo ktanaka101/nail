@@ -152,6 +152,8 @@ impl<'a> FunctionTypeChecker<'a> {
             hir::Expr::Loop { block } => {
                 self.check_expr(*block);
             }
+            hir::Expr::Continue => todo!(),
+            hir::Expr::Break { .. } => todo!(),
             hir::Expr::Missing => (),
         };
     }

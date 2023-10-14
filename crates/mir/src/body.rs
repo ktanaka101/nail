@@ -458,6 +458,8 @@ impl<'a> FunctionLower<'a> {
                 }
             }
             hir::Expr::Loop { .. } => todo!(),
+            hir::Expr::Continue => todo!(),
+            hir::Expr::Break { .. } => todo!(),
             hir::Expr::Missing => unreachable!(),
         }
     }

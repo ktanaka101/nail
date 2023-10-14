@@ -579,6 +579,10 @@ pub enum Expr {
         /// ループの本体
         block: ExprId,
     },
+    /// ループを中断し、次の反復処理に進みます。
+    Continue,
+    /// ループを終了します。
+    Break { value: Option<ExprId> },
     /// 解釈できない不明な式です。
     Missing,
 }

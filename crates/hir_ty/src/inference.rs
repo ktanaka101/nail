@@ -508,6 +508,8 @@ impl<'a> InferBody<'a> {
                 // TODO: まだbreakがないので、Neverとして扱う
                 Monotype::Never
             }
+            hir::Expr::Continue => todo!(),
+            hir::Expr::Break { .. } => todo!(),
         };
 
         self.type_by_expr.insert(expr_id, ty.clone());

@@ -346,6 +346,8 @@ impl<'a> BodyLower<'a> {
                 ast::Expr::IfExpr(ast) => self.lower_if(db, ast),
                 ast::Expr::ReturnExpr(ast) => self.lower_return(db, ast),
                 ast::Expr::LoopExpr(ast) => self.lower_loop(db, ast),
+                ast::Expr::ContinueExpr(_ast) => Expr::Continue,
+                ast::Expr::BreakExpr(ast) => self.lower_break(db, ast),
                 ast::Expr::WhileExpr(_ast) => todo!(),
             };
             self.alloc_expr(&ast, expr)
@@ -487,6 +489,8 @@ impl<'a> BodyLower<'a> {
             Expr::If { .. } => todo!(),
             Expr::Return { .. } => todo!(),
             Expr::Loop { .. } => todo!(),
+            Expr::Continue => todo!(),
+            Expr::Break { .. } => todo!(),
             Expr::Missing => todo!(),
         };
 
@@ -573,6 +577,15 @@ impl<'a> BodyLower<'a> {
             }
         } else {
             Expr::Missing
+        }
+    }
+
+    fn lower_break(&mut self, db: &dyn HirMasterDatabase, ast_loop: &ast::BreakExpr) -> Expr {
+        if let Some(value) = ast_loop.value() {
+            let value = self.lower_expr(db, Some(value));
+            Expr::Break { value: Some(value) }
+        } else {
+            Expr::Break { value: None }
         }
     }
 }
@@ -945,6 +958,18 @@ mod tests {
 
                 msg
             }
+            Expr::Continue => "continue".to_string(),
+            Expr::Break { value } => {
+                let mut msg = "break".to_string();
+                if let Some(value) = value {
+                    msg.push_str(&format!(
+                        " {}",
+                        &debug_expr(db, hir_file, resolution_map, scope_origin, *value, nesting,)
+                    ));
+                }
+
+                msg
+            }
             Expr::Missing => "<missing>".to_string(),
         }
     }
@@ -967,7 +992,9 @@ mod tests {
                 | Expr::Call { .. }
                 | Expr::If { .. }
                 | Expr::Return { .. }
-                | Expr::Loop { .. } => {
+                | Expr::Loop { .. }
+                | Expr::Continue
+                | Expr::Break { .. } => {
                     debug_expr(db, hir_file, resolution_map, scope_origin, *expr, nesting)
                 }
                 Expr::Block { .. } => name.text(db).to_string(),
@@ -2320,6 +2347,48 @@ mod tests {
                 //- /main.nail
                 fn entry:main() -> () {
                     expr:<missing>
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn continue_in_loop() {
+        check_in_root_file(
+            r#"
+                fn main() {
+                    loop {
+                        continue;
+                    }
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    expr:loop {
+                        continue;
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn break_in_loop() {
+        check_in_root_file(
+            r#"
+                fn main() {
+                    loop {
+                        break;
+                    }
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    expr:loop {
+                        break;
+                    }
                 }
             "#]],
         );

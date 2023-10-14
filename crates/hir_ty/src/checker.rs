@@ -149,6 +149,7 @@ impl<'a> FunctionTypeChecker<'a> {
                     self.check_expr(*value);
                 }
             }
+            hir::Expr::Loop { .. } => todo!(),
             hir::Expr::Missing => (),
         };
     }

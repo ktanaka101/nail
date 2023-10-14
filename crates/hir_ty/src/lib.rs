@@ -669,6 +669,7 @@ mod tests {
 
                     msg
                 }
+                hir::Expr::Loop { .. } => todo!(),
                 hir::Expr::Missing => "<missing>".to_string(),
             }
         }
@@ -756,6 +757,7 @@ mod tests {
 
                     msg
                 }
+                hir::Expr::Loop { .. } => todo!(),
                 hir::Expr::Missing => "<missing>".to_string(),
             }
         }

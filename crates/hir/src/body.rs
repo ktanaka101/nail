@@ -345,7 +345,7 @@ impl<'a> BodyLower<'a> {
                 ast::Expr::BlockExpr(ast) => self.lower_block(db, ast),
                 ast::Expr::IfExpr(ast) => self.lower_if(db, ast),
                 ast::Expr::ReturnExpr(ast) => self.lower_return(db, ast),
-                ast::Expr::LoopExpr(_ast) => todo!(),
+                ast::Expr::LoopExpr(ast) => self.lower_loop(db, ast),
                 ast::Expr::WhileExpr(_ast) => todo!(),
             };
             self.alloc_expr(&ast, expr)
@@ -486,6 +486,7 @@ impl<'a> BodyLower<'a> {
             Expr::Block(_) => todo!(),
             Expr::If { .. } => todo!(),
             Expr::Return { .. } => todo!(),
+            Expr::Loop { .. } => todo!(),
             Expr::Missing => todo!(),
         };
 
@@ -562,6 +563,17 @@ impl<'a> BodyLower<'a> {
         };
 
         Expr::Return { value }
+    }
+
+    fn lower_loop(&mut self, db: &dyn HirMasterDatabase, ast_loop: &ast::LoopExpr) -> Expr {
+        if let Some(body) = ast_loop.body() {
+            let block = self.lower_block(db, &body);
+            Expr::Loop {
+                block: self.alloc_expr(&ast::Expr::cast(ast_loop.syntax().clone()).unwrap(), block),
+            }
+        } else {
+            Expr::Missing
+        }
     }
 }
 
@@ -924,6 +936,15 @@ mod tests {
 
                 msg
             }
+            Expr::Loop { block } => {
+                let mut msg = "loop".to_string();
+                msg.push_str(&format!(
+                    " {}",
+                    &debug_expr(db, hir_file, resolution_map, scope_origin, *block, nesting)
+                ));
+
+                msg
+            }
             Expr::Missing => "<missing>".to_string(),
         }
     }
@@ -945,7 +966,8 @@ mod tests {
                 | Expr::Unary { .. }
                 | Expr::Call { .. }
                 | Expr::If { .. }
-                | Expr::Return { .. } => {
+                | Expr::Return { .. }
+                | Expr::Loop { .. } => {
                     debug_expr(db, hir_file, resolution_map, scope_origin, *expr, nesting)
                 }
                 Expr::Block { .. } => name.text(db).to_string(),
@@ -2258,6 +2280,46 @@ mod tests {
                 }
                 fn test1() -> () {
                     expr:return 10
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn loop_expr() {
+        check_in_root_file(
+            r#"
+                fn main() {
+                    loop {
+                        10;
+                        20;
+                    };
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    loop {
+                        10;
+                        20;
+                    };
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn loop_expr_no_block() {
+        check_in_root_file(
+            r#"
+                fn main() {
+                    loop
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    expr:<missing>
                 }
             "#]],
         );

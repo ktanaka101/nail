@@ -97,6 +97,8 @@ pub enum Expr {
     IfExpr(IfExpr),
     ReturnExpr(ReturnExpr),
     LoopExpr(LoopExpr),
+    ContinueExpr(ContinueExpr),
+    BreakExpr(BreakExpr),
     WhileExpr(WhileExpr),
 }
 impl Ast for Expr {}
@@ -114,6 +116,8 @@ impl AstNode for Expr {
                 | SyntaxKind::IfExpr
                 | SyntaxKind::ReturnExpr
                 | SyntaxKind::LoopExpr
+                | SyntaxKind::ContinueExpr
+                | SyntaxKind::BreakExpr
                 | SyntaxKind::WhileExpr
         )
     }
@@ -130,6 +134,8 @@ impl AstNode for Expr {
             SyntaxKind::IfExpr => Self::IfExpr(IfExpr { syntax }),
             SyntaxKind::ReturnExpr => Self::ReturnExpr(ReturnExpr { syntax }),
             SyntaxKind::LoopExpr => Self::LoopExpr(LoopExpr { syntax }),
+            SyntaxKind::ContinueExpr => Self::ContinueExpr(ContinueExpr { syntax }),
+            SyntaxKind::BreakExpr => Self::BreakExpr(BreakExpr { syntax }),
             SyntaxKind::WhileExpr => Self::WhileExpr(WhileExpr { syntax }),
             _ => return None,
         };
@@ -149,6 +155,8 @@ impl AstNode for Expr {
             Expr::IfExpr(it) => it.syntax(),
             Expr::ReturnExpr(it) => it.syntax(),
             Expr::LoopExpr(it) => it.syntax(),
+            Expr::ContinueExpr(it) => it.syntax(),
+            Expr::BreakExpr(it) => it.syntax(),
             Expr::WhileExpr(it) => it.syntax(),
         }
     }

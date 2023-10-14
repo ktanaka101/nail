@@ -34,6 +34,8 @@ pub enum SyntaxKind {
     ExprStmt,
     PathExpr,
     LoopExpr,
+    ContinueExpr,
+    BreakExpr,
     WhileExpr,
 
     // statement nodes
@@ -69,6 +71,8 @@ pub enum SyntaxKind {
     ReturnKw,
     LoopKw,
     WhileKw,
+    ContinueKw,
+    BreakKw,
 
     // identifier
     Ident,
@@ -137,6 +141,8 @@ impl From<TokenKind> for SyntaxKind {
             TokenKind::ReturnKw => Self::ReturnKw,
             TokenKind::LoopKw => Self::LoopKw,
             TokenKind::WhileKw => Self::WhileKw,
+            TokenKind::ContinueKw => Self::ContinueKw,
+            TokenKind::BreakKw => Self::BreakKw,
 
             TokenKind::Ident => Self::Ident,
 

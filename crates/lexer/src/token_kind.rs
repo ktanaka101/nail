@@ -44,6 +44,12 @@ pub enum TokenKind {
     /// `loop`
     #[token("loop")]
     LoopKw,
+    /// `continue`
+    #[token("continue")]
+    ContinueKw,
+    /// `break`
+    #[token("break")]
+    BreakKw,
     /// `while`
     #[token("while")]
     WhileKw,
@@ -178,6 +184,8 @@ impl fmt::Display for TokenKind {
             Self::ReturnKw => "'return'",
             Self::LoopKw => "'loop'",
             Self::WhileKw => "'while'",
+            Self::ContinueKw => "'continue'",
+            Self::BreakKw => "'break'",
             Self::Ident => "identifier",
             Self::IntegerLiteral => "integerLiteral",
             Self::StringLiteral => "stringLiteral",
@@ -282,6 +290,16 @@ mod tests {
     #[test]
     fn lex_loop_keyword() {
         check("loop", TokenKind::LoopKw);
+    }
+
+    #[test]
+    fn lex_continue_keyword() {
+        check("continue", TokenKind::ContinueKw);
+    }
+
+    #[test]
+    fn lex_break_keyword() {
+        check("break", TokenKind::BreakKw);
     }
 
     #[test]

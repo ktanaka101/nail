@@ -349,6 +349,15 @@ impl LoopExpr {
     }
 }
 
+def_ast_node!(ContinueExpr);
+
+def_ast_node!(BreakExpr);
+impl BreakExpr {
+    pub fn value(&self) -> Option<Expr> {
+        ast_node::child_node(self)
+    }
+}
+
 def_ast_node!(WhileExpr);
 impl WhileExpr {
     pub fn condition(&self) -> Option<Expr> {

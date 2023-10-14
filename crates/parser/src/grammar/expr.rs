@@ -7,7 +7,7 @@ use crate::{
 };
 
 /// 式の最初に現れる可能性があるトークンの集合
-pub(super) const EXPR_FIRST: [TokenKind; 15] = [
+pub(super) const EXPR_FIRST: [TokenKind; 17] = [
     TokenKind::StringLiteral,
     TokenKind::CharLiteral(false),
     TokenKind::CharLiteral(true),
@@ -22,6 +22,8 @@ pub(super) const EXPR_FIRST: [TokenKind; 15] = [
     TokenKind::IfKw,
     TokenKind::ReturnKw,
     TokenKind::LoopKw,
+    TokenKind::ContinueKw,
+    TokenKind::BreakKw,
     TokenKind::WhileKw,
 ];
 
@@ -171,6 +173,10 @@ fn parse_lhs(parser: &mut Parser) -> Option<CompletedNodeMarker> {
         parse_return(parser)
     } else if parser.at(TokenKind::LoopKw) {
         parse_loop(parser)
+    } else if parser.at(TokenKind::ContinueKw) {
+        parse_continue(parser)
+    } else if parser.at(TokenKind::BreakKw) {
+        parse_break(parser)
     } else if parser.at(TokenKind::WhileKw) {
         parse_while(parser)
     } else {
@@ -366,6 +372,30 @@ fn parse_loop(parser: &mut Parser) -> CompletedNodeMarker {
     }
 
     marker.complete(parser, SyntaxKind::LoopExpr)
+}
+
+/// `continue`式のパース
+fn parse_continue(parser: &mut Parser) -> CompletedNodeMarker {
+    assert!(parser.at(TokenKind::ContinueKw));
+
+    let marker = parser.start();
+    parser.bump();
+
+    marker.complete(parser, SyntaxKind::ContinueExpr)
+}
+
+/// `break`式のパース
+fn parse_break(parser: &mut Parser) -> CompletedNodeMarker {
+    assert!(parser.at(TokenKind::BreakKw));
+
+    let marker = parser.start();
+    parser.bump();
+
+    if parser.at_set_no_expected(&EXPR_FIRST) {
+        parse_expr(parser);
+    }
+
+    marker.complete(parser, SyntaxKind::BreakExpr)
 }
 
 /// `while`式のパース
@@ -901,7 +931,7 @@ mod tests {
                         Literal@1..2
                           Integer@1..2 "1"
                         Plus@2..3 "+"
-                error at 2..3: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if', 'return', 'loop' or 'while'
+                error at 2..3: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while'
                 error at 2..3: expected ')'
             "#]],
         );
@@ -1233,7 +1263,7 @@ mod tests {
                     Error@5..6
                       RParen@5..6 ")"
                 error at 4..5: expected '::', '+', '-', '*', '/', '==', '<', '>', ',' or ')', but found identifier
-                error at 5..6: expected '+', '-', '*', '/', '==', '<', '>', ';', 'let', 'fn', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', '{', 'if', 'return', 'loop' or 'while', but found ')'
+                error at 5..6: expected '+', '-', '*', '/', '==', '<', '>', ';', 'let', 'fn', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found ')'
             "#]],
         );
     }
@@ -1891,6 +1921,78 @@ mod tests {
                             Integer@15..17 "30"
                         Whitespace@17..18 " "
                         RCurly@18..19 "}"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_continue() {
+        check_debug_tree_in_block(
+            "loop { continue; }",
+            expect![[r#"
+                SourceFile@0..18
+                  ExprStmt@0..18
+                    LoopExpr@0..18
+                      LoopKw@0..4 "loop"
+                      Whitespace@4..5 " "
+                      BlockExpr@5..18
+                        LCurly@5..6 "{"
+                        Whitespace@6..7 " "
+                        ExprStmt@7..16
+                          ContinueExpr@7..15
+                            ContinueKw@7..15 "continue"
+                          Semicolon@15..16 ";"
+                        Whitespace@16..17 " "
+                        RCurly@17..18 "}"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_break() {
+        check_debug_tree_in_block(
+            "loop { break; }",
+            expect![[r#"
+                SourceFile@0..15
+                  ExprStmt@0..15
+                    LoopExpr@0..15
+                      LoopKw@0..4 "loop"
+                      Whitespace@4..5 " "
+                      BlockExpr@5..15
+                        LCurly@5..6 "{"
+                        Whitespace@6..7 " "
+                        ExprStmt@7..13
+                          BreakExpr@7..12
+                            BreakKw@7..12 "break"
+                          Semicolon@12..13 ";"
+                        Whitespace@13..14 " "
+                        RCurly@14..15 "}"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_break_with_expr() {
+        check_debug_tree_in_block(
+            "loop { break 10; }",
+            expect![[r#"
+                SourceFile@0..18
+                  ExprStmt@0..18
+                    LoopExpr@0..18
+                      LoopKw@0..4 "loop"
+                      Whitespace@4..5 " "
+                      BlockExpr@5..18
+                        LCurly@5..6 "{"
+                        Whitespace@6..7 " "
+                        ExprStmt@7..16
+                          BreakExpr@7..15
+                            BreakKw@7..12 "break"
+                            Whitespace@12..13 " "
+                            Literal@13..15
+                              Integer@13..15 "10"
+                          Semicolon@15..16 ";"
+                        Whitespace@16..17 " "
+                        RCurly@17..18 "}"
             "#]],
         );
     }

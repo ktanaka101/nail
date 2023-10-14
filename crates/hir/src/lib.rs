@@ -574,6 +574,11 @@ pub enum Expr {
         /// 戻り値
         value: Option<ExprId>,
     },
+    /// ループブロックを表します。
+    Loop {
+        /// ループの本体
+        block: ExprId,
+    },
     /// 解釈できない不明な式です。
     Missing,
 }

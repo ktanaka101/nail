@@ -502,6 +502,7 @@ impl<'a> InferBody<'a> {
                 // return自体の戻り値は Never として扱う
                 Monotype::Never
             }
+            hir::Expr::Loop { .. } => todo!(),
         };
 
         self.type_by_expr.insert(expr_id, ty.clone());

@@ -2,6 +2,7 @@ fn main() {
   loop {
   }
   break;
+  continue;
 }
 
 //---stdout
@@ -13,4 +14,11 @@ fn main() {
 //  4 │   break;
 //    │   ──┬──  
 //    │     ╰──── expected in <loop>
+// ───╯
+// Error: Continue outside of loop
+//    ╭─[/{nail}/crates/dock/tests/type_check/break_outside_of_loop/main.nail:5:3]
+//    │
+//  5 │   continue;
+//    │   ────┬───  
+//    │       ╰───── expected in <loop>
 // ───╯

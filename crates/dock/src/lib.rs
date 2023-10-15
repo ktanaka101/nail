@@ -555,12 +555,16 @@ impl Diagnostic {
                     }],
                 }
             }
-            InferenceError::BreakOutsideOfLoop { found_expr } => {
+            InferenceError::BreakOutsideOfLoop { kind, found_expr } => {
                 let text_range = found_expr.text_range(db, source_map);
+                let kind_text = match kind {
+                    hir_ty::BreakKind::Break => "Break",
+                    hir_ty::BreakKind::Continue => "Continue",
+                };
 
                 Diagnostic {
                     file,
-                    title: "Break outside of loop".to_string(),
+                    title: format!("{kind_text} outside of loop"),
                     head_offset: text_range.start().into(),
                     messages: vec![Message {
                         message: "expected in <loop>".to_string(),

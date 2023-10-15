@@ -7,7 +7,7 @@ mod types;
 use std::collections::HashMap;
 
 use environment::Environment;
-pub use error::InferenceError;
+pub use error::{BreakKind, InferenceError};
 use indexmap::IndexMap;
 pub use type_scheme::TypeScheme;
 pub use types::Monotype;
@@ -554,7 +554,16 @@ impl<'a> InferBody<'a> {
                     Monotype::Never
                 }
             }
-            hir::Expr::Continue => Monotype::Never,
+            hir::Expr::Continue => {
+                if self.current_breakable().is_none() {
+                    self.unifier.add_error(InferenceError::BreakOutsideOfLoop {
+                        kind: error::BreakKind::Continue,
+                        found_expr: expr_id,
+                    });
+                }
+
+                Monotype::Never
+            }
             hir::Expr::Break { value } => {
                 let ty = if let Some(value) = value {
                     self.infer_expr(*value)
@@ -582,6 +591,7 @@ impl<'a> InferBody<'a> {
                 } else {
                     // 本来、HIR側で行った方がいいかも
                     self.unifier.add_error(InferenceError::BreakOutsideOfLoop {
+                        kind: error::BreakKind::Break,
                         found_expr: expr_id,
                     });
                 }

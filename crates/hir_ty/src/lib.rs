@@ -21,7 +21,9 @@ mod testing;
 
 pub use checker::{TypeCheckError, TypeCheckResult};
 pub use db::{HirTyMasterDatabase, Jar};
-pub use inference::{InferenceBodyResult, InferenceError, InferenceResult, Monotype, Signature};
+pub use inference::{
+    BreakKind, InferenceBodyResult, InferenceError, InferenceResult, Monotype, Signature,
+};
 pub use testing::TestingDatabase;
 
 /// HIRを元にTypedHIRを構築します。
@@ -103,7 +105,7 @@ mod tests {
         inference::{InferenceError, Monotype, Signature},
         lower_pods,
         testing::TestingDatabase,
-        HirTyMasterDatabase, TyLowerResult, TypeCheckError,
+        BreakKind, HirTyMasterDatabase, TyLowerResult, TypeCheckError,
     };
 
     fn check_pod_start_with_root_file(fixture: &str, expect: Expect) {
@@ -361,9 +363,13 @@ mod tests {
                                 self.debug_simplify_expr(hir_file, *found_expr),
                             ));
                         }
-                        InferenceError::BreakOutsideOfLoop { found_expr } => {
+                        InferenceError::BreakOutsideOfLoop { kind, found_expr } => {
+                            let kind_text = match kind {
+                                BreakKind::Break => "break",
+                                BreakKind::Continue => "continue",
+                            };
                             msg.push_str(&format!(
-                                "error BreakOutsideOfLoop: found_expr: `{}`",
+                                "error BreakOutsideOfLoop({kind_text}): found_expr: `{}`",
                                 self.debug_simplify_expr(hir_file, *found_expr),
                             ));
                         }
@@ -2104,8 +2110,60 @@ mod tests {
                 }
 
                 ---
-                error BreakOutsideOfLoop: found_expr: `break`
-                error BreakOutsideOfLoop: found_expr: `break 10`
+                error BreakOutsideOfLoop(break): found_expr: `break`
+                error BreakOutsideOfLoop(break): found_expr: `break 10`
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn continue_in_loop() {
+        check_in_root_file(
+            r#"
+                fn main() {
+                    loop {
+                        continue;
+                        continue;
+                    }
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    expr:loop {
+                        continue; //: !
+                        continue; //: !
+                    } //: !
+                }
+
+                ---
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn continue_outside_of_loop() {
+        check_in_root_file(
+            r#"
+                fn main() {
+                    loop {
+                    }
+
+                    continue;
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    loop {
+                    } //: !
+                    continue; //: !
+                }
+
+                ---
+                error BreakOutsideOfLoop(continue): found_expr: `continue`
                 ---
             "#]],
         );

@@ -2063,6 +2063,12 @@ mod tests {
                         }
 
                         break 20;
+
+                        fn f1() -> bool {
+                            loop {
+                                break true;
+                            }
+                        }
                     }
                 }
             "#,
@@ -2079,6 +2085,11 @@ mod tests {
                             break "bbb"; //: !
                         } //: string
                         break 20; //: !
+                        fn f1() -> bool {
+                            expr:loop {
+                                break true; //: !
+                            } //: bool
+                        }
                     } //: int
                 }
 

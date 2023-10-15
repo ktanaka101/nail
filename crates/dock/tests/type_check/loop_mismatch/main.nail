@@ -1,0 +1,18 @@
+fn main() {
+  loop {
+    break 10;
+  }
+}
+
+//---stdout
+//---stderr
+
+// Error: Mismatched type in return value
+//    ╭─[/{nail}/crates/dock/tests/type_check/loop_mismatch/main.nail:2:3]
+//    │
+//  2 │ ╭─▶   loop {
+//    ┆ ┆   
+//  4 │ ├─▶   }
+//    │ │         
+//    │ ╰───────── expected (), actual: int
+// ───╯

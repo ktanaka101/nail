@@ -1,0 +1,25 @@
+fn main() -> int {
+  loop {
+    break 10;
+    break "aaa";
+    break;
+  }
+}
+
+//---stdout
+//---stderr
+
+// Error: Mismatched type
+//    ╭─[/{nail}/crates/dock/tests/type_check/loop_break_mismatch/main.nail:4:5]
+//    │
+//  4 │     break "aaa";
+//    │     ─────┬─────  
+//    │          ╰─────── expected int, actual: string
+// ───╯
+// Error: Mismatched type
+//    ╭─[/{nail}/crates/dock/tests/type_check/loop_break_mismatch/main.nail:5:5]
+//    │
+//  5 │     break;
+//    │     ──┬──  
+//    │       ╰──── expected int, actual: ()
+// ───╯

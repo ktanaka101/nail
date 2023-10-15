@@ -201,4 +201,14 @@ mod tests {
     async fn mod_project() {
         check("mod_project").await;
     }
+
+    #[tokio::test]
+    async fn loop_break_mismatch() {
+        check("loop_break_mismatch").await;
+    }
+
+    #[tokio::test]
+    async fn loop_mismatch() {
+        check("loop_mismatch").await;
+    }
 }

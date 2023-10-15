@@ -7,7 +7,7 @@ mod types;
 use std::collections::HashMap;
 
 use environment::Environment;
-pub use error::InferenceError;
+pub use error::{BreakKind, InferenceError};
 use indexmap::IndexMap;
 pub use type_scheme::TypeScheme;
 pub use types::Monotype;
@@ -82,6 +82,25 @@ pub struct Signature {
     pub return_type: Monotype,
 }
 
+/// continue/breakのコンテキスト
+struct BreakableContext {
+    /// 最初にbreakした式の型
+    ///
+    /// 1回目のbreak, 2回目のbreakで型が同じ必要があるため、、出現した型を保持します。
+    first_break_ty: Option<Monotype>,
+}
+impl BreakableContext {
+    fn new() -> Self {
+        BreakableContext {
+            first_break_ty: None,
+        }
+    }
+
+    fn set_final_ty(&mut self, ty: Monotype) {
+        self.first_break_ty = Some(ty);
+    }
+}
+
 /// 関数内を型推論します。
 pub(crate) struct InferBody<'a> {
     db: &'a dyn HirTyMasterDatabase,
@@ -102,6 +121,12 @@ pub(crate) struct InferBody<'a> {
 
     /// 推論結果の式の型を記録するためのマップ
     type_by_expr: HashMap<hir::ExprId, Monotype>,
+
+    /// continue/break可能なコンテキストのスタック
+    ///
+    /// loopのスコープを入れ子にするために使用しています。
+    /// loopのスコープに入る時にpushし、スコープから抜ける時はpopします。
+    breakable_stack: Vec<BreakableContext>,
 }
 impl<'a> InferBody<'a> {
     pub(crate) fn new(
@@ -124,6 +149,8 @@ impl<'a> InferBody<'a> {
             env_stack: vec![env],
             signature_by_function,
             type_by_expr: HashMap::new(),
+
+            breakable_stack: vec![],
         }
     }
 
@@ -503,13 +530,76 @@ impl<'a> InferBody<'a> {
                 Monotype::Never
             }
             hir::Expr::Loop { block } => {
-                self.infer_expr(*block);
+                self.entry_breakable();
 
-                // TODO: まだbreakがないので、Neverとして扱う
+                let block_ty = self.infer_expr(*block);
+                // loopのブロックはbreakの指定値が評価値なのでUnitが期待する型となる
+                self.unifier.unify(
+                    &Monotype::Unit,
+                    &block_ty,
+                    &UnifyPurpose::MismatchedType {
+                        expected_ty: Monotype::Unit,
+                        found_ty: block_ty.clone(),
+                        found_expr: *block,
+                    },
+                );
+
+                let loop_ty = self.current_breakable().unwrap().first_break_ty.clone();
+
+                self.exit_scope();
+                self.exit_breakable();
+
+                if let Some(loop_ty) = loop_ty {
+                    loop_ty
+                } else {
+                    // breakがない場合は無限ループなので Never として扱う
+                    Monotype::Never
+                }
+            }
+            hir::Expr::Continue => {
+                if self.current_breakable().is_none() {
+                    self.unifier.add_error(InferenceError::BreakOutsideOfLoop {
+                        kind: error::BreakKind::Continue,
+                        found_expr: expr_id,
+                    });
+                }
+
                 Monotype::Never
             }
-            hir::Expr::Continue => todo!(),
-            hir::Expr::Break { .. } => todo!(),
+            hir::Expr::Break { value } => {
+                let ty = if let Some(value) = value {
+                    self.infer_expr(*value)
+                } else {
+                    // 何も指定しない場合は Unit を返すものとして扱う
+                    Monotype::Unit
+                };
+
+                if let Some(breakable) = self.mut_current_breakable() {
+                    if let Some(break_ty) = breakable.first_break_ty.clone() {
+                        // 2回目以降のbreakの型が最初に現れたbreakの型と異なる場合はエラーとする
+                        self.unifier.unify(
+                            &break_ty,
+                            &ty,
+                            &UnifyPurpose::MismatchedType {
+                                expected_ty: break_ty.clone(),
+                                found_ty: ty.clone(),
+                                found_expr: expr_id,
+                            },
+                        );
+                    } else {
+                        // 最初に現れたbreakの型を記録する
+                        breakable.set_final_ty(ty);
+                    }
+                } else {
+                    // 本来、HIR側で行った方がいいかも
+                    self.unifier.add_error(InferenceError::BreakOutsideOfLoop {
+                        kind: error::BreakKind::Break,
+                        found_expr: expr_id,
+                    });
+                }
+
+                Monotype::Never
+            }
         };
 
         self.type_by_expr.insert(expr_id, ty.clone());
@@ -532,6 +622,24 @@ impl<'a> InferBody<'a> {
 
     fn current_scope(&self) -> &Environment {
         self.env_stack.last().unwrap()
+    }
+
+    /// continue/break可能なコンテキストを追加します。
+    fn entry_breakable(&mut self) {
+        self.breakable_stack.push(BreakableContext::new());
+    }
+
+    /// continue/break可能なコンテキストを取り出します。
+    fn exit_breakable(&mut self) {
+        self.breakable_stack.pop();
+    }
+
+    fn mut_current_breakable(&mut self) -> Option<&mut BreakableContext> {
+        self.breakable_stack.last_mut()
+    }
+
+    fn current_breakable(&self) -> Option<&BreakableContext> {
+        self.breakable_stack.last()
     }
 }
 

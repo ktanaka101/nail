@@ -75,6 +75,14 @@ pub(crate) enum UnifyPurpose {
         /// Noneの場合はブロック最後の式がないことを表します
         found_value: Option<hir::ExprId>,
     },
+    MismatchedType {
+        /// 期待する型
+        expected_ty: Monotype,
+        /// 実際の型
+        found_ty: Monotype,
+        /// 実際の式
+        found_expr: hir::ExprId,
+    },
 }
 
 /// 型の不一致を表すエラーを生成します。
@@ -160,6 +168,15 @@ fn build_unify_error_from_unify_purpose(
             found_last_expr: *found_value,
             expected_signature: *expected_signature,
             expected_function: *expected_function,
+        },
+        UnifyPurpose::MismatchedType {
+            expected_ty,
+            found_ty,
+            found_expr,
+        } => InferenceError::MismatchedType {
+            expected_ty: expected_ty.clone(),
+            found_ty: found_ty.clone(),
+            found_expr: *found_expr,
         },
     }
 }

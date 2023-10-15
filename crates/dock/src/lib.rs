@@ -536,6 +536,42 @@ impl Diagnostic {
                     }],
                 }
             }
+            InferenceError::MismatchedType {
+                expected_ty,
+                found_ty,
+                found_expr,
+            } => {
+                let text_range = found_expr.text_range(db, source_map);
+                let expected_ty = type_to_string(db, expected_ty);
+                let found_ty = type_to_string(db, found_ty);
+
+                Diagnostic {
+                    file,
+                    title: "Mismatched type".to_string(),
+                    head_offset: text_range.start().into(),
+                    messages: vec![Message {
+                        message: format!("expected {expected_ty}, actual: {found_ty}"),
+                        range: (text_range.start().into())..(text_range.end().into()),
+                    }],
+                }
+            }
+            InferenceError::BreakOutsideOfLoop { kind, found_expr } => {
+                let text_range = found_expr.text_range(db, source_map);
+                let kind_text = match kind {
+                    hir_ty::BreakKind::Break => "Break",
+                    hir_ty::BreakKind::Continue => "Continue",
+                };
+
+                Diagnostic {
+                    file,
+                    title: format!("{kind_text} outside of loop"),
+                    head_offset: text_range.start().into(),
+                    messages: vec![Message {
+                        message: "expected in <loop>".to_string(),
+                        range: (text_range.start().into())..(text_range.end().into()),
+                    }],
+                }
+            }
         }
     }
 }

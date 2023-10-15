@@ -21,7 +21,9 @@ mod testing;
 
 pub use checker::{TypeCheckError, TypeCheckResult};
 pub use db::{HirTyMasterDatabase, Jar};
-pub use inference::{InferenceBodyResult, InferenceError, InferenceResult, Monotype, Signature};
+pub use inference::{
+    BreakKind, InferenceBodyResult, InferenceError, InferenceResult, Monotype, Signature,
+};
 pub use testing::TestingDatabase;
 
 /// HIRを元にTypedHIRを構築します。
@@ -103,7 +105,7 @@ mod tests {
         inference::{InferenceError, Monotype, Signature},
         lower_pods,
         testing::TestingDatabase,
-        HirTyMasterDatabase, TyLowerResult, TypeCheckError,
+        BreakKind, HirTyMasterDatabase, TyLowerResult, TypeCheckError,
     };
 
     fn check_pod_start_with_root_file(fixture: &str, expect: Expect) {
@@ -346,6 +348,29 @@ mod tests {
                             msg.push_str(&format!(
                                 "error ModuleAsExpr: found_module: {}",
                                 found_module.name(self.db).text(self.db)
+                            ));
+                        }
+                        InferenceError::MismatchedType {
+                            expected_ty,
+                            found_ty,
+                            found_expr,
+                        } => {
+                            msg.push_str(
+                                &format!(
+                                "error MismatchedType: expected_ty: {}, found_ty: {}, found_expr: `{}`",
+                                self.debug_monotype(expected_ty),
+                                self.debug_monotype(found_ty),
+                                self.debug_simplify_expr(hir_file, *found_expr),
+                            ));
+                        }
+                        InferenceError::BreakOutsideOfLoop { kind, found_expr } => {
+                            let kind_text = match kind {
+                                BreakKind::Break => "break",
+                                BreakKind::Continue => "continue",
+                            };
+                            msg.push_str(&format!(
+                                "error BreakOutsideOfLoop({kind_text}): found_expr: `{}`",
+                                self.debug_simplify_expr(hir_file, *found_expr),
                             ));
                         }
                     }
@@ -675,8 +700,18 @@ mod tests {
 
                     msg
                 }
-                hir::Expr::Continue => todo!(),
-                hir::Expr::Break { .. } => todo!(),
+                hir::Expr::Continue => "continue".to_string(),
+                hir::Expr::Break { value } => {
+                    let mut msg = "break".to_string();
+                    if let Some(value) = value {
+                        msg.push_str(&format!(
+                            " {}",
+                            &self.debug_expr(hir_file, function, *value, nesting,)
+                        ));
+                    }
+
+                    msg
+                }
                 hir::Expr::Missing => "<missing>".to_string(),
             }
         }
@@ -770,8 +805,18 @@ mod tests {
 
                     msg
                 }
-                hir::Expr::Continue => todo!(),
-                hir::Expr::Break { .. } => todo!(),
+                hir::Expr::Continue => "continue".to_string(),
+                hir::Expr::Break { value } => {
+                    let mut msg = "break".to_string();
+                    if let Some(value) = value {
+                        msg.push_str(&format!(
+                            " {}",
+                            &self.debug_simplify_expr(hir_file, *value,)
+                        ));
+                    }
+
+                    msg
+                }
                 hir::Expr::Missing => "<missing>".to_string(),
             }
         }
@@ -1912,6 +1957,224 @@ mod tests {
                 }
 
                 ---
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn infer_break_no_expr() {
+        check_in_root_file(
+            r#"
+                fn main() {
+                    loop {
+                        break;
+                        break;
+                    }
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    expr:loop {
+                        break; //: !
+                        break; //: !
+                    } //: ()
+                }
+
+                ---
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn infer_break_expr() {
+        check_in_root_file(
+            r#"
+                fn main() -> int {
+                    loop {
+                        break 10;
+                        break 20;
+                    }
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> int {
+                    expr:loop {
+                        break 10; //: !
+                        break 20; //: !
+                    } //: int
+                }
+
+                ---
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn infer_break_expr_mismatched_type() {
+        check_in_root_file(
+            r#"
+                fn main() -> int {
+                    loop {
+                        break 10;
+                        break "aaa";
+                        break;
+                    }
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> int {
+                    expr:loop {
+                        break 10; //: !
+                        break "aaa"; //: !
+                        break; //: !
+                    } //: int
+                }
+
+                ---
+                error MismatchedType: expected_ty: int, found_ty: string, found_expr: `break "aaa"`
+                error MismatchedType: expected_ty: int, found_ty: (), found_expr: `break`
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn infer_break_in_nested_loop() {
+        check_in_root_file(
+            r#"
+                fn main() -> int {
+                    loop {
+                        break 10;
+
+                        loop {
+                            break "aaa";
+
+                            loop {
+                                break;
+                            }
+
+                            break "bbb";
+                        }
+
+                        break 20;
+
+                        fn f1() -> bool {
+                            loop {
+                                break true;
+                            }
+                        }
+                    }
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> int {
+                    expr:loop {
+                        break 10; //: !
+                        loop {
+                            break "aaa"; //: !
+                            loop {
+                                break; //: !
+                            } //: ()
+                            break "bbb"; //: !
+                        } //: string
+                        break 20; //: !
+                        fn f1() -> bool {
+                            expr:loop {
+                                break true; //: !
+                            } //: bool
+                        }
+                    } //: int
+                }
+
+                ---
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn break_outside_of_loop() {
+        check_in_root_file(
+            r#"
+                fn main() {
+                    loop {
+                    }
+
+                    break;
+                    break 10;
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    loop {
+                    } //: !
+                    break; //: !
+                    break 10; //: !
+                }
+
+                ---
+                error BreakOutsideOfLoop(break): found_expr: `break`
+                error BreakOutsideOfLoop(break): found_expr: `break 10`
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn continue_in_loop() {
+        check_in_root_file(
+            r#"
+                fn main() {
+                    loop {
+                        continue;
+                        continue;
+                    }
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    expr:loop {
+                        continue; //: !
+                        continue; //: !
+                    } //: !
+                }
+
+                ---
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn continue_outside_of_loop() {
+        check_in_root_file(
+            r#"
+                fn main() {
+                    loop {
+                    }
+
+                    continue;
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    loop {
+                    } //: !
+                    continue; //: !
+                }
+
+                ---
+                error BreakOutsideOfLoop(continue): found_expr: `continue`
                 ---
             "#]],
         );

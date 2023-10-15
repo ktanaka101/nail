@@ -152,8 +152,12 @@ impl<'a> FunctionTypeChecker<'a> {
             hir::Expr::Loop { block } => {
                 self.check_expr(*block);
             }
-            hir::Expr::Continue => todo!(),
-            hir::Expr::Break { .. } => todo!(),
+            hir::Expr::Continue => (),
+            hir::Expr::Break { value } => {
+                if let Some(value) = value {
+                    self.check_expr(*value);
+                }
+            }
             hir::Expr::Missing => (),
         };
     }

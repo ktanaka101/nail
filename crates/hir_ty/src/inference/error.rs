@@ -127,4 +127,13 @@ pub enum InferenceError {
         /// 実際の式
         found_expr: hir::ExprId,
     },
+    /// 型が一致しない
+    MismatchedType {
+        /// 期待される型
+        expected_ty: Monotype,
+        /// 実際の型
+        found_ty: Monotype,
+        /// 実際の式
+        found_expr: Option<hir::ExprId>,
+    },
 }

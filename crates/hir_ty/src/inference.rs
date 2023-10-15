@@ -84,18 +84,20 @@ pub struct Signature {
 
 /// continue/breakのコンテキスト
 struct BreakableContext {
-    /// 最後にbreakした式の型
+    /// 最初にbreakした式の型
     ///
     /// 1回目のbreak, 2回目のbreakで型が同じ必要があるため、、出現した型を保持します。
-    final_ty: Option<Monotype>,
+    first_break_ty: Option<Monotype>,
 }
 impl BreakableContext {
     fn new() -> Self {
-        BreakableContext { final_ty: None }
+        BreakableContext {
+            first_break_ty: None,
+        }
     }
 
     fn set_final_ty(&mut self, ty: Monotype) {
-        self.final_ty = Some(ty);
+        self.first_break_ty = Some(ty);
     }
 }
 
@@ -542,7 +544,7 @@ impl<'a> InferBody<'a> {
                     },
                 );
 
-                let loop_ty = self.current_breakable().unwrap().final_ty.clone();
+                let loop_ty = self.current_breakable().unwrap().first_break_ty.clone();
 
                 self.exit_scope();
                 self.exit_breakable();
@@ -573,7 +575,7 @@ impl<'a> InferBody<'a> {
                 };
 
                 if let Some(breakable) = self.mut_current_breakable() {
-                    if let Some(break_ty) = breakable.final_ty.clone() {
+                    if let Some(break_ty) = breakable.first_break_ty.clone() {
                         // 2回目以降のbreakの型が最初に現れたbreakの型と異なる場合はエラーとする
                         self.unifier.unify(
                             &break_ty,

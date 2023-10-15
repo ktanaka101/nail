@@ -81,7 +81,7 @@ pub(crate) enum UnifyPurpose {
         /// 実際の型
         found_ty: Monotype,
         /// 実際の式
-        found_expr: Option<hir::ExprId>,
+        found_expr: hir::ExprId,
     },
 }
 

@@ -353,21 +353,13 @@ mod tests {
                             found_ty,
                             found_expr,
                         } => {
-                            if let Some(found_expr) = found_expr {
-                                msg.push_str(
+                            msg.push_str(
                                 &format!(
-                                    "error MismatchedType: expected_ty: {}, found_ty: {}, found_expr: `{}`",
-                                    self.debug_monotype(expected_ty),
-                                    self.debug_monotype(found_ty),
-                                    self.debug_simplify_expr(hir_file, *found_expr),
-                                ));
-                            } else {
-                                msg.push_str(&format!(
-                                    "error MismatchedType: expected_ty: {}, found_ty: {}",
-                                    self.debug_monotype(expected_ty),
-                                    self.debug_monotype(found_ty),
-                                ));
-                            }
+                                "error MismatchedType: expected_ty: {}, found_ty: {}, found_expr: `{}`",
+                                self.debug_monotype(expected_ty),
+                                self.debug_monotype(found_ty),
+                                self.debug_simplify_expr(hir_file, *found_expr),
+                            ));
                         }
                     }
                     msg.push('\n');
@@ -2033,8 +2025,8 @@ mod tests {
                 }
 
                 ---
-                error MismatchedType: expected_ty: int, found_ty: string, found_expr: `"aaa"`
-                error MismatchedType: expected_ty: int, found_ty: ()
+                error MismatchedType: expected_ty: int, found_ty: string, found_expr: `break "aaa"`
+                error MismatchedType: expected_ty: int, found_ty: (), found_expr: `break`
                 ---
             "#]],
         );

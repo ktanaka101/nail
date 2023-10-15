@@ -538,7 +538,7 @@ impl<'a> InferBody<'a> {
                     &UnifyPurpose::MismatchedType {
                         expected_ty: Monotype::Unit,
                         found_ty: block_ty.clone(),
-                        found_expr: Some(*block),
+                        found_expr: *block,
                     },
                 );
 
@@ -570,7 +570,7 @@ impl<'a> InferBody<'a> {
                         &UnifyPurpose::MismatchedType {
                             expected_ty: break_ty.clone(),
                             found_ty: ty.clone(),
-                            found_expr: *value,
+                            found_expr: expr_id,
                         },
                     );
                 } else {

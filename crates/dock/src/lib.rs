@@ -555,6 +555,19 @@ impl Diagnostic {
                     }],
                 }
             }
+            InferenceError::BreakOutsideOfLoop { found_expr } => {
+                let text_range = found_expr.text_range(db, source_map);
+
+                Diagnostic {
+                    file,
+                    title: "Break outside of loop".to_string(),
+                    head_offset: text_range.start().into(),
+                    messages: vec![Message {
+                        message: "expected in <loop>".to_string(),
+                        range: (text_range.start().into())..(text_range.end().into()),
+                    }],
+                }
+            }
         }
     }
 }

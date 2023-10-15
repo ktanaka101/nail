@@ -211,4 +211,9 @@ mod tests {
     async fn loop_mismatch() {
         check("loop_mismatch").await;
     }
+
+    #[tokio::test]
+    async fn break_outside_of_loop() {
+        check("break_outside_of_loop").await;
+    }
 }

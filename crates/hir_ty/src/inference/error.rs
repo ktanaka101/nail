@@ -136,4 +136,8 @@ pub enum InferenceError {
         /// 実際の式
         found_expr: hir::ExprId,
     },
+    BreakOutsideOfLoop {
+        /// 実際の式
+        found_expr: hir::ExprId,
+    },
 }

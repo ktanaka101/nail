@@ -1,0 +1,16 @@
+fn main() {
+  loop {
+  }
+  break;
+}
+
+//---stdout
+//---stderr
+
+// Error: Break outside of loop
+//    ╭─[/{nail}/crates/dock/tests/type_check/break_outside_of_loop/main.nail:4:3]
+//    │
+//  4 │   break;
+//    │   ──┬──  
+//    │     ╰──── expected in <loop>
+// ───╯

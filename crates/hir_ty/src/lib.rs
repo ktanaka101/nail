@@ -361,6 +361,12 @@ mod tests {
                                 self.debug_simplify_expr(hir_file, *found_expr),
                             ));
                         }
+                        InferenceError::BreakOutsideOfLoop { found_expr } => {
+                            msg.push_str(&format!(
+                                "error BreakOutsideOfLoop: found_expr: `{}`",
+                                self.debug_simplify_expr(hir_file, *found_expr),
+                            ));
+                        }
                     }
                     msg.push('\n');
                 }
@@ -2071,6 +2077,35 @@ mod tests {
                 }
 
                 ---
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn break_outside_of_loop() {
+        check_in_root_file(
+            r#"
+                fn main() {
+                    loop {
+                    }
+
+                    break;
+                    break 10;
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    loop {
+                    } //: !
+                    break; //: !
+                    break 10; //: !
+                }
+
+                ---
+                error BreakOutsideOfLoop: found_expr: `break`
+                error BreakOutsideOfLoop: found_expr: `break 10`
                 ---
             "#]],
         );

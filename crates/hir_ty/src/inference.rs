@@ -542,7 +542,7 @@ impl<'a> InferBody<'a> {
                     },
                 );
 
-                let loop_ty = self.current_breakable().final_ty.clone();
+                let loop_ty = self.current_breakable().unwrap().final_ty.clone();
 
                 self.exit_scope();
                 self.exit_breakable();
@@ -562,20 +562,28 @@ impl<'a> InferBody<'a> {
                     // 何も指定しない場合は Unit を返すものとして扱う
                     Monotype::Unit
                 };
-                if let Some(break_ty) = self.current_breakable().final_ty.clone() {
-                    // 2回目以降のbreakの型が最初に現れたbreakの型と異なる場合はエラーとする
-                    self.unifier.unify(
-                        &break_ty,
-                        &ty,
-                        &UnifyPurpose::MismatchedType {
-                            expected_ty: break_ty.clone(),
-                            found_ty: ty.clone(),
-                            found_expr: expr_id,
-                        },
-                    );
+
+                if let Some(breakable) = self.mut_current_breakable() {
+                    if let Some(break_ty) = breakable.final_ty.clone() {
+                        // 2回目以降のbreakの型が最初に現れたbreakの型と異なる場合はエラーとする
+                        self.unifier.unify(
+                            &break_ty,
+                            &ty,
+                            &UnifyPurpose::MismatchedType {
+                                expected_ty: break_ty.clone(),
+                                found_ty: ty.clone(),
+                                found_expr: expr_id,
+                            },
+                        );
+                    } else {
+                        // 最初に現れたbreakの型を記録する
+                        breakable.set_final_ty(ty);
+                    }
                 } else {
-                    // 最初に現れたbreakの型を記録する
-                    self.mut_current_breakable().set_final_ty(ty);
+                    // 本来、HIR側で行った方がいいかも
+                    self.unifier.add_error(InferenceError::BreakOutsideOfLoop {
+                        found_expr: expr_id,
+                    });
                 }
 
                 Monotype::Never
@@ -614,12 +622,12 @@ impl<'a> InferBody<'a> {
         self.breakable_stack.pop();
     }
 
-    fn mut_current_breakable(&mut self) -> &mut BreakableContext {
-        self.breakable_stack.last_mut().unwrap()
+    fn mut_current_breakable(&mut self) -> Option<&mut BreakableContext> {
+        self.breakable_stack.last_mut()
     }
 
-    fn current_breakable(&self) -> &BreakableContext {
-        self.breakable_stack.last().unwrap()
+    fn current_breakable(&self) -> Option<&BreakableContext> {
+        self.breakable_stack.last()
     }
 }
 

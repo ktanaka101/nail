@@ -7,6 +7,12 @@ use crate::{
     LoweredStmt, Operand, Param, Place, Statement, Termination, UnaryOp, Value,
 };
 
+struct BreakContext {
+    continue_dest_block: Idx<BasicBlock>,
+    break_dest_block: Idx<BasicBlock>,
+    break_value: Idx<Local>,
+}
+
 pub(crate) struct FunctionLower<'a> {
     db: &'a dyn hir_ty::HirTyMasterDatabase,
     resolution_map: &'a hir::ResolutionMap,
@@ -27,6 +33,8 @@ pub(crate) struct FunctionLower<'a> {
     block_idx: u64,
     local_by_hir: HashMap<hir::ExprId, Idx<Local>>,
     exit_bb_idx: Option<Idx<BasicBlock>>,
+
+    break_context_stack: Vec<BreakContext>,
 }
 
 impl<'a> FunctionLower<'a> {
@@ -63,6 +71,7 @@ impl<'a> FunctionLower<'a> {
             block_idx: 0,
             local_by_hir: HashMap::new(),
             exit_bb_idx: None,
+            break_context_stack: vec![],
         }
     }
 
@@ -169,6 +178,12 @@ impl<'a> FunctionLower<'a> {
         self.blocks.alloc(dest_bb)
     }
 
+    fn alloc_loop_bb(&mut self) -> Idx<BasicBlock> {
+        let dest_bb = BasicBlock::new_loop_bb(self.block_idx);
+        self.block_idx += 1;
+        self.blocks.alloc(dest_bb)
+    }
+
     fn lower_expr(&mut self, expr_id: hir::ExprId) -> LoweredExpr {
         let expr = expr_id.lookup(self.hir_file.db(self.db));
         match expr {
@@ -197,6 +212,7 @@ impl<'a> FunctionLower<'a> {
                 if let Some(value) = value {
                     let operand = match self.lower_expr(*value) {
                         LoweredExpr::Operand(operand) => operand,
+                        LoweredExpr::Break => return LoweredExpr::Break,
                         LoweredExpr::Return => return LoweredExpr::Return,
                     };
                     let return_value_place = Place::Local(self.return_local);
@@ -216,11 +232,18 @@ impl<'a> FunctionLower<'a> {
                 then_branch,
                 else_branch,
             } => {
+                enum ControlKind {
+                    Return,
+                    Break,
+                    None,
+                }
+
                 let cond_local_idx = {
                     let cond_local_idx = self.alloc_local(*condition);
                     let cond_operand = match self.lower_expr(*condition) {
                         LoweredExpr::Operand(operand) => operand,
                         LoweredExpr::Return => return LoweredExpr::Return,
+                        LoweredExpr::Break => return LoweredExpr::Break,
                     };
                     let place = Place::Local(cond_local_idx);
                     self.add_statement_to_current_bb(Statement::Assign {
@@ -240,7 +263,7 @@ impl<'a> FunctionLower<'a> {
                     else_bb: switch_bb.else_bb_idx,
                 });
 
-                let mut has_return_in_then_branch = false;
+                let mut control_in_then_branch = ControlKind::None;
                 {
                     self.current_bb = Some(switch_bb.then_bb_idx);
 
@@ -252,13 +275,17 @@ impl<'a> FunctionLower<'a> {
                     for stmt in &then_block.stmts {
                         match self.lower_stmt(stmt) {
                             LoweredStmt::Return => {
-                                has_return_in_then_branch = true;
+                                control_in_then_branch = ControlKind::Return;
+                                break;
+                            }
+                            LoweredStmt::Break => {
+                                control_in_then_branch = ControlKind::Break;
                                 break;
                             }
                             LoweredStmt::Unit => (),
                         }
                     }
-                    if !has_return_in_then_branch {
+                    if matches!(control_in_then_branch, ControlKind::None) {
                         if let Some(tail) = then_block.tail {
                             match self.lower_expr(tail) {
                                 LoweredExpr::Operand(operand) => {
@@ -271,6 +298,7 @@ impl<'a> FunctionLower<'a> {
                                     ));
                                 }
                                 LoweredExpr::Return => (),
+                                LoweredExpr::Break => (),
                             };
                         } else {
                             self.add_termination_to_current_bb(Termination::Goto(
@@ -280,7 +308,7 @@ impl<'a> FunctionLower<'a> {
                     }
                 }
 
-                let mut has_return_in_else_branch = false;
+                let mut control_in_else_branch = ControlKind::None;
                 {
                     self.current_bb = Some(switch_bb.else_bb_idx);
 
@@ -295,14 +323,18 @@ impl<'a> FunctionLower<'a> {
                             for stmt in &else_block.stmts {
                                 match self.lower_stmt(stmt) {
                                     LoweredStmt::Return => {
-                                        has_return_in_else_branch = true;
+                                        control_in_else_branch = ControlKind::Return;
+                                        break;
+                                    }
+                                    LoweredStmt::Break => {
+                                        control_in_else_branch = ControlKind::Break;
                                         break;
                                     }
                                     LoweredStmt::Unit => (),
                                 }
                             }
 
-                            if !has_return_in_else_branch {
+                            if matches!(control_in_else_branch, ControlKind::None) {
                                 if let Some(tail) = else_block.tail {
                                     match self.lower_expr(tail) {
                                         LoweredExpr::Operand(operand) => {
@@ -314,7 +346,7 @@ impl<'a> FunctionLower<'a> {
                                                 dest_bb_and_result_local_idx.0,
                                             ));
                                         }
-                                        LoweredExpr::Return => (),
+                                        LoweredExpr::Return | LoweredExpr::Break => (),
                                     };
                                 } else {
                                     self.add_termination_to_current_bb(Termination::Goto(
@@ -338,22 +370,28 @@ impl<'a> FunctionLower<'a> {
                 }
 
                 self.current_bb = Some(dest_bb_and_result_local_idx.0);
-                if has_return_in_then_branch && has_return_in_else_branch {
-                    LoweredExpr::Return
-                } else {
-                    LoweredExpr::Operand(Operand::Place(Place::Local(
-                        dest_bb_and_result_local_idx.1,
-                    )))
+                match (control_in_then_branch, control_in_else_branch) {
+                    (ControlKind::Return, ControlKind::Return) => LoweredExpr::Return,
+
+                    (ControlKind::Break, ControlKind::Break)
+                    | (ControlKind::Return, ControlKind::Break)
+                    | (ControlKind::Break, ControlKind::Return) => LoweredExpr::Break,
+
+                    (ControlKind::None, _) | (_, ControlKind::None) => LoweredExpr::Operand(
+                        Operand::Place(Place::Local(dest_bb_and_result_local_idx.1)),
+                    ),
                 }
             }
             hir::Expr::Binary { op, lhs, rhs } => {
                 let lhs = match self.lower_expr(*lhs) {
                     LoweredExpr::Return => return LoweredExpr::Return,
+                    LoweredExpr::Break => return LoweredExpr::Break,
                     LoweredExpr::Operand(operand) => operand,
                 };
 
                 let rhs = match self.lower_expr(*rhs) {
                     LoweredExpr::Return => return LoweredExpr::Return,
+                    LoweredExpr::Break => return LoweredExpr::Break,
                     LoweredExpr::Operand(operand) => operand,
                 };
 
@@ -381,6 +419,7 @@ impl<'a> FunctionLower<'a> {
             hir::Expr::Unary { op, expr } => {
                 let expr = match self.lower_expr(*expr) {
                     LoweredExpr::Return => return LoweredExpr::Return,
+                    LoweredExpr::Break => return LoweredExpr::Break,
                     LoweredExpr::Operand(operand) => operand,
                 };
                 let op = match op {
@@ -398,6 +437,7 @@ impl<'a> FunctionLower<'a> {
                 for stmt in &block.stmts {
                     match self.lower_stmt(stmt) {
                         LoweredStmt::Return => return LoweredExpr::Return,
+                        LoweredStmt::Break => return LoweredExpr::Break,
                         LoweredStmt::Unit => (),
                     }
                 }
@@ -413,6 +453,7 @@ impl<'a> FunctionLower<'a> {
                 for arg in args {
                     match self.lower_expr(*arg) {
                         LoweredExpr::Return => return LoweredExpr::Return,
+                        LoweredExpr::Break => return LoweredExpr::Break,
                         LoweredExpr::Operand(operand) => {
                             arg_operands.push(operand);
                         }
@@ -457,9 +498,73 @@ impl<'a> FunctionLower<'a> {
                     }
                 }
             }
-            hir::Expr::Loop { .. } => todo!(),
-            hir::Expr::Continue => todo!(),
-            hir::Expr::Break { .. } => todo!(),
+            hir::Expr::Loop { block } => {
+                let loop_block = self.alloc_loop_bb();
+                self.add_termination_to_current_bb(Termination::Goto(loop_block));
+                self.current_bb = Some(loop_block);
+
+                // break値の型を参照したいので、loop中のブロック式の型ではなくloop式自体の型を使う
+                let (break_dest_block, break_value) = self.alloc_dest_bb_and_result_local(expr_id);
+
+                self.enter_break_context(BreakContext {
+                    continue_dest_block: loop_block,
+                    break_dest_block,
+                    break_value,
+                });
+
+                let lowered = self.lower_expr(*block);
+                match lowered {
+                    LoweredExpr::Return => {
+                        self.exit_break_context();
+                        self.current_bb = Some(break_dest_block);
+                        LoweredExpr::Return
+                    }
+                    LoweredExpr::Break => {
+                        self.exit_break_context();
+                        self.current_bb = Some(break_dest_block);
+                        LoweredExpr::Operand(Operand::Place(Place::Local(break_value)))
+                    }
+                    LoweredExpr::Operand(_) => {
+                        self.add_termination_to_current_bb(Termination::Goto(loop_block));
+                        self.exit_break_context();
+                        self.current_bb = Some(break_dest_block);
+                        LoweredExpr::Operand(Operand::Constant(Constant::Unit))
+                    }
+                }
+            }
+            hir::Expr::Continue => {
+                self.add_termination_to_current_bb(Termination::Goto(
+                    self.current_break_context().continue_dest_block,
+                ));
+
+                LoweredExpr::Break
+            }
+            hir::Expr::Break { value } => {
+                if let Some(value) = value {
+                    let value = self.lower_expr(*value);
+                    match value {
+                        LoweredExpr::Return => return LoweredExpr::Return,
+                        LoweredExpr::Break => return LoweredExpr::Break,
+                        LoweredExpr::Operand(operand) => {
+                            self.add_statement_to_current_bb(Statement::Assign {
+                                place: Place::Local(self.current_break_context().break_value),
+                                value: Value::Operand(operand),
+                            });
+                        }
+                    }
+                } else {
+                    self.add_statement_to_current_bb(Statement::Assign {
+                        place: Place::Local(self.current_break_context().break_value),
+                        value: Value::Operand(Operand::Constant(Constant::Unit)),
+                    });
+                }
+
+                self.add_termination_to_current_bb(Termination::Goto(
+                    self.current_break_context().break_dest_block,
+                ));
+
+                LoweredExpr::Break
+            }
             hir::Expr::Missing => unreachable!(),
         }
     }
@@ -473,6 +578,7 @@ impl<'a> FunctionLower<'a> {
                     LoweredExpr::Return => {
                         return LoweredStmt::Return;
                     }
+                    LoweredExpr::Break => return LoweredStmt::Break,
                 };
                 self.add_statement_to_current_bb(Statement::Assign {
                     place: Place::Local(local_idx),
@@ -485,6 +591,7 @@ impl<'a> FunctionLower<'a> {
                     LoweredExpr::Return => {
                         return LoweredStmt::Return;
                     }
+                    LoweredExpr::Break => return LoweredStmt::Break,
                 };
             }
             hir::Stmt::Item { item } => match item {
@@ -544,6 +651,7 @@ impl<'a> FunctionLower<'a> {
                     has_return = true;
                     break;
                 }
+                LoweredStmt::Break => unreachable!(),
                 LoweredStmt::Unit => (),
             }
         }
@@ -559,6 +667,7 @@ impl<'a> FunctionLower<'a> {
                         self.add_termination_to_current_bb(Termination::Goto(exit_bb_idx));
                         self.current_bb = Some(exit_bb_idx);
                     }
+                    LoweredExpr::Break => unreachable!(),
                     LoweredExpr::Return => (),
                 };
             } else {
@@ -575,5 +684,18 @@ impl<'a> FunctionLower<'a> {
             locals: self.locals,
             blocks: self.blocks,
         }
+    }
+
+    fn enter_break_context(&mut self, break_context: BreakContext) {
+        self.break_context_stack.push(break_context);
+    }
+
+    fn exit_break_context(&mut self) {
+        assert!(!self.break_context_stack.is_empty());
+        self.break_context_stack.pop();
+    }
+
+    fn current_break_context(&self) -> &BreakContext {
+        self.break_context_stack.last().unwrap()
     }
 }

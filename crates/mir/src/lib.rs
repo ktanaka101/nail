@@ -230,6 +230,9 @@ impl BasicBlock {
             crate::BasicBlockKind::Else => {
                 format!("else{}", self.idx)
             }
+            crate::BasicBlockKind::Loop => {
+                format!("loop{}", self.idx)
+            }
         }
     }
 
@@ -263,6 +266,15 @@ impl BasicBlock {
     fn new_else_bb(idx: u64) -> Self {
         Self {
             kind: BasicBlockKind::Else,
+            statements: vec![],
+            termination: None,
+            idx,
+        }
+    }
+
+    fn new_loop_bb(idx: u64) -> Self {
+        Self {
+            kind: BasicBlockKind::Loop,
             statements: vec![],
             termination: None,
             idx,
@@ -369,12 +381,14 @@ impl From<Operand> for Value {
 #[derive(Debug)]
 enum LoweredExpr {
     Return,
+    Break,
     Operand(Operand),
 }
 
 #[derive(Debug)]
 enum LoweredStmt {
     Return,
+    Break,
     Unit,
 }
 
@@ -445,6 +459,8 @@ pub enum BasicBlockKind {
     Then,
     /// 条件分岐の偽の場合の基本ブロック
     Else,
+    /// ループの基本ブロック
+    Loop,
 }
 
 #[cfg(test)]
@@ -2058,7 +2074,7 @@ mod tests {
         check_in_root_file(
             r#"
                 fn main() {
-                   return;
+                    return;
                 }
             "#,
             expect![[r#"
@@ -2071,6 +2087,526 @@ mod tests {
 
                     exit: {
                         return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn infinite_loop() {
+        check_in_root_file(
+            r#"
+                fn main() {
+                    loop {
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn t_pod::main() -> () {
+                    let _0: ()
+                    let _1: !
+
+                    entry: {
+                        goto -> loop0
+                    }
+
+                    exit: {
+                        return _0
+                    }
+
+                    loop0: {
+                        goto -> loop0
+                    }
+
+                    bb1: {
+                        _0 = _1
+                        goto -> exit
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn break_in_loop() {
+        check_in_root_file(
+            r#"
+                fn main() {
+                    loop {
+                        break;
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn t_pod::main() -> () {
+                    let _0: ()
+                    let _1: ()
+
+                    entry: {
+                        goto -> loop0
+                    }
+
+                    exit: {
+                        return _0
+                    }
+
+                    loop0: {
+                        _1 = const ()
+                        goto -> bb1
+                    }
+
+                    bb1: {
+                        _0 = _1
+                        goto -> exit
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn break_with_expr_in_loop() {
+        check_in_root_file(
+            r#"
+                fn main() -> int {
+                    loop {
+                        break 10;
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn t_pod::main() -> int {
+                    let _0: int
+                    let _1: int
+
+                    entry: {
+                        goto -> loop0
+                    }
+
+                    exit: {
+                        return _0
+                    }
+
+                    loop0: {
+                        _1 = const 10
+                        goto -> bb1
+                    }
+
+                    bb1: {
+                        _0 = _1
+                        goto -> exit
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn break_in_if() {
+        check_in_root_file(
+            r#"
+                fn main() -> int {
+                    loop {
+                        if false {
+                            break 10;
+                        }
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn t_pod::main() -> int {
+                    let _0: int
+                    let _1: int
+                    let _2: bool
+                    let _3: !
+
+                    entry: {
+                        goto -> loop0
+                    }
+
+                    exit: {
+                        return _0
+                    }
+
+                    loop0: {
+                        _2 = const false
+                        switch(_2) -> [true: then0, false: else0]
+                    }
+
+                    bb1: {
+                        _0 = _1
+                        goto -> exit
+                    }
+
+                    bb2: {
+                        goto -> loop0
+                    }
+
+                    then0: {
+                        _1 = const 10
+                        goto -> bb1
+                    }
+
+                    else0: {
+                        _3 = const ()
+                        goto -> bb2
+                    }
+                }
+            "#]],
+        );
+
+        check_in_root_file(
+            r#"
+                fn main() {
+                    loop {
+                        if false {
+                            10;
+                        }
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn t_pod::main() -> () {
+                    let _0: ()
+                    let _1: !
+                    let _2: bool
+                    let _3: ()
+
+                    entry: {
+                        goto -> loop0
+                    }
+
+                    exit: {
+                        return _0
+                    }
+
+                    loop0: {
+                        _2 = const false
+                        switch(_2) -> [true: then0, false: else0]
+                    }
+
+                    bb1: {
+                        _0 = _1
+                        goto -> exit
+                    }
+
+                    bb2: {
+                        goto -> loop0
+                    }
+
+                    then0: {
+                        goto -> bb2
+                    }
+
+                    else0: {
+                        _3 = const ()
+                        goto -> bb2
+                    }
+                }
+            "#]],
+        );
+
+        check_in_root_file(
+            r#"
+                fn main() -> int {
+                    loop {
+                        if false {
+                            10
+                        } else {
+                            break 20;
+                        }
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn t_pod::main() -> int {
+                    let _0: int
+                    let _1: int
+                    let _2: bool
+                    let _3: int
+
+                    entry: {
+                        goto -> loop0
+                    }
+
+                    exit: {
+                        return _0
+                    }
+
+                    loop0: {
+                        _2 = const false
+                        switch(_2) -> [true: then0, false: else0]
+                    }
+
+                    bb1: {
+                        _0 = _1
+                        goto -> exit
+                    }
+
+                    bb2: {
+                        goto -> loop0
+                    }
+
+                    then0: {
+                        _3 = const 10
+                        goto -> bb2
+                    }
+
+                    else0: {
+                        _1 = const 20
+                        goto -> bb1
+                    }
+                }
+            "#]],
+        );
+
+        check_in_root_file(
+            r#"
+                fn main() -> int {
+                    loop {
+                        if false {
+                            break 10;
+                        } else {
+                            20
+                        }
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn t_pod::main() -> int {
+                    let _0: int
+                    let _1: int
+                    let _2: bool
+                    let _3: int
+
+                    entry: {
+                        goto -> loop0
+                    }
+
+                    exit: {
+                        return _0
+                    }
+
+                    loop0: {
+                        _2 = const false
+                        switch(_2) -> [true: then0, false: else0]
+                    }
+
+                    bb1: {
+                        _0 = _1
+                        goto -> exit
+                    }
+
+                    bb2: {
+                        goto -> loop0
+                    }
+
+                    then0: {
+                        _1 = const 10
+                        goto -> bb1
+                    }
+
+                    else0: {
+                        _3 = const 20
+                        goto -> bb2
+                    }
+                }
+            "#]],
+        );
+
+        check_in_root_file(
+            r#"
+                fn main() -> int {
+                    loop {
+                        if false {
+                            break 10;
+                        } else {
+                            break 20;
+                        }
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn t_pod::main() -> int {
+                    let _0: int
+                    let _1: int
+                    let _2: bool
+                    let _3: !
+
+                    entry: {
+                        goto -> loop0
+                    }
+
+                    exit: {
+                        return _0
+                    }
+
+                    loop0: {
+                        _2 = const false
+                        switch(_2) -> [true: then0, false: else0]
+                    }
+
+                    bb1: {
+                        _0 = _1
+                        goto -> exit
+                    }
+
+                    bb2: {
+                    }
+
+                    then0: {
+                        _1 = const 10
+                        goto -> bb1
+                    }
+
+                    else0: {
+                        _1 = const 20
+                        goto -> bb1
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn break_and_return_in_if() {
+        check_in_root_file(
+            r#"
+                fn main() -> int {
+                    loop {
+                        if false {
+                            return 10;
+                        } else {
+                            break 20;
+                        }
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn t_pod::main() -> int {
+                    let _0: int
+                    let _1: int
+                    let _2: bool
+                    let _3: !
+
+                    entry: {
+                        goto -> loop0
+                    }
+
+                    exit: {
+                        return _0
+                    }
+
+                    loop0: {
+                        _2 = const false
+                        switch(_2) -> [true: then0, false: else0]
+                    }
+
+                    bb1: {
+                        _0 = _1
+                        goto -> exit
+                    }
+
+                    bb2: {
+                    }
+
+                    then0: {
+                        _0 = const 10
+                        goto -> exit
+                    }
+
+                    else0: {
+                        _1 = const 20
+                        goto -> bb1
+                    }
+                }
+            "#]],
+        );
+
+        check_in_root_file(
+            r#"
+                fn main() -> int {
+                    loop {
+                        if false {
+                            break 10;
+                        } else {
+                            return 20;
+                        }
+                    }
+                }            "#,
+            expect![[r#"
+                fn t_pod::main() -> int {
+                    let _0: int
+                    let _1: int
+                    let _2: bool
+                    let _3: !
+
+                    entry: {
+                        goto -> loop0
+                    }
+
+                    exit: {
+                        return _0
+                    }
+
+                    loop0: {
+                        _2 = const false
+                        switch(_2) -> [true: then0, false: else0]
+                    }
+
+                    bb1: {
+                        _0 = _1
+                        goto -> exit
+                    }
+
+                    bb2: {
+                    }
+
+                    then0: {
+                        _1 = const 10
+                        goto -> bb1
+                    }
+
+                    else0: {
+                        _0 = const 20
+                        goto -> exit
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn continue_in_loop() {
+        check_in_root_file(
+            r#"
+                fn main() -> int {
+                    loop {
+                        continue;
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn t_pod::main() -> int {
+                    let _0: int
+                    let _1: !
+
+                    entry: {
+                        goto -> loop0
+                    }
+
+                    exit: {
+                        return _0
+                    }
+
+                    loop0: {
+                        goto -> loop0
+                    }
+
+                    bb1: {
+                        _0 = _1
+                        goto -> exit
                     }
                 }
             "#]],

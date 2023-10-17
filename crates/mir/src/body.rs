@@ -297,8 +297,12 @@ impl<'a> FunctionLower<'a> {
                                         dest_bb_and_result_local_idx.0,
                                     ));
                                 }
-                                LoweredExpr::Return => (),
-                                LoweredExpr::Break => (),
+                                LoweredExpr::Return => {
+                                    control_in_then_branch = ControlKind::Return;
+                                }
+                                LoweredExpr::Break => {
+                                    control_in_then_branch = ControlKind::Break;
+                                }
                             };
                         } else {
                             self.add_termination_to_current_bb(Termination::Goto(
@@ -346,7 +350,12 @@ impl<'a> FunctionLower<'a> {
                                                 dest_bb_and_result_local_idx.0,
                                             ));
                                         }
-                                        LoweredExpr::Return | LoweredExpr::Break => (),
+                                        LoweredExpr::Return => {
+                                            control_in_then_branch = ControlKind::Return;
+                                        }
+                                        LoweredExpr::Break => {
+                                            control_in_then_branch = ControlKind::Break;
+                                        }
                                     };
                                 } else {
                                     self.add_termination_to_current_bb(Termination::Goto(
@@ -528,7 +537,7 @@ impl<'a> FunctionLower<'a> {
                         self.add_termination_to_current_bb(Termination::Goto(loop_block));
                         self.exit_break_context();
                         self.current_bb = Some(break_dest_block);
-                        LoweredExpr::Operand(Operand::Constant(Constant::Unit))
+                        LoweredExpr::Operand(Operand::Place(Place::Local(break_value)))
                     }
                 }
             }

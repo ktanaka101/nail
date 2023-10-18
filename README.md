@@ -172,21 +172,21 @@ Implemented = ✅, Partially Implemented = 🚧, Not Implemented = ❌
           // statements
       }
       ```
-    - ❌ loop
+    - ✅ loop
       ```rust
       loop {
           // statements
       }
       ```
     - Jumps (break, continue, return, etc.)
-      - ❌ break
+      - ✅ break
         Exits the current loop context.
         ```rust
         loop {
             break;
         }
         ```
-      - ❌ continue
+      - ✅ continue
         Preserves the current loop context and skips the processing after continue, proceeding to the next iteration.
         ```rust
         loop {

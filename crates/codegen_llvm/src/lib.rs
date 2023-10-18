@@ -1626,6 +1626,150 @@ mod tests {
     }
 
     #[test]
+    fn test_loop() {
+        check_result_in_root_file(
+            r#"
+                fn main() -> bool {
+                    loop {
+                        break true;
+                    }
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "Boolean",
+                  "value": true
+                }
+            "#]],
+        );
+
+        check_result_in_root_file(
+            r#"
+                fn main() -> int {
+                    loop {
+                        break 10;
+                    }
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 10
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_loop_break_in_if() {
+        check_result_in_root_file(
+            r#"
+                fn main() -> int {
+                    loop {
+                        if true {
+                            break 10;
+                        } else {
+                            break 20;
+                        }
+                    }
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 10
+                }
+            "#]],
+        );
+
+        check_result_in_root_file(
+            r#"
+                fn main() -> int {
+                    loop {
+                        if false {
+                            break 10;
+                        } else {
+                            break 20;
+                        }
+                    }
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 20
+                }
+            "#]],
+        );
+
+        check_result_in_root_file(
+            r#"
+                fn main() -> int {
+                    loop {
+                        if false {
+                            10
+                        } else {
+                            break 20;
+                        }
+                    }
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 20
+                }
+            "#]],
+        );
+
+        check_result_in_root_file(
+            r#"
+                fn main() -> int {
+                    loop {
+                        if true {
+                            break 10;
+                        } else {
+                            20
+                        }
+                    }
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 10
+                }
+            "#]],
+        );
+    }
+
+    // TODO: 代入(=)を実装して、動作するようにする
+    // #[test]
+    // fn test_loop_continue() {
+    //     check_result_in_root_file(
+    //         r#"
+    //             fn main() -> int {
+    //                 let i = 0;
+    //                 loop {
+    //                     if i == 0 {
+    //                         i = i + 1;
+    //                         continue;
+    //                     } else {
+    //                         break i;
+    //                     }
+    //                 }
+    //             }
+    //         "#,
+    //         expect![[r#"
+    //             {
+    //               "nail_type": "Int",
+    //               "value": 1
+    //             }
+    //         "#]],
+    //     );
+    // }
+
+    #[test]
     fn test_modules() {
         check_result_in_root_file(
             r#"

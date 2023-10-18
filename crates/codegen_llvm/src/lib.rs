@@ -1570,26 +1570,23 @@ mod tests {
             "#]],
         );
 
-        // The type of the branch in the 'if' statement is inferred.
-        // To pass this test case,
-        //   it is necessary to ensure that the type is inferred as 'int' instead of being inferred from the ().
-        // check_result(
-        //     r#"
-        //         fn main() -> int {
-        //             if false {
-        //                 return 10;
-        //             } else {
-        //                 20
-        //             }
-        //         }
-        //     "#,
-        //     expect![[r#"
-        //         {
-        //           "nail_type": "Int",
-        //           "value": 20
-        //         }
-        //     "#]],
-        // );
+        check_result_in_root_file(
+            r#"
+                fn main() -> int {
+                    if false {
+                        return 10;
+                    } else {
+                        20
+                    }
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 20
+                }
+            "#]],
+        );
 
         check_result_in_root_file(
             r#"

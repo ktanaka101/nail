@@ -841,6 +841,7 @@ mod tests {
                     ast::BinaryOp::Equal(_) => "==",
                     ast::BinaryOp::GreaterThan(_) => ">",
                     ast::BinaryOp::LessThan(_) => "<",
+                    ast::BinaryOp::Assign(_) => "=",
                 };
                 let lhs_str = debug_expr(db, hir_file, resolution_map, scope_origin, *lhs, nesting);
                 let rhs_str = debug_expr(db, hir_file, resolution_map, scope_origin, *rhs, nesting);

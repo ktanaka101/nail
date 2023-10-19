@@ -393,6 +393,7 @@ impl<'a> InferBody<'a> {
 
                     Monotype::Bool
                 }
+                ast::BinaryOp::Assign(_) => unimplemented!(),
             },
             hir::Expr::Unary { op, expr } => match op {
                 ast::UnaryOp::Neg(_) => {

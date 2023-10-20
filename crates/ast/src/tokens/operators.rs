@@ -12,6 +12,7 @@ pub enum BinaryOp {
     Equal(Eq2),
     GreaterThan(RAngle),
     LessThan(LAngle),
+    Assign(Eq),
 }
 def_ast_token!(Plus);
 def_ast_token!(Minus);
@@ -20,6 +21,7 @@ def_ast_token!(Slash);
 def_ast_token!(Eq2);
 def_ast_token!(LAngle);
 def_ast_token!(RAngle);
+def_ast_token!(Eq);
 
 impl Ast for BinaryOp {}
 impl AstToken for BinaryOp {
@@ -33,6 +35,7 @@ impl AstToken for BinaryOp {
                 | SyntaxKind::Eq2
                 | SyntaxKind::LAngle
                 | SyntaxKind::RAngle
+                | SyntaxKind::Eq
         )
     }
 
@@ -45,6 +48,7 @@ impl AstToken for BinaryOp {
             SyntaxKind::Eq2 => Some(Self::Equal(Eq2 { syntax })),
             SyntaxKind::LAngle => Some(Self::LessThan(LAngle { syntax })),
             SyntaxKind::RAngle => Some(Self::GreaterThan(RAngle { syntax })),
+            SyntaxKind::Eq => Some(Self::Assign(Eq { syntax })),
             _ => None,
         }
     }
@@ -58,6 +62,7 @@ impl AstToken for BinaryOp {
             Self::Equal(it) => it.syntax(),
             Self::GreaterThan(it) => it.syntax(),
             Self::LessThan(it) => it.syntax(),
+            Self::Assign(it) => it.syntax(),
         }
     }
 }

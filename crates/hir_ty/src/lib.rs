@@ -626,6 +626,7 @@ mod tests {
                         ast::BinaryOp::Equal(_) => "==",
                         ast::BinaryOp::GreaterThan(_) => ">",
                         ast::BinaryOp::LessThan(_) => "<",
+                        ast::BinaryOp::Assign(_) => "=",
                     };
                     let lhs_str = self.debug_expr(hir_file, function, *lhs, nesting);
                     let rhs_str = self.debug_expr(hir_file, function, *rhs, nesting);
@@ -734,6 +735,7 @@ mod tests {
                         ast::BinaryOp::Equal(_) => "==",
                         ast::BinaryOp::GreaterThan(_) => ">",
                         ast::BinaryOp::LessThan(_) => "<",
+                        ast::BinaryOp::Assign(_) => "=",
                     };
                     let lhs_str = self.debug_simplify_expr(hir_file, *lhs);
                     let rhs_str = self.debug_simplify_expr(hir_file, *rhs);
@@ -844,6 +846,7 @@ mod tests {
                 ast::BinaryOp::Equal(_) => "==",
                 ast::BinaryOp::GreaterThan(_) => ">",
                 ast::BinaryOp::LessThan(_) => "<",
+                ast::BinaryOp::Assign(_) => "=",
             }
             .to_string()
         }

@@ -412,6 +412,7 @@ impl<'a> FunctionLower<'a> {
                     ast::BinaryOp::Equal(_) => BinaryOp::Equal,
                     ast::BinaryOp::GreaterThan(_) => BinaryOp::GreaterThan,
                     ast::BinaryOp::LessThan(_) => BinaryOp::LessThan,
+                    ast::BinaryOp::Assign(_) => unimplemented!(),
                 };
 
                 let local = self.alloc_local(expr_id);

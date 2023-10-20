@@ -68,6 +68,8 @@ fn parse_expr_binding_power(
             BinaryOp::LessThan
         } else if parser.at(TokenKind::RAngle) {
             BinaryOp::GreaterThan
+        } else if parser.at(TokenKind::Eq) {
+            BinaryOp::Assign
         } else {
             break;
         };
@@ -108,6 +110,8 @@ enum BinaryOp {
     GreaterThan,
     /// `<`
     LessThan,
+    /// `=`
+    Assign,
 }
 
 impl BinaryOp {
@@ -116,10 +120,11 @@ impl BinaryOp {
     /// 結合力が強いほど値が大きくなります。
     fn binding_power(&self) -> (u8, u8) {
         match self {
-            Self::Equal => (1, 2),
-            Self::GreaterThan | Self::LessThan => (3, 4),
-            Self::Add | Self::Sub => (5, 6),
-            Self::Mul | Self::Div => (7, 8),
+            Self::Assign => (2, 1),
+            Self::Equal => (3, 4),
+            Self::GreaterThan | Self::LessThan => (5, 6),
+            Self::Add | Self::Sub => (7, 8),
+            Self::Mul | Self::Div => (9, 10),
         }
     }
 }
@@ -864,6 +869,56 @@ mod tests {
     }
 
     #[test]
+    fn parse_binary_expression_assign() {
+        check_debug_tree_in_block(
+            "a = 10",
+            expect![[r#"
+                SourceFile@0..6
+                  ExprStmt@0..6
+                    BinaryExpr@0..6
+                      PathExpr@0..1
+                        Path@0..1
+                          PathSegment@0..1
+                            Ident@0..1 "a"
+                      Whitespace@1..2 " "
+                      Eq@2..3 "="
+                      Whitespace@3..4 " "
+                      Literal@4..6
+                        Integer@4..6 "10"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_binary_expression_assign_right_to_left() {
+        check_debug_tree_in_block(
+            "a = b = 20",
+            expect![[r#"
+                SourceFile@0..10
+                  ExprStmt@0..10
+                    BinaryExpr@0..10
+                      PathExpr@0..1
+                        Path@0..1
+                          PathSegment@0..1
+                            Ident@0..1 "a"
+                      Whitespace@1..2 " "
+                      Eq@2..3 "="
+                      Whitespace@3..4 " "
+                      BinaryExpr@4..10
+                        PathExpr@4..5
+                          Path@4..5
+                            PathSegment@4..5
+                              Ident@4..5 "b"
+                        Whitespace@5..6 " "
+                        Eq@6..7 "="
+                        Whitespace@7..8 " "
+                        Literal@8..10
+                          Integer@8..10 "20"
+            "#]],
+        );
+    }
+
+    #[test]
     fn parse_call_in_binary() {
         check_debug_tree_in_block(
             "foo(1) + bar(2)",
@@ -913,7 +968,7 @@ mod tests {
                         Path@1..4
                           PathSegment@1..4
                             Ident@1..4 "foo"
-                error at 1..4: expected '::', '+', '-', '*', '/', '==', '<', '>' or ')'
+                error at 1..4: expected '::', '+', '-', '*', '/', '==', '<', '>', '=' or ')'
             "#]],
         );
     }
@@ -970,7 +1025,7 @@ mod tests {
                         Literal@2..3
                           Integer@2..3 "1"
                   Whitespace@3..4 " "
-                error at 3..4: expected '+', '-', '*', '/', '==', '<', '>', ';' or '}'
+                error at 3..4: expected '+', '-', '*', '/', '==', '<', '>', '=', ';' or '}'
             "#]],
         );
     }
@@ -1148,7 +1203,7 @@ mod tests {
                             Path@5..6
                               PathSegment@5..6
                                 Ident@5..6 "y"
-                error at 5..6: expected '::', '+', '-', '*', '/', '==', '<', '>', ',' or ')'
+                error at 5..6: expected '::', '+', '-', '*', '/', '==', '<', '>', '=', ',' or ')'
             "#]],
         );
 
@@ -1191,7 +1246,7 @@ mod tests {
                             Path@2..3
                               PathSegment@2..3
                                 Ident@2..3 "x"
-                error at 2..3: expected '::', '+', '-', '*', '/', '==', '<', '>', ',' or ')'
+                error at 2..3: expected '::', '+', '-', '*', '/', '==', '<', '>', '=', ',' or ')'
             "#]],
         );
 
@@ -1262,8 +1317,8 @@ mod tests {
                   ExprStmt@5..6
                     Error@5..6
                       RParen@5..6 ")"
-                error at 4..5: expected '::', '+', '-', '*', '/', '==', '<', '>', ',' or ')', but found identifier
-                error at 5..6: expected '+', '-', '*', '/', '==', '<', '>', ';', 'let', 'fn', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found ')'
+                error at 4..5: expected '::', '+', '-', '*', '/', '==', '<', '>', '=', ',' or ')', but found identifier
+                error at 5..6: expected '+', '-', '*', '/', '==', '<', '>', '=', ';', 'let', 'fn', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found ')'
             "#]],
         );
     }

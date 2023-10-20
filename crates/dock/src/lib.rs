@@ -327,7 +327,8 @@ impl Diagnostic {
                     ast::BinaryOp::Div(_) => "/",
                     ast::BinaryOp::Equal(_)
                     | ast::BinaryOp::GreaterThan(_)
-                    | ast::BinaryOp::LessThan(_) => unreachable!(),
+                    | ast::BinaryOp::LessThan(_)
+                    | ast::BinaryOp::Assign(_) => unreachable!(),
                 };
 
                 Diagnostic {
@@ -359,7 +360,8 @@ impl Diagnostic {
                     ast::BinaryOp::Add(_)
                     | ast::BinaryOp::Sub(_)
                     | ast::BinaryOp::Mul(_)
-                    | ast::BinaryOp::Div(_) => unreachable!(),
+                    | ast::BinaryOp::Div(_)
+                    | ast::BinaryOp::Assign(_) => unreachable!(),
                 };
 
                 Diagnostic {

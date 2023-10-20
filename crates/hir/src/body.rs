@@ -996,7 +996,9 @@ mod tests {
                 | Expr::Loop { .. }
                 | Expr::Continue
                 | Expr::Break { .. } => {
-                    debug_expr(db, hir_file, resolution_map, scope_origin, *expr, nesting)
+                    let expr_text =
+                        debug_expr(db, hir_file, resolution_map, scope_origin, *expr, nesting);
+                    format!("${}:{}", name.text(db).to_string(), expr_text)
                 }
                 Expr::Block { .. } => name.text(db).to_string(),
             },
@@ -1279,6 +1281,25 @@ mod tests {
     }
 
     #[test]
+    fn lower_binary_expr_assign() {
+        check_in_root_file(
+            r#"
+                fn main() {
+                    let a = 0;
+                    a = 1;
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    let a = 0
+                    $a:0 = 1;
+                }
+            "#]],
+        );
+    }
+
+    #[test]
     fn lower_integer_literal() {
         check_in_root_file(
             r#"
@@ -1446,7 +1467,7 @@ mod tests {
                 //- /main.nail
                 fn entry:main() -> () {
                     let foo = 10
-                    expr:10
+                    expr:$foo:10
                 }
             "#]],
         );
@@ -1551,10 +1572,10 @@ mod tests {
                         let b = 20
                         expr:{
                             let c = 30
-                            expr:10 + 20 + 30
+                            expr:$a:10 + $b:20 + $c:30
                         }
                     }
-                    expr:10
+                    expr:$a:10
                 }
             "#]],
         );
@@ -1575,9 +1596,9 @@ mod tests {
                 //- /main.nail
                 fn entry:main() -> () {
                     let a = 10
-                    10
+                    $a:10
                     let a = 20
-                    expr:20
+                    expr:$a:20
                 }
             "#]],
         );
@@ -1609,18 +1630,18 @@ mod tests {
                 fn entry:main() -> () {
                     <missing>
                     let a = 10
-                    10
+                    $a:10
                     {
-                        10
+                        $a:10
                         let a = 20
                         {
-                            20
+                            $a:20
                             let a = 30
-                            expr:30
+                            expr:$a:30
                         }
-                        expr:20
+                        expr:$a:20
                     }
-                    expr:10
+                    expr:$a:10
                 }
             "#]],
         );
@@ -1650,12 +1671,12 @@ mod tests {
                     let a = {
                         <missing>
                         let a = 10
-                        expr:10
+                        expr:$a:10
                     }
                     a
                     expr:20 + {
                         let b = 30
-                        expr:a + 30
+                        expr:a + $b:30
                     }
                 }
             "#]],
@@ -1681,10 +1702,10 @@ mod tests {
                 fn entry:main() -> () {
                     expr:{
                         let a = 10
-                        expr:10
+                        expr:$a:10
                     } + {
                         let b = 30
-                        expr:<missing> + 30
+                        expr:<missing> + $b:30
                     }
                 }
             "#]],
@@ -1716,7 +1737,7 @@ mod tests {
                     expr:{
                         let a = 10
                         expr:{
-                            expr:10
+                            expr:$a:10
                         }
                     }
                 }
@@ -1743,7 +1764,7 @@ mod tests {
                     expr:-{
                         let a = 10
                         expr:-{
-                            expr:-10
+                            expr:-$a:10
                         }
                     }
                 }
@@ -1764,7 +1785,7 @@ mod tests {
                 //- /main.nail
                 fn foo() -> () {
                     let a = 10
-                    expr:10
+                    expr:$a:10
                 }
                 error: Undefined entry point.(help: fn main() { ... })
             "#]],
@@ -1857,14 +1878,14 @@ mod tests {
                 fn entry:main() -> () {
                     fn foo(a: <unknown>, b: <unknown>) -> () {
                         let a = 0
-                        0
+                        $a:0
                         param:b
                         fn bar(a: <unknown>, b: <unknown>) -> () {
                             expr:{
                                 expr:param:a + param:b
                             }
                         }
-                        0
+                        $a:0
                         expr:param:b
                     }
                     <missing>
@@ -1894,7 +1915,7 @@ mod tests {
                     fn foo() -> () {
                         <missing>
                         let a = 20
-                        expr:20
+                        expr:$a:20
                     }
                 }
             "#]],
@@ -1936,7 +1957,7 @@ mod tests {
                                     fn baz() -> () {
                                         expr:<missing> + <missing> + <missing>
                                     }
-                                    expr:<missing> + <missing> + 20
+                                    expr:<missing> + <missing> + $c:20
                                 }
                             }
                         }
@@ -1979,25 +2000,25 @@ mod tests {
                 fn entry:main() -> () {
                     <missing>
                     let a = 10
-                    10
+                    $a:10
                     fn foo() -> () {
                         <missing>
                         let a = 20
-                        20
+                        $a:20
                         {
-                            20
+                            $a:20
                             let a = 30
-                            expr:30
+                            expr:$a:30
                         }
-                        20
+                        $a:20
                         fn bar() -> () {
                             <missing>
                             let a = 40
-                            expr:40
+                            expr:$a:40
                         }
-                        expr:20
+                        expr:$a:20
                     }
-                    expr:10
+                    expr:$a:10
                 }
             "#]],
         );
@@ -2174,7 +2195,7 @@ mod tests {
                         expr:10
                     }
                     let b = 20
-                    expr:fn:a(20, 30)
+                    expr:fn:a($b:20, 30)
                 }
             "#]],
         );

@@ -890,7 +890,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_binary_expression_assign_right() {
+    fn parse_binary_expression_assign_right_to_left() {
         check_debug_tree_in_block(
             "a = b = 20",
             expect![[r#"

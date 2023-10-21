@@ -1,0 +1,15 @@
+fn main() -> int {
+  let a = 10;
+  a = 20;
+
+  a
+}
+
+//---stdout
+
+// {
+//   "nail_type": "Int",
+//   "value": 20
+// }
+
+//---stderr

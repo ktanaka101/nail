@@ -1,0 +1,19 @@
+fn main() -> int {
+  let a = 10;
+  a = "aaa";
+
+  a
+}
+
+//---stdout
+//---stderr
+
+// Error: Mismatched type
+//    ╭─[/{nail}/crates/dock/tests/type_check/binary_assign_mismatch/main.nail:3:3]
+//    │
+//  3 │   a = "aaa";
+//    │   ┬   ──┬──  
+//    │   ╰────────── Type is int
+//    │         │    
+//    │         ╰──── Type is string
+// ───╯

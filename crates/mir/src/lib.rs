@@ -977,6 +977,66 @@ mod tests {
     }
 
     #[test]
+    fn test_assign() {
+        check_in_root_file(
+            r#"
+                fn main() {
+                    let a = 1;
+                    a = 10;
+                }
+            "#,
+            expect![[r#"
+                fn t_pod::main() -> () {
+                    let _0: ()
+                    let _1: int
+                    let _2: int
+
+                    entry: {
+                        _1 = const 1
+                        _2 = const 10
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_assign_returns_unit() {
+        check_in_root_file(
+            r#"
+                fn main() {
+                    let a = 1;
+                    let b = a = 10;
+                }
+            "#,
+            expect![[r#"
+                fn t_pod::main() -> () {
+                    let _0: ()
+                    let _1: int
+                    let _2: ()
+                    let _3: int
+
+                    entry: {
+                        _1 = const 1
+                        _3 = const 10
+                        _2 = const ()
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
     fn test_negative_number() {
         check_in_root_file(
             r#"

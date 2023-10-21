@@ -78,6 +78,8 @@ pub(crate) enum UnifyPurpose {
     MismatchedType {
         /// 期待する型
         expected_ty: Monotype,
+        /// 期待する型の式
+        expected_expr: Option<hir::ExprId>,
         /// 実際の型
         found_ty: Monotype,
         /// 実際の式
@@ -171,10 +173,12 @@ fn build_unify_error_from_unify_purpose(
         },
         UnifyPurpose::MismatchedType {
             expected_ty,
+            expected_expr,
             found_ty,
             found_expr,
         } => InferenceError::MismatchedType {
             expected_ty: expected_ty.clone(),
+            expected_expr: *expected_expr,
             found_ty: found_ty.clone(),
             found_expr: *found_expr,
         },

@@ -352,16 +352,28 @@ mod tests {
                         }
                         InferenceError::MismatchedType {
                             expected_ty,
+                            expected_expr,
                             found_ty,
                             found_expr,
                         } => {
-                            msg.push_str(
+                            if let Some(expected_expr) = expected_expr {
+                                msg.push_str(
+                                &format!(
+                                    "error MismatchedType: expected_ty: {}, found_ty: {}, expected_expr: {}, found_expr: `{}`",
+                                    self.debug_monotype(expected_ty),
+                                    self.debug_monotype(found_ty),
+                                    self.debug_simplify_expr(hir_file, *expected_expr),
+                                    self.debug_simplify_expr(hir_file, *found_expr),
+                                ));
+                            } else {
+                                msg.push_str(
                                 &format!(
                                 "error MismatchedType: expected_ty: {}, found_ty: {}, found_expr: `{}`",
                                 self.debug_monotype(expected_ty),
                                 self.debug_monotype(found_ty),
                                 self.debug_simplify_expr(hir_file, *found_expr),
                             ));
+                            }
                         }
                         InferenceError::BreakOutsideOfLoop { kind, found_expr } => {
                             let kind_text = match kind {
@@ -1110,6 +1122,9 @@ mod tests {
                     10 == 20
                     10 < 20
                     10 > 20;
+                    let a = 10;
+                    a = 20;
+                    a = "aaa";
                 }
             "#,
             expect![[r#"
@@ -1137,6 +1152,9 @@ mod tests {
                     10 == 20 //: bool
                     10 < 20 //: bool
                     10 > 20; //: bool
+                    let a = 10; //: int
+                    a = 20; //: ()
+                    a = "aaa"; //: ()
                 }
 
                 ---
@@ -1158,6 +1176,7 @@ mod tests {
                 error MismatchedBinaryInteger: op: /, expected_ty: int, found_ty: bool, found_expr: `true`
                 error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: bool, found_expr: `true`
                 error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: string, found_expr: `"aaa"`
+                error MismatchedType: expected_ty: int, found_ty: string, expected_expr: a, found_expr: `"aaa"`
                 ---
             "#]],
         );

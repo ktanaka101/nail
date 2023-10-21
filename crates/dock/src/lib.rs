@@ -540,21 +540,44 @@ impl Diagnostic {
             }
             InferenceError::MismatchedType {
                 expected_ty,
+                expected_expr,
                 found_ty,
                 found_expr,
             } => {
-                let text_range = found_expr.text_range(db, source_map);
+                let found_expr_text_range = found_expr.text_range(db, source_map);
                 let expected_ty = type_to_string(db, expected_ty);
                 let found_ty = type_to_string(db, found_ty);
 
-                Diagnostic {
-                    file,
-                    title: "Mismatched type".to_string(),
-                    head_offset: text_range.start().into(),
-                    messages: vec![Message {
-                        message: format!("expected {expected_ty}, actual: {found_ty}"),
-                        range: (text_range.start().into())..(text_range.end().into()),
-                    }],
+                if let Some(expected_expr) = expected_expr {
+                    let expected_expr_text_range = expected_expr.text_range(db, source_map);
+                    Diagnostic {
+                        file,
+                        title: "Mismatched type".to_string(),
+                        head_offset: expected_expr_text_range.start().into(),
+                        messages: vec![
+                            Message {
+                                message: format!("Type is {expected_ty}"),
+                                range: (expected_expr_text_range.start().into())
+                                    ..(expected_expr_text_range.end().into()),
+                            },
+                            Message {
+                                message: format!("Type is {found_ty}"),
+                                range: (found_expr_text_range.start().into())
+                                    ..(found_expr_text_range.end().into()),
+                            },
+                        ],
+                    }
+                } else {
+                    Diagnostic {
+                        file,
+                        title: "Mismatched type".to_string(),
+                        head_offset: found_expr_text_range.start().into(),
+                        messages: vec![Message {
+                            message: format!("expected {expected_ty}, actual: {found_ty}"),
+                            range: (found_expr_text_range.start().into())
+                                ..(found_expr_text_range.end().into()),
+                        }],
+                    }
                 }
             }
             InferenceError::BreakOutsideOfLoop { kind, found_expr } => {

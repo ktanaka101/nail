@@ -131,6 +131,8 @@ pub enum InferenceError {
     MismatchedType {
         /// 期待される型
         expected_ty: Monotype,
+        /// 期待される型の式
+        expected_expr: Option<hir::ExprId>,
         /// 実際の型
         found_ty: Monotype,
         /// 実際の式

@@ -393,7 +393,22 @@ impl<'a> InferBody<'a> {
 
                     Monotype::Bool
                 }
-                ast::BinaryOp::Assign(_) => unimplemented!(),
+                ast::BinaryOp::Assign(_) => {
+                    let lhs_ty = self.infer_expr(*lhs);
+                    let rhs_ty = self.infer_expr(*rhs);
+                    self.unifier.unify(
+                        &lhs_ty,
+                        &rhs_ty,
+                        &UnifyPurpose::MismatchedType {
+                            expected_ty: lhs_ty.clone(),
+                            expected_expr: Some(*lhs),
+                            found_ty: rhs_ty.clone(),
+                            found_expr: *rhs,
+                        },
+                    );
+
+                    Monotype::Unit
+                }
             },
             hir::Expr::Unary { op, expr } => match op {
                 ast::UnaryOp::Neg(_) => {
@@ -540,6 +555,7 @@ impl<'a> InferBody<'a> {
                     &block_ty,
                     &UnifyPurpose::MismatchedType {
                         expected_ty: Monotype::Unit,
+                        expected_expr: None,
                         found_ty: block_ty.clone(),
                         found_expr: *block,
                     },
@@ -583,6 +599,7 @@ impl<'a> InferBody<'a> {
                             &ty,
                             &UnifyPurpose::MismatchedType {
                                 expected_ty: break_ty.clone(),
+                                expected_expr: None,
                                 found_ty: ty.clone(),
                                 found_expr: expr_id,
                             },

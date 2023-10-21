@@ -158,6 +158,16 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn binary_assign_match() {
+        check("binary_assign_match").await;
+    }
+
+    #[tokio::test]
+    async fn binary_assign_mismatch() {
+        check("binary_assign_mismatch").await;
+    }
+
+    #[tokio::test]
     async fn unary_match() {
         check("unary_match").await;
     }

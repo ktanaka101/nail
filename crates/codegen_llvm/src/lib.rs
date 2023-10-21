@@ -1449,6 +1449,26 @@ mod tests {
     }
 
     #[test]
+    fn test_assign() {
+        check_result_in_root_file(
+            r#"
+                fn main() -> int {
+                    let a = 10;
+                    a = 20;
+
+                    a
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 20
+                }
+            "#]],
+        );
+    }
+
+    #[test]
     fn test_negative_number() {
         check_result_in_root_file(
             r#"
@@ -1743,31 +1763,30 @@ mod tests {
         );
     }
 
-    // TODO: 代入(=)を実装して、動作するようにする
-    // #[test]
-    // fn test_loop_continue() {
-    //     check_result_in_root_file(
-    //         r#"
-    //             fn main() -> int {
-    //                 let i = 0;
-    //                 loop {
-    //                     if i == 0 {
-    //                         i = i + 1;
-    //                         continue;
-    //                     } else {
-    //                         break i;
-    //                     }
-    //                 }
-    //             }
-    //         "#,
-    //         expect![[r#"
-    //             {
-    //               "nail_type": "Int",
-    //               "value": 1
-    //             }
-    //         "#]],
-    //     );
-    // }
+    #[test]
+    fn test_loop_continue() {
+        check_result_in_root_file(
+            r#"
+                fn main() -> int {
+                    let i = 0;
+                    loop {
+                        if i == 0 {
+                            i = i + 1;
+                            continue;
+                        } else {
+                            break i;
+                        }
+                    }
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 1
+                }
+            "#]],
+        );
+    }
 
     #[test]
     fn test_modules() {

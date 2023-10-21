@@ -413,9 +413,11 @@ impl<'a> FunctionLower<'a> {
                     ast::BinaryOp::GreaterThan(_) => BinaryOp::GreaterThan,
                     ast::BinaryOp::LessThan(_) => BinaryOp::LessThan,
                     ast::BinaryOp::Assign(_) => {
-                        let local = self.alloc_local(*lhs);
+                        let place = match lhs_operand {
+                            Operand::Place(place) => place,
+                            Operand::Constant(_) => unreachable!(),
+                        };
                         let value = Value::Operand(rhs_operand);
-                        let place = Place::Local(local);
                         self.add_statement_to_current_bb(Statement::Assign { place, value });
                         return LoweredExpr::Operand(Operand::Constant(Constant::Unit));
                     }

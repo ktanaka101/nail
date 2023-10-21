@@ -392,13 +392,13 @@ impl<'a> FunctionLower<'a> {
                 }
             }
             hir::Expr::Binary { op, lhs, rhs } => {
-                let lhs = match self.lower_expr(*lhs) {
+                let lhs_operand = match self.lower_expr(*lhs) {
                     LoweredExpr::Return => return LoweredExpr::Return,
                     LoweredExpr::Break => return LoweredExpr::Break,
                     LoweredExpr::Operand(operand) => operand,
                 };
 
-                let rhs = match self.lower_expr(*rhs) {
+                let rhs_operand = match self.lower_expr(*rhs) {
                     LoweredExpr::Return => return LoweredExpr::Return,
                     LoweredExpr::Break => return LoweredExpr::Break,
                     LoweredExpr::Operand(operand) => operand,
@@ -412,14 +412,20 @@ impl<'a> FunctionLower<'a> {
                     ast::BinaryOp::Equal(_) => BinaryOp::Equal,
                     ast::BinaryOp::GreaterThan(_) => BinaryOp::GreaterThan,
                     ast::BinaryOp::LessThan(_) => BinaryOp::LessThan,
-                    ast::BinaryOp::Assign(_) => unimplemented!(),
+                    ast::BinaryOp::Assign(_) => {
+                        let local = self.alloc_local(*lhs);
+                        let value = Value::Operand(rhs_operand);
+                        let place = Place::Local(local);
+                        self.add_statement_to_current_bb(Statement::Assign { place, value });
+                        return LoweredExpr::Operand(Operand::Constant(Constant::Unit));
+                    }
                 };
 
                 let local = self.alloc_local(expr_id);
                 let value = Value::BinaryOp {
                     op,
-                    left: lhs,
-                    right: rhs,
+                    left: lhs_operand,
+                    right: rhs_operand,
                 };
                 let place = Place::Local(local);
                 self.add_statement_to_current_bb(Statement::Assign { place, value });

@@ -1449,6 +1449,26 @@ mod tests {
     }
 
     #[test]
+    fn test_assign() {
+        check_result_in_root_file(
+            r#"
+                fn main() -> int {
+                    let a = 10;
+                    a = 20;
+
+                    a
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 20
+                }
+            "#]],
+        );
+    }
+
+    #[test]
     fn test_negative_number() {
         check_result_in_root_file(
             r#"

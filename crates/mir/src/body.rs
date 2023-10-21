@@ -398,7 +398,7 @@ impl<'a> FunctionLower<'a> {
                     LoweredExpr::Operand(operand) => operand,
                 };
 
-                let rhs_oeprand = match self.lower_expr(*rhs) {
+                let rhs_operand = match self.lower_expr(*rhs) {
                     LoweredExpr::Return => return LoweredExpr::Return,
                     LoweredExpr::Break => return LoweredExpr::Break,
                     LoweredExpr::Operand(operand) => operand,
@@ -414,7 +414,7 @@ impl<'a> FunctionLower<'a> {
                     ast::BinaryOp::LessThan(_) => BinaryOp::LessThan,
                     ast::BinaryOp::Assign(_) => {
                         let local = self.alloc_local(*lhs);
-                        let value = Value::Operand(rhs_oeprand);
+                        let value = Value::Operand(rhs_operand);
                         let place = Place::Local(local);
                         self.add_statement_to_current_bb(Statement::Assign { place, value });
                         return LoweredExpr::Operand(Operand::Constant(Constant::Unit));
@@ -425,7 +425,7 @@ impl<'a> FunctionLower<'a> {
                 let value = Value::BinaryOp {
                     op,
                     left: lhs_operand,
-                    right: rhs_oeprand,
+                    right: rhs_operand,
                 };
                 let place = Place::Local(local);
                 self.add_statement_to_current_bb(Statement::Assign { place, value });

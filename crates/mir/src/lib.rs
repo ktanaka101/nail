@@ -989,11 +989,41 @@ mod tests {
                 fn t_pod::main() -> () {
                     let _0: ()
                     let _1: int
-                    let _2: int
 
                     entry: {
                         _1 = const 1
-                        _2 = const 10
+                        _1 = const 10
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_return_assigned() {
+        check_in_root_file(
+            r#"
+                fn main() -> int {
+                    let a = 10;
+                    a = 20;
+
+                    a
+                }
+            "#,
+            expect![[r#"
+                fn t_pod::main() -> int {
+                    let _0: int
+                    let _1: int
+
+                    entry: {
+                        _1 = const 10
+                        _1 = const 20
+                        _0 = _1
                         goto -> exit
                     }
 
@@ -1019,11 +1049,10 @@ mod tests {
                     let _0: ()
                     let _1: int
                     let _2: ()
-                    let _3: int
 
                     entry: {
                         _1 = const 1
-                        _3 = const 10
+                        _1 = const 10
                         _2 = const ()
                         goto -> exit
                     }

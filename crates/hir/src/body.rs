@@ -524,11 +524,7 @@ impl<'a> BodyLower<'a> {
             _ => None,
         };
 
-        Expr::Block(Block {
-            stmts,
-            tail,
-            ast: ast_block.clone(),
-        })
+        Expr::Block(Block { stmts, tail })
     }
 
     fn lower_if(&mut self, db: &dyn HirMasterDatabase, ast_if: &ast::IfExpr) -> Expr {

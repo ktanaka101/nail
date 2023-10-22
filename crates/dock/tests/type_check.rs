@@ -226,4 +226,9 @@ mod tests {
     async fn break_outside_of_loop() {
         check("break_outside_of_loop").await;
     }
+
+    #[tokio::test]
+    async fn while_desugared_error() {
+        check("while_desugared_error").await;
+    }
 }

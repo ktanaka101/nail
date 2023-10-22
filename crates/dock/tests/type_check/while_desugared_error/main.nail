@@ -1,0 +1,42 @@
+fn main() {
+    let i = "";
+    i =
+        while i < 3 {
+            let a = 10;
+            a = "aaa";
+        };
+}
+
+//---stdout
+//---stderr
+
+// Error: Mismatched type in binary compare expression `<`
+//    ╭─[/{nail}/crates/dock/tests/type_check/while_desugared_error/main.nail:4:15]
+//    │
+//  4 │         while i < 3 {
+//    │               ┬   ┬  
+//    │               ╰────── Type is string
+//    │                   │  
+//    │                   ╰── Type is int
+// ───╯
+// Error: Mismatched type
+//    ╭─[/{nail}/crates/dock/tests/type_check/while_desugared_error/main.nail:6:13]
+//    │
+//  6 │             a = "aaa";
+//    │             ┬   ──┬──  
+//    │             ╰────────── Type is int
+//    │                   │    
+//    │                   ╰──── Type is string
+// ───╯
+// Error: Mismatched type
+//    ╭─[/{nail}/crates/dock/tests/type_check/while_desugared_error/main.nail:3:5]
+//    │
+//  3 │         i =
+//    │         ┬  
+//    │         ╰── Type is string
+//  4 │ ╭─▶         while i < 3 {
+//    ┆ ┆   
+//  7 │ ├─▶         };
+//    │ │                
+//    │ ╰──────────────── Type is ()
+// ───╯

@@ -635,10 +635,10 @@ impl<'a> BodyLower<'a> {
 
         if let Some(ast_body) = ast_while.body() {
             // while式の条件が一致する間実行するブロック
-            let do_block = {
-                let body = self.lower_block(db, &ast_body);
-                self.alloc_expr(&ast::Expr::BlockExpr(ast_body.clone()), body)
-            };
+            let do_block = self.lower_expr(
+                db,
+                Some(ast::Expr::cast(ast_body.syntax().clone()).unwrap()),
+            );
 
             // while式の条件が一致しない場合にbreakするためのブロック
             let break_block = {

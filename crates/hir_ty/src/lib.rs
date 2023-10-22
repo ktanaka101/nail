@@ -2203,6 +2203,74 @@ mod tests {
     }
 
     #[test]
+    fn loop_scope() {
+        check_in_root_file(
+            r#"
+                fn main() -> int {
+                    let a = 0;
+                    loop {
+                        let b = 1;
+                        a
+                        b
+                        break;
+                    }
+
+                    a
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> int {
+                    let a = 0; //: int
+                    loop {
+                        let b = 1; //: int
+                        a //: int
+                        b //: int
+                        break; //: !
+                    } //: ()
+                    expr:a //: int
+                }
+
+                ---
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn infer_while() {
+        check_in_root_file(
+            r#"
+                fn main() -> int {
+                    let i = 1;
+                    while i < 3 {
+                        i = i + 1;
+                    }
+
+                    i
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> int {
+                    let i = 1; //: int
+                    loop {
+                        if i < 3 {
+                            i = i + 1; //: ()
+                        } else {
+                            break; //: !
+                        }; //: ()
+                    } //: ()
+                    expr:i //: int
+                }
+
+                ---
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
     fn infer_modules() {
         check_in_root_file(
             r#"

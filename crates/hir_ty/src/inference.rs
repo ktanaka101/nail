@@ -563,7 +563,6 @@ impl<'a> InferBody<'a> {
 
                 let loop_ty = self.current_breakable().unwrap().first_break_ty.clone();
 
-                self.exit_scope();
                 self.exit_breakable();
 
                 if let Some(loop_ty) = loop_ty {

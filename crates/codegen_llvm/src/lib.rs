@@ -1789,6 +1789,28 @@ mod tests {
     }
 
     #[test]
+    fn test_while() {
+        check_result_in_root_file(
+            r#"
+                fn main() -> int {
+                    let i = 1;
+                    while i < 3 {
+                        i = i + 1;
+                    }
+
+                    i
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 3
+                }
+            "#]],
+        );
+    }
+
+    #[test]
     fn test_modules() {
         check_result_in_root_file(
             r#"

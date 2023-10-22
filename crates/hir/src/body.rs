@@ -348,7 +348,7 @@ impl<'a> BodyLower<'a> {
                 ast::Expr::LoopExpr(ast) => self.lower_loop(db, ast),
                 ast::Expr::ContinueExpr(_ast) => Expr::Continue,
                 ast::Expr::BreakExpr(ast) => self.lower_break(db, ast),
-                ast::Expr::WhileExpr(_ast) => todo!(),
+                ast::Expr::WhileExpr(ast) => self.lower_while(db, ast),
             };
             self.alloc_expr(&ast, expr)
         } else {
@@ -397,6 +397,30 @@ impl<'a> BodyLower<'a> {
                 file: self.file,
                 value: AstPtr {
                     node: syntax::SyntaxNodePtr::new(ast_expr.syntax()),
+                    _ty: std::marker::PhantomData,
+                },
+            },
+        );
+
+        expr_id
+    }
+
+    /// 脱糖された式を保存します。
+    ///
+    /// 例えば、`if`式は`if`式のまま保存されますが、`while`式は`loop`式と`if`式に脱糖されます。
+    /// そのため、`while`式を保存する際には、`loop`式と`if`式を保存する必要があります。
+    /// この関数は、`loop`式と`if`式を保存するために使用されます。
+    /// また、`loop`式と`if`式は、`while`式のASTノードを参照するため、`while`式のASTノードを保存する必要があります。
+    /// そのため、`while`式を保存する際には、`while`式のASTノードを保存する必要があります。
+    /// この関数は、`while`式のASTノードを保存するために使用されます。
+    fn alloc_expr_desugared(&mut self, from_ast_expr: &ast::Expr, expr: Expr) -> ExprId {
+        let expr_id = self.hir_file_db.alloc_expr(expr);
+        self.source_by_expr.insert(
+            expr_id,
+            InFile {
+                file: self.file,
+                value: AstPtr {
+                    node: syntax::SyntaxNodePtr::new(from_ast_expr.syntax()),
                     _ty: std::marker::PhantomData,
                 },
             },
@@ -524,11 +548,7 @@ impl<'a> BodyLower<'a> {
             _ => None,
         };
 
-        Expr::Block(Block {
-            stmts,
-            tail,
-            ast: ast_block.clone(),
-        })
+        Expr::Block(Block { stmts, tail })
     }
 
     fn lower_if(&mut self, db: &dyn HirMasterDatabase, ast_if: &ast::IfExpr) -> Expr {
@@ -586,6 +606,79 @@ impl<'a> BodyLower<'a> {
             Expr::Break { value: Some(value) }
         } else {
             Expr::Break { value: None }
+        }
+    }
+
+    /// while式を構築します。
+    ///
+    /// while式はloop式とIf式に脱糖されます。
+    /// ```nail
+    /// let a = 0;
+    /// while a > 10 {
+    ///     a = a + 1
+    /// }
+    /// ```
+    /// ↓
+    /// ```nail
+    /// let a = 0;
+    /// loop {
+    ///     if (a > 10) {
+    ///         a = a + 1
+    ///     } else {
+    ///         break;
+    ///     }
+    /// }
+    /// ```
+    ///
+    fn lower_while(&mut self, db: &dyn HirMasterDatabase, ast_while: &ast::WhileExpr) -> Expr {
+        let condition = self.lower_expr(db, ast_while.condition());
+
+        if let Some(ast_body) = ast_while.body() {
+            // while式の条件が一致する間実行するブロック
+            let do_block = self.lower_expr(
+                db,
+                Some(ast::Expr::cast(ast_body.syntax().clone()).unwrap()),
+            );
+
+            // while式の条件が一致しない場合にbreakするためのブロック
+            let break_block = {
+                let break_block = Expr::Block(Block {
+                    stmts: vec![Stmt::ExprStmt {
+                        expr: self.alloc_expr_desugared(
+                            &ast::Expr::cast(ast_while.syntax().clone()).unwrap(),
+                            Expr::Break { value: None },
+                        ),
+                        has_semicolon: true,
+                    }],
+                    tail: None,
+                });
+                self.alloc_expr_desugared(&ast::Expr::WhileExpr(ast_while.clone()), break_block)
+            };
+
+            // while式を実行ブロックとbreakブロックとloop式とif式に脱糖する
+            let loop_block = {
+                let if_expr = Expr::If {
+                    condition,
+                    then_branch: do_block,
+                    else_branch: Some(break_block),
+                };
+
+                Expr::Block(Block {
+                    stmts: vec![Stmt::ExprStmt {
+                        expr: self.alloc_expr_desugared(
+                            &ast::Expr::cast(ast_while.syntax().clone()).unwrap(),
+                            if_expr,
+                        ),
+                        has_semicolon: true,
+                    }],
+                    tail: None,
+                })
+            };
+            let loop_block =
+                self.alloc_expr_desugared(&ast::Expr::WhileExpr(ast_while.clone()), loop_block);
+            Expr::Loop { block: loop_block }
+        } else {
+            Expr::Missing
         }
     }
 }
@@ -2411,6 +2504,33 @@ mod tests {
                     expr:loop {
                         break;
                     }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn while_expr() {
+        check_in_root_file(
+            r#"
+                fn main() {
+                    let a = 1;
+                    while a < 3 {
+                        a = a + 1;
+                    };
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    let a = 1
+                    loop {
+                        if $a:1 < 3 {
+                            $a:1 = $a:1 + 1;
+                        } else {
+                            break;
+                        };
+                    };
                 }
             "#]],
         );

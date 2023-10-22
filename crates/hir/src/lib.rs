@@ -653,8 +653,6 @@ pub struct Block {
     /// 式がない場合はNoneが入ります。
     /// 例えば、`{ let a = 10; }`のようなブロックは最後のステートメントが`;`なので、式を持たないため、Noneが入ります。
     pub tail: Option<ExprId>,
-    /// ブロックAST
-    pub ast: ast::BlockExpr,
 }
 impl Block {
     /// ブロックの最後の式を返します

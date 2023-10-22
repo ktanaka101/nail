@@ -2703,6 +2703,66 @@ mod tests {
     }
 
     #[test]
+    fn test_while() {
+        check_in_root_file(
+            r#"
+                fn main() {
+                    let i = 1;
+                    while i < 3 {
+                        i = i + 1;
+                    }
+                }
+            "#,
+            expect![[r#"
+                fn t_pod::main() -> () {
+                    let _0: ()
+                    let _1: int
+                    let _2: ()
+                    let _3: bool
+                    let _4: bool
+                    let _5: ()
+                    let _6: int
+
+                    entry: {
+                        _1 = const 1
+                        goto -> loop0
+                    }
+
+                    exit: {
+                        return _0
+                    }
+
+                    loop0: {
+                        _4 = less_than(_1, const 3)
+                        _3 = _4
+                        switch(_3) -> [true: then0, false: else0]
+                    }
+
+                    bb1: {
+                        _0 = _2
+                        goto -> exit
+                    }
+
+                    bb2: {
+                        goto -> loop0
+                    }
+
+                    then0: {
+                        _6 = add(_1, const 1)
+                        _1 = _6
+                        goto -> bb2
+                    }
+
+                    else0: {
+                        _2 = const ()
+                        goto -> bb1
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
     fn test_string_arg() {
         check_in_root_file(
             r#"

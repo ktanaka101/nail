@@ -70,6 +70,10 @@ def_ast_node!(
     VariableDef
 );
 impl VariableDef {
+    pub fn mut_token(&self) -> Option<SyntaxToken> {
+        ast_node::token(&self.syntax, SyntaxKind::MutKw)
+    }
+
     /// 変数の名前に位置するASTトークンを返します。
     pub fn name(&self) -> Option<tokens::Ident> {
         ast_node::child_token(self)

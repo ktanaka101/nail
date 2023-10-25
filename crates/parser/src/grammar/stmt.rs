@@ -25,6 +25,10 @@ fn parse_variable_def(parser: &mut Parser) -> CompletedNodeMarker {
     let marker = parser.start();
     parser.bump();
 
+    if parser.at(TokenKind::MutKw) {
+        parser.bump();
+    }
+
     parser.expect_with_block_recovery_set(TokenKind::Ident, &[TokenKind::Eq]);
     parser.expect_on_block(TokenKind::Eq);
 
@@ -249,6 +253,28 @@ mod tests {
     }
 
     #[test]
+    fn parse_variable_definition_mutable() {
+        check_debug_tree_in_block(
+            "let mut foo = 10;",
+            expect![[r#"
+                SourceFile@0..17
+                  VariableDef@0..17
+                    LetKw@0..3 "let"
+                    Whitespace@3..4 " "
+                    MutKw@4..7 "mut"
+                    Whitespace@7..8 " "
+                    Ident@8..11 "foo"
+                    Whitespace@11..12 " "
+                    Eq@12..13 "="
+                    Whitespace@13..14 " "
+                    Literal@14..16
+                      Integer@14..16 "10"
+                    Semicolon@16..17 ";"
+            "#]],
+        );
+    }
+
+    #[test]
     fn parse_varialbe_def_without_eq() {
         check_debug_tree_in_block(
             "let foo 10",
@@ -280,7 +306,7 @@ mod tests {
                     Whitespace@5..6 " "
                     Literal@6..8
                       Integer@6..8 "10"
-                error at 4..5: expected identifier, but found '='
+                error at 4..5: expected 'mut' or identifier, but found '='
             "#]],
         )
     }

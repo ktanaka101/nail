@@ -526,6 +526,10 @@ impl Param {
         ast_node::child_token(self)
     }
 
+    pub fn mut_token(&self) -> Option<SyntaxToken> {
+        ast_node::token(self.syntax(), SyntaxKind::MutKw)
+    }
+
     /// パラメータの型に位置する型ノードを返します。
     pub fn ty(&self) -> Option<Type> {
         ast_node::child_node(self)

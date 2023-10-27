@@ -366,7 +366,11 @@ impl<'a> BodyLower<'a> {
                 let expr = self.lower_expr(db, def.value());
                 let name = Name::new(db, def.name()?.name().to_owned());
                 self.scopes.define(name, expr);
-                Stmt::VariableDef { name, value: expr }
+                Stmt::VariableDef {
+                    name,
+                    is_mutability: def.mut_token().is_some(),
+                    value: expr,
+                }
             }
             ast::Stmt::ExprStmt(ast) => {
                 let expr = self.lower_expr(db, ast.expr());
@@ -952,11 +956,20 @@ mod tests {
         nesting: usize,
     ) -> String {
         match stmt {
-            Stmt::VariableDef { name, value } => {
+            Stmt::VariableDef {
+                name,
+                is_mutability,
+                value,
+            } => {
                 let name = name.text(db);
                 let expr_str =
                     debug_expr(db, hir_file, resolution_map, scope_origin, *value, nesting);
-                format!("{}let {name} = {expr_str}\n", indent(nesting))
+                let mutability = if *is_mutability {
+                    "mut ".to_string()
+                } else {
+                    "".to_string()
+                };
+                format!("{}let {mutability}{name} = {expr_str}\n", indent(nesting))
             }
             Stmt::ExprStmt {
                 expr,
@@ -1297,6 +1310,23 @@ mod tests {
                 //- /main.nail
                 fn entry:main() -> () {
                     let foo = <missing>
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn lower_variable_def_mutable() {
+        check_in_root_file(
+            r#"
+                fn main() {
+                    let mut foo = 10
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    let mut foo = 10
                 }
             "#]],
         );

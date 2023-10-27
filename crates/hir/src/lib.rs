@@ -514,10 +514,12 @@ pub struct Name {
 pub enum Stmt {
     /// 変数定義を表します。
     ///
-    /// 例: `let <name> = <value>;`
+    /// 例: `let [mut] <name> = <value>;`
     VariableDef {
         /// 変数名
         name: Name,
+        /// 可変性
+        is_mutability: bool,
         /// 初期値
         value: ExprId,
     },

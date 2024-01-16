@@ -27,7 +27,7 @@
         "christian-kohler.path-intellisense",
         "spywhere.guides",
         "github.copilot",
-        "github.copilot-labs",
+        "github.copilot-chat",
         "eamodio.gitlens",
         "unifiedjs.vscode-mdx",
         "dbaeumer.vscode-eslint",

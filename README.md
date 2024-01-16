@@ -512,6 +512,90 @@ fn handle(json: Json) -> bool {
 }
 ```
 
+- Reference / Move / Copy semantics
+
+```rust
+struct NotCopyable(i32);
+
+struct Copyable(i32);
+impl Copy for Copyable {}
+
+struct Custom {
+  not_copyable: NotCopyable
+  copyable: Copyable
+  auto_copyable: i32
+}
+impl Custom {
+  fn new() -> *Custom {
+    *Custom { a: 10 }
+  }
+
+  /** Custom */
+  fn ref_self(self) -> Custom {
+    self
+  }
+
+  fn move_self(*self) -> *Custom {
+    *self
+  }
+
+  fn copy_self(*self) -> *Custom {
+    *self.copy()
+  }
+
+  /** NotCopyable */
+  fn ref_not_copyable(self) -> NotCopyable {
+    self.not_copyable
+  }
+
+  fn move_not_copyable(*self) -> *NotCopyable {
+    *self.not_copyable
+  }
+
+  fn copy_not_copyable(self) -> *NotCopyable {
+    *self.not_copyable.copy() // Error
+  }
+
+  /** Copyable */
+  fn ref_copyable(self) -> Copyable {
+    self.copyable // Error
+  }
+
+  fn move_copyable(*self) -> *Copyable {
+    *self.copyable // Error
+  }
+
+  fn copy_copyable(self) -> *Copyable {
+    self.copyable.copy() // or *self.b
+  }
+
+  /** AutoCopyable */
+  fn ref_auto_copyable(self) -> i32 {
+    self.auto_copyable // Auto copy
+  }
+
+  fn move_auto_copyable(self) -> i32 {
+    *self.auto_copyable // Error
+  }
+
+  fn copy_auto_copyable(self) -> i32 {
+    self.auto_copyable // or self.auto_copyable.copy()
+  }
+}
+
+// Cannot be referenced.
+// Must always call .copy().
+trait Copy: Clone {
+}
+
+// This is an automatic copy.
+// No need to call .copy().
+// Essentially, only primitive types implement this.
+// note: On the IDE, want to change the color
+trait AutoCopy: Copy {
+}
+```
+
 ## Contributors
 
 - [ktanaka101](https://github.com/ktanaka101) - creator, maintainer

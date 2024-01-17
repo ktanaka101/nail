@@ -540,7 +540,7 @@ impl Custom {
   }
 
   fn copy_self(*self) -> *Custom {
-    *self.copy()
+    *self.copy() // Error
   }
 
   /** NotCopyable */
@@ -593,6 +593,77 @@ trait Copy: Clone {
 // Essentially, only primitive types implement this.
 // note: On the IDE, want to change the color
 trait AutoCopy: Copy {
+}
+```
+
+- Reference / Copy semantics
+Consider that it is always a copy of the reference.
+
+```rust
+struct NotCopyable(i32);
+
+struct Copyable(i32);
+impl Copy for Copyable {}
+
+struct Custom {
+  not_copyable: NotCopyable
+  copyable: Copyable
+  auto_copyable: i32
+}
+impl Custom {
+  fn new() -> *Custom {
+    *Custom { a: 10 }
+  }
+
+  /** Custom */
+  fn ref_self(self) -> Custom {
+    self
+  }
+
+  fn copy_self(self) -> Custom {
+    self.copy() // Error
+  }
+
+  /** NotCopyable */
+  fn ref_not_copyable(self) -> NotCopyable {
+    self.not_copyable
+  }
+
+  fn copy_not_copyable(self) -> NotCopyable {
+    self.not_copyable.copy() // Error
+  }
+
+  /** Copyable */
+  fn ref_copyable(self) -> Copyable {
+    self.copyable
+  }
+
+  fn copy_copyable(self) -> Copyable {
+    self.copyable.copy() // or *self.copyable
+  }
+
+  /** AutoCopyable */
+  fn ref_auto_copyable(self) -> i32 {
+    self.auto_copyable // Auto copy, no reference
+  }
+
+  fn copy_auto_copyable(self) -> i32 {
+    self.auto_copyable // or self.auto_copyable.copy() or *self.auto_copyable
+  }
+}
+```
+
+It can also consume itself or its arguments.
+
+```rust
+impl Custom {
+  fn consume_self(consume self) {
+    // After that, self cannot be accessed.
+  }
+
+  fn consume_arg(self, x: consume i32) {
+    // The x passed to this function will be consumed.
+  }
 }
 ```
 

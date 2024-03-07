@@ -22,7 +22,7 @@ anyhow = "1.0"
 ariadne = { version = "0.3", features = ["auto-color"] }
 clap = { version = "4.4", features = ["derive"] }
 drop_bomb = "0.1"
-either = "1.9.0"
+either = "1.10.0"
 env_logger = "0.10"
 expect-test = "1.4"
 indexmap = "1.9"

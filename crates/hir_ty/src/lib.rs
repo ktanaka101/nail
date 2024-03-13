@@ -479,7 +479,9 @@ mod tests {
                 hir::Type::Unknown => "<unknown>",
             };
 
-            let hir::Expr::Block(block) = body_expr else { panic!("Should be Block") };
+            let hir::Expr::Block(block) = body_expr else {
+                panic!("Should be Block")
+            };
 
             let mut body = "{\n".to_string();
             for stmt in &block.stmts {

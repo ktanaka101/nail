@@ -86,7 +86,7 @@ impl<'a> FunctionLower<'a> {
 
     fn add_termination_to_current_bb(&mut self, termination: Termination) {
         let current_bb = &mut self.blocks[self.current_bb.unwrap()];
-        assert!(matches!(current_bb.termination, None));
+        assert!(current_bb.termination.is_none());
         current_bb.termination = Some(termination);
     }
 
@@ -131,7 +131,7 @@ impl<'a> FunctionLower<'a> {
     }
 
     fn alloc_exit_bb(&mut self) -> Idx<BasicBlock> {
-        assert!(matches!(self.exit_bb_idx, None));
+        assert!(self.exit_bb_idx.is_none());
 
         let mut exit_bb = BasicBlock::new_exit_bb(0);
         exit_bb.termination = Some(Termination::Return(self.return_local));

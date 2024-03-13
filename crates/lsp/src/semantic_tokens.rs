@@ -98,7 +98,6 @@ impl SemanticTokensBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::semantic_tokens::raw_semantic_token;
 
     fn check(text: String, expected: Vec<SemanticToken>) {
         let parsed = parser::parse(text.as_str());

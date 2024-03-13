@@ -38,7 +38,7 @@ impl ExprId {
 }
 impl PartialOrd for ExprId {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.0.into_raw().partial_cmp(&other.0.into_raw())
+        Some(self.cmp(other))
     }
 }
 impl Ord for ExprId {
@@ -222,9 +222,8 @@ impl<'a> BodyLower<'a> {
         );
 
         // キーはファイル内で一意なので重複する心配はない
-        self.source_by_expr.extend(source_by_expr.into_iter());
-        self.source_by_function
-            .extend(source_by_function.into_iter());
+        self.source_by_expr.extend(source_by_expr);
+        self.source_by_function.extend(source_by_function);
         self.hir_file_db
             .function_body_by_ast_block
             .insert(ast_block, FunctionBodyId(body_expr));
@@ -693,7 +692,7 @@ mod tests {
         name_resolver::{ModuleScopeOrigin, ResolutionMap, ResolutionStatus},
         parse_pods,
         testing::TestingDatabase,
-        Function, HirFile, LowerError, Module, ModuleKind, Pod, Pods, UseItem,
+        HirFile, LowerError, Pod, Pods,
     };
 
     fn indent(nesting: usize) -> String {
@@ -786,7 +785,9 @@ mod tests {
 
         let scope_origin = ModuleScopeOrigin::Function { origin: function };
 
-        let Expr::Block(block) = body_expr else { panic!("Should be Block") };
+        let Expr::Block(block) = body_expr else {
+            panic!("Should be Block")
+        };
 
         let mut body = "{\n".to_string();
         for stmt in &block.stmts {
@@ -1091,7 +1092,7 @@ mod tests {
                 | Expr::Break { .. } => {
                     let expr_text =
                         debug_expr(db, hir_file, resolution_map, scope_origin, *expr, nesting);
-                    format!("${}:{}", name.text(db).to_string(), expr_text)
+                    format!("${}:{}", name.text(db), expr_text)
                 }
                 Expr::Block { .. } => name.text(db).to_string(),
             },

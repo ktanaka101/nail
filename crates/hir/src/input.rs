@@ -73,7 +73,7 @@ impl Fixture {
                 }
                 None => {
                     if let Some(current_file_path) = current_file_path {
-                        if file_by_path.get(&current_file_path).is_none() {
+                        if !file_by_path.contains_key(&current_file_path) {
                             Self::register_file(
                                 db,
                                 current_file_path,
@@ -92,7 +92,9 @@ impl Fixture {
             .values()
             .find(|file| file.file_path(db) == std::path::Path::new("/main.nail"))
             .cloned();
-        let Some(source_root) = source_root else { panic!("source root is not found. need: `/main.nail`") };
+        let Some(source_root) = source_root else {
+            panic!("source root is not found. need: `/main.nail`")
+        };
 
         Self {
             source_root,

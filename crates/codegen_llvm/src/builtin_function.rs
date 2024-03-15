@@ -159,8 +159,11 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
     pub(super) fn build_to_string(&'a self, value: BasicValueEnum<'ctx>) -> CallSiteValue<'ctx> {
         match value {
             BasicValueEnum::IntValue(int) => {
-                let value_ptr = self.builder.build_alloca(int.get_type(), "alloca_value");
-                self.builder.build_store(value_ptr, value);
+                let value_ptr = self
+                    .builder
+                    .build_alloca(int.get_type(), "alloca_value")
+                    .unwrap();
+                self.builder.build_store(value_ptr, value).unwrap();
 
                 if int.get_type().get_bit_width() == 1 {
                     self.build_call_ptr_to_string(
@@ -192,14 +195,16 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         value_ptr: PointerValue<'ctx>,
         length: IntValue<'ctx>,
     ) -> CallSiteValue<'ctx> {
-        self.builder.build_call(
-            self.get_fn_ptr_to_string(),
-            &[
-                self.context.i64_type().const_int(ty.into(), false).into(),
-                value_ptr.into(),
-                length.into(),
-            ],
-            FN_NAME_PTR_TO_STRING,
-        )
+        self.builder
+            .build_call(
+                self.get_fn_ptr_to_string(),
+                &[
+                    self.context.i64_type().const_int(ty.into(), false).into(),
+                    value_ptr.into(),
+                    length.into(),
+                ],
+                FN_NAME_PTR_TO_STRING,
+            )
+            .unwrap()
     }
 }

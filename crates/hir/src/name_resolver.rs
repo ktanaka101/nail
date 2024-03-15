@@ -21,7 +21,7 @@ mod module_scope;
 
 use std::collections::HashMap;
 
-pub use module_scope::{ModuleScope, ModuleScopeOrigin, SymbolInScopeOrigin};
+pub use module_scope::{ModuleScope, ModuleScopeOrigin};
 
 use self::module_scope::{ModuleScopes, ModuleScopesBuilder, NameResolutionCollection, PathMap};
 use crate::{

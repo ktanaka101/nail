@@ -56,7 +56,8 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
             let local_ptr = self
                 .codegen
                 .builder
-                .build_alloca(ty, &local.idx.to_string());
+                .build_alloca(ty, &local.idx.to_string())
+                .unwrap();
             self.locals.insert(idx, (ty, local_ptr));
         }
 
@@ -71,7 +72,10 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
 
             if is_entry {
                 is_entry = false;
-                self.codegen.builder.build_unconditional_branch(appneded_bb);
+                self.codegen
+                    .builder
+                    .build_unconditional_branch(appneded_bb)
+                    .unwrap();
             }
         }
 
@@ -90,12 +94,15 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
 
     fn store_local(&self, local_idx: mir::LocalIdx, value: BasicValueEnum<'ctx>) {
         let ptr = self.locals[&local_idx];
-        self.codegen.builder.build_store(ptr.1, value);
+        self.codegen.builder.build_store(ptr.1, value).unwrap();
     }
 
     fn load_local(&self, local_idx: mir::LocalIdx) -> BasicValueEnum<'ctx> {
         let local = self.locals[&local_idx];
-        self.codegen.builder.build_load(local.0, local.1, "load")
+        self.codegen
+            .builder
+            .build_load(local.0, local.1, "load")
+            .unwrap()
     }
 
     fn load_param(&self, param_idx: mir::ParamIdx) -> BasicValueEnum<'ctx> {
@@ -117,21 +124,25 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                                     .codegen
                                     .builder
                                     .build_int_add(lhs, rhs, "add_number")
+                                    .unwrap()
                                     .into(),
                                 mir::BinaryOp::Sub => self
                                     .codegen
                                     .builder
                                     .build_int_sub(lhs, rhs, "sub_number")
+                                    .unwrap()
                                     .into(),
                                 mir::BinaryOp::Mul => self
                                     .codegen
                                     .builder
                                     .build_int_mul(lhs, rhs, "mul_number")
+                                    .unwrap()
                                     .into(),
                                 mir::BinaryOp::Div => self
                                     .codegen
                                     .builder
                                     .build_int_signed_div(lhs, rhs, "div_number")
+                                    .unwrap()
                                     .into(),
                                 mir::BinaryOp::Equal => self
                                     .codegen
@@ -142,6 +153,7 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                                         rhs,
                                         "compare_number",
                                     )
+                                    .unwrap()
                                     .into(),
                                 mir::BinaryOp::GreaterThan => self
                                     .codegen
@@ -152,6 +164,7 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                                         rhs,
                                         "gt_number",
                                     )
+                                    .unwrap()
                                     .into(),
                                 mir::BinaryOp::LessThan => self
                                     .codegen
@@ -162,6 +175,7 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                                         rhs,
                                         "lt_number",
                                     )
+                                    .unwrap()
                                     .into(),
                             }
                         }
@@ -172,10 +186,14 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                                     .codegen
                                     .builder
                                     .build_int_neg(expr, "neg_number")
+                                    .unwrap()
                                     .into(),
-                                mir::UnaryOp::Not => {
-                                    self.codegen.builder.build_not(expr, "not_bool").into()
-                                }
+                                mir::UnaryOp::Not => self
+                                    .codegen
+                                    .builder
+                                    .build_not(expr, "not_bool")
+                                    .unwrap()
+                                    .into(),
                             }
                         }
                     };
@@ -192,15 +210,19 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
             match termination {
                 mir::Termination::Return(ret) => {
                     let ret_local = self.locals[ret];
-                    let ret_local =
-                        self.codegen
-                            .builder
-                            .build_load(ret_local.0, ret_local.1, "load");
-                    self.codegen.builder.build_return(Some(&ret_local));
+                    let ret_local = self
+                        .codegen
+                        .builder
+                        .build_load(ret_local.0, ret_local.1, "load")
+                        .unwrap();
+                    self.codegen.builder.build_return(Some(&ret_local)).unwrap();
                 }
                 mir::Termination::Goto(goto) => {
                     let dest_block = self.basic_blocks[goto];
-                    self.codegen.builder.build_unconditional_branch(dest_block);
+                    self.codegen
+                        .builder
+                        .build_unconditional_branch(dest_block)
+                        .unwrap();
                 }
                 mir::Termination::Switch {
                     condition,
@@ -214,11 +236,14 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                     let cond = cond.into_int_value();
                     let then_bb = self.basic_blocks[then_bb];
                     let else_bb = self.basic_blocks[else_bb];
-                    self.codegen.builder.build_switch(
-                        cond,
-                        else_bb,
-                        &[(self.codegen.bool_type().const_int(1, false), then_bb)],
-                    );
+                    self.codegen
+                        .builder
+                        .build_switch(
+                            cond,
+                            else_bb,
+                            &[(self.codegen.bool_type().const_int(1, false), then_bb)],
+                        )
+                        .unwrap();
                 }
                 mir::Termination::Call {
                     function,
@@ -232,10 +257,11 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                         .map(|arg| self.gen_operand(arg).into())
                         .collect::<Vec<BasicMetadataValueEnum<'ctx>>>();
 
-                    let call_site_value =
-                        self.codegen
-                            .builder
-                            .build_call(callee_function, &args, "call");
+                    let call_site_value = self
+                        .codegen
+                        .builder
+                        .build_call(callee_function, &args, "call")
+                        .unwrap();
 
                     match destination {
                         mir::Place::Param(_) => unreachable!(),
@@ -246,7 +272,10 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                     };
 
                     let target_bb = self.basic_blocks[target];
-                    self.codegen.builder.build_unconditional_branch(target_bb);
+                    self.codegen
+                        .builder
+                        .build_unconditional_branch(target_bb)
+                        .unwrap();
                 }
             }
         }

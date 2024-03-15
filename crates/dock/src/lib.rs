@@ -99,9 +99,7 @@ pub async fn execute(
     write_dest_err: &mut impl std::io::Write,
     enabled_color: bool,
 ) -> Result<(), ExecutionError> {
-    let root_nail_file_path = path::PathBuf::try_from(root_nail_file_path_str).map_err(|_| {
-        ExecutionError::InvalidRootNailFilePath(root_nail_file_path_str.to_string())
-    })?;
+    let root_nail_file_path = path::PathBuf::from(root_nail_file_path_str);
 
     let db = base_db::SalsaDatabase::default();
 
@@ -219,13 +217,17 @@ impl Diagnostic {
             } => {
                 let then_branch_range = then_branch.text_range(db, source_map);
                 let else_branch_range = else_branch.text_range(db, source_map);
-                let hir::Expr::Block(then_block) =  then_branch.lookup(file_db) else { unreachable!() };
+                let hir::Expr::Block(then_block) = then_branch.lookup(file_db) else {
+                    unreachable!()
+                };
                 let then_tail_range: std::ops::Range<usize> = if let Some(tail) = then_block.tail {
                     tail.text_range(db, source_map).into()
                 } else {
                     then_branch_range.end().into()..then_branch_range.end().into()
                 };
-                let hir::Expr::Block(else_block) =  else_branch.lookup(file_db) else { unreachable!() };
+                let hir::Expr::Block(else_block) = else_branch.lookup(file_db) else {
+                    unreachable!()
+                };
                 let else_tail_range: std::ops::Range<usize> = if let Some(tail) = else_block.tail {
                     tail.text_range(db, source_map).into()
                 } else {
@@ -262,7 +264,9 @@ impl Diagnostic {
                 else_branch_unit_ty,
             } => {
                 let then_branch_range = then_branch.text_range(db, source_map);
-                let hir::Expr::Block(then_block) =  then_branch.lookup(file_db) else { unreachable!() };
+                let hir::Expr::Block(then_block) = then_branch.lookup(file_db) else {
+                    unreachable!()
+                };
                 let then_tail_range: std::ops::Range<usize> = if let Some(tail) = then_block.tail {
                     tail.text_range(db, source_map).into()
                 } else {

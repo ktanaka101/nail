@@ -119,11 +119,13 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 .context
                 .append_basic_block(entry_point, FN_ENTRY_BLOCK_NAME);
             self.builder.position_at_end(inner_entry_point_block);
-            self.builder.build_call(
-                self.defined_functions[&self.mir_result.function_id_of_entry_point().unwrap()],
-                &[],
-                "call_entry_point",
-            )
+            self.builder
+                .build_call(
+                    self.defined_functions[&self.mir_result.function_id_of_entry_point().unwrap()],
+                    &[],
+                    "call_entry_point",
+                )
+                .unwrap()
         };
 
         if should_return_string {
@@ -132,12 +134,12 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                     let call_v = self.build_to_string(result_value);
                     let return_v = call_v.try_as_basic_value().left().unwrap();
 
-                    self.builder.build_return(Some(&return_v));
+                    self.builder.build_return(Some(&return_v)).unwrap();
                 }
                 Either::Right(_) => unreachable!(),
             }
         } else {
-            self.builder.build_return(None);
+            self.builder.build_return(None).unwrap();
         }
 
         CodegenResult {
@@ -191,6 +193,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
     fn build_string_value(&self, string: &str) -> PointerValue<'ctx> {
         self.builder
             .build_global_string_ptr(&format!("{string}\0"), "const_string")
+            .unwrap()
             .as_pointer_value()
     }
 

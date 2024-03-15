@@ -18,7 +18,9 @@ RUN wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor > /usr/
   libunwind-16-dev \
   libmlir-16-dev mlir-16-tools
 
-RUN apt install -y zlib1g-dev
+RUN apt install -y zlib1g-dev \
+  zstd \
+  libzstd-dev
 
 ENV LLVM_SYS_160_STRICT_VERSIONING=160 \
   LLVM_SYS_160_PREFIX=/usr/lib/llvm-16 \

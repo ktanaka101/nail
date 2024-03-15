@@ -26,7 +26,9 @@ async fn main() {
     let args = Cli::parse();
     match args.command {
         Command::Run { path } => {
-            let Some(path)  = path else { panic!("The path must be specified.(Help: --path {{path}})"); };
+            let Some(path) = path else {
+                panic!("The path must be specified.(Help: --path {{path}})");
+            };
             let out = &mut io::stdout();
             let err = &mut io::stderr();
 

@@ -398,7 +398,10 @@ impl<'a> ModuleScopesBuilder<'a> {
         let Expr::Block(function_body) = hir_file
             .db(self.db)
             .function_body_by_ast_block(function.ast(self.db).body().unwrap())
-            .unwrap() else { panic!("No Block") };
+            .unwrap()
+        else {
+            panic!("No Block")
+        };
 
         for stmt in &function_body.stmts {
             self.build_stmt(hir_file, current_scope_idx, stmt);
@@ -473,7 +476,9 @@ impl<'a> ModuleScopesBuilder<'a> {
     fn build_block(&mut self, hir_file: HirFile, current_scope_idx: ModuleScopeIdx, block: ExprId) {
         let current_scope_idx = self.create_scope_on_block(current_scope_idx, block);
 
-        let Expr::Block(block) = block.lookup(hir_file.db(self.db)) else { panic!("Should be block") };
+        let Expr::Block(block) = block.lookup(hir_file.db(self.db)) else {
+            panic!("Should be block")
+        };
 
         for stmt in &block.stmts {
             self.build_stmt(hir_file, current_scope_idx, stmt);

@@ -96,7 +96,9 @@ impl<'a> FunctionTypeChecker<'a> {
     }
 
     fn check_expr(&mut self, expr: hir::ExprId) {
-        let Some(ty) = self.current_inference().type_by_expr(expr)  else { return };
+        let Some(ty) = self.current_inference().type_by_expr(expr) else {
+            return;
+        };
         if ty == &Monotype::Unknown {
             self.errors.push(TypeCheckError::UnresolvedType { expr });
         }

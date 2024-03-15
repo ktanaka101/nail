@@ -1,7 +1,7 @@
 #!/bin/bash
 
 tag_name=""
-should_push=""
+should_push=false
 
 usage() {
   echo "Usage: $0 [-t tagname] [-p(push)]"
@@ -24,7 +24,7 @@ else
   cmd_args+="-t $tag_name"
 fi
 
-if "$should_push"; then
+if $should_push; then
   cmd_args+=" --push"
 fi
 

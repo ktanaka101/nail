@@ -37,7 +37,9 @@ type StdString = std::string::String;
 /// }
 /// ```
 macro_rules! def_ast_token {
-    ($kind:ident) => {
+    ($(#[$meta:meta])* $kind:ident) => {
+        /// ASTトークン
+        $(#[$meta])*
         #[derive(Debug, Clone, PartialEq, Eq, Hash)]
         pub struct $kind {
             syntax: SyntaxToken,
@@ -65,15 +67,25 @@ macro_rules! def_ast_token {
 }
 pub(in crate::tokens) use def_ast_token;
 
-def_ast_token!(Integer);
+def_ast_token!(
+    /// 整数リテラル
+    Integer
+);
 impl Integer {
+    /// 整数値を返します。
+    /// 例: `123`の場合、`123`を返します。
     pub fn value(&self) -> Option<u64> {
         self.syntax.text().parse().ok()
     }
 }
 
-def_ast_token!(String);
+def_ast_token!(
+    /// 文字列リテラル
+    String
+);
 impl String {
+    /// 文字列を返します。
+    /// 例: `"Hello, world!"`の場合、`Hello, world!`を返します。
     pub fn value(&self) -> Option<StdString> {
         let text = self.syntax.text();
         let text = text.trim_matches('"');
@@ -81,8 +93,13 @@ impl String {
     }
 }
 
-def_ast_token!(Char);
+def_ast_token!(
+    /// 文字リテラル
+    Char
+);
 impl Char {
+    /// 文字リテラル内の文字部分を返します。
+    /// 例: `'a'`の場合、`a`を返します。
     pub fn value(&self) -> Option<char> {
         let text = self.syntax.text();
         let text = text.trim_matches('\'');
@@ -90,6 +107,7 @@ impl Char {
     }
 }
 
+/// 真偽値リテラル
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Bool {
     syntax: SyntaxToken,
@@ -113,6 +131,7 @@ impl AstToken for Bool {
     }
 }
 impl Bool {
+    /// 真偽値を返します。
     pub fn value(&self) -> Option<bool> {
         match self.syntax.kind() {
             SyntaxKind::TrueKw => Some(true),
@@ -122,8 +141,13 @@ impl Bool {
     }
 }
 
-def_ast_token!(Ident);
+def_ast_token!(
+    /// 識別子
+    Ident
+);
 impl Ident {
+    /// 識別子の名前を返します。
+    /// 例: `x`、`foo`、`bar`など
     pub fn name(&self) -> &str {
         self.syntax.text()
     }

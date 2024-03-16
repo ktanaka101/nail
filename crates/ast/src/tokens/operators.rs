@@ -3,15 +3,24 @@ use syntax::{SyntaxKind, SyntaxToken};
 use super::def_ast_token;
 use crate::{Ast, AstToken};
 
+/// Binary operators.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum BinaryOp {
+    /// `+`
     Add(Plus),
+    /// `-`
     Sub(Minus),
+    /// `*`
     Mul(Star),
+    /// `/`
     Div(Slash),
+    /// `==`
     Equal(Eq2),
+    /// `>`
     GreaterThan(RAngle),
+    /// `<`
     LessThan(LAngle),
+    /// `=`
     Assign(Eq),
 }
 def_ast_token!(Plus);
@@ -67,9 +76,12 @@ impl AstToken for BinaryOp {
     }
 }
 
+/// Unary operators.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum UnaryOp {
+    /// `-`
     Neg(Minus),
+    /// `!`
     Not(Bang),
 }
 def_ast_token!(Bang);

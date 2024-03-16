@@ -1,3 +1,5 @@
+//! DockはNailプログラムのプロジェクト管理/パッケージ管理/ビルドシステムの機能を持ちます。
+
 use std::{
     collections::HashMap,
     ffi::{c_char, CString},
@@ -75,17 +77,22 @@ async fn read_nail_files(
     }
 }
 
+/// Nailプログラムの実行時に発生するエラー
 #[derive(Error, Debug)]
 pub enum ExecutionError {
+    /// Nailプログラムのコンパイルエラー
     #[error("Compile nail error")]
     Nail,
 
+    /// ルートNailファイルのパスが不正
     #[error("Invalid root nail file path: `{0}`")]
     InvalidRootNailFilePath(String),
 
+    /// IOエラー
     #[error("IO error")]
     Io(#[from] io::Error),
 
+    /// 非同期タスク実行時のエラー
     #[error("Join error")]
     Join(#[from] tokio::task::JoinError),
 }

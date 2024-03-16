@@ -1,3 +1,5 @@
+//! LLVM IRを生成するモジュールです。
+
 mod body;
 mod builtin_function;
 use std::collections::HashMap;
@@ -21,9 +23,13 @@ const INTERNAL_ENTRY_POINT: &str = "__main__";
 
 /// LLVM IR生成用のコンテキストです。
 pub struct CodegenContext<'a, 'ctx> {
+    /// LLVMのコンテキスト
     pub context: &'ctx Context,
+    /// LLVMのモジュール
     pub module: &'a Module<'ctx>,
+    /// LLVMのビルダー
     pub builder: &'a Builder<'ctx>,
+    /// LLVMの実行エンジン
     pub execution_engine: &'a ExecutionEngine<'ctx>,
 }
 
@@ -50,6 +56,7 @@ type MainFunc = unsafe extern "C" fn() -> *mut i8;
 
 /// LLVM IRの生成結果です。
 pub struct CodegenResult<'ctx> {
+    /// エントリポイントの関数
     pub function: JitFunction<'ctx, MainFunc>,
 }
 

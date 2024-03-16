@@ -9,17 +9,25 @@ use serde_json::Value;
 
 use crate::Codegen;
 
+/// 外部から見たときのNailの型を表す
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OutputType {
+    /// 整数型
     Int,
+    /// 文字列型
     String,
+    /// 真偽値型
     Boolean,
+    /// 空の型
     Unit,
 }
 
+/// 外部から見たときのNailの結果値を表す
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Output {
+    /// Nailの型
     pub nail_type: OutputType,
+    /// 値
     pub value: Value,
 }
 

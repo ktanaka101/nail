@@ -138,6 +138,7 @@ pub enum InferenceError {
         /// 実際の式
         found_expr: hir::ExprId,
     },
+    /// ループ外でbreak/continueが使われている
     BreakOutsideOfLoop {
         /// break/continue種類
         kind: BreakKind,
@@ -146,8 +147,11 @@ pub enum InferenceError {
     },
 }
 
+/// ループ中断の種類
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum BreakKind {
+    /// continue
     Continue,
+    /// break
     Break,
 }

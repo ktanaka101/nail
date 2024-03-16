@@ -23,7 +23,7 @@
 //! 4. 使用宣言/関数/モジュールの名前解決を行う
 
 // #[salsa::tracked]で生成される関数にドキュメントコメントが作成されないため警告が出てしまうため許可します。
-// #![warn(missing_docs)]
+#![allow(missing_docs)]
 
 mod body;
 mod db;
@@ -334,7 +334,9 @@ pub type FunctionSource = InFile<ast::FunctionDef>;
 /// 型引数をファイル内で一意として表現します。
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct InFile<T> {
+    /// ファイル情報
     pub file: NailFile,
+    /// ファイル内として保持する値
     pub value: T,
 }
 
@@ -582,7 +584,10 @@ pub enum Expr {
     /// ループを中断し、次の反復処理に進みます。
     Continue,
     /// ループを終了します。
-    Break { value: Option<ExprId> },
+    Break {
+        /// Breakの値
+        value: Option<ExprId>,
+    },
     /// 解釈できない不明な式です。
     Missing,
 }

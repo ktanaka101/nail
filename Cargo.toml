@@ -25,7 +25,7 @@ drop_bomb = "0.1"
 either = "1.10.0"
 env_logger = "0.10"
 expect-test = "1.4"
-indexmap = "1.9"
+indexmap = "2.2"
 inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = [
   "llvm16-0",
 ] }

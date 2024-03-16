@@ -12,31 +12,26 @@
     "languages": [
       {
         "id": "nail",
-        "extensions": [
-          ".nail"
-        ],
-        "aliases": [
-          "Nail"
-        ]
+        "extensions": [".nail"],
+        "aliases": ["Nail"]
       }
     ]
   },
-  "activationEvents": [
-    "onLanguage:nail"
-  ],
+  "activationEvents": ["onLanguage:nail"],
   "dependencies": {
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
-    "@types/vscode": "^1.87.0",
+    "@biomejs/biome": "^1.6.1",
     "@types/mocha": "^10.0.6",
     "@types/node": "18.x",
+    "@types/vscode": "^1.87.0",
     "@typescript-eslint/eslint-plugin": "^7.0.2",
     "@typescript-eslint/parser": "^7.0.2",
-    "eslint": "^8.56.0",
-    "typescript": "^5.3.3",
     "@vscode/test-cli": "^0.0.6",
-    "@vscode/test-electron": "^2.3.9"
+    "@vscode/test-electron": "^2.3.9",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3"
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

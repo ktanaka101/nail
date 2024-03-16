@@ -30,7 +30,7 @@ env_logger = "0.10"
 expect-test = "1.4"
 indexmap = "2.2"
 inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = [
-  "llvm16-0",
+  "llvm17-0",
 ] }
 la-arena = "0.2"
 lasso = "0.6"

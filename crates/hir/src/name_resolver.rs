@@ -41,20 +41,24 @@ pub(crate) fn resolve_symbols(db: &dyn HirMasterDatabase, pod: &Pod) -> Resoluti
     }
 }
 
+/// 名前解決の結果を保持します。
 #[derive(Debug)]
 pub struct ResolutionMap {
     symbol_table: SymbolTable,
     path_map: PathMap,
 }
 impl ResolutionMap {
+    /// シンボルの解決状態を取得します。
     pub fn item_by_symbol(&self, symbol: &NameSolutionPath) -> Option<ResolutionStatus> {
         self.symbol_table.item_by_symbol(symbol)
     }
 
+    /// 使用宣言の解決状態を取得します。
     pub fn item_by_use_item(&self, use_item: &UseItem) -> Option<ResolutionStatus> {
         self.symbol_table.item_by_use_item(use_item)
     }
 
+    /// 関数のフルパスを取得します。パス中に関数名は含まれません。
     pub fn path_of_function(&self, function: Function) -> Option<Path> {
         self.path_map.path_by_function(function)
     }
@@ -111,7 +115,12 @@ pub enum ResolutionStatus {
     /// 未解決の状態です。
     Unresolved,
     /// 解決済みの状態です。
-    Resolved { path: Path, item: Item },
+    Resolved {
+        /// 解決したパス
+        path: Path,
+        /// 解決したアイテム
+        item: Item,
+    },
     /// 解決できなかった状態です。
     Error,
 }

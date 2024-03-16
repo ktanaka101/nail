@@ -12,7 +12,7 @@
 
 #![feature(trait_upcasting)]
 // #[salsa::tracked]で生成される関数にドキュメントコメントが作成されないため警告が出てしまうため許可します。
-// #![warn(missing_docs)]
+#![allow(missing_docs)]
 
 mod checker;
 mod db;

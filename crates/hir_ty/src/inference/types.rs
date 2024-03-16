@@ -10,14 +10,25 @@ use crate::HirTyMasterDatabase;
 /// 単一の型
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Monotype {
+    /// 整数型
     Integer,
+    /// 真偽値型
     Bool,
+    /// 空の型
     Unit,
+    /// 文字型
     Char,
+    /// 文字列型
     String,
+    /// 型変数
     Variable(VariableId),
+    /// 関数型
     Function(Signature),
+    /// 値を取り得ないことを表す型
     Never,
+    /// 未知の型
+    /// この型は型推論の途中で使われます。
+    /// この型が残っている場合、型推論が完了していないか、型を推論できないことを表します。
     Unknown,
 }
 

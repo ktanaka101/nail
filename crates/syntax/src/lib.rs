@@ -1,7 +1,11 @@
+//! Syntax tree definitions for the Nail language.
+
 use lexer::TokenKind;
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::{FromPrimitive, ToPrimitive};
 
+/// The language definition for Nail.
+/// Required for rowan.
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub enum NailLanguage {}
 
@@ -17,112 +21,176 @@ impl rowan::Language for NailLanguage {
     }
 }
 
+/// The syntax kinds for Nail.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, FromPrimitive, ToPrimitive)]
 pub enum SyntaxKind {
-    // top level node
+    // ---top level node---
+    /// The root node of the syntax tree.
     SourceFile,
 
-    // expression nodes
+    // ---expression nodes---
+    /// `INTEGER_LITERAL` | `CHAR_LITERAL` | `STRING_LITERAL` | `true` | `false`
     Literal,
+    /// `(EXPR)`
     ParenExpr,
+    /// `EXPR + EXPR`, `EXPR - EXPR`, ...
     BinaryExpr,
+    /// `-EXPR`, `!EXPR`, ...
     UnaryExpr,
+    /// `{ STMT* }` | `{ STMT+, EXPR }`
     BlockExpr,
+    /// `EXPR(EXPR*)`
     CallExpr,
+    /// `if EXPR BlockExpr else BlockExpr`
     IfExpr,
+    /// `return EXPR`
     ReturnExpr,
+    /// `let IDENT: TYPE = EXPR`
     ExprStmt,
+    /// `Path`
     PathExpr,
+    /// `loop BlockExpr`
     LoopExpr,
+    /// `continue`
     ContinueExpr,
+    /// `break`
     BreakExpr,
+    /// `while EXPR BlockExpr`
     WhileExpr,
 
-    // statement nodes
+    // ---statement nodes---
+    /// `let IDENT: TYPE = EXPR`
     VariableDef,
 
-    // item nodes
+    // ---item nodes---
+    /// `fn IDENT(ParamList) -> ReturnType BlockExpr`
     FunctionDef,
+    /// `mod IDENT { ItemList }`
     Module,
+    /// `use Path;`
     Use,
 
-    // part nodes
+    // ---part nodes---
+    /// `Param, Param, ...`
     ParamList,
+    /// `IDENT: TYPE`
     Param,
+    /// `Arg, Arg, ...`
     ArgList,
+    /// `EXPR`
     Arg,
+    /// `TYPE`
     Type,
+    /// fn foo() -> i32 { ... }
+    ///             ^^^
+    ///
+    /// `TYPE`
     ReturnType,
+    /// `Item*`
     ItemList,
+    /// `PathSegment::PathSegment::...`
     Path,
+    /// `IDENT::IDENT::...`
     PathSegment,
 
-    // item keywords
+    // ---item keywords---
+    /// `fn`
     FnKw,
+    /// `mod`
     ModKw,
+    /// `use`
     UseKw,
 
-    // body keywords
+    // ---body keywords---
+    /// `let`
     LetKw,
+    /// `true`
     TrueKw,
+    /// `false`
     FalseKw,
+    /// `if`
     IfKw,
+    /// `else`
     ElseKw,
+    /// `return`
     ReturnKw,
+    /// `loop`
     LoopKw,
+    /// `while`
     WhileKw,
+    /// `continue`
     ContinueKw,
+    /// `break`
     BreakKw,
 
-    // identifier
+    // ---identifier---
+    /// `IDENT`
     Ident,
 
-    // literals
+    // ---literals---
+    /// `INTEGER_LITERAL`
     Integer,
+    /// `STRING_LITERAL`
     String,
+    /// `CHAR_LITERAL`
     Char,
 
-    // symbols
+    // ---symbols---
+    /// `+`
     Plus,
+    /// `-`
     Minus,
+    /// `*`
     Star,
+    /// `/`
     Slash,
+    /// `!`
     Bang,
+    /// `=`
     Eq,
+    /// `==`
     Eq2,
-    /// <
+    /// `<`
     LAngle,
-    /// >
+    /// `>`
     RAngle,
 
-    // composite symbols
-    /// ->
+    // ---composite symbols---
+    /// `->`
     ThinArrow,
 
-    // delimiters
+    // ---delimiters---
+    /// `,`
     Comma,
+    /// `:`
     Colon,
+    /// `::`
     Colon2,
+    /// `;`
     Semicolon,
-    /// (
+    /// `(`
     LParen,
-    /// )
+    /// `)`
     RParen,
-    /// [
+    /// `[`
     LBrace,
-    /// ]
+    /// `]`
     RBrace,
-    /// {
+    /// `{`
     LCurly,
-    /// }
+    /// `}`
     RCurly,
-    /// |
+    /// `|`
     Pipe,
 
-    // trivias
+    // ---trivias---
+    /// `WHITESPACE`
     Whitespace,
+    /// `// COMMENT`
     CommentSingle,
 
+    // ---error---
+    /// `ERROR`
     Error,
 }
 
@@ -185,7 +253,11 @@ impl From<TokenKind> for SyntaxKind {
     }
 }
 
+/// The syntax node type for Nail.
 pub type SyntaxNode = rowan::SyntaxNode<NailLanguage>;
+/// The syntax token type for Nail.
 pub type SyntaxToken = rowan::SyntaxToken<NailLanguage>;
+/// The syntax element type for Nail.
 pub type SyntaxElement = rowan::SyntaxElement<NailLanguage>;
+/// The syntax node pointer type for Nail.
 pub type SyntaxNodePtr = rowan::ast::SyntaxNodePtr<NailLanguage>;

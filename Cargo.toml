@@ -17,6 +17,9 @@ lsp = { workspace = true }
 [workspace]
 members = ["crates/*"]
 
+[workspace.lints.rust]
+missing_docs = "deny"
+
 [workspace.dependencies]
 anyhow = "1.0"
 ariadne = { version = "0.3", features = ["auto-color"] }

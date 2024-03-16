@@ -8,6 +8,7 @@ use crate::{
     nodes::{Literal, LiteralKind},
 };
 
+/// 構築されたASTに対するバリデーションエラー
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValidationError {
     kind: ValidationErrorKind,
@@ -15,10 +16,12 @@ pub struct ValidationError {
 }
 
 impl ValidationError {
+    /// エラーの種類を取得します。
     pub fn kind(&self) -> ValidationErrorKind {
         self.kind
     }
 
+    /// エラー位置の範囲を取得します。
     pub fn range(&self) -> TextRange {
         self.range
     }
@@ -36,8 +39,10 @@ impl fmt::Display for ValidationError {
     }
 }
 
+/// バリデーションエラーの種類
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ValidationErrorKind {
+    /// 整数リテラルが整数の最大値よりも大きい
     IntegerLiteralTooLarge,
 }
 
@@ -53,6 +58,7 @@ impl fmt::Display for ValidationErrorKind {
     }
 }
 
+/// 構築されたASTに対するバリデーションエラーを取得します。
 pub fn validate(node: &SyntaxNode) -> Vec<ValidationError> {
     let mut errors = vec![];
 

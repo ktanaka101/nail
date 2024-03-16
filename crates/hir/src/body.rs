@@ -21,6 +21,7 @@ impl ExprId {
     }
 }
 impl ExprId {
+    /// この式IDに対応するテキストの範囲を取得する
     pub fn text_range(
         &self,
         db: &dyn HirMasterDatabase,
@@ -130,7 +131,9 @@ pub struct BodyLower<'a> {
     scopes: ExprScopes,
     params: HashMap<Name, Param>,
     hir_file_db: &'a mut HirFileDatabase,
+    /// 式ソースを元にASTノードを取得するためのマップ
     pub source_by_expr: HashMap<ExprId, ExprSource>,
+    /// 関数ソースを元にASTノードを取得するためのマップ
     pub source_by_function: HashMap<Function, FunctionSource>,
 }
 

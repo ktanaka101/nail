@@ -50,10 +50,26 @@ pub enum ModuleScopeKind {
 /// モジュールスコープの元アイテム
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ModuleScopeOrigin {
-    Pod { name: Name },
-    Function { origin: Function },
-    Module { origin: Module },
-    Block { origin: ExprId },
+    /// Podのルートスコープであることを表します。
+    Pod {
+        /// Podの名前
+        name: Name,
+    },
+    /// 関数のスコープであることを表します。
+    Function {
+        /// スコープ元の関数
+        origin: Function,
+    },
+    /// モジュールのスコープであることを表します。
+    Module {
+        /// スコープ元のモジュール
+        origin: Module,
+    },
+    /// ブロックのスコープであることを表します。
+    Block {
+        /// スコープ元のブロック
+        origin: ExprId,
+    },
 }
 
 impl ModuleScope {

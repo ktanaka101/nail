@@ -9,7 +9,9 @@ import {
 
 let client: LanguageClient;
 
-export function activate(_context: ExtensionContext) {
+export async function activate(context: ExtensionContext) {
+  console.log('"nail-language-client" is now initialize!');
+
   const command =
     process.env.NAIL_LANGUAGE_SERVER_PATH || 'nail-language-server';
   const run: Executable = {
@@ -43,7 +45,9 @@ export function activate(_context: ExtensionContext) {
     serverOptions,
     clientOptions
   );
-  client.start();
+  await client.start();
+
+  console.log('"nail-language-client" is now started!');
 }
 
 export function deactivate(): Thenable<void> | undefined {

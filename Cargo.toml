@@ -63,6 +63,7 @@ mir = { path = "crates/mir" }
 codegen_llvm = { path = "crates/codegen_llvm" }
 base_db = { path = "crates/base_db" }
 lsp = { path = "crates/lsp" }
+diagnostic = { path = "crates/diagnostic" }
 
 [profile.dev]
 debug = 0

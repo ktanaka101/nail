@@ -21,6 +21,7 @@ hir = { workspace = true }
 hir_ty = { workspace = true }
 mir = { workspace = true }
 codegen_llvm = { workspace = true }
+diagnostic = { workspace = true }
 
 [dev-dependencies]
 expect-test = { workspace = true }

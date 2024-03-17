@@ -378,6 +378,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "diagnostic"
+version = "0.1.0"
+dependencies = [
+ "ast",
+ "base_db",
+ "hir",
+ "hir_ty",
+ "lsp",
+]
+
+[[package]]
 name = "dissimilar"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -392,6 +403,7 @@ dependencies = [
  "ast",
  "base_db",
  "codegen_llvm",
+ "diagnostic",
  "expect-test",
  "hir",
  "hir_ty",

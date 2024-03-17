@@ -1,11 +1,16 @@
 [package]
 name = "nail"
-version = "0.1.0"
 authors = ["ktanaka101 <kentanaka101@gmail.com>"]
-edition = "2021"
-license = "MIT"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
 
 default-run = "dock"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
 
 [dependencies]
 clap = { workspace = true }

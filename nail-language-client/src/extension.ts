@@ -1,23 +1,25 @@
-import { workspace, ExtensionContext, window } from 'vscode';
+import { type ExtensionContext, window, workspace } from "vscode";
 
 import {
-  Executable,
+  type Executable,
   LanguageClient,
-  LanguageClientOptions,
-  ServerOptions,
-} from 'vscode-languageclient/node';
+  type LanguageClientOptions,
+  type ServerOptions,
+} from "vscode-languageclient/node";
 
 let client: LanguageClient;
 
-export function activate(_context: ExtensionContext) {
+export async function activate(context: ExtensionContext) {
+  console.log('"nail-language-client" is now initialize!');
+
   const command =
-    process.env.NAIL_LANGUAGE_SERVER_PATH || 'nail-language-server';
+    process.env.NAIL_LANGUAGE_SERVER_PATH || "nail-language-server";
   const run: Executable = {
     command,
     options: {
       env: {
         ...process.env,
-        RUST_LOG: 'debug',
+        RUST_LOG: "debug",
       },
     },
   };
@@ -27,23 +29,25 @@ export function activate(_context: ExtensionContext) {
   };
 
   const traceOutputChannel = window.createOutputChannel(
-    'Nail Language Server trace'
+    "Nail Language Server trace",
   );
   const clientOptions: LanguageClientOptions = {
-    documentSelector: [{ scheme: 'file', language: 'nail' }],
+    documentSelector: [{ scheme: "file", language: "nail" }],
     synchronize: {
-      fileEvents: workspace.createFileSystemWatcher('**/.clientrc'),
+      fileEvents: workspace.createFileSystemWatcher("**/.clientrc"),
     },
     traceOutputChannel,
   };
 
   client = new LanguageClient(
-    'nail-language-server',
-    'nail language server',
+    "nail-language-server",
+    "nail language server",
     serverOptions,
-    clientOptions
+    clientOptions,
   );
-  client.start();
+  await client.start();
+
+  console.log('"nail-language-client" is now started!');
 }
 
 export function deactivate(): Thenable<void> | undefined {

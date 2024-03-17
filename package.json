@@ -5,5 +5,9 @@
   "private": true,
   "workspaces": [
     "nail-language-client"
-  ]
+  ],
+  "scripts": {
+    "lsp:compile": "npm run compile --workspace=nail-language-client",
+    "lsp:watch": "npm run watch --workspace=nail-language-client"
+  }
 }

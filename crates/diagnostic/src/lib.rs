@@ -19,6 +19,53 @@ pub struct Diagnostic {
     pub messages: Vec<Message>,
 }
 impl Diagnostic {
+    /// parser::ParserErrorの情報を元に診断情報を作成します。
+    pub fn from_parse_error(file: hir::NailFile, error: &parser::ParserError) -> Diagnostic {
+        match error {
+            parser::ParserError::ParseError(err) => {
+                let text_range = err.range();
+                Diagnostic {
+                    file,
+                    title: "syntax error".to_string(),
+                    head_offset: text_range.start().into(),
+                    messages: vec![Message {
+                        message: format!("{}", err),
+                        range: text_range,
+                    }],
+                }
+            }
+            parser::ParserError::TokenError(err) => {
+                let text_range = err.range();
+                Diagnostic {
+                    file,
+                    title: "token error".to_string(),
+                    head_offset: text_range.start().into(),
+                    messages: vec![Message {
+                        message: format!("{}", err),
+                        range: text_range,
+                    }],
+                }
+            }
+        }
+    }
+
+    /// ast::validation::ValidationErrorの情報を元に診断情報を作成します。
+    pub fn from_validation_error(
+        file: hir::NailFile,
+        error: &ast::validation::ValidationError,
+    ) -> Diagnostic {
+        let text_range = error.range();
+        Diagnostic {
+            file,
+            title: "validation error".to_string(),
+            head_offset: text_range.start().into(),
+            messages: vec![Message {
+                message: format!("{}", error),
+                range: text_range,
+            }],
+        }
+    }
+
     /// hir_tyの型推論エラー情報を元に診断情報を作成します。
     pub fn from_hir_ty_inference_error(
         db: &base_db::SalsaDatabase,
@@ -45,7 +92,7 @@ impl Diagnostic {
                     head_offset: text_range.start().into(),
                     messages: vec![Message {
                         message: format!("expected {cond_type}, actual: {found_cond_ty}"),
-                        range: (text_range.start().into())..(text_range.end().into()),
+                        range: text_range,
                     }],
                 }
             }
@@ -60,18 +107,18 @@ impl Diagnostic {
                 let hir::Expr::Block(then_block) = then_branch.lookup(file_db) else {
                     unreachable!()
                 };
-                let then_tail_range: std::ops::Range<usize> = if let Some(tail) = then_block.tail {
-                    tail.text_range(db, source_map).into()
+                let then_tail_range = if let Some(tail) = then_block.tail {
+                    tail.text_range(db, source_map)
                 } else {
-                    then_branch_range.end().into()..then_branch_range.end().into()
+                    ast::TextRange::new(then_branch_range.end(), then_branch_range.end())
                 };
                 let hir::Expr::Block(else_block) = else_branch.lookup(file_db) else {
                     unreachable!()
                 };
-                let else_tail_range: std::ops::Range<usize> = if let Some(tail) = else_block.tail {
-                    tail.text_range(db, source_map).into()
+                let else_tail_range = if let Some(tail) = else_block.tail {
+                    tail.text_range(db, source_map)
                 } else {
-                    else_branch_range.end().into()..else_branch_range.end().into()
+                    ast::TextRange::new(else_branch_range.end(), else_branch_range.end())
                 };
 
                 let then_branch_ty = type_to_string(db, then_branch_ty);
@@ -84,8 +131,10 @@ impl Diagnostic {
                     messages: vec![
                         Message {
                             message: format!("expected {then_branch_ty}, actual: {else_branch_ty}"),
-                            range: (then_branch_range.start().into())
-                                ..(else_branch_range.start().into()),
+                            range: ast::TextRange::new(
+                                then_branch_range.start(),
+                                else_branch_range.start(),
+                            ),
                         },
                         Message {
                             range: then_tail_range,
@@ -107,8 +156,8 @@ impl Diagnostic {
                 let hir::Expr::Block(then_block) = then_branch.lookup(file_db) else {
                     unreachable!()
                 };
-                let then_tail_range: std::ops::Range<usize> = if let Some(tail) = then_block.tail {
-                    tail.text_range(db, source_map).into()
+                let then_tail_range = if let Some(tail) = then_block.tail {
+                    tail.text_range(db, source_map)
                 } else {
                     unreachable!("末尾の式がない場合は必ずUnitなのでエラーとならないはずです。");
                 };
@@ -123,8 +172,7 @@ impl Diagnostic {
                     messages: vec![
                         Message {
                             message: format!("expected {else_branch_ty}, actual {then_branch_ty}"),
-                            range: (then_branch_range.start().into())
-                                ..(then_branch_range.end().into()),
+                            range: then_branch_range,
                         },
                         Message {
                             range: then_tail_range,
@@ -150,7 +198,7 @@ impl Diagnostic {
                     head_offset: text_range.start().into(),
                     messages: vec![Message {
                         message: format!("expected {expected_ty}, actual: {found_ty}"),
-                        range: (text_range.start().into())..(text_range.end().into()),
+                        range: text_range,
                     }],
                 }
             }
@@ -181,7 +229,7 @@ impl Diagnostic {
                     head_offset: text_range.start().into(),
                     messages: vec![Message {
                         message: format!("expected {expected_ty}, actual: {found_ty}"),
-                        range: (text_range.start().into())..(text_range.end().into()),
+                        range: text_range,
                     }],
                 }
             }
@@ -214,11 +262,11 @@ impl Diagnostic {
                     head_offset: compare_from_range.start().into(),
                     messages: vec![
                         Message {
-                            range: compare_from_range.into(),
+                            range: compare_from_range,
                             message: format!("Type is {compare_from_ty}"),
                         },
                         Message {
-                            range: compare_to_range.into(),
+                            range: compare_to_range,
                             message: format!("Type is {compare_to_ty}"),
                         },
                     ],
@@ -245,7 +293,7 @@ impl Diagnostic {
                     head_offset: text_range.start().into(),
                     messages: vec![Message {
                         message: format!("expected {expected_ty}, actual: {found_ty}"),
-                        range: (text_range.start().into())..(text_range.end().into()),
+                        range: text_range,
                     }],
                 }
             }
@@ -266,7 +314,7 @@ impl Diagnostic {
                     head_offset: text_range.start().into(),
                     messages: vec![Message {
                         message: format!("expected {return_type}, actual: {found_ty}"),
-                        range: (text_range.start().into())..(text_range.end().into()),
+                        range: text_range,
                     }],
                 }
             }
@@ -288,7 +336,7 @@ impl Diagnostic {
                         head_offset: text_range.start().into(),
                         messages: vec![Message {
                             message: format!("expected {return_type}, actual: {found_ty}"),
-                            range: (text_range.start().into())..(text_range.end().into()),
+                            range: text_range,
                         }],
                     }
                 } else {
@@ -316,7 +364,7 @@ impl Diagnostic {
                             message: format!(
                                 "expected {return_type}, actual: {found_ty} as its body has tail"
                             ),
-                            range: (text_range.start().into())..(text_range.end().into()),
+                            range: text_range,
                         }],
                     }
                 }
@@ -344,7 +392,7 @@ impl Diagnostic {
                         message: format!(
                             "expected {expected_callee_arg_count} argument, found: {found_arg_count}"
                         ),
-                        range: (text_range.start().into())..(text_range.end().into()),
+                        range: text_range,
                     }],
                 }
             }
@@ -362,7 +410,7 @@ impl Diagnostic {
                     head_offset: text_range.start().into(),
                     messages: vec![Message {
                         message: format!("expected <function>, found: {found_callee_ty}"),
-                        range: (text_range.start().into())..(text_range.end().into()),
+                        range: text_range,
                     }],
                 }
             }
@@ -378,7 +426,7 @@ impl Diagnostic {
                     head_offset: text_range.start().into(),
                     messages: vec![Message {
                         message: "expected <expression>".to_string(),
-                        range: (text_range.start().into())..(text_range.end().into()),
+                        range: text_range,
                     }],
                 }
             }
@@ -401,13 +449,11 @@ impl Diagnostic {
                         messages: vec![
                             Message {
                                 message: format!("Type is {expected_ty}"),
-                                range: (expected_expr_text_range.start().into())
-                                    ..(expected_expr_text_range.end().into()),
+                                range: expected_expr_text_range,
                             },
                             Message {
                                 message: format!("Type is {found_ty}"),
-                                range: (found_expr_text_range.start().into())
-                                    ..(found_expr_text_range.end().into()),
+                                range: found_expr_text_range,
                             },
                         ],
                     }
@@ -418,8 +464,7 @@ impl Diagnostic {
                         head_offset: found_expr_text_range.start().into(),
                         messages: vec![Message {
                             message: format!("expected {expected_ty}, actual: {found_ty}"),
-                            range: (found_expr_text_range.start().into())
-                                ..(found_expr_text_range.end().into()),
+                            range: found_expr_text_range,
                         }],
                     }
                 }
@@ -437,7 +482,7 @@ impl Diagnostic {
                     head_offset: text_range.start().into(),
                     messages: vec![Message {
                         message: "expected in <loop>".to_string(),
-                        range: (text_range.start().into())..(text_range.end().into()),
+                        range: text_range,
                     }],
                 }
             }
@@ -449,7 +494,7 @@ impl Diagnostic {
 #[derive(Debug)]
 pub struct Message {
     /// メッセージの対象範囲
-    pub range: std::ops::Range<usize>,
+    pub range: ast::TextRange,
     /// メッセージの内容
     pub message: String,
 }

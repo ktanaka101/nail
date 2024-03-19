@@ -1,7 +1,5 @@
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
     use expect_test::expect_file;
     use regex::Regex;
 
@@ -19,13 +17,11 @@ mod tests {
         let mut main_contents = main_contents.trim().to_string();
 
         match dock::execute(
-            std::env::current_dir()
-                .unwrap()
-                .join(PathBuf::from(&format!(
-                    "tests/type_check/{dir_name}/main.nail"
-                )))
-                .to_str()
-                .unwrap(),
+            dock::NailExecutablePath::RootFile(
+                std::env::current_dir()
+                    .unwrap()
+                    .join(format!("tests/type_check/{dir_name}/main.nail")),
+            ),
             &mut out,
             &mut err,
             false,

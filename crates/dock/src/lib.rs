@@ -13,8 +13,17 @@ use inkwell::{context::Context, OptimizationLevel};
 use thiserror::Error;
 use tokio::io;
 
-/// ルートファイルのディレクトリ配下のNailファイルをすべて読み込み、ファイルパスと内容のマッピングを返す。
-async fn read_nail_files(
+/// Podファイルを基準に、ディレクトリ配下のNailファイルをすべて読み込み、ファイルパスと内容のマッピングを返す。
+async fn read_nail_files_with_pod_file(
+    db: &dyn hir::HirMasterDatabase,
+    root_nail_file_path: path::PathBuf,
+) -> Result<(hir::NailFile, HashMap<path::PathBuf, hir::NailFile>), ExecutionError> {
+    let root_nail_file_path = root_nail_file_path.parent().unwrap().join("src/main.nail");
+    read_nail_files_with_root_nail_file(db, root_nail_file_path).await
+}
+
+/// ルートファイルを基準に、ディレクトリ配下のNailファイルをすべて読み込み、ファイルパスと内容のマッピングを返す。
+async fn read_nail_files_with_root_nail_file(
     db: &dyn hir::HirMasterDatabase,
     root_nail_file_path: path::PathBuf,
 ) -> Result<(hir::NailFile, HashMap<path::PathBuf, hir::NailFile>), ExecutionError> {
@@ -96,20 +105,41 @@ pub enum ExecutionError {
     Join(#[from] tokio::task::JoinError),
 }
 
+/// 指定ファイルの種類
+pub enum NailExecutablePath {
+    /// Podファイルで実行する場合
+    ///
+    /// `pod.toml`を指定します。
+    PodFile(path::PathBuf),
+
+    /// nailファイルのみで実行する場合
+    ///
+    /// `main.nail`を指定します。
+    /// 基本的には[NailExecutablePath::PodFile]を使用します。
+    /// テストコードなど、簡易にnailファイルのみで実行したい場合に使用します。
+    RootFile(path::PathBuf),
+}
+
 /// Nailプログラムを実行します。
 ///
 /// 通常の結果は`write_dest_out`、エラーは`write_dest_err`に書き込まれます。
 pub async fn execute(
-    root_nail_file_path_str: &str,
+    nail_executable_path: NailExecutablePath,
     write_dest_out: &mut impl std::io::Write,
     write_dest_err: &mut impl std::io::Write,
     enabled_color: bool,
 ) -> Result<(), ExecutionError> {
-    let root_nail_file_path = path::PathBuf::from(root_nail_file_path_str);
-
     let db = base_db::SalsaDatabase::default();
 
-    let (root_file, file_by_path) = read_nail_files(&db, root_nail_file_path).await?;
+    let (root_file, file_by_path) = match nail_executable_path {
+        NailExecutablePath::PodFile(pod_file_path) => {
+            read_nail_files_with_pod_file(&db, pod_file_path).await?
+        }
+        NailExecutablePath::RootFile(nail_file_path) => {
+            read_nail_files_with_root_nail_file(&db, nail_file_path).await?
+        }
+    };
+
     let mut source_db = hir::SourceDatabase::new(root_file, file_by_path);
 
     let pods = hir::parse_pods(&db, &mut source_db);

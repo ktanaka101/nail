@@ -16,7 +16,6 @@ inkwell = { workspace = true }
 
 ast = { workspace = true }
 base_db = { workspace = true }
-lsp = { workspace = true }
 hir = { workspace = true }
 hir_ty = { workspace = true }
 mir = { workspace = true }

@@ -408,7 +408,6 @@ dependencies = [
  "hir",
  "hir_ty",
  "inkwell",
- "lsp",
  "mir",
  "regex",
  "thiserror",

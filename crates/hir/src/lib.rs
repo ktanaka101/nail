@@ -32,7 +32,7 @@ mod item;
 mod name_resolver;
 mod testing;
 
-use std::{collections::HashMap, marker::PhantomData};
+use std::{cell::RefCell, collections::HashMap, marker::PhantomData};
 
 use ast::AstNode;
 pub use body::{BodyLower, ExprId, FunctionBodyId, HirFileDatabase};
@@ -329,7 +329,7 @@ pub struct AstPtr<T: AstNode> {
 /// 式のAST位置です。
 pub type ExprSource = InFile<AstPtr<ast::Expr>>;
 /// 関数定義のAST位置です。
-pub type FunctionSource = InFile<ast::FunctionDef>;
+pub type FunctionSource = InFile<RefCell<ast::FunctionDef>>;
 
 /// 型引数をファイル内で一意として表現します。
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -370,7 +370,7 @@ impl HirFile {
         function: Function,
     ) -> Option<&'a Expr> {
         self.db(db)
-            .function_body_by_ast_block(function.ast(db).body()?)
+            .function_body_by_ast_block(function.ast(db).borrow().body()?)
     }
 
     /// ファイル内の関数一覧を返します。

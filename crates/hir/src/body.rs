@@ -1,6 +1,6 @@
 mod scopes;
 
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap};
 
 use ast::AstNode;
 use la_arena::{Arena, Idx};
@@ -200,13 +200,21 @@ impl<'a> BodyLower<'a> {
             Type::Unit
         };
 
-        let function = Function::new(db, name, params, param_by_name, return_type, def.clone());
+        let ref_def = RefCell::new(def);
+        let function = Function::new(
+            db,
+            name,
+            params,
+            param_by_name,
+            return_type,
+            ref_def.clone(),
+        );
         self.hir_file_db.functions.push(function);
         self.source_by_function.insert(
             function,
             FunctionSource {
                 file: self.file,
-                value: def,
+                value: ref_def,
             },
         );
 
@@ -752,7 +760,7 @@ mod tests {
     ) -> String {
         let body_expr = hir_file
             .db(db)
-            .function_body_by_ast_block(function.ast(db).body().unwrap())
+            .function_body_by_ast_block(function.ast(db).borrow().body().unwrap())
             .unwrap();
 
         let name = function.name(db).text(db);

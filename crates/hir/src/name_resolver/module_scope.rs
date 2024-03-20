@@ -413,7 +413,7 @@ impl<'a> ModuleScopesBuilder<'a> {
 
         let Expr::Block(function_body) = hir_file
             .db(self.db)
-            .function_body_by_ast_block(function.ast(self.db).body().unwrap())
+            .function_body_by_ast_block(function.ast(self.db).borrow().body().unwrap())
             .unwrap()
         else {
             panic!("No Block")

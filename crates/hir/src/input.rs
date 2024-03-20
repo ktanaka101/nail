@@ -26,6 +26,7 @@ pub trait SourceDatabaseTrait {
     /// エントリポイントとなるファイルのIDを返す
     fn source_root(&self) -> NailFile;
     /// 登録済みの中からNailファイル情報を返す
+    /// ルートファイルも含めてください。
     fn get_file(&self, path: &std::path::Path) -> Option<NailFile>;
 }
 
@@ -186,7 +187,10 @@ impl SourceDatabaseTrait for FixtureDatabase {
 
 /// ファイルシステムを使用する、ソースコードを管理するデータベース
 pub struct SourceDatabase {
+    /// ルートファイル
     source_root: NailFile,
+    /// ファイルパスとNailファイルのマップ
+    /// ルートファイルも含まれます。
     file_by_path: HashMap<std::path::PathBuf, NailFile>,
 }
 impl SourceDatabase {

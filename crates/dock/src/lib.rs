@@ -14,7 +14,7 @@ use thiserror::Error;
 use tokio::io;
 
 /// Podファイルを基準に、ディレクトリ配下のNailファイルをすべて読み込み、ファイルパスと内容のマッピングを返す。
-async fn read_nail_files_with_pod_file(
+pub async fn read_nail_files_with_pod_file(
     db: &dyn hir::HirMasterDatabase,
     root_nail_file_path: path::PathBuf,
 ) -> Result<(hir::NailFile, HashMap<path::PathBuf, hir::NailFile>), ExecutionError> {
@@ -23,7 +23,7 @@ async fn read_nail_files_with_pod_file(
 }
 
 /// ルートファイルを基準に、ディレクトリ配下のNailファイルをすべて読み込み、ファイルパスと内容のマッピングを返す。
-async fn read_nail_files_with_root_nail_file(
+pub async fn read_nail_files_with_root_nail_file(
     db: &dyn hir::HirMasterDatabase,
     root_nail_file_path: path::PathBuf,
 ) -> Result<(hir::NailFile, HashMap<path::PathBuf, hir::NailFile>), ExecutionError> {
@@ -220,10 +220,9 @@ fn print_error(
         diagnostic::Diagnostic::from_hir_ty_inference_error(db, file_db, source_map, error);
     let file = diagnostic.file;
     let file_path = file.file_path(db).to_str().unwrap().to_string();
-    let labels = diagnostic
-        .messages
-        .into_iter()
-        .map(|message| Label::new((&file_path, message.range)).with_message(message.message));
+    let labels = diagnostic.messages.into_iter().map(|message| {
+        Label::new((&file_path, message.range.into())).with_message(message.message)
+    });
 
     Report::build(ReportKind::Error, &file_path, diagnostic.head_offset)
         .with_message(diagnostic.title)

@@ -799,6 +799,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ast",
+ "base_db",
+ "diagnostic",
+ "dock",
+ "hir",
+ "hir_ty",
  "parser",
  "rowan",
  "syntax",

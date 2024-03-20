@@ -66,6 +66,26 @@ impl Diagnostic {
         }
     }
 
+    /// hir::LowerErrorの情報を元に診断情報を作成します。
+    pub fn from_hir_lower_error(
+        db: &base_db::SalsaDatabase,
+        source_map: &hir::HirFileSourceMap,
+        error: &hir::LowerError,
+    ) -> Self {
+        let file = source_map.file(db);
+        match error {
+            hir::LowerError::UndefinedEntryPoint => Diagnostic {
+                file,
+                title: "Undefined entry point".to_string(),
+                head_offset: 0,
+                messages: vec![Message {
+                    message: "entry point is not defined".to_string(),
+                    range: ast::TextRange::new(0.into(), 0.into()),
+                }],
+            },
+        }
+    }
+
     /// hir_tyの型推論エラー情報を元に診断情報を作成します。
     pub fn from_hir_ty_inference_error(
         db: &base_db::SalsaDatabase,
@@ -346,6 +366,7 @@ impl Diagnostic {
                             .get(expected_function)
                             .unwrap()
                             .value
+                            .borrow()
                             .return_type()
                             .unwrap()
                             .syntax()

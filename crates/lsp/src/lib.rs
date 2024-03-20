@@ -1,7 +1,6 @@
 //! Language Server Protocol implementation for Nail.
 
 mod analysis;
-mod context;
 mod language_server;
 mod line_index;
 mod semantic_tokens;

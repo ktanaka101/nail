@@ -445,7 +445,7 @@ mod tests {
         ) -> String {
             let body_expr = hir_file
                 .db(self.db)
-                .function_body_by_ast_block(function.ast(self.db).body().unwrap())
+                .function_body_by_ast_block(function.ast(self.db).borrow().body().unwrap())
                 .unwrap();
 
             let name = function.name(self.db).text(self.db);

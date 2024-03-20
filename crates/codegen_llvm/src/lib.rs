@@ -272,9 +272,9 @@ mod tests {
         mir::LowerResult,
     ) {
         let db = hir_ty::TestingDatabase::default();
-        let mut source_db = FixtureDatabase::new(&db, fixture);
+        let source_db = FixtureDatabase::new(&db, fixture);
 
-        let pods = hir::parse_pods(&db, &mut source_db);
+        let pods = hir::parse_pods(&db, &source_db);
         let ty_result = hir_ty::lower_pods(&db, &pods);
         let mir_result = mir::lower_pods(&db, &pods, &ty_result);
 

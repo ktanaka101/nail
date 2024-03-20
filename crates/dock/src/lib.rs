@@ -140,9 +140,9 @@ pub async fn execute(
         }
     };
 
-    let mut source_db = hir::SourceDatabase::new(root_file, file_by_path);
+    let source_db = hir::SourceDatabase::new(root_file, file_by_path);
 
-    let pods = hir::parse_pods(&db, &mut source_db);
+    let pods = hir::parse_pods(&db, &source_db);
     let errors = pods.root_pod.root_hir_file.errors(&db);
     if !errors.is_empty() {
         write_dest_err.write_all(format!("Hir error: {:?}", errors).as_bytes())?;

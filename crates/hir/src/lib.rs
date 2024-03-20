@@ -163,7 +163,7 @@ impl Pod {
 }
 
 /// ルートファイルをパースし、Pod全体を構築します。
-pub fn parse_pods(db: &dyn HirMasterDatabase, source_db: &mut dyn SourceDatabaseTrait) -> Pods {
+pub fn parse_pods(db: &dyn HirMasterDatabase, source_db: &dyn SourceDatabaseTrait) -> Pods {
     let pod = PodBuilder::new(db, source_db).build();
     let symbol_table = resolve_symbols(db, &pod);
 
@@ -176,7 +176,7 @@ pub fn parse_pods(db: &dyn HirMasterDatabase, source_db: &mut dyn SourceDatabase
 struct PodBuilder<'a> {
     db: &'a dyn HirMasterDatabase,
 
-    source_db: &'a mut dyn SourceDatabaseTrait,
+    source_db: &'a dyn SourceDatabaseTrait,
 
     /// ファイル別のHIR構築結果
     ///
@@ -206,7 +206,7 @@ struct PodBuilder<'a> {
 impl<'a> PodBuilder<'a> {
     fn new(
         db: &'a dyn HirMasterDatabase,
-        source_db: &'a mut dyn SourceDatabaseTrait,
+        source_db: &'a dyn SourceDatabaseTrait,
     ) -> PodBuilder<'a> {
         PodBuilder {
             db,

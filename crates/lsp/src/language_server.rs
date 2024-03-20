@@ -128,11 +128,17 @@ impl Backend {
 
     async fn did_open(&mut self, params: DidOpenTextDocumentParams) {
         let opened_uri = params.text_document.uri;
-        self.info(&format!("server did open! get uri: {}", opened_uri))
+        self.info(&format!("server did open! get uri: {opened_uri}"))
             .await;
 
         let source_db = build_source_db(&self.db, self.root_dir_path.clone().unwrap()).await;
-        let analysis = get_analysis_by_file(&self.db, &source_db, opened_uri.clone()).await;
+        let Some(analysis) = get_analysis_by_file(&self.db, &source_db, opened_uri.clone()).await
+        else {
+            self.info(&format!("failed to get analysis by file: {}", opened_uri,))
+                .await;
+            return;
+        };
+
         let diagnostics = analysis.diagnostics.clone();
         self.analysis_by_uri.insert(opened_uri.clone(), analysis);
 
@@ -152,7 +158,15 @@ impl Backend {
         tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
 
         let source_db = build_source_db(&self.db, self.root_dir_path.clone().unwrap()).await;
-        let analysis = get_analysis_by_file(&self.db, &source_db, changed_file_uri.clone()).await;
+        let Some(analysis) =
+            get_analysis_by_file(&self.db, &source_db, changed_file_uri.clone()).await
+        else {
+            self.info(&format!(
+                "failed to get analysis by file: {changed_file_uri}",
+            ))
+            .await;
+            return;
+        };
         let diagnostics = analysis.diagnostics.clone();
         self.analysis_by_uri
             .insert(changed_file_uri.clone(), analysis);
@@ -214,10 +228,8 @@ async fn get_analysis_by_file(
     db: &SalsaDatabase,
     source_db: &hir::SourceDatabase,
     file_url: Url,
-) -> Analysis {
-    let file_path = file_url
-        .to_file_path()
-        .unwrap_or_else(|_| panic!("Failure parse uri to file path.({file_url})"));
+) -> Option<Analysis> {
+    let file_path = file_url.to_file_path().ok()?;
 
     let target_nail_file = source_db.get_file(&file_path).unwrap();
 
@@ -304,11 +316,11 @@ async fn get_analysis_by_file(
         })
         .collect::<Vec<_>>();
 
-    Analysis {
+    Some(Analysis {
         uri: file_url,
         file: target_nail_file,
         parsed,
         diagnostics,
         line_index,
-    }
+    })
 }

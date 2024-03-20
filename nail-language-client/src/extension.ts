@@ -1,5 +1,4 @@
-import { type ExtensionContext, window, workspace } from "vscode";
-
+import * as vscode from "vscode";
 import {
   type Executable,
   LanguageClient,
@@ -9,7 +8,7 @@ import {
 
 let client: LanguageClient;
 
-export async function activate(context: ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
   console.log('"nail-language-client" is now initialize!');
 
   const command =
@@ -28,13 +27,13 @@ export async function activate(context: ExtensionContext) {
     debug: run,
   };
 
-  const traceOutputChannel = window.createOutputChannel(
+  const traceOutputChannel = vscode.window.createOutputChannel(
     "Nail Language Server trace",
   );
   const clientOptions: LanguageClientOptions = {
     documentSelector: [{ scheme: "file", language: "nail" }],
     synchronize: {
-      fileEvents: workspace.createFileSystemWatcher("**/.clientrc"),
+      fileEvents: vscode.workspace.createFileSystemWatcher("**/.clientrc"),
     },
     traceOutputChannel,
   };

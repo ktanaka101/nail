@@ -70,9 +70,15 @@ impl Backend {
         self.info("server initialize!").await;
 
         let root_dir_path = if let Some(root_uri) = &params.root_uri {
-            root_uri.to_file_path().unwrap()
+            if let Ok(root_dir_path) = root_uri.to_file_path() {
+                root_dir_path
+            } else {
+                return Err(jsonrpc::Error::invalid_params(
+                    "root_uri must be a file path.",
+                ));
+            }
         } else {
-            panic!("root_uri is None");
+            return Err(jsonrpc::Error::invalid_params("root_uri is required"));
         };
         self.root_dir_path = Some(root_dir_path.clone());
 
@@ -131,7 +137,15 @@ impl Backend {
         self.info(&format!("server did open! get uri: {opened_uri}"))
             .await;
 
-        let source_db = build_source_db(&self.db, self.root_dir_path.clone().unwrap()).await;
+        let Ok(source_db) = build_source_db(
+            &self.db,
+            self.root_dir_path.clone().unwrap_or_else(|| unreachable!()),
+        )
+        .await
+        else {
+            self.info("failed to build source db").await;
+            return;
+        };
         let Some(analysis) = get_analysis_by_file(&self.db, &source_db, opened_uri.clone()).await
         else {
             self.info(&format!("failed to get analysis by file: {}", opened_uri,))
@@ -157,7 +171,15 @@ impl Backend {
         // FIXME: this is a hack to get the uri. Do not read from the file system in Context::upadte_file.
         tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
 
-        let source_db = build_source_db(&self.db, self.root_dir_path.clone().unwrap()).await;
+        let Ok(source_db) = build_source_db(
+            &self.db,
+            self.root_dir_path.clone().unwrap_or_else(|| unreachable!()),
+        )
+        .await
+        else {
+            self.info("failed to build source db").await;
+            return;
+        };
         let Some(analysis) =
             get_analysis_by_file(&self.db, &source_db, changed_file_uri.clone()).await
         else {
@@ -213,14 +235,15 @@ impl Backend {
 }
 
 /// ソースコードを管理するデータベースを構築します。
-async fn build_source_db(db: &SalsaDatabase, root_dir_path: PathBuf) -> hir::SourceDatabase {
+async fn build_source_db(
+    db: &SalsaDatabase,
+    root_dir_path: PathBuf,
+) -> anyhow::Result<hir::SourceDatabase> {
     let root_pod_file_path = root_dir_path.join("pod.toml");
     let (root_nail_file, nail_file_by_path) =
-        dock::read_nail_files_with_pod_file(db, root_pod_file_path)
-            .await
-            .unwrap();
+        dock::read_nail_files_with_pod_file(db, root_pod_file_path).await?;
 
-    hir::SourceDatabase::new(root_nail_file, nail_file_by_path)
+    Ok(hir::SourceDatabase::new(root_nail_file, nail_file_by_path))
 }
 
 /// 指定したファイルの診断結果を返します。
@@ -231,8 +254,9 @@ async fn get_analysis_by_file(
 ) -> Option<Analysis> {
     let file_path = file_url.to_file_path().ok()?;
 
-    let target_nail_file = source_db.get_file(&file_path).unwrap();
-
+    let target_nail_file = source_db
+        .get_file(&file_path)
+        .unwrap_or_else(|| panic!("file not found in source db. file_path: {file_path:?}"));
     let mut diagnostics: Vec<diagnostic::Diagnostic> = vec![];
 
     let pods = hir::parse_pods(db, source_db);
@@ -243,7 +267,9 @@ async fn get_analysis_by_file(
     } else {
         pods.root_pod
             .get_hir_file_by_file(target_nail_file)
-            .unwrap()
+            .unwrap_or_else(|| {
+                panic!("file_path is not module contains. file_path: {file_path:?}",);
+            })
     };
 
     let errors = target_hir_file.errors(db);
@@ -266,12 +292,18 @@ async fn get_analysis_by_file(
     let type_inference_errors = ty_result.type_inference_errors_with_function();
     if !type_inference_errors.is_empty() {
         for (function, error) in &type_inference_errors {
-            let hir_file = pods.root_pod.get_hir_file_by_function(*function).unwrap();
+            let hir_file = pods
+                .root_pod
+                .get_hir_file_by_function(*function)
+                .unwrap_or_else(|| unreachable!("hir_file not found. function: {function:?}"));
             if hir_file.file(db) != target_nail_file {
                 continue;
             }
 
-            let source_map = pods.root_pod.source_map_by_function(db, *function).unwrap();
+            let source_map = pods
+                .root_pod
+                .source_map_by_function(db, *function)
+                .unwrap_or_else(|| unreachable!("source_map not found. function: {function:?}"));
             diagnostics.push(diagnostic::Diagnostic::from_hir_ty_inference_error(
                 db,
                 hir_file.db(db),

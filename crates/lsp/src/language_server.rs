@@ -146,11 +146,20 @@ impl Backend {
             self.info("failed to build source db").await;
             return;
         };
-        let Some(analysis) = get_analysis_by_file(&self.db, &source_db, opened_uri.clone()).await
-        else {
-            self.info(&format!("failed to get analysis by file: {}", opened_uri,))
+        let analysis = match get_analysis_by_file(&self.db, &source_db, opened_uri.clone()).await {
+            Ok(Some(analysis)) => analysis,
+            Ok(None) => {
+                self.info(&format!("failed to get analysis by file: {opened_uri}"))
+                    .await;
+                return;
+            }
+            Err(e) => {
+                self.info(&format!(
+                    "failed to get analysis by file: {opened_uri}, error: {e}",
+                ))
                 .await;
-            return;
+                return;
+            }
         };
 
         let diagnostics = analysis.diagnostics.clone();
@@ -180,15 +189,24 @@ impl Backend {
             self.info("failed to build source db").await;
             return;
         };
-        let Some(analysis) =
-            get_analysis_by_file(&self.db, &source_db, changed_file_uri.clone()).await
-        else {
-            self.info(&format!(
-                "failed to get analysis by file: {changed_file_uri}",
-            ))
-            .await;
-            return;
-        };
+        let analysis =
+            match get_analysis_by_file(&self.db, &source_db, changed_file_uri.clone()).await {
+                Ok(Some(analysis)) => analysis,
+                Ok(None) => {
+                    self.info(&format!(
+                        "failed to get analysis by file: {changed_file_uri}"
+                    ))
+                    .await;
+                    return;
+                }
+                Err(e) => {
+                    self.info(&format!(
+                        "failed to get analysis by file: {changed_file_uri}, error: {e}",
+                    ))
+                    .await;
+                    return;
+                }
+            };
         let diagnostics = analysis.diagnostics.clone();
         self.analysis_by_uri
             .insert(changed_file_uri.clone(), analysis);
@@ -251,12 +269,14 @@ async fn get_analysis_by_file(
     db: &SalsaDatabase,
     source_db: &hir::SourceDatabase,
     file_url: Url,
-) -> Option<Analysis> {
-    let file_path = file_url.to_file_path().ok()?;
+) -> anyhow::Result<Option<Analysis>> {
+    let Ok(file_path) = file_url.to_file_path() else {
+        anyhow::bail!("failed to convert file url to file path. file_url: {file_url:?}");
+    };
 
-    let target_nail_file = source_db
-        .get_file(&file_path)
-        .unwrap_or_else(|| panic!("file not found in source db. file_path: {file_path:?}"));
+    let Some(target_nail_file) = source_db.get_file(&file_path) else {
+        anyhow::bail!("file not found in source db. file_path: {file_path:?}");
+    };
     let mut diagnostics: Vec<diagnostic::Diagnostic> = vec![];
 
     let pods = hir::parse_pods(db, source_db);
@@ -265,11 +285,10 @@ async fn get_analysis_by_file(
     let target_hir_file = if target_nail_file.root(db) {
         &pods.root_pod.root_hir_file
     } else {
-        pods.root_pod
-            .get_hir_file_by_file(target_nail_file)
-            .unwrap_or_else(|| {
-                panic!("file_path is not module contains. file_path: {file_path:?}",);
-            })
+        let Some(hir_file) = pods.root_pod.get_hir_file_by_file(target_nail_file) else {
+            anyhow::bail!("file_path is not module contains. file_path: {file_path:?}");
+        };
+        hir_file
     };
 
     let errors = target_hir_file.errors(db);
@@ -292,18 +311,17 @@ async fn get_analysis_by_file(
     let type_inference_errors = ty_result.type_inference_errors_with_function();
     if !type_inference_errors.is_empty() {
         for (function, error) in &type_inference_errors {
-            let hir_file = pods
-                .root_pod
-                .get_hir_file_by_function(*function)
-                .unwrap_or_else(|| unreachable!("hir_file not found. function: {function:?}"));
+            let Some(hir_file) = pods.root_pod.get_hir_file_by_function(*function) else {
+                anyhow::bail!("hir_file not found. function: {function:?}");
+            };
             if hir_file.file(db) != target_nail_file {
                 continue;
             }
 
-            let source_map = pods
-                .root_pod
-                .source_map_by_function(db, *function)
-                .unwrap_or_else(|| unreachable!("source_map not found. function: {function:?}"));
+            let Some(source_map) = pods.root_pod.source_map_by_function(db, *function) else {
+                anyhow::bail!("source_map not found. function: {function:?}");
+            };
+
             diagnostics.push(diagnostic::Diagnostic::from_hir_ty_inference_error(
                 db,
                 hir_file.db(db),
@@ -348,11 +366,11 @@ async fn get_analysis_by_file(
         })
         .collect::<Vec<_>>();
 
-    Some(Analysis {
+    Ok(Some(Analysis {
         uri: file_url,
         file: target_nail_file,
         parsed,
         diagnostics,
         line_index,
-    })
+    }))
 }

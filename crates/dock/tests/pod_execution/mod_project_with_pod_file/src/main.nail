@@ -1,0 +1,9 @@
+mod sub;
+
+fn main() -> string {
+  sub::build_string()
+}
+
+fn f1() -> int {
+  sub::build_string()
+}

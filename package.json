@@ -3,11 +3,9 @@
   "version": "0.0.0",
   "license": "MIT",
   "private": true,
-  "workspaces": [
-    "nail-language-client"
-  ],
+  "workspaces": ["nail-language-client"],
   "scripts": {
-    "lsp:compile": "npm run compile --workspace=nail-language-client",
+    "lsp:compile": "cargo build --bin nail-language-server && npm run compile --workspace=nail-language-client",
     "lsp:watch": "npm run watch --workspace=nail-language-client"
   }
 }

@@ -32,7 +32,7 @@ mod item;
 mod name_resolver;
 mod testing;
 
-use std::{collections::HashMap, marker::PhantomData};
+use std::{cell::RefCell, collections::HashMap, marker::PhantomData};
 
 use ast::AstNode;
 pub use body::{BodyLower, ExprId, FunctionBodyId, HirFileDatabase};
@@ -163,7 +163,7 @@ impl Pod {
 }
 
 /// ルートファイルをパースし、Pod全体を構築します。
-pub fn parse_pods(db: &dyn HirMasterDatabase, source_db: &mut dyn SourceDatabaseTrait) -> Pods {
+pub fn parse_pods(db: &dyn HirMasterDatabase, source_db: &dyn SourceDatabaseTrait) -> Pods {
     let pod = PodBuilder::new(db, source_db).build();
     let symbol_table = resolve_symbols(db, &pod);
 
@@ -176,7 +176,7 @@ pub fn parse_pods(db: &dyn HirMasterDatabase, source_db: &mut dyn SourceDatabase
 struct PodBuilder<'a> {
     db: &'a dyn HirMasterDatabase,
 
-    source_db: &'a mut dyn SourceDatabaseTrait,
+    source_db: &'a dyn SourceDatabaseTrait,
 
     /// ファイル別のHIR構築結果
     ///
@@ -206,7 +206,7 @@ struct PodBuilder<'a> {
 impl<'a> PodBuilder<'a> {
     fn new(
         db: &'a dyn HirMasterDatabase,
-        source_db: &'a mut dyn SourceDatabaseTrait,
+        source_db: &'a dyn SourceDatabaseTrait,
     ) -> PodBuilder<'a> {
         PodBuilder {
             db,
@@ -329,7 +329,7 @@ pub struct AstPtr<T: AstNode> {
 /// 式のAST位置です。
 pub type ExprSource = InFile<AstPtr<ast::Expr>>;
 /// 関数定義のAST位置です。
-pub type FunctionSource = InFile<ast::FunctionDef>;
+pub type FunctionSource = InFile<RefCell<ast::FunctionDef>>;
 
 /// 型引数をファイル内で一意として表現します。
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -370,7 +370,7 @@ impl HirFile {
         function: Function,
     ) -> Option<&'a Expr> {
         self.db(db)
-            .function_body_by_ast_block(function.ast(db).body()?)
+            .function_body_by_ast_block(function.ast(db).borrow().body()?)
     }
 
     /// ファイル内の関数一覧を返します。

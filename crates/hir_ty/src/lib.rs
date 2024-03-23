@@ -110,9 +110,9 @@ mod tests {
 
     fn check_pod_start_with_root_file(fixture: &str, expect: Expect) {
         let db = TestingDatabase::default();
-        let mut source_db = hir::FixtureDatabase::new(&db, fixture);
+        let source_db = hir::FixtureDatabase::new(&db, fixture);
 
-        let pods = hir::parse_pods(&db, &mut source_db);
+        let pods = hir::parse_pods(&db, &source_db);
         let ty_lower_result = lower_pods(&db, &pods);
 
         expect.assert_eq(&TestingDebug::new(&db, &pods, &ty_lower_result).debug());
@@ -445,7 +445,7 @@ mod tests {
         ) -> String {
             let body_expr = hir_file
                 .db(self.db)
-                .function_body_by_ast_block(function.ast(self.db).body().unwrap())
+                .function_body_by_ast_block(function.ast(self.db).borrow().body().unwrap())
                 .unwrap();
 
             let name = function.name(self.db).text(self.db);

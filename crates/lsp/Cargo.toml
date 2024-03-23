@@ -18,3 +18,8 @@ tower-lsp = { workspace = true }
 syntax = { workspace = true }
 parser = { workspace = true }
 ast = { workspace = true }
+hir = { workspace = true }
+hir_ty = { workspace = true }
+base_db = { workspace = true }
+diagnostic = { workspace = true }
+dock = { workspace = true }

@@ -385,7 +385,7 @@ dependencies = [
  "base_db",
  "hir",
  "hir_ty",
- "lsp",
+ "parser",
 ]
 
 [[package]]
@@ -408,7 +408,6 @@ dependencies = [
  "hir",
  "hir_ty",
  "inkwell",
- "lsp",
  "mir",
  "regex",
  "thiserror",
@@ -800,6 +799,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ast",
+ "base_db",
+ "diagnostic",
+ "dock",
+ "hir",
+ "hir_ty",
  "parser",
  "rowan",
  "syntax",

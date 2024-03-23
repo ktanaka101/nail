@@ -1,0 +1,19 @@
+
+
+//---stdout
+//---stderr
+
+// Error: Mismatched type in return value
+//    ╭─[/{nail}/crates/dock/tests/pod_execution/mod_project_with_pod_file/src/main.nail:8:3]
+//    │
+//  8 │   sub::build_string()
+//    │   ─────────┬─────────  
+//    │            ╰─────────── expected int, actual: string
+// ───╯
+// Error: Mismatched type in return value
+//    ╭─[/{nail}/crates/dock/tests/pod_execution/mod_project_with_pod_file/src/sub.nail:2:3]
+//    │
+//  2 │   true
+//    │   ──┬─  
+//    │     ╰─── expected string, actual: bool
+// ───╯

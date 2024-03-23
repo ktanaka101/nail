@@ -1,53 +1,24 @@
-use ast::validation::ValidationError;
 use lsp_types::Url;
 use tower_lsp::lsp_types::{self, SemanticToken};
 
-use crate::{diagnostic::Diagnostic, line_index, semantic_tokens};
+use crate::{line_index, semantic_tokens};
 
+/// ソースコード情報、パースエラー、バリデーションエラーを含む診断情報。
 #[derive(Debug)]
 pub struct Analysis {
+    /// ソースコードのURI
     pub uri: Url,
-    pub content: String,
+    /// ソースコードのファイル情報
+    pub file: hir::NailFile,
+    /// AST
     pub parsed: parser::Parse,
-    pub validation_errors: Vec<ValidationError>,
+    /// 診断情報
+    pub diagnostics: Vec<lsp_types::Diagnostic>,
+    /// ソースコードの行情報
     pub line_index: line_index::LineIndex,
 }
 
 impl Analysis {
-    pub fn new(uri: Url, content: String) -> Self {
-        let parsed = parser::parse(content.as_str());
-        let line_index = line_index::LineIndex::new(content.as_str());
-
-        let syntax = parsed.syntax();
-        let validation_errors = ast::validation::validate(&syntax);
-
-        Self {
-            uri,
-            content,
-            parsed,
-            validation_errors,
-            line_index,
-        }
-    }
-
-    pub fn diagnostics(&self) -> Vec<lsp_types::Diagnostic> {
-        let parsing_errors = self
-            .parsed
-            .errors()
-            .iter()
-            .map(|e| Diagnostic::from_parser_error(e.clone()));
-
-        let validation_errors = self
-            .validation_errors
-            .iter()
-            .map(|e| Diagnostic::from_validation_error(e.clone()));
-
-        parsing_errors
-            .chain(validation_errors)
-            .map(|diagnostic| diagnostic.to_lsp_diagnostic(&self.line_index))
-            .collect::<Vec<_>>()
-    }
-
     pub fn semantic_tokens(&self) -> Vec<SemanticToken> {
         let node = self.parsed.syntax();
         semantic_tokens::traverse(&node, &self.line_index)

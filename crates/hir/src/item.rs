@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap};
 
 use la_arena::Idx;
 
@@ -88,7 +88,7 @@ pub struct Function {
     /// 例: `fn f(x: int, y: int) -> int { x + y }` であれば `int`
     pub return_type: Type,
     /// AST上の位置
-    pub ast: ast::FunctionDef,
+    pub ast: RefCell<ast::FunctionDef>,
 }
 
 /// モジュール定義を表す

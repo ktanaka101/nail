@@ -471,9 +471,9 @@ mod tests {
 
     fn check_pod_start_with_root_file(fixture: &str, expect: Expect) {
         let db = hir_ty::TestingDatabase::default();
-        let mut source_db = hir::FixtureDatabase::new(&db, fixture);
+        let source_db = hir::FixtureDatabase::new(&db, fixture);
 
-        let pods = hir::parse_pods(&db, &mut source_db);
+        let pods = hir::parse_pods(&db, &source_db);
         let ty_hir_result = hir_ty::lower_pods(&db, &pods);
 
         let mir_result = lower_pods(&db, &pods, &ty_hir_result);

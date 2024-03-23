@@ -16,8 +16,11 @@ pub struct Jar(
     crate::NameSolutionPath,
     crate::Path,
 );
+// todo: thread safe
+unsafe impl Send for Jar {}
+unsafe impl Sync for Jar {}
 
 /// [Jar]用のDBトレイトです。
-pub trait HirMasterDatabase: salsa::DbWithJar<Jar> {}
+pub trait HirMasterDatabase: salsa::DbWithJar<Jar> + Send + Sync {}
 
-impl<DB> HirMasterDatabase for DB where DB: ?Sized + salsa::DbWithJar<Jar> {}
+impl<DB> HirMasterDatabase for DB where DB: ?Sized + salsa::DbWithJar<Jar> + Send + Sync {}

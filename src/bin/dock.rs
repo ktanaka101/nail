@@ -32,7 +32,14 @@ async fn main() {
             let out = &mut io::stdout();
             let err = &mut io::stderr();
 
-            match dock::execute(&path, out, err, true).await {
+            match dock::execute(
+                dock::NailExecutablePath::RootFile(path.into()),
+                out,
+                err,
+                true,
+            )
+            .await
+            {
                 Ok(_) => (),
                 Err(err) => {
                     match err {

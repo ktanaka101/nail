@@ -57,7 +57,7 @@
       "outFiles": ["${workspaceRoot}/nail-language-client/out/**/*.js"],
       "preLaunchTask": {
         "type": "npm",
-        "script": "lsp:watch"
+        "script": "lsp:compile"
       }
     }
   ]

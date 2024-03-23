@@ -32,6 +32,15 @@ impl LineIndex {
             col_number: col,
         }
     }
+
+    pub(crate) fn range(&self, position_range: PositionRange) -> std::ops::Range<usize> {
+        let start = self.line_starts[usize::from(position_range.start().line_number().0)]
+            + position_range.start().col_number().0;
+        let end = self.line_starts[usize::from(position_range.end().line_number().0)]
+            + position_range.end().col_number().0;
+
+        usize::from(start)..usize::from(end)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -67,6 +76,21 @@ impl From<PositionRange> for lsp_types::Range {
             end: lsp_types::Position {
                 line: range.end().line_number().0.into(),
                 character: range.end().col_number().0.into(),
+            },
+        }
+    }
+}
+
+impl From<lsp_types::Range> for PositionRange {
+    fn from(range: lsp_types::Range) -> PositionRange {
+        PositionRange {
+            start: Position {
+                line_number: LineNumber(TextSize::from(range.start.line)),
+                col_number: ColNumber(TextSize::from(range.start.character)),
+            },
+            end: Position {
+                line_number: LineNumber(TextSize::from(range.end.line)),
+                col_number: ColNumber(TextSize::from(range.end.character)),
             },
         }
     }

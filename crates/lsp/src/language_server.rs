@@ -175,11 +175,6 @@ impl Backend {
         self.info(&format!("server did change! get uri: {}", changed_file_uri))
             .await;
 
-        // todo: ref params.content_changes
-
-        // FIXME: this is a hack to get the uri. Do not read from the file system in Context::upadte_file.
-        tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-
         let Some(root_dir_path) = &self.root_dir_path else {
             self.info("root_dir_path is not set.").await;
             return;
@@ -189,6 +184,38 @@ impl Backend {
             self.info("failed to build source db").await;
             return;
         };
+
+        let Ok(changed_file_path) = changed_file_uri.to_file_path() else {
+            self.info(&format!(
+                "failed to convert file url to file path. file_url: {changed_file_uri:?}"
+            ))
+            .await;
+            return;
+        };
+
+        let Some(changed_file) = source_db.get_file(&changed_file_path) else {
+            self.info(&format!(
+                "file not found in source db. file_path: {changed_file_path:?}"
+            ))
+            .await;
+            return;
+        };
+
+        let mut contents = changed_file.contents(&self.db).clone();
+        let mut line_index = line_index::LineIndex::new(&contents);
+        params.content_changes.into_iter().for_each(|change| {
+            if let Some(range) = change.range {
+                let range: line_index::PositionRange = range.into();
+                let range = line_index.range(range);
+                contents.replace_range(range, &change.text);
+            } else {
+                contents = change.text;
+                // todo: 一度に全ての行を再計算するのは効率が悪いので、変更箇所のみを再計算するようにする
+                line_index = line_index::LineIndex::new(&contents);
+            }
+        });
+        changed_file.set_contents(&mut self.db).to(contents);
+
         let analysis =
             match get_analysis_by_file(&self.db, &source_db, changed_file_uri.clone()).await {
                 Ok(Some(analysis)) => analysis,

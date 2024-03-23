@@ -80,7 +80,7 @@ impl Backend {
         } else {
             return Err(jsonrpc::Error::invalid_params("root_uri is required"));
         };
-        self.root_dir_path = Some(root_dir_path.clone());
+        self.root_dir_path = Some(root_dir_path);
 
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
@@ -137,12 +137,12 @@ impl Backend {
         self.info(&format!("server did open! get uri: {opened_uri}"))
             .await;
 
-        let Ok(source_db) = build_source_db(
-            &self.db,
-            self.root_dir_path.clone().unwrap_or_else(|| unreachable!()),
-        )
-        .await
-        else {
+        let Some(root_dir_path) = &self.root_dir_path else {
+            self.info("root_dir_path is not set.").await;
+            return;
+        };
+
+        let Ok(source_db) = build_source_db(&self.db, root_dir_path.clone()).await else {
             self.info("failed to build source db").await;
             return;
         };
@@ -180,12 +180,12 @@ impl Backend {
         // FIXME: this is a hack to get the uri. Do not read from the file system in Context::upadte_file.
         tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
 
-        let Ok(source_db) = build_source_db(
-            &self.db,
-            self.root_dir_path.clone().unwrap_or_else(|| unreachable!()),
-        )
-        .await
-        else {
+        let Some(root_dir_path) = &self.root_dir_path else {
+            self.info("root_dir_path is not set.").await;
+            return;
+        };
+
+        let Ok(source_db) = build_source_db(&self.db, root_dir_path.clone()).await else {
             self.info("failed to build source db").await;
             return;
         };

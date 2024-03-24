@@ -11,9 +11,6 @@ pub struct TestingDatabase {
     /// テスト用のログ
     logs: Option<Arc<Mutex<Vec<String>>>>,
 }
-// todo: thread safe
-unsafe impl Sync for TestingDatabase {}
-unsafe impl Send for TestingDatabase {}
 
 impl TestingDatabase {
     #[cfg(test)]
@@ -37,6 +34,8 @@ impl TestingDatabase {
     }
 }
 
+unsafe impl Send for TestingDatabase {}
+
 impl salsa::Database for TestingDatabase {
     fn salsa_event(&self, event: salsa::Event) {
         if let Some(logs) = &self.logs {
@@ -44,5 +43,14 @@ impl salsa::Database for TestingDatabase {
                 .unwrap()
                 .push(format!("Event: {:?}", event.debug(self)));
         }
+    }
+}
+
+impl salsa::ParallelDatabase for TestingDatabase {
+    fn snapshot(&self) -> salsa::Snapshot<Self> {
+        salsa::Snapshot::new(TestingDatabase {
+            storage: self.storage.snapshot(),
+            logs: self.logs.clone(),
+        })
     }
 }

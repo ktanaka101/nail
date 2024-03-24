@@ -18,6 +18,6 @@ pub struct Jar(
 );
 
 /// [Jar]用のDBトレイトです。
-pub trait HirMasterDatabase: salsa::DbWithJar<Jar> + Send + Sync {}
+pub trait HirMasterDatabase: salsa::DbWithJar<Jar> {}
 
-impl<DB> HirMasterDatabase for DB where DB: ?Sized + salsa::DbWithJar<Jar> + Send + Sync {}
+impl<DB> HirMasterDatabase for DB where DB: ?Sized + salsa::DbWithJar<Jar> {}

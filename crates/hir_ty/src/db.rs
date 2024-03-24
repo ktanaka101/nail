@@ -5,9 +5,6 @@ use crate::inference;
 /// ここに`salsa`データを定義します。
 #[salsa::jar(db = HirTyMasterDatabase)]
 pub struct Jar(crate::Signature, inference::lower_signature);
-// todo: thread safe
-unsafe impl Send for Jar {}
-unsafe impl Sync for Jar {}
 
 /// [Jar]用のDBトレイトです。
 pub trait HirTyMasterDatabase:

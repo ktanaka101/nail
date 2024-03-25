@@ -1,6 +1,6 @@
 mod scopes;
 
-use std::{cell::RefCell, collections::HashMap};
+use std::collections::HashMap;
 
 use ast::AstNode;
 use la_arena::{Arena, Idx};
@@ -64,6 +64,9 @@ pub struct HirFileDatabase {
 
     exprs: Arena<Expr>,
     function_body_by_ast_block: HashMap<ast::BlockExpr, FunctionBodyId>,
+
+    /// 関数(HIR)を元に関数定義のASTノードを取得するためのマップ
+    ast_by_function: HashMap<Function, ast::FunctionDef>,
 }
 impl HirFileDatabase {
     /// 空のDBを作成する
@@ -74,6 +77,7 @@ impl HirFileDatabase {
             params: Arena::new(),
             exprs: Arena::new(),
             function_body_by_ast_block: HashMap::new(),
+            ast_by_function: HashMap::new(),
         }
     }
 
@@ -106,6 +110,17 @@ impl HirFileDatabase {
     pub fn function_body_by_ast_block(&self, ast_block: ast::BlockExpr) -> Option<&Expr> {
         self.function_body_id_by_ast_block(ast_block)
             .map(|body_id| &self.exprs[body_id.0 .0])
+    }
+
+    /// 関数(HIR)をもとに関数定義のASTノードを取得する
+    pub fn function_ast_by_function(&self, function: Function) -> Option<&ast::FunctionDef> {
+        self.ast_by_function.get(&function)
+    }
+
+    /// 関数(HIR)をもとに関数ボディ式を取得する
+    pub fn function_body_by_function(&self, function: Function) -> Option<&Expr> {
+        self.function_ast_by_function(function)
+            .and_then(|ast| self.function_body_by_ast_block(ast.body()?))
     }
 
     /// 式を保存し、参照するためのIDを返す
@@ -200,21 +215,13 @@ impl<'a> BodyLower<'a> {
             Type::Unit
         };
 
-        let ref_def = RefCell::new(def);
-        let function = Function::new(
-            db,
-            name,
-            params,
-            param_by_name,
-            return_type,
-            ref_def.clone(),
-        );
+        let function = Function::new(db, name, params, param_by_name, return_type);
         self.hir_file_db.functions.push(function);
         self.source_by_function.insert(
             function,
             FunctionSource {
                 file: self.file,
-                value: ref_def,
+                value: def,
             },
         );
 
@@ -758,9 +765,11 @@ mod tests {
         function: Function,
         nesting: usize,
     ) -> String {
+        let ast_function = hir_file.db(db).function_ast_by_function(function).unwrap();
+
         let body_expr = hir_file
             .db(db)
-            .function_body_by_ast_block(function.ast(db).borrow().body().unwrap())
+            .function_body_by_ast_block(ast_function.body().unwrap())
             .unwrap();
 
         let name = function.name(db).text(db);

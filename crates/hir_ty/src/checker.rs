@@ -65,7 +65,7 @@ impl<'a> FunctionTypeChecker<'a> {
     }
 
     fn check(mut self) -> Vec<TypeCheckError> {
-        let block_ast_id = self.function.ast(self.db).borrow().body().unwrap();
+        let block_ast_id = self.function.ast_body(self.db, self.hir_file).unwrap();
         let body = self
             .hir_file
             .db(self.db)

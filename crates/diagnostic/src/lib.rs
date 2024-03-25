@@ -366,7 +366,6 @@ impl Diagnostic {
                             .get(expected_function)
                             .unwrap()
                             .value
-                            .borrow()
                             .return_type()
                             .unwrap()
                             .syntax()

@@ -5,8 +5,6 @@
 pub struct Jar(
     crate::Name,
     crate::NailFile,
-    crate::parse_to_ast,
-    crate::AstSourceFile,
     crate::build_hir_file,
     crate::HirFile,
     crate::HirFileSourceMap,

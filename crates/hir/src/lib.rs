@@ -224,8 +224,7 @@ impl<'a> PodBuilder<'a> {
         let root_nail_file = self.source_db.source_root();
         let root_file_path = root_nail_file.file_path(self.db);
 
-        let ast_source = parse_to_ast(self.db, root_nail_file);
-        let (root_hir_file, root_source_map) = build_hir_file(self.db, ast_source);
+        let (root_hir_file, root_source_map) = build_hir_file(self.db, root_nail_file);
         for function in root_hir_file.functions(self.db) {
             self.hir_file_by_function.insert(*function, root_hir_file);
         }
@@ -270,8 +269,7 @@ impl<'a> PodBuilder<'a> {
         let nail_file_path = dir.join(format!("{module_name}.nail"));
         let nail_file = self.source_db.get_file(&nail_file_path).expect("todo");
 
-        let ast_source = parse_to_ast(db, nail_file);
-        let (hir_file, source_map) = build_hir_file(db, ast_source);
+        let (hir_file, source_map) = build_hir_file(db, nail_file);
 
         for function in hir_file.functions(db) {
             self.hir_file_by_function.insert(*function, hir_file);
@@ -383,42 +381,21 @@ impl HirFile {
     }
 }
 
-#[salsa::tracked]
-pub struct AstSourceFile {
-    /** Nailファイル */
-    pub file: NailFile,
-
-    /** AST */
-    #[return_ref]
-    pub source: ast::SourceFile,
-}
-
-/// ファイルを元にASTを構築します。
-#[salsa::tracked]
-pub fn parse_to_ast(db: &dyn HirMasterDatabase, nail_file: NailFile) -> AstSourceFile {
-    let ast = parser::parse(nail_file.contents(db));
-    let ast_source_file = ast::SourceFile::cast(ast.syntax()).unwrap();
-    AstSourceFile::new(db, nail_file, ast_source_file)
-}
-
 /// ASTを元に[HirFile]を構築します。
 #[salsa::tracked]
-fn build_hir_file(
-    db: &dyn HirMasterDatabase,
-    ast_source: AstSourceFile,
-) -> (HirFile, HirFileSourceMap) {
-    let file = ast_source.file(db);
-    let source_file = ast_source.source(db);
+fn build_hir_file(db: &dyn HirMasterDatabase, nail_file: NailFile) -> (HirFile, HirFileSourceMap) {
+    let ast = parser::parse(nail_file.contents(db));
+    let ast_source_file = ast::SourceFile::cast(ast.syntax()).unwrap();
 
     let mut hir_file_db = HirFileDatabase::new();
 
-    let mut root_file_body = BodyLower::new(file, HashMap::new(), &mut hir_file_db);
-    let top_level_items = source_file
+    let mut root_file_body = BodyLower::new(nail_file, HashMap::new(), &mut hir_file_db);
+    let top_level_items = ast_source_file
         .items()
         .filter_map(|item| root_file_body.lower_toplevel(db, item))
         .collect::<Vec<_>>();
 
-    let (errors, entry_point) = if ast_source.file(db).root(db) {
+    let (errors, entry_point) = if nail_file.root(db) {
         let mut errors = vec![];
         let entry_point = get_entry_point(db, &top_level_items);
         if entry_point.is_none() {
@@ -431,8 +408,15 @@ fn build_hir_file(
 
     let source_by_expr = root_file_body.source_by_expr;
     let source_by_function = root_file_body.source_by_function;
-    let hir_file = HirFile::new(db, file, hir_file_db, top_level_items, entry_point, errors);
-    let source_map = HirFileSourceMap::new(db, file, source_by_expr, source_by_function);
+    let hir_file = HirFile::new(
+        db,
+        nail_file,
+        hir_file_db,
+        top_level_items,
+        entry_point,
+        errors,
+    );
+    let source_map = HirFileSourceMap::new(db, nail_file, source_by_expr, source_by_function);
 
     (hir_file, source_map)
 }

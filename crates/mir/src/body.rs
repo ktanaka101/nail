@@ -648,10 +648,7 @@ impl<'a> FunctionLower<'a> {
             self.local_idx += 1;
         }
 
-        let body_block = self
-            .hir_file
-            .function_body_by_function(self.db, self.function)
-            .unwrap();
+        let body_block = self.function.body(self.db, self.hir_file).unwrap();
         let body_block = match body_block {
             hir::Expr::Block(block) => block,
             _ => unreachable!(),

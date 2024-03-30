@@ -162,6 +162,7 @@ pub async fn execute(
 
             print_error(
                 &db,
+                *hir_file,
                 hir_file.db(&db),
                 source_map,
                 error,
@@ -210,14 +211,16 @@ pub async fn execute(
 
 fn print_error(
     db: &base_db::SalsaDatabase,
+    hir_file: hir::HirFile,
     file_db: &hir::HirFileDatabase,
     source_map: &hir::HirFileSourceMap,
     error: &hir_ty::InferenceError,
     write_dest_err: &mut impl std::io::Write,
     config: ariadne::Config,
 ) {
-    let diagnostic =
-        diagnostic::Diagnostic::from_hir_ty_inference_error(db, file_db, source_map, error);
+    let diagnostic = diagnostic::Diagnostic::from_hir_ty_inference_error(
+        db, hir_file, file_db, source_map, error,
+    );
     let file = diagnostic.file;
     let file_path = file.file_path(db).to_str().unwrap().to_string();
     let labels = diagnostic.messages.into_iter().map(|message| {

@@ -90,6 +90,15 @@ pub struct Function {
 }
 
 impl Function {
+    /// 関数定義のASTを返します。
+    pub fn ast_def(
+        self,
+        db: &dyn HirMasterDatabase,
+        hir_file: HirFile,
+    ) -> Option<ast::FunctionDef> {
+        hir_file.db(db).function_ast_by_function(self)
+    }
+
     /// 関数ボディを返します。
     pub fn body(self, db: &dyn HirMasterDatabase, hir_file: HirFile) -> Option<&Expr> {
         hir_file.db(db).function_body_by_function(self)

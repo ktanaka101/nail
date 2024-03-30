@@ -351,6 +351,7 @@ async fn get_analysis_by_file(
 
             diagnostics.push(diagnostic::Diagnostic::from_hir_ty_inference_error(
                 db,
+                *hir_file,
                 hir_file.db(db),
                 source_map,
                 error,

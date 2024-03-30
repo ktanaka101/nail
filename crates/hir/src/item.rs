@@ -96,7 +96,7 @@ impl Function {
         db: &dyn HirMasterDatabase,
         hir_file: HirFile,
     ) -> Option<ast::FunctionDef> {
-        hir_file.db(db).function_ast_by_function(self)
+        hir_file.db(db).function_ast_by_function(db, self)
     }
 
     /// 関数ボディを返します。
@@ -108,7 +108,7 @@ impl Function {
     pub fn ast_body(self, db: &dyn HirMasterDatabase, hir_file: HirFile) -> Option<ast::BlockExpr> {
         hir_file
             .db(db)
-            .function_ast_by_function(self)
+            .function_ast_by_function(db, self)
             .and_then(|f| f.body())
     }
 }

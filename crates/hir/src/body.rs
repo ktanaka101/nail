@@ -58,7 +58,6 @@ pub struct FunctionBodyId(ExprId);
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HirFileDatabase {
     green_node: NailGreenNode,
-    syntax_node: syntax::SyntaxNode,
 
     functions: Vec<Function>,
     modules: Vec<Module>,
@@ -75,12 +74,9 @@ pub struct HirFileDatabase {
 }
 impl HirFileDatabase {
     /// 空のDBを作成する
-    pub fn new(db: &dyn HirMasterDatabase, nail_green_node: NailGreenNode) -> Self {
-        let green_node = nail_green_node.green_node(db);
-        let syntax_node = syntax::SyntaxNode::new_root(green_node.clone());
+    pub fn new(nail_green_node: NailGreenNode) -> Self {
         Self {
             green_node: nail_green_node,
-            syntax_node,
             functions: vec![],
             modules: vec![],
             params: Arena::new(),
@@ -126,10 +122,18 @@ impl HirFileDatabase {
     }
 
     /// 関数(HIR)をもとに関数定義のASTノードを取得する
-    pub fn function_ast_by_function(&self, function: Function) -> Option<ast::FunctionDef> {
+    pub fn function_ast_by_function(
+        &self,
+        db: &dyn HirMasterDatabase,
+        function: Function,
+    ) -> Option<ast::FunctionDef> {
+        // TODO: 性能の改善。SyntaxNodeをキャッシュする
+        let green_node = self.green_node.green_node(db);
+        let syntax_node = syntax::SyntaxNode::new_root(green_node.clone());
+
         self.ast_by_function
             .get(&function)
-            .and_then(|ptr| ast::FunctionDef::cast(ptr.node.to_node(&self.syntax_node)))
+            .and_then(|ptr| ast::FunctionDef::cast(ptr.node.to_node(&syntax_node)))
     }
 
     pub fn function_ast_ptr_by_function(

@@ -421,7 +421,7 @@ fn build_hir_file(
     db: &dyn HirMasterDatabase,
     nail_green_node: NailGreenNode,
 ) -> (HirFile, HirFileSourceMap) {
-    let mut hir_file_db = HirFileDatabase::new(db, nail_green_node);
+    let mut hir_file_db = HirFileDatabase::new(nail_green_node);
 
     let mut root_file_body = BodyLower::new(db, nail_green_node, HashMap::new(), &mut hir_file_db);
 

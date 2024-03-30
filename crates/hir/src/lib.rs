@@ -352,12 +352,19 @@ pub fn build_green_node(db: &dyn HirMasterDatabase, nail_file: NailFile) -> Nail
 ///
 /// 1ファイル内でユニークです。
 /// IDからASTを参照し、ファイル内における位置を取得することができます。
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct AstPtr<T: AstNode> {
     /// ASTノード
     pub node: ast::SyntaxNodePtr,
     _ty: PhantomData<T>,
 }
+impl<T: AstNode> Clone for AstPtr<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+impl<T: AstNode> Copy for AstPtr<T> {}
+
 /// 式のAST位置です。
 pub type ExprSource = InFile<AstPtr<ast::Expr>>;
 /// 関数定義のAST位置です。
@@ -423,7 +430,7 @@ fn build_hir_file(
     db: &dyn HirMasterDatabase,
     nail_green_node: NailGreenNode,
 ) -> (HirFile, HirFileSourceMap) {
-    let mut hir_file_db = HirFileDatabase::new();
+    let mut hir_file_db = HirFileDatabase::new(db, nail_green_node);
 
     let mut root_file_body = BodyLower::new(db, nail_green_node, HashMap::new(), &mut hir_file_db);
 

@@ -55,29 +55,39 @@ impl Ord for ExprId {
 pub struct FunctionBodyId(ExprId);
 
 /// 1ファイルに対応するDB
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HirFileDatabase {
+    green_node: NailGreenNode,
+    syntax_node: syntax::SyntaxNode,
+
     functions: Vec<Function>,
     modules: Vec<Module>,
 
     params: Arena<ParamData>,
 
     exprs: Arena<Expr>,
-    function_body_by_ast_block: HashMap<ast::BlockExpr, FunctionBodyId>,
+    function_body_by_ast_block: HashMap<AstPtr<ast::BlockExpr>, FunctionBodyId>,
 
     /// 関数(HIR)を元に関数定義のASTノードを取得するためのマップ
-    ast_by_function: HashMap<Function, ast::FunctionDef>,
+    ast_by_function: HashMap<Function, AstPtr<ast::FunctionDef>>,
+
+    body_expr_by_function: HashMap<Function, FunctionBodyId>,
 }
 impl HirFileDatabase {
     /// 空のDBを作成する
-    pub fn new() -> Self {
+    pub fn new(db: &dyn HirMasterDatabase, nail_green_node: NailGreenNode) -> Self {
+        let green_node = nail_green_node.green_node(db);
+        let syntax_node = syntax::SyntaxNode::new_root(green_node.clone());
         Self {
+            green_node: nail_green_node,
+            syntax_node,
             functions: vec![],
             modules: vec![],
             params: Arena::new(),
             exprs: Arena::new(),
             function_body_by_ast_block: HashMap::new(),
             ast_by_function: HashMap::new(),
+            body_expr_by_function: HashMap::new(),
         }
     }
 
@@ -94,9 +104,9 @@ impl HirFileDatabase {
     /// ASTブロックIDを元に関数本体IDを取得する
     pub fn function_body_id_by_ast_block(
         &self,
-        ast_block: ast::BlockExpr,
+        ast_block_ptr: AstPtr<ast::BlockExpr>,
     ) -> Option<FunctionBodyId> {
-        self.function_body_by_ast_block.get(&ast_block).copied()
+        self.function_body_by_ast_block.get(&ast_block_ptr).copied()
     }
 
     /// パラメータIDを元にパラメータを取得する
@@ -107,20 +117,31 @@ impl HirFileDatabase {
     /// ASTブロックIDを元に関数本体を取得する
     ///
     /// 現状、関数本体は[Expr::Block]として表現されているため、[Expr]を返す
-    pub fn function_body_by_ast_block(&self, ast_block: ast::BlockExpr) -> Option<&Expr> {
-        self.function_body_id_by_ast_block(ast_block)
+    pub fn function_body_by_ast_block(
+        &self,
+        ast_block_ptr: AstPtr<ast::BlockExpr>,
+    ) -> Option<&Expr> {
+        self.function_body_id_by_ast_block(ast_block_ptr)
             .map(|body_id| &self.exprs[body_id.0 .0])
     }
 
     /// 関数(HIR)をもとに関数定義のASTノードを取得する
-    pub fn function_ast_by_function(&self, function: Function) -> Option<&ast::FunctionDef> {
-        self.ast_by_function.get(&function)
+    pub fn function_ast_by_function(&self, function: Function) -> Option<ast::FunctionDef> {
+        self.ast_by_function
+            .get(&function)
+            .and_then(|ptr| ast::FunctionDef::cast(ptr.node.to_node(&self.syntax_node)))
+    }
+
+    pub fn function_ast_ptr_by_function(
+        &self,
+        function: Function,
+    ) -> Option<AstPtr<ast::FunctionDef>> {
+        self.ast_by_function.get(&function).copied()
     }
 
     /// 関数(HIR)をもとに関数ボディ式を取得する
     pub fn function_body_by_function(&self, function: Function) -> Option<&Expr> {
-        self.function_ast_by_function(function)
-            .and_then(|ast| self.function_body_by_ast_block(ast.body()?))
+        Some(&self.exprs[self.body_expr_by_function.get(&function)?.0 .0])
     }
 
     /// 式を保存し、参照するためのIDを返す
@@ -256,8 +277,15 @@ impl<'a> BodyLower<'a> {
         self.source_by_expr.extend(source_by_expr);
         self.source_by_function.extend(source_by_function);
         self.hir_file_db
-            .function_body_by_ast_block
-            .insert(ast_block, FunctionBodyId(body_expr));
+            .body_expr_by_function
+            .insert(function, FunctionBodyId(body_expr));
+        self.hir_file_db.function_body_by_ast_block.insert(
+            AstPtr {
+                node: syntax::SyntaxNodePtr::new(ast_block.syntax()),
+                _ty: std::marker::PhantomData,
+            },
+            FunctionBodyId(body_expr),
+        );
 
         Some(function)
     }
@@ -778,12 +806,7 @@ mod tests {
         function: Function,
         nesting: usize,
     ) -> String {
-        let ast_function = hir_file.db(db).function_ast_by_function(function).unwrap();
-
-        let body_expr = hir_file
-            .db(db)
-            .function_body_by_ast_block(ast_function.body().unwrap())
-            .unwrap();
+        let body_expr = hir_file.db(db).function_body_by_function(function).unwrap();
 
         let name = function.name(db).text(db);
         let params = function

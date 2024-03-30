@@ -65,11 +65,10 @@ impl<'a> FunctionTypeChecker<'a> {
     }
 
     fn check(mut self) -> Vec<TypeCheckError> {
-        let block_ast_id = self.function.ast_body(self.db, self.hir_file).unwrap();
         let body = self
             .hir_file
             .db(self.db)
-            .function_body_by_ast_block(block_ast_id)
+            .function_body_by_function(self.function)
             .unwrap();
 
         match body {

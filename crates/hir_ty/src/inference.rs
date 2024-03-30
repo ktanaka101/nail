@@ -155,11 +155,7 @@ impl<'a> InferBody<'a> {
     }
 
     pub(crate) fn infer_body(mut self) -> InferenceBodyResult {
-        let hir::Expr::Block(body) = self
-            .hir_file
-            .function_body_by_function(self.db, self.function)
-            .unwrap()
-        else {
+        let hir::Expr::Block(body) = self.function.body(self.db, self.hir_file).unwrap() else {
             panic!("Should be Block.")
         };
         let mut has_never = false;

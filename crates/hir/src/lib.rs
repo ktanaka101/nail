@@ -404,15 +404,6 @@ pub struct HirFile {
     pub errors: Vec<LowerError>,
 }
 impl HirFile {
-    /// 関数IDから関数ボディを取得します。
-    pub fn function_body_by_function<'a>(
-        &self,
-        db: &'a dyn HirMasterDatabase,
-        function: Function,
-    ) -> Option<&'a Expr> {
-        self.db(db).function_body_by_function(function)
-    }
-
     /// ファイル内の関数一覧を返します。
     pub fn functions<'a>(&self, db: &'a dyn HirMasterDatabase) -> &'a [Function] {
         self.db(db).functions()

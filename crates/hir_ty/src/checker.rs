@@ -65,11 +65,7 @@ impl<'a> FunctionTypeChecker<'a> {
     }
 
     fn check(mut self) -> Vec<TypeCheckError> {
-        let body = self
-            .hir_file
-            .db(self.db)
-            .function_body_by_function(self.function)
-            .unwrap();
+        let body = self.function.body(self.db, self.hir_file).unwrap();
 
         match body {
             hir::Expr::Block(block) => {

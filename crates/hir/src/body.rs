@@ -806,7 +806,7 @@ mod tests {
         function: Function,
         nesting: usize,
     ) -> String {
-        let body_expr = hir_file.db(db).function_body_by_function(function).unwrap();
+        let body_expr = function.body(db, *hir_file).unwrap();
 
         let name = function.name(db).text(db);
         let params = function

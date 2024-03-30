@@ -41,6 +41,7 @@ pub use input::{FixtureDatabase, NailFile, SourceDatabase, SourceDatabaseTrait};
 pub use item::{Function, Item, Module, ModuleKind, Param, Type, UseItem};
 use name_resolver::resolve_symbols;
 pub use name_resolver::{ModuleScopeOrigin, ResolutionMap, ResolutionStatus};
+use syntax::SyntaxNode;
 pub use testing::TestingDatabase;
 
 /// ビルド対象全体を表します。
@@ -224,7 +225,8 @@ impl<'a> PodBuilder<'a> {
         let root_nail_file = self.source_db.source_root();
         let root_file_path = root_nail_file.file_path(self.db);
 
-        let (root_hir_file, root_source_map) = build_hir_file(self.db, root_nail_file);
+        let root_nail_green_node = build_green_node(self.db, root_nail_file);
+        let (root_hir_file, root_source_map) = build_hir_file(self.db, root_nail_green_node);
         for function in root_hir_file.functions(self.db) {
             self.hir_file_by_function.insert(*function, root_hir_file);
         }
@@ -269,7 +271,8 @@ impl<'a> PodBuilder<'a> {
         let nail_file_path = dir.join(format!("{module_name}.nail"));
         let nail_file = self.source_db.get_file(&nail_file_path).expect("todo");
 
-        let (hir_file, source_map) = build_hir_file(db, nail_file);
+        let nail_green_node = build_green_node(self.db, nail_file);
+        let (hir_file, source_map) = build_hir_file(db, nail_green_node);
 
         for function in hir_file.functions(db) {
             self.hir_file_by_function.insert(*function, hir_file);
@@ -307,11 +310,42 @@ pub struct HirFileSourceMap {
     /// 1ファイルにつき1つの[HirFileSourceMap]が生成されます。
     pub file: NailFile,
 
+    /// ファイルのGreenノード
+    pub green_node: NailGreenNode,
+
     /// 式とソースコードのマッピング
     pub source_by_expr: HashMap<ExprId, ExprSource>,
 
     /// 式とソースコードのマッピング
     pub source_by_function: HashMap<Function, FunctionSource>,
+}
+
+/// パーサのエラー情報
+#[salsa::accumulator]
+pub struct ParserDiagnostics(parser::ParserError);
+
+/// あるファイルのGreenノードを保持します。
+#[salsa::tracked]
+pub struct NailGreenNode {
+    /// ファイルを表します。
+    /// コンテンツが変わればGreenNodeも変わるため、idとしています。
+    #[id]
+    pub nail_file: NailFile,
+
+    /// Greenノード
+    #[return_ref]
+    pub green_node: ast::GreenNode,
+}
+
+/// ASTを元に[HirFile]を構築します。
+#[salsa::tracked]
+pub fn build_green_node(db: &dyn HirMasterDatabase, nail_file: NailFile) -> NailGreenNode {
+    let parse_result = parser::parse(nail_file.contents(db));
+    for parse_error in parse_result.errors {
+        ParserDiagnostics::push(db, parse_error);
+    }
+
+    NailGreenNode::new(db, nail_file, parse_result.green_node)
 }
 
 /// ASTノードのIDです。
@@ -327,7 +361,7 @@ pub struct AstPtr<T: AstNode> {
 /// 式のAST位置です。
 pub type ExprSource = InFile<AstPtr<ast::Expr>>;
 /// 関数定義のAST位置です。
-pub type FunctionSource = InFile<ast::FunctionDef>;
+pub type FunctionSource = InFile<AstPtr<ast::FunctionDef>>;
 
 /// 型引数をファイル内で一意として表現します。
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -343,8 +377,10 @@ pub struct InFile<T> {
 pub struct HirFile {
     /// ファイル
     ///
-    /// 1ファイルにつき1つの[HirFile]が生成されます。
+    /// 1ファイルにつき1つの[HirFile]が生成されます
     pub file: NailFile,
+    /// ファイルのGreenノード
+    pub green_node: NailGreenNode,
 
     /// ボディ構築時に共有されるコンテキスト
     ///
@@ -383,18 +419,23 @@ impl HirFile {
 
 /// ASTを元に[HirFile]を構築します。
 #[salsa::tracked]
-fn build_hir_file(db: &dyn HirMasterDatabase, nail_file: NailFile) -> (HirFile, HirFileSourceMap) {
-    let ast = parser::parse(nail_file.contents(db));
-    let ast_source_file = ast::SourceFile::cast(ast.syntax()).unwrap();
-
+fn build_hir_file(
+    db: &dyn HirMasterDatabase,
+    nail_green_node: NailGreenNode,
+) -> (HirFile, HirFileSourceMap) {
     let mut hir_file_db = HirFileDatabase::new();
 
-    let mut root_file_body = BodyLower::new(nail_file, HashMap::new(), &mut hir_file_db);
+    let mut root_file_body = BodyLower::new(db, nail_green_node, HashMap::new(), &mut hir_file_db);
+
+    let syntax_node = SyntaxNode::new_root(nail_green_node.green_node(db).clone());
+    let ast_source_file = ast::SourceFile::cast(syntax_node).unwrap();
+
     let top_level_items = ast_source_file
         .items()
         .filter_map(|item| root_file_body.lower_toplevel(db, item))
         .collect::<Vec<_>>();
 
+    let nail_file = nail_green_node.nail_file(db);
     let (errors, entry_point) = if nail_file.root(db) {
         let mut errors = vec![];
         let entry_point = get_entry_point(db, &top_level_items);
@@ -411,12 +452,19 @@ fn build_hir_file(db: &dyn HirMasterDatabase, nail_file: NailFile) -> (HirFile, 
     let hir_file = HirFile::new(
         db,
         nail_file,
+        nail_green_node,
         hir_file_db,
         top_level_items,
         entry_point,
         errors,
     );
-    let source_map = HirFileSourceMap::new(db, nail_file, source_by_expr, source_by_function);
+    let source_map = HirFileSourceMap::new(
+        db,
+        nail_file,
+        nail_green_node,
+        source_by_expr,
+        source_by_function,
+    );
 
     (hir_file, source_map)
 }

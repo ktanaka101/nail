@@ -8,7 +8,7 @@ use la_arena::{Arena, Idx};
 use crate::{
     body::scopes::ExprScopes, item::ParamData, AstPtr, Block, Expr, ExprSource, Function,
     FunctionSource, HirFileSourceMap, HirMasterDatabase, InFile, Item, Literal, Module, ModuleKind,
-    NailFile, Name, NameSolutionPath, Param, Path, Stmt, Symbol, Type, UseItem,
+    NailFile, NailGreenNode, Name, NameSolutionPath, Param, Path, Stmt, Symbol, Type, UseItem,
 };
 
 /// 式を一意に識別するためのID
@@ -142,9 +142,16 @@ impl HirFileDatabase {
 /// `params`は、名前解決に使用されます。
 #[derive(Debug)]
 pub struct BodyLower<'a> {
+    /// ファイル情報
     file: NailFile,
+    /// ファイルのGreenノード
+    green_node: NailGreenNode,
+    /// 式のスコープ
     scopes: ExprScopes,
+    /// 関数パラメータ
+    /// 関数本体の場合のみ指定されます。
     params: HashMap<Name, Param>,
+    /// HIRファイルDB
     hir_file_db: &'a mut HirFileDatabase,
     /// 式ソースを元にASTノードを取得するためのマップ
     pub source_by_expr: HashMap<ExprId, ExprSource>,
@@ -155,12 +162,14 @@ pub struct BodyLower<'a> {
 impl<'a> BodyLower<'a> {
     /// 空のコンテキストを作成する
     pub(super) fn new(
-        file: NailFile,
+        db: &dyn HirMasterDatabase,
+        nail_green_node: NailGreenNode,
         params: HashMap<Name, Param>,
         hir_file_db: &'a mut HirFileDatabase,
     ) -> Self {
         Self {
-            file,
+            file: nail_green_node.nail_file(db),
+            green_node: nail_green_node,
             scopes: ExprScopes::new(),
             params,
             hir_file_db,
@@ -221,12 +230,16 @@ impl<'a> BodyLower<'a> {
             function,
             FunctionSource {
                 file: self.file,
-                value: def,
+                value: AstPtr {
+                    node: syntax::SyntaxNodePtr::new(def.syntax()),
+                    _ty: std::marker::PhantomData,
+                },
             },
         );
 
         let mut body_lower = BodyLower::new(
-            self.file,
+            db,
+            self.green_node,
             function.param_by_name(db).clone(),
             self.hir_file_db,
         );

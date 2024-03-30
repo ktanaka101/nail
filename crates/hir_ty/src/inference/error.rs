@@ -54,7 +54,7 @@ pub enum InferenceError {
         /// 実際の型
         found_ty: Monotype,
         /// 演算子
-        op: ast::BinaryOp,
+        op: hir::BinaryOp,
     },
     /// 比較演算子の型が一致しない
     MismatchedBinaryCompare {
@@ -67,7 +67,7 @@ pub enum InferenceError {
         /// 実際の式
         compare_to_expr: hir::ExprId,
         /// 演算子
-        op: ast::BinaryOp,
+        op: hir::BinaryOp,
     },
     /// 単項演算子の型が一致しない
     MismatchedUnary {
@@ -78,7 +78,7 @@ pub enum InferenceError {
         /// 実際の式
         found_expr: hir::ExprId,
         /// 演算子
-        op: ast::UnaryOp,
+        op: hir::UnaryOp,
     },
     /// 関数の戻り値の型と`return`に指定した式の型が異なる
     MismatchedTypeReturnExpr {

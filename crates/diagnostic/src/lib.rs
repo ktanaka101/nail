@@ -234,14 +234,14 @@ impl Diagnostic {
                 let found_ty = type_to_string(db, found_ty);
 
                 let op = match op {
-                    ast::BinaryOp::Add(_) => "+",
-                    ast::BinaryOp::Sub(_) => "-",
-                    ast::BinaryOp::Mul(_) => "*",
-                    ast::BinaryOp::Div(_) => "/",
-                    ast::BinaryOp::Equal(_)
-                    | ast::BinaryOp::GreaterThan(_)
-                    | ast::BinaryOp::LessThan(_)
-                    | ast::BinaryOp::Assign(_) => unreachable!(),
+                    hir::BinaryOp::Add => "+",
+                    hir::BinaryOp::Sub => "-",
+                    hir::BinaryOp::Mul => "*",
+                    hir::BinaryOp::Div => "/",
+                    hir::BinaryOp::Equal
+                    | hir::BinaryOp::GreaterThan
+                    | hir::BinaryOp::LessThan
+                    | hir::BinaryOp::Assign => unreachable!(),
                 };
 
                 Diagnostic {
@@ -267,14 +267,14 @@ impl Diagnostic {
                 let compare_to_ty = type_to_string(db, compare_to_ty);
 
                 let op = match op {
-                    ast::BinaryOp::Equal(_) => "==",
-                    ast::BinaryOp::GreaterThan(_) => ">",
-                    ast::BinaryOp::LessThan(_) => "<",
-                    ast::BinaryOp::Add(_)
-                    | ast::BinaryOp::Sub(_)
-                    | ast::BinaryOp::Mul(_)
-                    | ast::BinaryOp::Div(_)
-                    | ast::BinaryOp::Assign(_) => unreachable!(),
+                    hir::BinaryOp::Equal => "==",
+                    hir::BinaryOp::GreaterThan => ">",
+                    hir::BinaryOp::LessThan => "<",
+                    hir::BinaryOp::Add
+                    | hir::BinaryOp::Sub
+                    | hir::BinaryOp::Mul
+                    | hir::BinaryOp::Div
+                    | hir::BinaryOp::Assign => unreachable!(),
                 };
 
                 Diagnostic {
@@ -304,8 +304,8 @@ impl Diagnostic {
                 let found_ty = type_to_string(db, found_ty);
 
                 let op = match op {
-                    ast::UnaryOp::Not(_) => "!",
-                    ast::UnaryOp::Neg(_) => "-",
+                    hir::UnaryOp::Not => "!",
+                    hir::UnaryOp::Neg => "-",
                 };
 
                 Diagnostic {

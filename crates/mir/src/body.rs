@@ -405,14 +405,14 @@ impl<'a> FunctionLower<'a> {
                 };
 
                 let op = match op {
-                    ast::BinaryOp::Add(_) => BinaryOp::Add,
-                    ast::BinaryOp::Sub(_) => BinaryOp::Sub,
-                    ast::BinaryOp::Mul(_) => BinaryOp::Mul,
-                    ast::BinaryOp::Div(_) => BinaryOp::Div,
-                    ast::BinaryOp::Equal(_) => BinaryOp::Equal,
-                    ast::BinaryOp::GreaterThan(_) => BinaryOp::GreaterThan,
-                    ast::BinaryOp::LessThan(_) => BinaryOp::LessThan,
-                    ast::BinaryOp::Assign(_) => {
+                    hir::BinaryOp::Add => BinaryOp::Add,
+                    hir::BinaryOp::Sub => BinaryOp::Sub,
+                    hir::BinaryOp::Mul => BinaryOp::Mul,
+                    hir::BinaryOp::Div => BinaryOp::Div,
+                    hir::BinaryOp::Equal => BinaryOp::Equal,
+                    hir::BinaryOp::GreaterThan => BinaryOp::GreaterThan,
+                    hir::BinaryOp::LessThan => BinaryOp::LessThan,
+                    hir::BinaryOp::Assign => {
                         let place = match lhs_operand {
                             Operand::Place(place) => place,
                             Operand::Constant(_) => unreachable!(),
@@ -441,8 +441,8 @@ impl<'a> FunctionLower<'a> {
                     LoweredExpr::Operand(operand) => operand,
                 };
                 let op = match op {
-                    ast::UnaryOp::Neg(_) => UnaryOp::Neg,
-                    ast::UnaryOp::Not(_) => UnaryOp::Not,
+                    hir::UnaryOp::Neg => UnaryOp::Neg,
+                    hir::UnaryOp::Not => UnaryOp::Not,
                 };
                 let local = self.alloc_local(expr_id);
                 let value = Value::UnaryOp { op, expr };

@@ -6,9 +6,10 @@ use ast::AstNode;
 use la_arena::{Arena, Idx};
 
 use crate::{
-    body::scopes::ExprScopes, item::ParamData, AstPtr, Block, Expr, ExprSource, Function,
+    body::scopes::ExprScopes, item::ParamData, AstPtr, BinaryOp, Block, Expr, ExprSource, Function,
     FunctionSource, HirFileSourceMap, HirMasterDatabase, InFile, Item, Literal, Module, ModuleKind,
-    NailFile, NailGreenNode, Name, NameSolutionPath, Param, Path, Stmt, Symbol, Type, UseItem,
+    NailFile, NailGreenNode, Name, NameSolutionPath, Param, Path, Stmt, Symbol, Type, UnaryOp,
+    UseItem,
 };
 
 /// 式を一意に識別するためのID
@@ -496,7 +497,16 @@ impl<'a> BodyLower<'a> {
         db: &dyn HirMasterDatabase,
         ast_binary_expr: &ast::BinaryExpr,
     ) -> Expr {
-        let op = ast_binary_expr.op().unwrap();
+        let op = match ast_binary_expr.op().unwrap() {
+            ast::BinaryOp::Add(_) => BinaryOp::Add,
+            ast::BinaryOp::Sub(_) => BinaryOp::Sub,
+            ast::BinaryOp::Mul(_) => BinaryOp::Mul,
+            ast::BinaryOp::Div(_) => BinaryOp::Div,
+            ast::BinaryOp::Equal(_) => BinaryOp::Equal,
+            ast::BinaryOp::GreaterThan(_) => BinaryOp::GreaterThan,
+            ast::BinaryOp::LessThan(_) => BinaryOp::LessThan,
+            ast::BinaryOp::Assign(_) => BinaryOp::Assign,
+        };
 
         let lhs = self.lower_expr(db, ast_binary_expr.lhs());
         let rhs = self.lower_expr(db, ast_binary_expr.rhs());
@@ -505,7 +515,10 @@ impl<'a> BodyLower<'a> {
     }
 
     fn lower_unary(&mut self, db: &dyn HirMasterDatabase, ast_unary_expr: &ast::UnaryExpr) -> Expr {
-        let op = ast_unary_expr.op().unwrap();
+        let op = match ast_unary_expr.op().unwrap() {
+            ast::UnaryOp::Neg(_) => UnaryOp::Neg,
+            ast::UnaryOp::Not(_) => UnaryOp::Not,
+        };
 
         let expr = self.lower_expr(db, ast_unary_expr.expr());
 
@@ -988,14 +1001,14 @@ mod tests {
             },
             Expr::Binary { op, lhs, rhs } => {
                 let op = match op {
-                    ast::BinaryOp::Add(_) => "+",
-                    ast::BinaryOp::Sub(_) => "-",
-                    ast::BinaryOp::Mul(_) => "*",
-                    ast::BinaryOp::Div(_) => "/",
-                    ast::BinaryOp::Equal(_) => "==",
-                    ast::BinaryOp::GreaterThan(_) => ">",
-                    ast::BinaryOp::LessThan(_) => "<",
-                    ast::BinaryOp::Assign(_) => "=",
+                    BinaryOp::Add => "+",
+                    BinaryOp::Sub => "-",
+                    BinaryOp::Mul => "*",
+                    BinaryOp::Div => "/",
+                    BinaryOp::Equal => "==",
+                    BinaryOp::GreaterThan => ">",
+                    BinaryOp::LessThan => "<",
+                    BinaryOp::Assign => "=",
                 };
                 let lhs_str = debug_expr(db, hir_file, resolution_map, scope_origin, *lhs, nesting);
                 let rhs_str = debug_expr(db, hir_file, resolution_map, scope_origin, *rhs, nesting);
@@ -1003,8 +1016,8 @@ mod tests {
             }
             Expr::Unary { op, expr } => {
                 let op = match op {
-                    ast::UnaryOp::Neg(_) => "-",
-                    ast::UnaryOp::Not(_) => "!",
+                    UnaryOp::Neg => "-",
+                    UnaryOp::Not => "!",
                 };
                 let expr_str =
                     debug_expr(db, hir_file, resolution_map, scope_origin, *expr, nesting);

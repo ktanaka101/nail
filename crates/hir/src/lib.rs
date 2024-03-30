@@ -538,6 +538,36 @@ pub enum Literal {
     Bool(bool),
 }
 
+/// 二項演算子
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BinaryOp {
+    /// `+`
+    Add,
+    /// `-`
+    Sub,
+    /// `*`
+    Mul,
+    /// `/`
+    Div,
+    /// `==`
+    Equal,
+    /// `>`
+    GreaterThan,
+    /// `<`
+    LessThan,
+    /// `=`
+    Assign,
+}
+
+/// 単項演算子
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum UnaryOp {
+    /// `-`
+    Neg,
+    /// `!`
+    Not,
+}
+
 /// 式
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Expr {
@@ -550,7 +580,7 @@ pub enum Expr {
     /// 例: `<lhs> <op> <rhs>`
     Binary {
         /// 演算子
-        op: ast::BinaryOp,
+        op: BinaryOp,
         /// 左辺
         lhs: ExprId,
         /// 右辺
@@ -568,7 +598,7 @@ pub enum Expr {
     /// 例: `<op> <expr>`
     Unary {
         /// 演算子
-        op: ast::UnaryOp,
+        op: UnaryOp,
         /// 式
         expr: ExprId,
     },

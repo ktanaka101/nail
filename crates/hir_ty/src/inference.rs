@@ -353,10 +353,10 @@ impl<'a> InferBody<'a> {
                 }
             }
             hir::Expr::Binary { op, lhs, rhs } => match op {
-                ast::BinaryOp::Add(_)
-                | ast::BinaryOp::Sub(_)
-                | ast::BinaryOp::Mul(_)
-                | ast::BinaryOp::Div(_) => {
+                hir::BinaryOp::Add
+                | hir::BinaryOp::Sub
+                | hir::BinaryOp::Mul
+                | hir::BinaryOp::Div => {
                     let lhs_ty = self.infer_expr(*lhs);
                     let rhs_ty = self.infer_expr(*rhs);
                     self.unifier.unify(
@@ -364,7 +364,7 @@ impl<'a> InferBody<'a> {
                         &lhs_ty,
                         &UnifyPurpose::BinaryInteger {
                             found_expr: *lhs,
-                            op: op.clone(),
+                            op: *op,
                         },
                     );
                     self.unifier.unify(
@@ -372,15 +372,13 @@ impl<'a> InferBody<'a> {
                         &rhs_ty,
                         &UnifyPurpose::BinaryInteger {
                             found_expr: *rhs,
-                            op: op.clone(),
+                            op: *op,
                         },
                     );
 
                     Monotype::Integer
                 }
-                ast::BinaryOp::Equal(_)
-                | ast::BinaryOp::GreaterThan(_)
-                | ast::BinaryOp::LessThan(_) => {
+                hir::BinaryOp::Equal | hir::BinaryOp::GreaterThan | hir::BinaryOp::LessThan => {
                     let lhs_ty = self.infer_expr(*lhs);
                     let rhs_ty = self.infer_expr(*rhs);
                     self.unifier.unify(
@@ -389,13 +387,13 @@ impl<'a> InferBody<'a> {
                         &UnifyPurpose::BinaryCompare {
                             found_compare_from_expr: *lhs,
                             found_compare_to_expr: *rhs,
-                            op: op.clone(),
+                            op: *op,
                         },
                     );
 
                     Monotype::Bool
                 }
-                ast::BinaryOp::Assign(_) => {
+                hir::BinaryOp::Assign => {
                     let lhs_ty = self.infer_expr(*lhs);
                     let rhs_ty = self.infer_expr(*rhs);
                     self.unifier.unify(
@@ -413,27 +411,27 @@ impl<'a> InferBody<'a> {
                 }
             },
             hir::Expr::Unary { op, expr } => match op {
-                ast::UnaryOp::Neg(_) => {
+                hir::UnaryOp::Neg => {
                     let expr_ty = self.infer_expr(*expr);
                     self.unifier.unify(
                         &Monotype::Integer,
                         &expr_ty,
                         &UnifyPurpose::Unary {
                             found_expr: *expr,
-                            op: op.clone(),
+                            op: *op,
                         },
                     );
 
                     Monotype::Integer
                 }
-                ast::UnaryOp::Not(_) => {
+                hir::UnaryOp::Not => {
                     let expr_ty = self.infer_expr(*expr);
                     self.unifier.unify(
                         &Monotype::Bool,
                         &expr_ty,
                         &UnifyPurpose::Unary {
                             found_expr: *expr,
-                            op: op.clone(),
+                            op: *op,
                         },
                     );
 

@@ -1,7 +1,7 @@
+use lsp_types::{SemanticToken, SemanticTokenType};
 use rowan::WalkEvent;
 use syntax::{SyntaxKind, SyntaxNode};
 use text_size::TextSize;
-use tower_lsp::lsp_types::{SemanticToken, SemanticTokenType};
 
 use crate::line_index::{self, LineIndex};
 

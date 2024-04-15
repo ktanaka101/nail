@@ -3,11 +3,6 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use base_db::SalsaDatabase;
 use hir::SourceDatabaseTrait;
 use tokio::sync::Mutex;
-use tower_lsp::{
-    jsonrpc,
-    lsp_types::{self, *},
-    Client, LanguageServer,
-};
 
 use crate::{analysis::Analysis, line_index, semantic_tokens::SEMANTIC_TOKEN_TYPES};
 

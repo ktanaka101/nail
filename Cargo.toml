@@ -18,6 +18,8 @@ license = "MIT"
 [dependencies]
 clap = { workspace = true }
 tokio = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-tree = { workspace = true }
 
 dock = { workspace = true }
 lsp = { workspace = true }
@@ -43,6 +45,8 @@ inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", feat
 la-arena = "0.2"
 lasso = "0.6"
 logos = "0.12"
+lsp-server = { version = "0.7" }
+lsp-types = { version = "0.95", features = ["proposed"] }
 num-derive = "0.3"
 num-traits = "0.2"
 regex = "1"
@@ -54,6 +58,9 @@ text-size = "1.1"
 thiserror = "1.0"
 tokio = { version = "1.37", features = ["full"] }
 tower-lsp = "0.17"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+tracing-tree = "0.3"
 
 dock = { path = "crates/dock" }
 lexer = { path = "crates/lexer" }

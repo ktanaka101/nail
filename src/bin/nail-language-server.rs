@@ -1,8 +1,7 @@
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Registry};
 use tracing_tree::HierarchicalLayer;
 
-#[tokio::main]
-async fn main() {
+fn main() {
     setup_logging();
 
     // lsp::run_server().await

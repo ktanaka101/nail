@@ -3,7 +3,7 @@ mod tests {
     use expect_test::expect_file;
     use regex::Regex;
 
-    async fn check(dir_name: &str) {
+    fn check(dir_name: &str) {
         let mut out = Vec::new();
         let mut err = Vec::new();
 
@@ -25,16 +25,13 @@ mod tests {
             &mut out,
             &mut err,
             false,
-        )
-        .await
-        {
+        ) {
             Ok(_) => (),
             Err(e) => match e {
                 // 型チェックのエラーはExecutionError::Nailで返るため何もしない
                 // それ以外は型チェック以外のエラーなのでpanicしてテストを失敗させる
                 dock::ExecutionError::Nail => (),
                 dock::ExecutionError::Io(e) => panic!("io error: {e}"),
-                dock::ExecutionError::Join(e) => panic!("join error: {e}"),
                 dock::ExecutionError::InvalidRootNailFilePath(e) => {
                     panic!("invalid root nail file path: {e}")
                 }
@@ -78,153 +75,153 @@ mod tests {
         expect_file![format!("type_check/{dir_name}/main.nail")].assert_eq(&main_contents);
     }
 
-    #[tokio::test]
-    async fn return_type_match() {
-        check("return_type_match").await;
+    #[test]
+    fn return_type_match() {
+        check("return_type_match");
     }
 
-    #[tokio::test]
-    async fn return_type_mismatch() {
-        check("return_type_mismatch").await;
+    #[test]
+    fn return_type_mismatch() {
+        check("return_type_mismatch");
     }
 
-    #[tokio::test]
-    async fn return_no_expr_treated_as_unit() {
-        check("return_no_expr_treated_as_unit").await;
+    #[test]
+    fn return_no_expr_treated_as_unit() {
+        check("return_no_expr_treated_as_unit");
     }
 
-    #[tokio::test]
-    async fn condition_type_match() {
-        check("condition_type_match").await;
+    #[test]
+    fn condition_type_match() {
+        check("condition_type_match");
     }
 
-    #[tokio::test]
-    async fn condition_type_mismatch() {
-        check("condition_type_mismatch").await;
+    #[test]
+    fn condition_type_mismatch() {
+        check("condition_type_mismatch");
     }
 
-    #[tokio::test]
-    async fn then_else_branch_match() {
-        check("then_else_branch_match").await;
+    #[test]
+    fn then_else_branch_match() {
+        check("then_else_branch_match");
     }
 
-    #[tokio::test]
-    async fn then_else_branch_mismatch() {
-        check("then_else_branch_mismatch").await;
+    #[test]
+    fn then_else_branch_mismatch() {
+        check("then_else_branch_mismatch");
     }
 
-    #[tokio::test]
-    async fn then_only_branch_match() {
-        check("then_only_branch_match").await;
+    #[test]
+    fn then_only_branch_match() {
+        check("then_only_branch_match");
     }
 
-    #[tokio::test]
-    async fn then_only_branch_mismatch() {
-        check("then_only_branch_mismatch").await;
+    #[test]
+    fn then_only_branch_mismatch() {
+        check("then_only_branch_mismatch");
     }
 
-    #[tokio::test]
-    async fn call_arg_type_match() {
-        check("call_arg_type_match").await;
+    #[test]
+    fn call_arg_type_match() {
+        check("call_arg_type_match");
     }
 
-    #[tokio::test]
-    async fn call_arg_type_mismatch() {
-        check("call_arg_type_mismatch").await;
+    #[test]
+    fn call_arg_type_mismatch() {
+        check("call_arg_type_mismatch");
     }
 
-    #[tokio::test]
-    async fn binary_integer_match() {
-        check("binary_integer_match").await;
+    #[test]
+    fn binary_integer_match() {
+        check("binary_integer_match");
     }
 
-    #[tokio::test]
-    async fn binary_integer_mismatch() {
-        check("binary_integer_mismatch").await;
+    #[test]
+    fn binary_integer_mismatch() {
+        check("binary_integer_mismatch");
     }
 
-    #[tokio::test]
-    async fn binary_compare_match() {
-        check("binary_compare_match").await;
+    #[test]
+    fn binary_compare_match() {
+        check("binary_compare_match");
     }
 
-    #[tokio::test]
-    async fn binary_compare_mismatch() {
-        check("binary_compare_mismatch").await;
+    #[test]
+    fn binary_compare_mismatch() {
+        check("binary_compare_mismatch");
     }
 
-    #[tokio::test]
-    async fn binary_assign_match() {
-        check("binary_assign_match").await;
+    #[test]
+    fn binary_assign_match() {
+        check("binary_assign_match");
     }
 
-    #[tokio::test]
-    async fn binary_assign_mismatch() {
-        check("binary_assign_mismatch").await;
+    #[test]
+    fn binary_assign_mismatch() {
+        check("binary_assign_mismatch");
     }
 
-    #[tokio::test]
-    async fn unary_match() {
-        check("unary_match").await;
+    #[test]
+    fn unary_match() {
+        check("unary_match");
     }
 
-    #[tokio::test]
-    async fn unary_mismatch() {
-        check("unary_mismatch").await;
+    #[test]
+    fn unary_mismatch() {
+        check("unary_mismatch");
     }
 
-    #[tokio::test]
-    async fn tail_type_match() {
-        check("tail_type_match").await;
+    #[test]
+    fn tail_type_match() {
+        check("tail_type_match");
     }
 
-    #[tokio::test]
-    async fn tail_type_mismatch() {
-        check("tail_type_mismatch").await;
+    #[test]
+    fn tail_type_mismatch() {
+        check("tail_type_mismatch");
     }
 
-    #[tokio::test]
-    async fn call_arg_count_match() {
-        check("call_arg_count_match").await;
+    #[test]
+    fn call_arg_count_match() {
+        check("call_arg_count_match");
     }
 
-    #[tokio::test]
-    async fn call_arg_count_mismatch() {
-        check("call_arg_count_mismatch").await;
+    #[test]
+    fn call_arg_count_mismatch() {
+        check("call_arg_count_mismatch");
     }
 
-    #[tokio::test]
-    async fn not_callable() {
-        check("not_callable").await;
+    #[test]
+    fn not_callable() {
+        check("not_callable");
     }
 
-    #[tokio::test]
-    async fn module_as_expr() {
-        check("module_as_expr").await;
+    #[test]
+    fn module_as_expr() {
+        check("module_as_expr");
     }
 
-    #[tokio::test]
-    async fn mod_project() {
-        check("mod_project").await;
+    #[test]
+    fn mod_project() {
+        check("mod_project");
     }
 
-    #[tokio::test]
-    async fn loop_break_mismatch() {
-        check("loop_break_mismatch").await;
+    #[test]
+    fn loop_break_mismatch() {
+        check("loop_break_mismatch");
     }
 
-    #[tokio::test]
-    async fn loop_mismatch() {
-        check("loop_mismatch").await;
+    #[test]
+    fn loop_mismatch() {
+        check("loop_mismatch");
     }
 
-    #[tokio::test]
-    async fn break_outside_of_loop() {
-        check("break_outside_of_loop").await;
+    #[test]
+    fn break_outside_of_loop() {
+        check("break_outside_of_loop");
     }
 
-    #[tokio::test]
-    async fn while_desugared_error() {
-        check("while_desugared_error").await;
+    #[test]
+    fn while_desugared_error() {
+        check("while_desugared_error");
     }
 }

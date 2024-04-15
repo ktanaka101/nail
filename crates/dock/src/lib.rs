@@ -3,46 +3,48 @@
 use std::{
     collections::HashMap,
     ffi::{c_char, CString},
-    path,
+    io,
+    path::{self, PathBuf},
 };
 
 use anyhow::Result;
 use ariadne::{Label, Report, ReportKind, Source};
 use codegen_llvm::CodegenContext;
 use inkwell::{context::Context, OptimizationLevel};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use thiserror::Error;
-use tokio::io;
 
 /// Podファイルを基準に、ディレクトリ配下のNailファイルをすべて読み込み、ファイルパスと内容のマッピングを返す。
-pub async fn read_nail_files_with_pod_file(
+pub fn read_nail_files_with_pod_file(
     db: &dyn hir::HirMasterDatabase,
     root_nail_file_path: path::PathBuf,
 ) -> Result<(hir::NailFile, HashMap<path::PathBuf, hir::NailFile>), ExecutionError> {
     let root_nail_file_path = root_nail_file_path.parent().unwrap().join("src/main.nail");
-    read_nail_files_with_root_nail_file(db, root_nail_file_path).await
+    read_nail_files_with_root_nail_file(db, root_nail_file_path)
 }
 
 /// ルートファイルを基準に、ディレクトリ配下のNailファイルをすべて読み込み、ファイルパスと内容のマッピングを返す。
-pub async fn read_nail_files_with_root_nail_file(
+pub fn read_nail_files_with_root_nail_file(
     db: &dyn hir::HirMasterDatabase,
     root_nail_file_path: path::PathBuf,
 ) -> Result<(hir::NailFile, HashMap<path::PathBuf, hir::NailFile>), ExecutionError> {
     let nail_file_paths_exclude_root = collect_nail_files(root_nail_file_path.parent().unwrap());
 
-    let mut read_file_futures = tokio::task::JoinSet::new();
-    for nail_file_path in nail_file_paths_exclude_root {
-        read_file_futures.spawn(read_nail_file(nail_file_path));
-    }
+    let file_contents: std::io::Result<Vec<(PathBuf, String)>> = nail_file_paths_exclude_root
+        .into_par_iter()
+        .map(|file_path| std::fs::read_to_string(&file_path).map(|contents| (file_path, contents)))
+        .collect();
 
     let mut file_by_path = HashMap::<path::PathBuf, hir::NailFile>::new();
-    while let Some(contents) = read_file_futures.join_next().await {
-        let (file_path, contents) = match contents {
-            Ok((path, Ok(content))) => (path, content),
-            Ok((_, Err(e))) => Err(e)?,
-            Err(e) => Err(e)?,
-        };
-        let nail_file = hir::NailFile::new(db, file_path.clone(), contents, false);
-        file_by_path.insert(file_path, nail_file);
+    match file_contents {
+        Ok(contents) => {
+            for contents in contents {
+                let (file_path, contents) = contents;
+                let nail_file = hir::NailFile::new(db, file_path.clone(), contents, false);
+                file_by_path.insert(file_path, nail_file);
+            }
+        }
+        Err(e) => return Err(ExecutionError::Io(e)),
     }
 
     let root_contents = std::fs::read_to_string(&root_nail_file_path).unwrap();
@@ -76,13 +78,6 @@ pub async fn read_nail_files_with_root_nail_file(
 
         nail_files
     }
-
-    async fn read_nail_file(
-        file_path: path::PathBuf,
-    ) -> (path::PathBuf, Result<String, io::Error>) {
-        let contents = tokio::fs::read_to_string(&file_path).await;
-        (file_path, contents)
-    }
 }
 
 /// Nailプログラムの実行時に発生するエラー
@@ -99,10 +94,6 @@ pub enum ExecutionError {
     /// IOエラー
     #[error("IO error")]
     Io(#[from] io::Error),
-
-    /// 非同期タスク実行時のエラー
-    #[error("Join error")]
-    Join(#[from] tokio::task::JoinError),
 }
 
 /// 指定ファイルの種類
@@ -123,7 +114,7 @@ pub enum NailExecutablePath {
 /// Nailプログラムを実行します。
 ///
 /// 通常の結果は`write_dest_out`、エラーは`write_dest_err`に書き込まれます。
-pub async fn execute(
+pub fn execute(
     nail_executable_path: NailExecutablePath,
     write_dest_out: &mut impl std::io::Write,
     write_dest_err: &mut impl std::io::Write,
@@ -133,10 +124,10 @@ pub async fn execute(
 
     let (root_file, file_by_path) = match nail_executable_path {
         NailExecutablePath::PodFile(pod_file_path) => {
-            read_nail_files_with_pod_file(&db, pod_file_path).await?
+            read_nail_files_with_pod_file(&db, pod_file_path)?
         }
         NailExecutablePath::RootFile(nail_file_path) => {
-            read_nail_files_with_root_nail_file(&db, nail_file_path).await?
+            read_nail_files_with_root_nail_file(&db, nail_file_path)?
         }
     };
 

@@ -2,7 +2,6 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use base_db::SalsaDatabase;
 use hir::SourceDatabaseTrait;
-use tokio::sync::Mutex;
 
 use crate::{analysis::Analysis, line_index, semantic_tokens::SEMANTIC_TOKEN_TYPES};
 

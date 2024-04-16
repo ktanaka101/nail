@@ -216,17 +216,17 @@ impl GlobalState {
                         lsp_server::ErrorCode::InvalidRequest as i32,
                         "Shutdown already requested.".to_owned(),
                     );
-                    self.sender.send(resp.into()).unwrap();
+                    self.sender.send(resp.into())?;
                 } else {
                     self.shutdown_requested = true;
                     let resp = Response::new_ok(req.id.clone(), ());
-                    self.sender.send(resp.into()).unwrap();
+                    self.sender.send(resp.into())?;
                 }
             }
             lsp_types::request::SemanticTokensFullRequest::METHOD => {
                 let (req_id, params) =
                     extract_request::<lsp_types::request::SemanticTokensFullRequest>(req)?;
-                self.semantic_tokens_full(req_id, params);
+                self.semantic_tokens_full(req_id, params)?;
             }
             _ => {
                 tracing::warn!("unhandled request: {:?}", req.method);
@@ -241,12 +241,12 @@ impl GlobalState {
             lsp_types::notification::DidOpenTextDocument::METHOD => {
                 let params =
                     extract_notification::<lsp_types::notification::DidOpenTextDocument>(not)?;
-                self.did_open(params);
+                self.did_open(params)?;
             }
             lsp_types::notification::DidChangeTextDocument::METHOD => {
                 let params =
                     extract_notification::<lsp_types::notification::DidChangeTextDocument>(not)?;
-                self.did_change(params);
+                self.did_change(params)?;
             }
             _ => {
                 tracing::warn!("unhandled notification: {:?}", not.method);
@@ -257,7 +257,11 @@ impl GlobalState {
     }
 
     /// Handle `textDocument/semanticTokens/full` request.
-    fn semantic_tokens_full(&self, req_id: RequestId, params: SemanticTokensParams) {
+    fn semantic_tokens_full(
+        &self,
+        req_id: RequestId,
+        params: SemanticTokensParams,
+    ) -> anyhow::Result<()> {
         tracing::info!(
             "server semantic tokens full! get uri: {}",
             params.text_document.uri
@@ -265,64 +269,66 @@ impl GlobalState {
 
         if let Some(analysis) = self.analysis_by_uri.get(&params.text_document.uri) {
             let tokens = analysis.semantic_tokens();
-            self.sender
-                .send(Message::Response(Response::new_ok(
-                    req_id,
-                    SemanticTokens {
-                        result_id: None,
-                        data: tokens,
-                    },
-                )))
-                .unwrap();
+            self.sender.send(Message::Response(Response::new_ok(
+                req_id,
+                SemanticTokens {
+                    result_id: None,
+                    data: tokens,
+                },
+            )))?;
         }
+
+        Ok(())
     }
 
     /// Handle `textDocument/didOpen` notification.
-    fn did_open(&mut self, params: lsp_types::DidOpenTextDocumentParams) {
+    fn did_open(&mut self, params: lsp_types::DidOpenTextDocumentParams) -> anyhow::Result<()> {
         let opened_uri = params.text_document.uri;
         tracing::info!("server did open! get uri: {opened_uri}");
 
         let Ok(source_db) = build_source_db(&self.db, self.config.root_path.clone()) else {
             tracing::info!("failed to build source db");
-            return;
+            return Ok(());
         };
         let analysis = match get_analysis_by_file(&self.db, &source_db, opened_uri.clone()) {
             Ok(Some(analysis)) => analysis,
             Ok(None) => {
                 tracing::info!("failed to get analysis by file: {opened_uri}");
-                return;
+                return Ok(());
             }
             Err(e) => {
                 tracing::info!("failed to get analysis by file: {opened_uri}, error: {e}");
-                return;
+                return Ok(());
             }
         };
 
         let diagnostics = analysis.diagnostics.clone();
         self.analysis_by_uri.insert(opened_uri.clone(), analysis);
 
-        self.publish_diagnostics(opened_uri, diagnostics, None);
+        self.publish_diagnostics(opened_uri, diagnostics, None)?;
+
+        Ok(())
     }
 
-    fn did_change(&mut self, params: DidChangeTextDocumentParams) {
+    fn did_change(&mut self, params: DidChangeTextDocumentParams) -> anyhow::Result<()> {
         let changed_file_uri = params.text_document.uri;
         tracing::info!("server did change! get uri: {}", changed_file_uri);
 
         let Ok(source_db) = build_source_db(&self.db, self.config.root_path.clone()) else {
             tracing::info!("failed to build source db");
-            return;
+            return Ok(());
         };
 
         let Ok(changed_file_path) = changed_file_uri.to_file_path() else {
             tracing::info!(
                 "failed to convert file url to file path. file_url: {changed_file_uri:?}"
             );
-            return;
+            return Ok(());
         };
 
         let Some(changed_file) = source_db.get_file(&changed_file_path) else {
             tracing::info!("file not found in source db. file_path: {changed_file_path:?}");
-            return;
+            return Ok(());
         };
 
         let mut contents = changed_file.contents(&self.db).clone();
@@ -344,18 +350,20 @@ impl GlobalState {
             Ok(Some(analysis)) => analysis,
             Ok(None) => {
                 tracing::info!("failed to get analysis by file: {changed_file_uri}");
-                return;
+                return Ok(());
             }
             Err(e) => {
                 tracing::info!("failed to get analysis by file: {changed_file_uri}, error: {e}");
-                return;
+                return Ok(());
             }
         };
         let diagnostics = analysis.diagnostics.clone();
         self.analysis_by_uri
             .insert(changed_file_uri.clone(), analysis);
 
-        self.publish_diagnostics(changed_file_uri, diagnostics, None);
+        self.publish_diagnostics(changed_file_uri, diagnostics, None)?;
+
+        Ok(())
     }
 
     /// Publish diagnostics to client.
@@ -364,7 +372,7 @@ impl GlobalState {
         uri: Url,
         diagnostics: Vec<lsp_types::Diagnostic>,
         version: Option<i32>,
-    ) {
+    ) -> anyhow::Result<()> {
         self.sender
             .send(Message::Notification(lsp_server::Notification::new(
                 lsp_types::notification::PublishDiagnostics::METHOD.to_owned(),
@@ -373,8 +381,9 @@ impl GlobalState {
                     diagnostics,
                     version,
                 },
-            )))
-            .unwrap();
+            )))?;
+
+        Ok(())
     }
 }
 

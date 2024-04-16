@@ -34,9 +34,6 @@ impl TestingDatabase {
     }
 }
 
-unsafe impl Send for TestingDatabase {}
-unsafe impl Sync for TestingDatabase {}
-
 impl salsa::Database for TestingDatabase {
     fn salsa_event(&self, event: salsa::Event) {
         if let Some(logs) = &self.logs {

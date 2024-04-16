@@ -364,6 +364,10 @@ impl<T: AstNode> Clone for AstPtr<T> {
     }
 }
 impl<T: AstNode> Copy for AstPtr<T> {}
+/// `AstPtr`はスレッドセーフです。
+/// `AstNode`はスレッドセーフではありませんが、`AstPtr`は`AstNode`の型情報のみを参照するだけのためスレッドセーフです。
+unsafe impl<T: AstNode> Send for AstPtr<T> {}
+unsafe impl<T: AstNode> Sync for AstPtr<T> {}
 impl<T: AstNode> AstPtr<T> {
     /// 新しいASTポインタを作成します。
     pub fn new(node: &T) -> Self {

@@ -9,7 +9,11 @@ fn main() -> anyhow::Result<()> {
 
 fn setup_logging() {
     Registry::default()
-        .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_ansi(false)
+                .with_writer(std::io::stderr),
+        )
         .with(
             HierarchicalLayer::default()
                 .with_indent_amount(2)

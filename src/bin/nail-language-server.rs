@@ -1,10 +1,10 @@
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Registry};
 use tracing_tree::HierarchicalLayer;
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     setup_logging();
 
-    // lsp::run_server().await
+    lsp::run_server()
 }
 
 fn setup_logging() {

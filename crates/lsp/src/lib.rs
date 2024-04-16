@@ -30,7 +30,7 @@ enum Error {
 }
 
 /// Run the language server.
-pub async fn run_server() -> anyhow::Result<()> {
+pub fn run_server() -> anyhow::Result<()> {
     tracing::info!("server will start");
 
     let (connection, io_threads) = Connection::stdio();

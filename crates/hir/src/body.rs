@@ -251,7 +251,7 @@ impl<'a> BodyLower<'a> {
         };
 
         let function = Function::new(db, name, params, param_by_name, return_type);
-        let def_ptr = AstPtr::new(def);
+        let def_ptr = AstPtr::new(&def);
 
         self.hir_file_db.functions.push(function);
         self.source_by_function.insert(
@@ -284,13 +284,9 @@ impl<'a> BodyLower<'a> {
         self.hir_file_db
             .body_expr_by_function
             .insert(function, FunctionBodyId(body_expr));
-        self.hir_file_db.function_body_by_ast_block.insert(
-            AstPtr {
-                node: syntax::SyntaxNodePtr::new(ast_block.syntax()),
-                _ty: std::marker::PhantomData,
-            },
-            FunctionBodyId(body_expr),
-        );
+        self.hir_file_db
+            .function_body_by_ast_block
+            .insert(AstPtr::new(&ast_block), FunctionBodyId(body_expr));
 
         Some(function)
     }
@@ -458,10 +454,7 @@ impl<'a> BodyLower<'a> {
             expr_id,
             InFile {
                 file: self.file,
-                value: AstPtr {
-                    node: syntax::SyntaxNodePtr::new(ast_expr.syntax()),
-                    _ty: std::marker::PhantomData,
-                },
+                value: AstPtr::new(ast_expr),
             },
         );
 
@@ -482,10 +475,7 @@ impl<'a> BodyLower<'a> {
             expr_id,
             InFile {
                 file: self.file,
-                value: AstPtr {
-                    node: syntax::SyntaxNodePtr::new(from_ast_expr.syntax()),
-                    _ty: std::marker::PhantomData,
-                },
+                value: AstPtr::new(from_ast_expr),
             },
         );
 

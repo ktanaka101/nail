@@ -47,13 +47,13 @@ pub fn run_server() -> anyhow::Result<()> {
     tracing::info!("InitializeParams: {}", initialize_params);
 
     let lsp_types::InitializeParams {
-        root_uri,
         capabilities,
-        workspace_folders: _,
+        workspace_folders,
         initialization_options,
         ..
     } = from_json::<lsp_types::InitializeParams>("InitializeParams", &initialize_params)?;
 
+    let root_uri = workspace_folders.and_then(|folders| folders.first().map(|it| it.uri.clone()));
     let root_dir_path = if let Some(root_uri) = &root_uri {
         if let Ok(root_dir_path) = root_uri.to_file_path() {
             root_dir_path
@@ -108,6 +108,7 @@ fn from_json<T: DeserializeOwned>(
 
 struct Config {
     root_path: std::path::PathBuf,
+    #[allow(dead_code)]
     client_capabilities: lsp_types::ClientCapabilities,
 }
 impl Config {

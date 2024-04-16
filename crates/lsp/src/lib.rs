@@ -12,11 +12,11 @@ use crossbeam_channel::{Receiver, Sender};
 use hir::SourceDatabaseTrait;
 use lsp_server::{Connection, Message, Response};
 use lsp_types::{
-    notification::Notification, request::Request, DocumentFilter, PublishDiagnosticsParams,
-    SemanticTokensFullOptions, SemanticTokensLegend, SemanticTokensOptions,
-    SemanticTokensRegistrationOptions, SemanticTokensServerCapabilities, ServerCapabilities,
-    StaticRegistrationOptions, TextDocumentRegistrationOptions, TextDocumentSyncCapability,
-    TextDocumentSyncKind, Url, WorkDoneProgressOptions,
+    notification::Notification, request::Request, DidChangeTextDocumentParams, DocumentFilter,
+    PublishDiagnosticsParams, SemanticTokensFullOptions, SemanticTokensLegend,
+    SemanticTokensOptions, SemanticTokensRegistrationOptions, SemanticTokensServerCapabilities,
+    ServerCapabilities, StaticRegistrationOptions, TextDocumentRegistrationOptions,
+    TextDocumentSyncCapability, TextDocumentSyncKind, Url, WorkDoneProgressOptions,
 };
 use semantic_tokens::SEMANTIC_TOKEN_TYPES;
 use serde::de::DeserializeOwned;
@@ -195,7 +195,7 @@ impl GlobalState {
                         return Ok(());
                     }
 
-                    self.handle_noification(not);
+                    self.handle_noification(not).unwrap();
                 }
                 lsp_server::Message::Response(res) => {
                     tracing::info!("unsupport response: {:?}", res.id);
@@ -234,6 +234,10 @@ impl GlobalState {
                 let params = extract::<lsp_types::notification::DidOpenTextDocument>(not)?;
                 self.did_open(params);
             }
+            lsp_types::notification::DidChangeTextDocument::METHOD => {
+                let params = extract::<lsp_types::notification::DidChangeTextDocument>(not)?;
+                self.did_change(params);
+            }
             _ => {
                 tracing::warn!("unhandled notification: {:?}", not.method);
             }
@@ -267,6 +271,60 @@ impl GlobalState {
         self.analysis_by_uri.insert(opened_uri.clone(), analysis);
 
         self.publish_diagnostics(opened_uri, diagnostics, None);
+    }
+
+    fn did_change(&mut self, params: DidChangeTextDocumentParams) {
+        let changed_file_uri = params.text_document.uri;
+        tracing::info!("server did change! get uri: {}", changed_file_uri);
+
+        let Ok(source_db) = build_source_db(&self.db, self.config.root_path.clone()) else {
+            tracing::info!("failed to build source db");
+            return;
+        };
+
+        let Ok(changed_file_path) = changed_file_uri.to_file_path() else {
+            tracing::info!(
+                "failed to convert file url to file path. file_url: {changed_file_uri:?}"
+            );
+            return;
+        };
+
+        let Some(changed_file) = source_db.get_file(&changed_file_path) else {
+            tracing::info!("file not found in source db. file_path: {changed_file_path:?}");
+            return;
+        };
+
+        let mut contents = changed_file.contents(&self.db).clone();
+        let mut line_index = line_index::LineIndex::new(&contents);
+        params.content_changes.into_iter().for_each(|change| {
+            if let Some(range) = change.range {
+                let range: line_index::PositionRange = range.into();
+                let range = line_index.range(range);
+                contents.replace_range(range, &change.text);
+            } else {
+                contents = change.text;
+                // todo: 一度に全ての行を再計算するのは効率が悪いので、変更箇所のみを再計算するようにする
+                line_index = line_index::LineIndex::new(&contents);
+            }
+        });
+        changed_file.set_contents(&mut self.db).to(contents);
+
+        let analysis = match get_analysis_by_file(&self.db, &source_db, changed_file_uri.clone()) {
+            Ok(Some(analysis)) => analysis,
+            Ok(None) => {
+                tracing::info!("failed to get analysis by file: {changed_file_uri}");
+                return;
+            }
+            Err(e) => {
+                tracing::info!("failed to get analysis by file: {changed_file_uri}, error: {e}");
+                return;
+            }
+        };
+        let diagnostics = analysis.diagnostics.clone();
+        self.analysis_by_uri
+            .insert(changed_file_uri.clone(), analysis);
+
+        self.publish_diagnostics(changed_file_uri, diagnostics, None);
     }
 
     /// Publish diagnostics to client.

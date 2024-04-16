@@ -10,13 +10,13 @@ use std::{collections::HashMap, env, path::PathBuf};
 use analysis::Analysis;
 use crossbeam_channel::{Receiver, Sender};
 use hir::SourceDatabaseTrait;
-use lsp_server::{Connection, Response};
+use lsp_server::{Connection, Message, Response};
 use lsp_types::{
-    notification::Notification, request::Request, DocumentFilter, SemanticTokensFullOptions,
-    SemanticTokensLegend, SemanticTokensOptions, SemanticTokensRegistrationOptions,
-    SemanticTokensServerCapabilities, ServerCapabilities, StaticRegistrationOptions,
-    TextDocumentRegistrationOptions, TextDocumentSyncCapability, TextDocumentSyncKind, Url,
-    WorkDoneProgressOptions,
+    notification::Notification, request::Request, DocumentFilter, PublishDiagnosticsParams,
+    SemanticTokensFullOptions, SemanticTokensLegend, SemanticTokensOptions,
+    SemanticTokensRegistrationOptions, SemanticTokensServerCapabilities, ServerCapabilities,
+    StaticRegistrationOptions, TextDocumentRegistrationOptions, TextDocumentSyncCapability,
+    TextDocumentSyncKind, Url, WorkDoneProgressOptions,
 };
 use semantic_tokens::SEMANTIC_TOKEN_TYPES;
 use serde::de::DeserializeOwned;
@@ -215,11 +215,11 @@ impl GlobalState {
                         lsp_server::ErrorCode::InvalidRequest as i32,
                         "Shutdown already requested.".to_owned(),
                     );
-                    self.sender.send(resp.into());
+                    self.sender.send(resp.into()).unwrap();
                 } else {
                     self.shutdown_requested = true;
                     let resp = Response::new_ok(req.id.clone(), ());
-                    let _ = self.sender.send(resp.into()).unwrap();
+                    self.sender.send(resp.into()).unwrap();
                 }
             }
             _ => {
@@ -242,6 +242,7 @@ impl GlobalState {
         Ok(())
     }
 
+    /// Handle `textDocument/didOpen` notification.
     fn did_open(&mut self, params: lsp_types::DidOpenTextDocumentParams) {
         let opened_uri = params.text_document.uri;
         tracing::info!("server did open! get uri: {opened_uri}");
@@ -265,10 +266,26 @@ impl GlobalState {
         let diagnostics = analysis.diagnostics.clone();
         self.analysis_by_uri.insert(opened_uri.clone(), analysis);
 
-        // todo: sned diagnostics
-        // self.client
-        //     .publish_diagnostics(opened_uri, diagnostics, None)
-        //     .await;
+        self.publish_diagnostics(opened_uri, diagnostics, None);
+    }
+
+    /// Publish diagnostics to client.
+    fn publish_diagnostics(
+        &self,
+        uri: Url,
+        diagnostics: Vec<lsp_types::Diagnostic>,
+        version: Option<i32>,
+    ) {
+        self.sender
+            .send(Message::Notification(lsp_server::Notification::new(
+                lsp_types::notification::PublishDiagnostics::METHOD.to_owned(),
+                PublishDiagnosticsParams {
+                    uri,
+                    diagnostics,
+                    version,
+                },
+            )))
+            .unwrap();
     }
 }
 

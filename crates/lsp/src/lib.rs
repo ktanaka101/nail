@@ -10,13 +10,14 @@ use std::{collections::HashMap, env, path::PathBuf};
 use analysis::Analysis;
 use crossbeam_channel::{Receiver, Sender};
 use hir::SourceDatabaseTrait;
-use lsp_server::{Connection, Message, Response};
+use lsp_server::{Connection, Message, RequestId, Response};
 use lsp_types::{
     notification::Notification, request::Request, DidChangeTextDocumentParams, DocumentFilter,
-    PublishDiagnosticsParams, SemanticTokensFullOptions, SemanticTokensLegend,
-    SemanticTokensOptions, SemanticTokensRegistrationOptions, SemanticTokensServerCapabilities,
-    ServerCapabilities, StaticRegistrationOptions, TextDocumentRegistrationOptions,
-    TextDocumentSyncCapability, TextDocumentSyncKind, Url, WorkDoneProgressOptions,
+    PublishDiagnosticsParams, SemanticTokens, SemanticTokensFullOptions, SemanticTokensLegend,
+    SemanticTokensOptions, SemanticTokensParams, SemanticTokensRegistrationOptions,
+    SemanticTokensServerCapabilities, ServerCapabilities, StaticRegistrationOptions,
+    TextDocumentRegistrationOptions, TextDocumentSyncCapability, TextDocumentSyncKind, Url,
+    WorkDoneProgressOptions,
 };
 use semantic_tokens::SEMANTIC_TOKEN_TYPES;
 use serde::de::DeserializeOwned;
@@ -186,7 +187,7 @@ impl GlobalState {
             match msg {
                 lsp_server::Message::Request(req) => {
                     tracing::info!("handle request: {:?}", req.id);
-                    self.handle_request(req);
+                    self.handle_request(req)?;
                 }
                 lsp_server::Message::Notification(not) => {
                     tracing::info!("handle notification: {:?}", not.method);
@@ -195,7 +196,7 @@ impl GlobalState {
                         return Ok(());
                     }
 
-                    self.handle_noification(not).unwrap();
+                    self.handle_noification(not)?;
                 }
                 lsp_server::Message::Response(res) => {
                     tracing::info!("unsupport response: {:?}", res.id);
@@ -206,7 +207,7 @@ impl GlobalState {
         Ok(())
     }
 
-    fn handle_request(&mut self, req: lsp_server::Request) {
+    fn handle_request(&mut self, req: lsp_server::Request) -> anyhow::Result<()> {
         match req.method.as_str() {
             lsp_types::request::Shutdown::METHOD => {
                 if self.shutdown_requested {
@@ -222,20 +223,29 @@ impl GlobalState {
                     self.sender.send(resp.into()).unwrap();
                 }
             }
+            lsp_types::request::SemanticTokensFullRequest::METHOD => {
+                let (req_id, params) =
+                    extract_request::<lsp_types::request::SemanticTokensFullRequest>(req)?;
+                self.semantic_tokens_full(req_id, params);
+            }
             _ => {
                 tracing::warn!("unhandled request: {:?}", req.method);
             }
         }
+
+        Ok(())
     }
 
     fn handle_noification(&mut self, not: lsp_server::Notification) -> anyhow::Result<()> {
         match not.method.as_str() {
             lsp_types::notification::DidOpenTextDocument::METHOD => {
-                let params = extract::<lsp_types::notification::DidOpenTextDocument>(not)?;
+                let params =
+                    extract_notification::<lsp_types::notification::DidOpenTextDocument>(not)?;
                 self.did_open(params);
             }
             lsp_types::notification::DidChangeTextDocument::METHOD => {
-                let params = extract::<lsp_types::notification::DidChangeTextDocument>(not)?;
+                let params =
+                    extract_notification::<lsp_types::notification::DidChangeTextDocument>(not)?;
                 self.did_change(params);
             }
             _ => {
@@ -244,6 +254,27 @@ impl GlobalState {
         }
 
         Ok(())
+    }
+
+    /// Handle `textDocument/semanticTokens/full` request.
+    fn semantic_tokens_full(&self, req_id: RequestId, params: SemanticTokensParams) {
+        tracing::info!(
+            "server semantic tokens full! get uri: {}",
+            params.text_document.uri
+        );
+
+        if let Some(analysis) = self.analysis_by_uri.get(&params.text_document.uri) {
+            let tokens = analysis.semantic_tokens();
+            self.sender
+                .send(Message::Response(Response::new_ok(
+                    req_id,
+                    SemanticTokens {
+                        result_id: None,
+                        data: tokens,
+                    },
+                )))
+                .unwrap();
+        }
     }
 
     /// Handle `textDocument/didOpen` notification.
@@ -347,12 +378,20 @@ impl GlobalState {
     }
 }
 
-fn extract<N>(not: lsp_server::Notification) -> anyhow::Result<N::Params>
+fn extract_notification<N>(not: lsp_server::Notification) -> anyhow::Result<N::Params>
 where
     N: lsp_types::notification::Notification,
     N::Params: DeserializeOwned + Send + std::fmt::Debug,
 {
     Ok(not.extract::<N::Params>(N::METHOD)?)
+}
+
+fn extract_request<R>(req: lsp_server::Request) -> anyhow::Result<(RequestId, R::Params)>
+where
+    R: lsp_types::request::Request,
+    R::Params: DeserializeOwned + Send + std::fmt::Debug,
+{
+    Ok(req.extract::<R::Params>(R::METHOD)?)
 }
 
 /// ソースコードを管理するデータベースを構築します。

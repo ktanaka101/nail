@@ -251,17 +251,17 @@ impl<'a> BodyLower<'a> {
         };
 
         let function = Function::new(db, name, params, param_by_name, return_type);
+        let def_ptr = AstPtr::new(def);
+
         self.hir_file_db.functions.push(function);
         self.source_by_function.insert(
             function,
             FunctionSource {
                 file: self.file,
-                value: AstPtr {
-                    node: syntax::SyntaxNodePtr::new(def.syntax()),
-                    _ty: std::marker::PhantomData,
-                },
+                value: def_ptr,
             },
         );
+        self.hir_file_db.ast_by_function.insert(function, def_ptr);
 
         let mut body_lower = BodyLower::new(
             db,

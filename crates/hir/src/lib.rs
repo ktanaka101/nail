@@ -364,6 +364,15 @@ impl<T: AstNode> Clone for AstPtr<T> {
     }
 }
 impl<T: AstNode> Copy for AstPtr<T> {}
+impl<T: AstNode> AstPtr<T> {
+    /// 新しいASTポインタを作成します。
+    pub fn new(node: T) -> Self {
+        Self {
+            node: ast::SyntaxNodePtr::new(node.syntax()),
+            _ty: PhantomData,
+        }
+    }
+}
 
 /// 式のAST位置です。
 pub type ExprSource = InFile<AstPtr<ast::Expr>>;

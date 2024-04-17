@@ -28,7 +28,10 @@ ENV LLVM_SYS_170_STRICT_VERSIONING=170 \
 
 RUN curl -sL https://deb.nodesource.com/setup_18.x | bash - && \
   apt install -y nodejs && \
-  npm install -g yarn
+  npm install -g yarn && \
+  # Required for the `vscode-test`
+  apt install -y libglib2.0-dev libnss3 libdbus-1-3	libatk1.0-0 libatk-bridge2.0-0 libgtk-3-0	libgbm1 libasound2 xvfb && \
+  /etc/init.d/dbus restart
 
 RUN rustup default nightly
 

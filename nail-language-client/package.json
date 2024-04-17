@@ -36,7 +36,8 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "watch": "tsc -watch -p ./",
+    "test": "xvfb-run -a vscode-test"
   },
   "volta": {
     "node": "18.12.1",

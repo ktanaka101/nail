@@ -1,7 +1,6 @@
 use std::{fmt, iter};
 
 use text_size::{TextRange, TextSize};
-use tower_lsp::lsp_types;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LineIndex {

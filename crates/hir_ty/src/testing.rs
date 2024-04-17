@@ -11,9 +11,6 @@ pub struct TestingDatabase {
     /// テスト用のログ
     logs: Option<Arc<Mutex<Vec<String>>>>,
 }
-// todo: thread safe
-unsafe impl Send for TestingDatabase {}
-unsafe impl Sync for TestingDatabase {}
 
 impl TestingDatabase {
     #[cfg(test)]

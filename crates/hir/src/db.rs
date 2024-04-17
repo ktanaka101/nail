@@ -5,9 +5,10 @@
 pub struct Jar(
     crate::Name,
     crate::NailFile,
-    crate::parse_to_ast,
-    crate::AstSourceFile,
     crate::build_hir_file,
+    crate::NailGreenNode,
+    crate::ParserDiagnostics,
+    crate::build_green_node,
     crate::HirFile,
     crate::HirFileSourceMap,
     crate::Function,
@@ -16,11 +17,8 @@ pub struct Jar(
     crate::NameSolutionPath,
     crate::Path,
 );
-// todo: thread safe
-unsafe impl Send for Jar {}
-unsafe impl Sync for Jar {}
 
 /// [Jar]用のDBトレイトです。
-pub trait HirMasterDatabase: salsa::DbWithJar<Jar> + Send + Sync {}
+pub trait HirMasterDatabase: salsa::DbWithJar<Jar> {}
 
-impl<DB> HirMasterDatabase for DB where DB: ?Sized + salsa::DbWithJar<Jar> + Send + Sync {}
+impl<DB> HirMasterDatabase for DB where DB: ?Sized + salsa::DbWithJar<Jar> {}

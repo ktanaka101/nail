@@ -65,12 +65,7 @@ impl<'a> FunctionTypeChecker<'a> {
     }
 
     fn check(mut self) -> Vec<TypeCheckError> {
-        let block_ast_id = self.function.ast(self.db).borrow().body().unwrap();
-        let body = self
-            .hir_file
-            .db(self.db)
-            .function_body_by_ast_block(block_ast_id)
-            .unwrap();
+        let body = self.function.body(self.db, self.hir_file).unwrap();
 
         match body {
             hir::Expr::Block(block) => {

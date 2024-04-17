@@ -10,8 +10,8 @@ workspace = true
 [dependencies]
 ariadne = { workspace = true }
 anyhow = { workspace = true }
+rayon = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true }
 inkwell = { workspace = true }
 
 ast = { workspace = true }

@@ -411,11 +411,7 @@ impl<'a> ModuleScopesBuilder<'a> {
             self.storage.module_scopes[current_scope_idx.0].path,
         );
 
-        let Expr::Block(function_body) = hir_file
-            .db(self.db)
-            .function_body_by_ast_block(function.ast(self.db).borrow().body().unwrap())
-            .unwrap()
-        else {
+        let Expr::Block(function_body) = function.body(self.db, hir_file).unwrap() else {
             panic!("No Block")
         };
 

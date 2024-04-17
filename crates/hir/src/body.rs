@@ -1,14 +1,15 @@
 mod scopes;
 
-use std::{cell::RefCell, collections::HashMap};
+use std::collections::HashMap;
 
 use ast::AstNode;
 use la_arena::{Arena, Idx};
 
 use crate::{
-    body::scopes::ExprScopes, item::ParamData, AstPtr, Block, Expr, ExprSource, Function,
+    body::scopes::ExprScopes, item::ParamData, AstPtr, BinaryOp, Block, Expr, ExprSource, Function,
     FunctionSource, HirFileSourceMap, HirMasterDatabase, InFile, Item, Literal, Module, ModuleKind,
-    NailFile, Name, NameSolutionPath, Param, Path, Stmt, Symbol, Type, UseItem,
+    NailFile, NailGreenNode, Name, NameSolutionPath, Param, Path, Stmt, Symbol, Type, UnaryOp,
+    UseItem,
 };
 
 /// 式を一意に識別するためのID
@@ -55,25 +56,35 @@ impl Ord for ExprId {
 pub struct FunctionBodyId(ExprId);
 
 /// 1ファイルに対応するDB
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HirFileDatabase {
+    green_node: NailGreenNode,
+
     functions: Vec<Function>,
     modules: Vec<Module>,
 
     params: Arena<ParamData>,
 
     exprs: Arena<Expr>,
-    function_body_by_ast_block: HashMap<ast::BlockExpr, FunctionBodyId>,
+    function_body_by_ast_block: HashMap<AstPtr<ast::BlockExpr>, FunctionBodyId>,
+
+    /// 関数(HIR)を元に関数定義のASTノードを取得するためのマップ
+    ast_by_function: HashMap<Function, AstPtr<ast::FunctionDef>>,
+
+    body_expr_by_function: HashMap<Function, FunctionBodyId>,
 }
 impl HirFileDatabase {
     /// 空のDBを作成する
-    pub fn new() -> Self {
+    pub fn new(nail_green_node: NailGreenNode) -> Self {
         Self {
+            green_node: nail_green_node,
             functions: vec![],
             modules: vec![],
             params: Arena::new(),
             exprs: Arena::new(),
             function_body_by_ast_block: HashMap::new(),
+            ast_by_function: HashMap::new(),
+            body_expr_by_function: HashMap::new(),
         }
     }
 
@@ -90,9 +101,9 @@ impl HirFileDatabase {
     /// ASTブロックIDを元に関数本体IDを取得する
     pub fn function_body_id_by_ast_block(
         &self,
-        ast_block: ast::BlockExpr,
+        ast_block_ptr: AstPtr<ast::BlockExpr>,
     ) -> Option<FunctionBodyId> {
-        self.function_body_by_ast_block.get(&ast_block).copied()
+        self.function_body_by_ast_block.get(&ast_block_ptr).copied()
     }
 
     /// パラメータIDを元にパラメータを取得する
@@ -103,9 +114,39 @@ impl HirFileDatabase {
     /// ASTブロックIDを元に関数本体を取得する
     ///
     /// 現状、関数本体は[Expr::Block]として表現されているため、[Expr]を返す
-    pub fn function_body_by_ast_block(&self, ast_block: ast::BlockExpr) -> Option<&Expr> {
-        self.function_body_id_by_ast_block(ast_block)
+    pub fn function_body_by_ast_block(
+        &self,
+        ast_block_ptr: AstPtr<ast::BlockExpr>,
+    ) -> Option<&Expr> {
+        self.function_body_id_by_ast_block(ast_block_ptr)
             .map(|body_id| &self.exprs[body_id.0 .0])
+    }
+
+    /// 関数(HIR)をもとに関数定義のASTノードを取得する
+    pub fn function_ast_by_function(
+        &self,
+        db: &dyn HirMasterDatabase,
+        function: Function,
+    ) -> Option<ast::FunctionDef> {
+        // TODO: 性能の改善。SyntaxNodeをキャッシュする
+        let green_node = self.green_node.green_node(db);
+        let syntax_node = syntax::SyntaxNode::new_root(green_node.clone());
+
+        self.ast_by_function
+            .get(&function)
+            .and_then(|ptr| ast::FunctionDef::cast(ptr.node.to_node(&syntax_node)))
+    }
+
+    pub fn function_ast_ptr_by_function(
+        &self,
+        function: Function,
+    ) -> Option<AstPtr<ast::FunctionDef>> {
+        self.ast_by_function.get(&function).copied()
+    }
+
+    /// 関数(HIR)をもとに関数ボディ式を取得する
+    pub fn function_body_by_function(&self, function: Function) -> Option<&Expr> {
+        Some(&self.exprs[self.body_expr_by_function.get(&function)?.0 .0])
     }
 
     /// 式を保存し、参照するためのIDを返す
@@ -127,9 +168,16 @@ impl HirFileDatabase {
 /// `params`は、名前解決に使用されます。
 #[derive(Debug)]
 pub struct BodyLower<'a> {
+    /// ファイル情報
     file: NailFile,
+    /// ファイルのGreenノード
+    green_node: NailGreenNode,
+    /// 式のスコープ
     scopes: ExprScopes,
+    /// 関数パラメータ
+    /// 関数本体の場合のみ指定されます。
     params: HashMap<Name, Param>,
+    /// HIRファイルDB
     hir_file_db: &'a mut HirFileDatabase,
     /// 式ソースを元にASTノードを取得するためのマップ
     pub source_by_expr: HashMap<ExprId, ExprSource>,
@@ -140,12 +188,14 @@ pub struct BodyLower<'a> {
 impl<'a> BodyLower<'a> {
     /// 空のコンテキストを作成する
     pub(super) fn new(
-        file: NailFile,
+        db: &dyn HirMasterDatabase,
+        nail_green_node: NailGreenNode,
         params: HashMap<Name, Param>,
         hir_file_db: &'a mut HirFileDatabase,
     ) -> Self {
         Self {
-            file,
+            file: nail_green_node.nail_file(db),
+            green_node: nail_green_node,
             scopes: ExprScopes::new(),
             params,
             hir_file_db,
@@ -200,26 +250,22 @@ impl<'a> BodyLower<'a> {
             Type::Unit
         };
 
-        let ref_def = RefCell::new(def);
-        let function = Function::new(
-            db,
-            name,
-            params,
-            param_by_name,
-            return_type,
-            ref_def.clone(),
-        );
+        let function = Function::new(db, name, params, param_by_name, return_type);
+        let def_ptr = AstPtr::new(&def);
+
         self.hir_file_db.functions.push(function);
         self.source_by_function.insert(
             function,
             FunctionSource {
                 file: self.file,
-                value: ref_def,
+                value: def_ptr,
             },
         );
+        self.hir_file_db.ast_by_function.insert(function, def_ptr);
 
         let mut body_lower = BodyLower::new(
-            self.file,
+            db,
+            self.green_node,
             function.param_by_name(db).clone(),
             self.hir_file_db,
         );
@@ -236,8 +282,11 @@ impl<'a> BodyLower<'a> {
         self.source_by_expr.extend(source_by_expr);
         self.source_by_function.extend(source_by_function);
         self.hir_file_db
+            .body_expr_by_function
+            .insert(function, FunctionBodyId(body_expr));
+        self.hir_file_db
             .function_body_by_ast_block
-            .insert(ast_block, FunctionBodyId(body_expr));
+            .insert(AstPtr::new(&ast_block), FunctionBodyId(body_expr));
 
         Some(function)
     }
@@ -405,10 +454,7 @@ impl<'a> BodyLower<'a> {
             expr_id,
             InFile {
                 file: self.file,
-                value: AstPtr {
-                    node: syntax::SyntaxNodePtr::new(ast_expr.syntax()),
-                    _ty: std::marker::PhantomData,
-                },
+                value: AstPtr::new(ast_expr),
             },
         );
 
@@ -429,10 +475,7 @@ impl<'a> BodyLower<'a> {
             expr_id,
             InFile {
                 file: self.file,
-                value: AstPtr {
-                    node: syntax::SyntaxNodePtr::new(from_ast_expr.syntax()),
-                    _ty: std::marker::PhantomData,
-                },
+                value: AstPtr::new(from_ast_expr),
             },
         );
 
@@ -444,7 +487,16 @@ impl<'a> BodyLower<'a> {
         db: &dyn HirMasterDatabase,
         ast_binary_expr: &ast::BinaryExpr,
     ) -> Expr {
-        let op = ast_binary_expr.op().unwrap();
+        let op = match ast_binary_expr.op().unwrap() {
+            ast::BinaryOp::Add(_) => BinaryOp::Add,
+            ast::BinaryOp::Sub(_) => BinaryOp::Sub,
+            ast::BinaryOp::Mul(_) => BinaryOp::Mul,
+            ast::BinaryOp::Div(_) => BinaryOp::Div,
+            ast::BinaryOp::Equal(_) => BinaryOp::Equal,
+            ast::BinaryOp::GreaterThan(_) => BinaryOp::GreaterThan,
+            ast::BinaryOp::LessThan(_) => BinaryOp::LessThan,
+            ast::BinaryOp::Assign(_) => BinaryOp::Assign,
+        };
 
         let lhs = self.lower_expr(db, ast_binary_expr.lhs());
         let rhs = self.lower_expr(db, ast_binary_expr.rhs());
@@ -453,7 +505,10 @@ impl<'a> BodyLower<'a> {
     }
 
     fn lower_unary(&mut self, db: &dyn HirMasterDatabase, ast_unary_expr: &ast::UnaryExpr) -> Expr {
-        let op = ast_unary_expr.op().unwrap();
+        let op = match ast_unary_expr.op().unwrap() {
+            ast::UnaryOp::Neg(_) => UnaryOp::Neg,
+            ast::UnaryOp::Not(_) => UnaryOp::Not,
+        };
 
         let expr = self.lower_expr(db, ast_unary_expr.expr());
 
@@ -758,10 +813,7 @@ mod tests {
         function: Function,
         nesting: usize,
     ) -> String {
-        let body_expr = hir_file
-            .db(db)
-            .function_body_by_ast_block(function.ast(db).borrow().body().unwrap())
-            .unwrap();
+        let body_expr = function.body(db, *hir_file).unwrap();
 
         let name = function.name(db).text(db);
         let params = function
@@ -939,14 +991,14 @@ mod tests {
             },
             Expr::Binary { op, lhs, rhs } => {
                 let op = match op {
-                    ast::BinaryOp::Add(_) => "+",
-                    ast::BinaryOp::Sub(_) => "-",
-                    ast::BinaryOp::Mul(_) => "*",
-                    ast::BinaryOp::Div(_) => "/",
-                    ast::BinaryOp::Equal(_) => "==",
-                    ast::BinaryOp::GreaterThan(_) => ">",
-                    ast::BinaryOp::LessThan(_) => "<",
-                    ast::BinaryOp::Assign(_) => "=",
+                    BinaryOp::Add => "+",
+                    BinaryOp::Sub => "-",
+                    BinaryOp::Mul => "*",
+                    BinaryOp::Div => "/",
+                    BinaryOp::Equal => "==",
+                    BinaryOp::GreaterThan => ">",
+                    BinaryOp::LessThan => "<",
+                    BinaryOp::Assign => "=",
                 };
                 let lhs_str = debug_expr(db, hir_file, resolution_map, scope_origin, *lhs, nesting);
                 let rhs_str = debug_expr(db, hir_file, resolution_map, scope_origin, *rhs, nesting);
@@ -954,8 +1006,8 @@ mod tests {
             }
             Expr::Unary { op, expr } => {
                 let op = match op {
-                    ast::UnaryOp::Neg(_) => "-",
-                    ast::UnaryOp::Not(_) => "!",
+                    UnaryOp::Neg => "-",
+                    UnaryOp::Not => "!",
                 };
                 let expr_str =
                     debug_expr(db, hir_file, resolution_map, scope_origin, *expr, nesting);

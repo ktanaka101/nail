@@ -21,8 +21,7 @@ enum Command {
     },
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let args = Cli::parse();
     match args.command {
         Command::Run { path } => {
@@ -37,9 +36,7 @@ async fn main() {
                 out,
                 err,
                 true,
-            )
-            .await
-            {
+            ) {
                 Ok(_) => (),
                 Err(err) => {
                     match err {
@@ -47,9 +44,6 @@ async fn main() {
                             eprintln!("IO error: {}", e);
                         }
                         dock::ExecutionError::Nail => (),
-                        dock::ExecutionError::Join(e) => {
-                            eprintln!("Join error: {}", e);
-                        }
                         dock::ExecutionError::InvalidRootNailFilePath(e) => {
                             eprintln!("Invalid root nail file path: {}", e);
                         }

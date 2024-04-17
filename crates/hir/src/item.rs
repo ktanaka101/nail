@@ -1,8 +1,8 @@
-use std::{cell::RefCell, collections::HashMap};
+use std::collections::HashMap;
 
 use la_arena::Idx;
 
-use crate::{HirFileDatabase, Name, Path};
+use crate::{Expr, HirFile, HirFileDatabase, HirMasterDatabase, Name, Path};
 
 /// 関数のパラメータのIDを表す
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -87,8 +87,30 @@ pub struct Function {
     ///
     /// 例: `fn f(x: int, y: int) -> int { x + y }` であれば `int`
     pub return_type: Type,
-    /// AST上の位置
-    pub ast: RefCell<ast::FunctionDef>,
+}
+
+impl Function {
+    /// 関数定義のASTを返します。
+    pub fn ast_def(
+        self,
+        db: &dyn HirMasterDatabase,
+        hir_file: HirFile,
+    ) -> Option<ast::FunctionDef> {
+        hir_file.db(db).function_ast_by_function(db, self)
+    }
+
+    /// 関数ボディを返します。
+    pub fn body(self, db: &dyn HirMasterDatabase, hir_file: HirFile) -> Option<&Expr> {
+        hir_file.db(db).function_body_by_function(self)
+    }
+
+    /// 関数ボディのASTを返します。
+    pub fn ast_body(self, db: &dyn HirMasterDatabase, hir_file: HirFile) -> Option<ast::BlockExpr> {
+        hir_file
+            .db(db)
+            .function_ast_by_function(db, self)
+            .and_then(|f| f.body())
+    }
 }
 
 /// モジュール定義を表す

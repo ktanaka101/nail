@@ -32,7 +32,7 @@ mod item;
 mod name_resolver;
 mod testing;
 
-use std::{cell::RefCell, collections::HashMap, marker::PhantomData};
+use std::{collections::HashMap, marker::PhantomData};
 
 use ast::AstNode;
 pub use body::{BodyLower, ExprId, FunctionBodyId, HirFileDatabase};
@@ -41,6 +41,7 @@ pub use input::{FixtureDatabase, NailFile, SourceDatabase, SourceDatabaseTrait};
 pub use item::{Function, Item, Module, ModuleKind, Param, Type, UseItem};
 use name_resolver::resolve_symbols;
 pub use name_resolver::{ModuleScopeOrigin, ResolutionMap, ResolutionStatus};
+use syntax::SyntaxNode;
 pub use testing::TestingDatabase;
 
 /// ビルド対象全体を表します。
@@ -224,8 +225,8 @@ impl<'a> PodBuilder<'a> {
         let root_nail_file = self.source_db.source_root();
         let root_file_path = root_nail_file.file_path(self.db);
 
-        let ast_source = parse_to_ast(self.db, root_nail_file);
-        let (root_hir_file, root_source_map) = build_hir_file(self.db, ast_source);
+        let root_nail_green_node = build_green_node(self.db, root_nail_file);
+        let (root_hir_file, root_source_map) = build_hir_file(self.db, root_nail_green_node);
         for function in root_hir_file.functions(self.db) {
             self.hir_file_by_function.insert(*function, root_hir_file);
         }
@@ -270,8 +271,8 @@ impl<'a> PodBuilder<'a> {
         let nail_file_path = dir.join(format!("{module_name}.nail"));
         let nail_file = self.source_db.get_file(&nail_file_path).expect("todo");
 
-        let ast_source = parse_to_ast(db, nail_file);
-        let (hir_file, source_map) = build_hir_file(db, ast_source);
+        let nail_green_node = build_green_node(self.db, nail_file);
+        let (hir_file, source_map) = build_hir_file(db, nail_green_node);
 
         for function in hir_file.functions(db) {
             self.hir_file_by_function.insert(*function, hir_file);
@@ -309,6 +310,9 @@ pub struct HirFileSourceMap {
     /// 1ファイルにつき1つの[HirFileSourceMap]が生成されます。
     pub file: NailFile,
 
+    /// ファイルのGreenノード
+    pub green_node: NailGreenNode,
+
     /// 式とソースコードのマッピング
     pub source_by_expr: HashMap<ExprId, ExprSource>,
 
@@ -316,20 +320,68 @@ pub struct HirFileSourceMap {
     pub source_by_function: HashMap<Function, FunctionSource>,
 }
 
+/// パーサのエラー情報
+#[salsa::accumulator]
+pub struct ParserDiagnostics(parser::ParserError);
+
+/// あるファイルのGreenノードを保持します。
+#[salsa::tracked]
+pub struct NailGreenNode {
+    /// ファイルを表します。
+    /// コンテンツが変わればGreenNodeも変わるため、idとしています。
+    #[id]
+    pub nail_file: NailFile,
+
+    /// Greenノード
+    #[return_ref]
+    pub green_node: ast::GreenNode,
+}
+
+/// ASTを元に[HirFile]を構築します。
+#[salsa::tracked]
+pub fn build_green_node(db: &dyn HirMasterDatabase, nail_file: NailFile) -> NailGreenNode {
+    let parse_result = parser::parse(nail_file.contents(db));
+    for parse_error in parse_result.errors {
+        ParserDiagnostics::push(db, parse_error);
+    }
+
+    NailGreenNode::new(db, nail_file, parse_result.green_node)
+}
+
 /// ASTノードのIDです。
 ///
 /// 1ファイル内でユニークです。
 /// IDからASTを参照し、ファイル内における位置を取得することができます。
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct AstPtr<T: AstNode> {
     /// ASTノード
     pub node: ast::SyntaxNodePtr,
     _ty: PhantomData<T>,
 }
+impl<T: AstNode> Clone for AstPtr<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+impl<T: AstNode> Copy for AstPtr<T> {}
+/// `AstPtr`はスレッドセーフです。
+/// `AstNode`はスレッドセーフではありませんが、`AstPtr`は`AstNode`の型情報のみを参照するだけのためスレッドセーフです。
+unsafe impl<T: AstNode> Send for AstPtr<T> {}
+unsafe impl<T: AstNode> Sync for AstPtr<T> {}
+impl<T: AstNode> AstPtr<T> {
+    /// 新しいASTポインタを作成します。
+    pub fn new(node: &T) -> Self {
+        Self {
+            node: ast::SyntaxNodePtr::new(node.syntax()),
+            _ty: PhantomData,
+        }
+    }
+}
+
 /// 式のAST位置です。
 pub type ExprSource = InFile<AstPtr<ast::Expr>>;
 /// 関数定義のAST位置です。
-pub type FunctionSource = InFile<RefCell<ast::FunctionDef>>;
+pub type FunctionSource = InFile<AstPtr<ast::FunctionDef>>;
 
 /// 型引数をファイル内で一意として表現します。
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -345,8 +397,10 @@ pub struct InFile<T> {
 pub struct HirFile {
     /// ファイル
     ///
-    /// 1ファイルにつき1つの[HirFile]が生成されます。
+    /// 1ファイルにつき1つの[HirFile]が生成されます
     pub file: NailFile,
+    /// ファイルのGreenノード
+    pub green_node: NailGreenNode,
 
     /// ボディ構築時に共有されるコンテキスト
     ///
@@ -363,16 +417,6 @@ pub struct HirFile {
     pub errors: Vec<LowerError>,
 }
 impl HirFile {
-    /// 関数IDから関数ボディを取得します。
-    pub fn function_body_by_function<'a>(
-        &self,
-        db: &'a dyn HirMasterDatabase,
-        function: Function,
-    ) -> Option<&'a Expr> {
-        self.db(db)
-            .function_body_by_ast_block(function.ast(db).borrow().body()?)
-    }
-
     /// ファイル内の関数一覧を返します。
     pub fn functions<'a>(&self, db: &'a dyn HirMasterDatabase) -> &'a [Function] {
         self.db(db).functions()
@@ -384,42 +428,26 @@ impl HirFile {
     }
 }
 
-#[salsa::tracked]
-pub struct AstSourceFile {
-    /** Nailファイル */
-    pub file: NailFile,
-
-    /** AST */
-    #[return_ref]
-    pub source: ast::SourceFile,
-}
-
-/// ファイルを元にASTを構築します。
-#[salsa::tracked]
-pub fn parse_to_ast(db: &dyn HirMasterDatabase, nail_file: NailFile) -> AstSourceFile {
-    let ast = parser::parse(nail_file.contents(db));
-    let ast_source_file = ast::SourceFile::cast(ast.syntax()).unwrap();
-    AstSourceFile::new(db, nail_file, ast_source_file)
-}
-
 /// ASTを元に[HirFile]を構築します。
 #[salsa::tracked]
 fn build_hir_file(
     db: &dyn HirMasterDatabase,
-    ast_source: AstSourceFile,
+    nail_green_node: NailGreenNode,
 ) -> (HirFile, HirFileSourceMap) {
-    let file = ast_source.file(db);
-    let source_file = ast_source.source(db);
+    let mut hir_file_db = HirFileDatabase::new(nail_green_node);
 
-    let mut hir_file_db = HirFileDatabase::new();
+    let mut root_file_body = BodyLower::new(db, nail_green_node, HashMap::new(), &mut hir_file_db);
 
-    let mut root_file_body = BodyLower::new(file, HashMap::new(), &mut hir_file_db);
-    let top_level_items = source_file
+    let syntax_node = SyntaxNode::new_root(nail_green_node.green_node(db).clone());
+    let ast_source_file = ast::SourceFile::cast(syntax_node).unwrap();
+
+    let top_level_items = ast_source_file
         .items()
         .filter_map(|item| root_file_body.lower_toplevel(db, item))
         .collect::<Vec<_>>();
 
-    let (errors, entry_point) = if ast_source.file(db).root(db) {
+    let nail_file = nail_green_node.nail_file(db);
+    let (errors, entry_point) = if nail_file.root(db) {
         let mut errors = vec![];
         let entry_point = get_entry_point(db, &top_level_items);
         if entry_point.is_none() {
@@ -432,8 +460,22 @@ fn build_hir_file(
 
     let source_by_expr = root_file_body.source_by_expr;
     let source_by_function = root_file_body.source_by_function;
-    let hir_file = HirFile::new(db, file, hir_file_db, top_level_items, entry_point, errors);
-    let source_map = HirFileSourceMap::new(db, file, source_by_expr, source_by_function);
+    let hir_file = HirFile::new(
+        db,
+        nail_file,
+        nail_green_node,
+        hir_file_db,
+        top_level_items,
+        entry_point,
+        errors,
+    );
+    let source_map = HirFileSourceMap::new(
+        db,
+        nail_file,
+        nail_green_node,
+        source_by_expr,
+        source_by_function,
+    );
 
     (hir_file, source_map)
 }
@@ -509,6 +551,36 @@ pub enum Literal {
     Bool(bool),
 }
 
+/// 二項演算子
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BinaryOp {
+    /// `+`
+    Add,
+    /// `-`
+    Sub,
+    /// `*`
+    Mul,
+    /// `/`
+    Div,
+    /// `==`
+    Equal,
+    /// `>`
+    GreaterThan,
+    /// `<`
+    LessThan,
+    /// `=`
+    Assign,
+}
+
+/// 単項演算子
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum UnaryOp {
+    /// `-`
+    Neg,
+    /// `!`
+    Not,
+}
+
 /// 式
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Expr {
@@ -521,7 +593,7 @@ pub enum Expr {
     /// 例: `<lhs> <op> <rhs>`
     Binary {
         /// 演算子
-        op: ast::BinaryOp,
+        op: BinaryOp,
         /// 左辺
         lhs: ExprId,
         /// 右辺
@@ -539,7 +611,7 @@ pub enum Expr {
     /// 例: `<op> <expr>`
     Unary {
         /// 演算子
-        op: ast::UnaryOp,
+        op: UnaryOp,
         /// 式
         expr: ExprId,
     },

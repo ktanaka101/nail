@@ -237,7 +237,7 @@ mod tests {
                             msg.push_str(
                             &format!(
                                 "error MismatchedBinaryInteger: op: {}, expected_ty: {}, found_ty: {}, found_expr: `{}`",
-                                self.debug_binary_op(op),
+                                self.debug_binary_op(*op),
                                 self.debug_monotype(expected_int_ty),
                                 self.debug_monotype(found_ty),
                                 self.debug_simplify_expr(hir_file, *found_expr),
@@ -253,7 +253,7 @@ mod tests {
                             msg.push_str(
                             &format!(
                                 "error MismatchedBinaryCompare: op: {}, expected_ty: {}, found_ty: {}, expected_expr: `{}`, found_expr: `{}`",
-                                self.debug_binary_op(op),
+                                self.debug_binary_op(*op),
                                 self.debug_monotype(compare_from_ty),
                                 self.debug_monotype(compare_to_ty),
                                 self.debug_simplify_expr(hir_file, *compare_from_expr),
@@ -269,7 +269,7 @@ mod tests {
                             msg.push_str(
                             &format!(
                                 "error MismatchedUnary: op: {}, expected_ty: {}, found_ty: {}, found_expr: `{}`",
-                                self.debug_unary_op(op),
+                                self.debug_unary_op(*op),
                                 self.debug_monotype(expected_ty),
                                 self.debug_monotype(found_ty),
                                 self.debug_simplify_expr(hir_file, *found_expr),
@@ -443,10 +443,7 @@ mod tests {
             function: hir::Function,
             nesting: usize,
         ) -> String {
-            let body_expr = hir_file
-                .db(self.db)
-                .function_body_by_ast_block(function.ast(self.db).borrow().body().unwrap())
-                .unwrap();
+            let body_expr = function.body(self.db, hir_file).unwrap();
 
             let name = function.name(self.db).text(self.db);
             let params = function
@@ -633,14 +630,14 @@ mod tests {
                 },
                 hir::Expr::Binary { op, lhs, rhs } => {
                     let op = match op {
-                        ast::BinaryOp::Add(_) => "+",
-                        ast::BinaryOp::Sub(_) => "-",
-                        ast::BinaryOp::Mul(_) => "*",
-                        ast::BinaryOp::Div(_) => "/",
-                        ast::BinaryOp::Equal(_) => "==",
-                        ast::BinaryOp::GreaterThan(_) => ">",
-                        ast::BinaryOp::LessThan(_) => "<",
-                        ast::BinaryOp::Assign(_) => "=",
+                        hir::BinaryOp::Add => "+",
+                        hir::BinaryOp::Sub => "-",
+                        hir::BinaryOp::Mul => "*",
+                        hir::BinaryOp::Div => "/",
+                        hir::BinaryOp::Equal => "==",
+                        hir::BinaryOp::GreaterThan => ">",
+                        hir::BinaryOp::LessThan => "<",
+                        hir::BinaryOp::Assign => "=",
                     };
                     let lhs_str = self.debug_expr(hir_file, function, *lhs, nesting);
                     let rhs_str = self.debug_expr(hir_file, function, *rhs, nesting);
@@ -648,8 +645,8 @@ mod tests {
                 }
                 hir::Expr::Unary { op, expr } => {
                     let op = match op {
-                        ast::UnaryOp::Neg(_) => "-",
-                        ast::UnaryOp::Not(_) => "!",
+                        hir::UnaryOp::Neg => "-",
+                        hir::UnaryOp::Not => "!",
                     };
                     let expr_str = self.debug_expr(hir_file, function, *expr, nesting);
                     format!("{op}{expr_str}")
@@ -742,14 +739,14 @@ mod tests {
                 },
                 hir::Expr::Binary { op, lhs, rhs } => {
                     let op = match op {
-                        ast::BinaryOp::Add(_) => "+",
-                        ast::BinaryOp::Sub(_) => "-",
-                        ast::BinaryOp::Mul(_) => "*",
-                        ast::BinaryOp::Div(_) => "/",
-                        ast::BinaryOp::Equal(_) => "==",
-                        ast::BinaryOp::GreaterThan(_) => ">",
-                        ast::BinaryOp::LessThan(_) => "<",
-                        ast::BinaryOp::Assign(_) => "=",
+                        hir::BinaryOp::Add => "+",
+                        hir::BinaryOp::Sub => "-",
+                        hir::BinaryOp::Mul => "*",
+                        hir::BinaryOp::Div => "/",
+                        hir::BinaryOp::Equal => "==",
+                        hir::BinaryOp::GreaterThan => ">",
+                        hir::BinaryOp::LessThan => "<",
+                        hir::BinaryOp::Assign => "=",
                     };
                     let lhs_str = self.debug_simplify_expr(hir_file, *lhs);
                     let rhs_str = self.debug_simplify_expr(hir_file, *rhs);
@@ -757,8 +754,8 @@ mod tests {
                 }
                 hir::Expr::Unary { op, expr } => {
                     let op = match op {
-                        ast::UnaryOp::Neg(_) => "-",
-                        ast::UnaryOp::Not(_) => "!",
+                        hir::UnaryOp::Neg => "-",
+                        hir::UnaryOp::Not => "!",
                     };
                     let expr_str = self.debug_simplify_expr(hir_file, *expr);
                     format!("{op}{expr_str}")
@@ -851,24 +848,24 @@ mod tests {
             }
         }
 
-        fn debug_binary_op(&self, op: &ast::BinaryOp) -> String {
+        fn debug_binary_op(&self, op: hir::BinaryOp) -> String {
             match op {
-                ast::BinaryOp::Add(_) => "+",
-                ast::BinaryOp::Sub(_) => "-",
-                ast::BinaryOp::Mul(_) => "*",
-                ast::BinaryOp::Div(_) => "/",
-                ast::BinaryOp::Equal(_) => "==",
-                ast::BinaryOp::GreaterThan(_) => ">",
-                ast::BinaryOp::LessThan(_) => "<",
-                ast::BinaryOp::Assign(_) => "=",
+                hir::BinaryOp::Add => "+",
+                hir::BinaryOp::Sub => "-",
+                hir::BinaryOp::Mul => "*",
+                hir::BinaryOp::Div => "/",
+                hir::BinaryOp::Equal => "==",
+                hir::BinaryOp::GreaterThan => ">",
+                hir::BinaryOp::LessThan => "<",
+                hir::BinaryOp::Assign => "=",
             }
             .to_string()
         }
 
-        fn debug_unary_op(&self, op: &ast::UnaryOp) -> String {
+        fn debug_unary_op(&self, op: hir::UnaryOp) -> String {
             match op {
-                ast::UnaryOp::Neg(_) => "-",
-                ast::UnaryOp::Not(_) => "!",
+                hir::UnaryOp::Neg => "-",
+                hir::UnaryOp::Not => "!",
             }
             .to_string()
         }

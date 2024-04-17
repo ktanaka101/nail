@@ -25,7 +25,7 @@ pub(crate) enum UnifyPurpose {
         /// 数値演算子の対象式
         found_expr: hir::ExprId,
         /// 演算子
-        op: ast::BinaryOp,
+        op: hir::BinaryOp,
     },
     BinaryCompare {
         /// 比較元の式
@@ -33,13 +33,13 @@ pub(crate) enum UnifyPurpose {
         /// 比較先の式
         found_compare_to_expr: hir::ExprId,
         /// 演算子
-        op: ast::BinaryOp,
+        op: hir::BinaryOp,
     },
     Unary {
         /// 単行演算子の対象式
         found_expr: hir::ExprId,
         /// 演算子
-        op: ast::UnaryOp,
+        op: hir::UnaryOp,
     },
     IfCondition {
         /// If条件の式
@@ -109,7 +109,7 @@ fn build_unify_error_from_unify_purpose(
             expected_int_ty: expected_ty,
             found_ty,
             found_expr: *found_expr,
-            op: op.clone(),
+            op: *op,
         },
         UnifyPurpose::BinaryCompare {
             found_compare_from_expr,
@@ -120,13 +120,13 @@ fn build_unify_error_from_unify_purpose(
             compare_to_ty: found_ty,
             compare_from_expr: *found_compare_from_expr,
             compare_to_expr: *found_compare_to_expr,
-            op: op.clone(),
+            op: *op,
         },
         UnifyPurpose::Unary { found_expr, op } => InferenceError::MismatchedUnary {
             expected_ty,
             found_ty,
             found_expr: *found_expr,
-            op: op.clone(),
+            op: *op,
         },
         UnifyPurpose::IfCondition {
             found_condition_expr,

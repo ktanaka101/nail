@@ -34,8 +34,10 @@ pub fn parse(input: &str) -> Parse {
 
 /// パースした結果
 pub struct Parse {
-    green_node: GreenNode,
-    errors: Vec<ParserError>,
+    /// パース結果のルートノード
+    pub green_node: GreenNode,
+    /// パース中に発生したエラー
+    pub errors: Vec<ParserError>,
 }
 
 impl fmt::Debug for Parse {

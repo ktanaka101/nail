@@ -1,5 +1,4 @@
-use lsp_types::Url;
-use tower_lsp::lsp_types::{self, SemanticToken};
+use lsp_types::{SemanticToken, Url};
 
 use crate::{line_index, semantic_tokens};
 

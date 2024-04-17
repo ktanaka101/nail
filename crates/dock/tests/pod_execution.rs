@@ -3,7 +3,7 @@ mod tests {
     use expect_test::expect_file;
     use regex::Regex;
 
-    async fn check(dir_name: &str) {
+    fn check(dir_name: &str) {
         let mut out = Vec::new();
         let mut err = Vec::new();
 
@@ -25,16 +25,13 @@ mod tests {
             &mut out,
             &mut err,
             false,
-        )
-        .await
-        {
+        ) {
             Ok(_) => (),
             Err(e) => match e {
                 // 型チェックのエラーはExecutionError::Nailで返るため何もしない
                 // それ以外は型チェック以外のエラーなのでpanicしてテストを失敗させる
                 dock::ExecutionError::Nail => (),
                 dock::ExecutionError::Io(e) => panic!("io error: {e}"),
-                dock::ExecutionError::Join(e) => panic!("join error: {e}"),
                 dock::ExecutionError::InvalidRootNailFilePath(e) => {
                     panic!("invalid root nail file path: {e}")
                 }
@@ -78,8 +75,8 @@ mod tests {
         expect_file![format!("pod_execution/{dir_name}/pod.toml")].assert_eq(&main_contents);
     }
 
-    #[tokio::test]
-    async fn mod_project_with_pod_file() {
-        check("mod_project_with_pod_file").await;
+    #[test]
+    fn mod_project_with_pod_file() {
+        check("mod_project_with_pod_file");
     }
 }

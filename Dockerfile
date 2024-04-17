@@ -1,12 +1,12 @@
 FROM rust:slim-bullseye AS base
 
-RUN apt-get update && apt-get -y upgrade && \
-  apt-get install -y gnupg2 wget curl
+RUN apt update && apt -y upgrade && \
+  apt install -y gnupg2 wget curl
 
 RUN wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor > /usr/share/keyrings/llvm-snapshot.gpg && \
   echo 'deb [signed-by=/usr/share/keyrings/llvm-snapshot.gpg] http://apt.llvm.org/bullseye/ llvm-toolchain-bullseye-17 main' >> /etc/apt/sources.list && \
-  apt-get update && \
-  apt-get install -y libllvm-17-ocaml-dev libllvm17 llvm-17 llvm-17-dev llvm-17-doc llvm-17-examples llvm-17-runtime \
+  apt update && \
+  apt install -y libllvm-17-ocaml-dev libllvm17 llvm-17 llvm-17-dev llvm-17-doc llvm-17-examples llvm-17-runtime \
   clang-17 clang-tools-17 clang-17-doc libclang-common-17-dev libclang-17-dev libclang1-17 clang-format-17 python3-clang-17 clangd-17 clang-tidy-17 \
   libpolly-17-dev \
   libfuzzer-17-dev \
@@ -35,9 +35,8 @@ RUN rustup default nightly
 # ---------------------------------------
 FROM base AS development
 
-RUN apt-get update && \
-  apt-get install -y git g++ && \
-  apt-get clean && \
+RUN apt install -y git g++ && \
+  apt clean && \
   rm -rf /var/lib/apt/lists/*
 
 ENV CARGO_BUILD_TARGET_DIR=/tmp/target \
@@ -51,5 +50,5 @@ FROM base AS ci
 
 RUN rustup component add rustfmt clippy
 
-RUN apt-get clean && \
+RUN apt clean && \
   rm -rf /var/lib/apt/lists/*

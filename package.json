@@ -5,7 +5,8 @@
   "private": true,
   "workspaces": ["nail-language-client"],
   "scripts": {
-    "lsp:compile": "cargo build --bin nail-language-server && npm run compile --workspace=nail-language-client",
-    "lsp:watch": "npm run watch --workspace=nail-language-client"
+    "lsp:compile": "cargo build --bin nail-language-server && yarn workspace nail-language-client compile",
+    "lsp:watch": "yarn workspace nail-language-client watch",
+    "lsp:test": "yarn workspace nail-language-client test"
   }
 }

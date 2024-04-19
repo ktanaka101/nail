@@ -9,3 +9,5 @@
 !/fuzz/corpus/main/example
 
 node_modules
+
+.env.*local

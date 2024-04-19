@@ -26,6 +26,9 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
       - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: yarn
 
       # rust tests
       - name: Compile

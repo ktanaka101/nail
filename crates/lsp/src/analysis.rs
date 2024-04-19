@@ -6,8 +6,10 @@ use crate::{line_index, semantic_tokens};
 #[derive(Debug)]
 pub struct Analysis {
     /// ソースコードのURI
+    #[allow(dead_code)]
     pub uri: Url,
     /// ソースコードのファイル情報
+    #[allow(dead_code)]
     pub file: hir::NailFile,
     /// AST
     pub parsed: parser::Parse,

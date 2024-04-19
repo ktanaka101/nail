@@ -38,9 +38,5 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "test": "xvfb-run -a vscode-test"
-  },
-  "volta": {
-    "node": "18.12.1",
-    "npm": "8.19.2"
   }
 }

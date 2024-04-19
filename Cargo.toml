@@ -48,7 +48,7 @@ lasso = "0.6"
 logos = "0.12"
 lsp-server = { version = "0.7" }
 lsp-types = { version = "0.95", features = ["proposed"] }
-num-derive = "0.3"
+num-derive = "0.4"
 num-traits = "0.2"
 rayon = "1.10"
 regex = "1"

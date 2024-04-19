@@ -13,7 +13,7 @@ usage() {
 
 image_name=""
 tag_name=""
-should_push=false
+should_push=""
 
 # Load environment variables from .env.local file if it exists
 if [ -f .env.local ]; then

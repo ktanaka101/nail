@@ -19,19 +19,19 @@
   },
   "activationEvents": ["onLanguage:nail"],
   "dependencies": {
-    "vscode-languageclient": "^9.0.1"
+    "vscode-languageclient": "*"
   },
   "devDependencies": {
-    "@biomejs/biome": "^1.6.1",
-    "@types/mocha": "^10.0.6",
-    "@types/node": "18.x",
-    "@types/vscode": "^1.87.0",
-    "@typescript-eslint/eslint-plugin": "^7.0.2",
-    "@typescript-eslint/parser": "^7.0.2",
-    "@vscode/test-cli": "^0.0.6",
-    "@vscode/test-electron": "^2.3.9",
-    "eslint": "^8.56.0",
-    "typescript": "^5.3.3"
+    "@biomejs/biome": "*",
+    "@types/mocha": "*",
+    "@types/node": "*",
+    "@types/vscode": "*",
+    "@typescript-eslint/eslint-plugin": "*",
+    "@typescript-eslint/parser": "*",
+    "@vscode/test-cli": "*",
+    "@vscode/test-electron": "*",
+    "eslint": "*",
+    "typescript": "*"
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

@@ -7,7 +7,7 @@ updates:
     open-pull-requests-limit: 10
     allow:
       - dependency-type: "all"
-    versioning-strategy: increase
+    versioning-strategy: auto
   - package-ecosystem: npm
     directory: '/'
     schedule:

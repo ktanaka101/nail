@@ -8,8 +8,15 @@ fn lex_char(lex: &mut Lexer<TokenKind>) -> Option<bool> {
     Some(slice.ends_with('\''))
 }
 
+#[derive(Default, Debug, Clone, PartialEq)]
+pub enum LexingError {
+    #[default]
+    UnexpectedToken,
+}
+
 /// トークン種別
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Logos)]
+#[logos(error = LexingError)]
 pub enum TokenKind {
     // item keywords
     /// `fn`
@@ -150,8 +157,9 @@ pub enum TokenKind {
     #[regex("//.*")]
     CommentSingle,
 
-    /// トークンとして認識できなかったもの
-    #[error]
+    /// 未知のトークン
+    /// このトークンはlogsによってToken::Errorとなった情報を元に[Lexer]で変換されます。
+    /// これによって、エラーもトークンとして統一的に扱うことができます。
     Error,
 
     /// `'`

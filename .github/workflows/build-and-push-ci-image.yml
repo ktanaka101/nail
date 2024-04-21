@@ -38,6 +38,8 @@ jobs:
           target: ci
           push: true
           tags: ghcr.io/${{ github.repository }}/nail-builder:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Done
         run: echo "Docker image has been built and pushed successfully!"

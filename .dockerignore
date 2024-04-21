@@ -1,0 +1,29 @@
+# Git
+.git/
+.gitignore
+
+# Examples
+examples/
+
+# Markdown
+**/*.md
+
+# Fuzzing
+fuzz/
+
+# Node.js
+**/node_modules/
+
+# Rust
+target/
+
+# settings
+.devcontainer/
+.github/
+.vscode/
+
+# tests
+**/.vscode-test/
+
+# env filess
+.env.local

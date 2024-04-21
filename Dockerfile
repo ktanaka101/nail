@@ -49,7 +49,7 @@ RUN apt install -y git g++ && \
   apt clean && \
   rm -rf /var/lib/apt/lists/* && \
   # fuzzing
-  cargo binstall cargo-fuzz && \
+  cargo binstall cargo-fuzz --no-confirm && \
   # for rust development
   rustup component add rustfmt clippy \
   # for rust-analyzer

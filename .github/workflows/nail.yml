@@ -32,7 +32,7 @@ jobs:
 
       # rust tests
       - name: Compile
-        run: cargo test --workspace --no-run --locked
+        run: cargo nextest run --workspace --locked
 
       - name: Run format
         run: cargo fmt --all -- --check

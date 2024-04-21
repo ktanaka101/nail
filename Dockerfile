@@ -36,8 +36,7 @@ RUN curl -sL https://deb.nodesource.com/setup_18.x | bash - && \
 RUN rustup default nightly
 
 # install cargo-nextest
-RUN cargo install cargo-binstall@^1
-RUN cargo binstall cargo-nextest@0.9 --secure --no-confirm
+RUN cargo install cargo-binstall@^1 && cargo binstall cargo-nextest@0.9 --secure --no-confirm
 
 # ---------------------------------------
 FROM base AS development
@@ -49,7 +48,7 @@ RUN apt install -y git g++ && \
 ENV CARGO_BUILD_TARGET_DIR=/tmp/target \
   NAIL_LANGUAGE_SERVER_PATH=/tmp/target/debug/nail-language-server
 
-RUN cargo install cargo-fuzz
+RUN cargo binstall cargo-fuzz
 RUN rustup component add rustfmt clippy rust-analysis rust-src
 
 # ---------------------------------------

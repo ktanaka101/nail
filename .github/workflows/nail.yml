@@ -41,7 +41,7 @@ jobs:
         run: cargo clippy --workspace -- -D warnings
 
       - name: Run nail tests
-        run: cargo test --workspace -- --nocapture --quiet
+        run: cargo nextest run --workspace --failure-output immediate-final --no-fail-fast
 
       # node tests
       - name: Install yarn packages

@@ -24,7 +24,7 @@ jobs:
       fail-fast: false
 
     container:
-      image: docker.io/ktanaka101/nail-builder:latest
+      image: ghcr.io/ktanaka101/nail/nail-builder:latest
 
     steps:
       - uses: actions/checkout@v4

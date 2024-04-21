@@ -37,7 +37,7 @@ RUN rustup default nightly
 
 # install cargo-nextest
 RUN cargo install cargo-binstall
-RUN cargo binstall cargo-nextest --secure --no-confirm
+RUN cargo binstall cargo-nextest@0.9 --secure --no-confirm
 
 # ---------------------------------------
 FROM base AS development

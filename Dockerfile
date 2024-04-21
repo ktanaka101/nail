@@ -49,7 +49,7 @@ ENV CARGO_BUILD_TARGET_DIR=/tmp/target \
   NAIL_LANGUAGE_SERVER_PATH=/tmp/target/debug/nail-language-server
 
 RUN cargo binstall cargo-fuzz
-RUN rustup component add rustfmt clippy rust-analysis rust-src
+RUN rustup component add rustfmt clippy rust-src
 
 # ---------------------------------------
 FROM base AS ci

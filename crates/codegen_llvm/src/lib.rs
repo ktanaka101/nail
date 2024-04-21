@@ -116,7 +116,6 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         let result = {
             let fn_type = self
                 .context
-                .i8_type()
                 .ptr_type(AddressSpace::default())
                 .fn_type(&[], false);
             let entry_point = self
@@ -165,12 +164,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 hir_ty::Monotype::Integer => {
                     BasicMetadataTypeEnum::IntType(self.context.i64_type())
                 }
-                hir_ty::Monotype::String => self
-                    .context
-                    .i8_type()
-                    .vec_type(1)
-                    .ptr_type(AddressSpace::default())
-                    .into(),
+                hir_ty::Monotype::String => self.context.ptr_type(AddressSpace::default()).into(),
                 hir_ty::Monotype::Bool => self.context.bool_type().into(),
                 _ => unimplemented!(),
             })
@@ -190,7 +184,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
     }
 
     fn string_type(&self) -> PointerType<'ctx> {
-        self.context.i8_type().ptr_type(AddressSpace::default())
+        self.context.ptr_type(AddressSpace::default())
     }
 
     fn bool_type(&self) -> IntType<'ctx> {

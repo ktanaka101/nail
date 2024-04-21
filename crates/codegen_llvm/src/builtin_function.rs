@@ -120,15 +120,11 @@ extern "C" fn ptr_to_string(ty: i64, value_ptr: *const i64, _length: i64) -> *co
     s.into_raw()
 }
 fn define_ptr_to_string(codegen: &mut Codegen) {
-    let return_ty = codegen.context.i8_type().ptr_type(AddressSpace::default());
+    let return_ty = codegen.context.ptr_type(AddressSpace::default());
     let fn_type = return_ty.fn_type(
         &[
             codegen.context.i64_type().into(),
-            codegen
-                .context
-                .i64_type()
-                .ptr_type(AddressSpace::default())
-                .into(),
+            codegen.context.ptr_type(AddressSpace::default()).into(),
             codegen.context.i64_type().into(),
         ],
         false,
@@ -156,10 +152,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
     pub(super) fn build_call_unit_string(&'a self) -> CallSiteValue<'ctx> {
         self.build_call_ptr_to_string(
             PrimitiveType::Unit,
-            self.context
-                .i64_type()
-                .ptr_type(AddressSpace::default())
-                .const_zero(),
+            self.context.ptr_type(AddressSpace::default()).const_zero(),
             self.context.i64_type().const_zero(),
         )
     }

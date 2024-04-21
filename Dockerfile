@@ -37,7 +37,7 @@ RUN curl -sL https://deb.nodesource.com/setup_18.x | bash - && \
   rustup default nightly && \
   ## install cargo-nextest
   cargo install cargo-binstall@^1 && \
-  cargo binstall cargo-nextest@0.9 --secure --no-confirm
+  cargo binstall cargo-nextest@^0.9 --secure --no-confirm
 
 # ---------------------------------------
 FROM base AS development

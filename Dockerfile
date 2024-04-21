@@ -16,9 +16,9 @@ RUN wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor > /usr/
   libomp-17-dev \
   libclc-17-dev \
   libunwind-17-dev \
-  libmlir-17-dev mlir-17-tools
-
-RUN apt install -y zlib1g-dev \
+  libmlir-17-dev mlir-17-tools \
+  # llvm dependency (99bc465)
+  zlib1g-dev \
   zstd \
   libzstd-dev
 
@@ -33,23 +33,22 @@ RUN curl -sL https://deb.nodesource.com/setup_18.x | bash - && \
   apt install -y libglib2.0-dev libnss3 libdbus-1-3	libatk1.0-0 libatk-bridge2.0-0 libgtk-3-0	libgbm1 libasound2 xvfb && \
   /etc/init.d/dbus restart
 
-RUN rustup default nightly
-
-# install cargo-nextest
-RUN cargo install cargo-binstall@^1 && cargo binstall cargo-nextest@0.9 --secure --no-confirm
+RUN rustup default nightly && \
+  # install cargo-nextest
+  cargo install cargo-binstall@^1 && \
+  cargo binstall cargo-nextest@0.9 --secure --no-confirm
 
 # ---------------------------------------
 FROM base AS development
 
-RUN apt install -y git g++ && \
-  apt clean && \
-  rm -rf /var/lib/apt/lists/*
-
 ENV CARGO_BUILD_TARGET_DIR=/tmp/target \
   NAIL_LANGUAGE_SERVER_PATH=/tmp/target/debug/nail-language-server
 
-RUN cargo binstall cargo-fuzz
-RUN rustup component add rustfmt clippy rust-src
+RUN apt install -y git g++ && \
+  apt clean && \
+  rm -rf /var/lib/apt/lists/* && \
+  cargo binstall cargo-fuzz && \
+  rustup component add rustfmt clippy rust-src
 
 # ---------------------------------------
 FROM base AS ci

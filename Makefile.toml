@@ -149,7 +149,7 @@ args = ["workspace", "nail-language-client", "test"]
 install_crate = false
 
 [tasks.lsp-client_test-ci]
-extend = "lsp_test"
+extend = "lsp-client_test"
 
 
 [tasks.lsp-client_watch]

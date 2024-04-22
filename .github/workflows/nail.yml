@@ -32,20 +32,20 @@ jobs:
 
       # rust tests
       - name: Compile
-        run: cargo nextest run --workspace --locked
+        run: cargo make nail compile-ci
 
       - name: Run format
-        run: cargo fmt --all -- --check
+        run: cargo make nail format-ci
 
       - name: Run clippy
-        run: cargo clippy --workspace -- -D warnings
+        run: cargo make nail clippy-ci
 
       - name: Run nail tests
-        run: cargo nextest run --workspace --failure-output immediate-final --no-fail-fast
+        run: cargo make nail test-ci
 
       # node tests
       - name: Install yarn packages
-        run: yarn install --frozen-lockfile
+        run: cargo make lsp-client install-ci
 
       - name: Run nail language client tests
-        run: yarn lsp:test
+        run: cargo make lsp-client test-ci

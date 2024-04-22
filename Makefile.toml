@@ -1,0 +1,159 @@
+# Use cargo-make
+# https://github.com/sagiegurari/cargo-make
+# Usage: cargo make <task>
+
+[config]
+default_to_workspace = false
+
+# Subcommands
+[tasks.nail]
+private = false
+extend = "subcommand"
+env = { "SUBCOMMAND_PREFIX" = "nail" }
+install_crate = false
+
+[tasks.lsp]
+private = false
+extend = "subcommand"
+env = { "SUBCOMMAND_PREFIX" = "lsp" }
+install_crate = false
+
+[tasks.lsp-client]
+private = false
+extend = "subcommand"
+env = { "SUBCOMMAND_PREFIX" = "lsp-client" }
+install_crate = false
+
+[tasks.lsp-server]
+private = false
+extend = "subcommand"
+env = { "SUBCOMMAND_PREFIX" = "lsp-server" }
+install_crate = false
+
+
+[tasks.subcommand]
+private = true
+script = '''
+#!@duckscript
+
+cm_run_task ${SUBCOMMAND_PREFIX}_${1}
+'''
+
+# Nail commands
+[tasks.nail_compile]
+private = true
+command = "cargo"
+args = ["nextest", "run", "--workspace", "--locked"]
+install_crate = false
+
+[tasks.nail_compile-ci]
+private = true
+extend = "nail_compile"
+
+
+[tasks.nail_format]
+private = true
+command = "cargo"
+args = ["fmt", "--all", "--", "--check"]
+install_crate = false
+
+[tasks.nail_format-ci]
+private = true
+extend = "nail_format"
+
+
+[tasks.nail_clippy]
+private = true
+command = "cargo"
+args = ["clippy", "--workspace", "--", "-D", "warnings"]
+install_crate = false
+
+[tasks.nail_clippy-ci]
+private = true
+extend = "nail_clippy"
+
+
+[tasks.nail_test]
+private = true
+command = "cargo"
+args = ["nextest", "run", "--workspace"]
+install_crate = false
+
+[tasks.nail_test-ci]
+private = true
+command = "cargo"
+args = [
+  "nextest",
+  "run",
+  "--workspace",
+  "--failure-output",
+  "immediate-final",
+  "--no-fail-fast",
+]
+install_crate = false
+
+
+[tasks.nail_check]
+private = true
+run_task = { name = [
+  "nail_format",
+  "nail_clippy",
+  "nail_test",
+], parallel = true }
+install_crate = false
+
+
+# LSP server/client commands
+[tasks.lsp_compile]
+private = true
+run_task = { name = [
+  "lsp-server_compile",
+  "lsp-client_compile",
+], parallel = true }
+install_crate = false
+
+
+# LSP server commands
+[tasks.lsp-server_compile]
+private = true
+command = "cargo"
+args = ["build", "--bin", "nail-language-server"]
+install_crate = false
+
+
+# LSP client commands
+[tasks.lsp-client_install]
+private = true
+command = "yarn"
+args = ["install"]
+install_crate = false
+
+[tasks.lsp-client_install-ci]
+private = true
+command = "yarn"
+args = ["install", "--frozen-lockfile"]
+install_crate = false
+
+
+[tasks.lsp-client_compile]
+private = true
+command = "yarn"
+args = ["workspace", "nail-language-client", "compile"]
+install_crate = false
+
+
+[tasks.lsp-client_test]
+private = true
+command = "yarn"
+args = ["workspace", "nail-language-client", "test"]
+install_crate = false
+
+[tasks.lsp-client_test-ci]
+extend = "lsp_test"
+
+
+[tasks.lsp-client_watch]
+private = true
+command = "yarn"
+args = ["workspace", "nail-language-client", "watch"]
+install_crate = false

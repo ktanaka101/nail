@@ -1,0 +1,17 @@
+[github_app]
+pr_commands = ["/describe", "/review", "/improve"]
+
+[pr_description]
+generate_ai_title = true
+inline_file_summary = true
+
+[pr_reviewer]
+num_code_suggestions = 4
+inline_code_comments = true
+require_score_review = true
+require_can_be_split_review = true
+
+[pr_code_suggestions]
+num_code_suggestions = 4
+rank_suggestions = true
+commitable_code_suggestions = true

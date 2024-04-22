@@ -5,8 +5,6 @@
   "private": true,
   "workspaces": ["nail-language-client"],
   "scripts": {
-    "lsp:compile": "cargo build --bin nail-language-server && yarn workspace nail-language-client compile",
-    "lsp:watch": "yarn workspace nail-language-client watch",
-    "lsp:test": "yarn workspace nail-language-client test"
+    "lsp:compile": "cargo make lsp compile"
   }
 }

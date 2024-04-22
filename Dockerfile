@@ -1,10 +1,10 @@
-FROM rust:slim-bullseye AS base
+FROM rust:slim-bookworm AS base
 
 RUN apt update && apt -y upgrade && \
   apt install -y gnupg2 wget curl && \
   # llvm
   wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor > /usr/share/keyrings/llvm-snapshot.gpg && \
-  echo 'deb [signed-by=/usr/share/keyrings/llvm-snapshot.gpg] http://apt.llvm.org/bullseye/ llvm-toolchain-bullseye-17 main' >> /etc/apt/sources.list && \
+  echo 'deb [signed-by=/usr/share/keyrings/llvm-snapshot.gpg] http://apt.llvm.org/bookworm/ llvm-toolchain-bookworm-17 main' >> /etc/apt/sources.list && \
   apt update && \
   apt install -y libllvm-17-ocaml-dev libllvm17 llvm-17 llvm-17-dev llvm-17-doc llvm-17-examples llvm-17-runtime \
   clang-17 clang-tools-17 clang-17-doc libclang-common-17-dev libclang-17-dev libclang1-17 clang-format-17 python3-clang-17 clangd-17 clang-tidy-17 \
@@ -37,7 +37,8 @@ RUN curl -sL https://deb.nodesource.com/setup_18.x | bash - && \
   rustup default nightly && \
   ## install cargo-nextest
   curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash && \
-  cargo binstall cargo-nextest@^0.9 --secure --no-confirm
+  cargo binstall cargo-nextest@^0.9 --secure --no-confirm && \
+  cargo binstall cargo-make@^0.37 --secure --no-confirm
 
 # ---------------------------------------
 FROM base AS development

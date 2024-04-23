@@ -8,7 +8,6 @@ license = { workspace = true }
 workspace = true
 
 [dependencies]
-lasso = { workspace = true }
 la-arena = { workspace = true }
 salsa = { workspace = true }
 

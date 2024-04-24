@@ -12,11 +12,11 @@ use crate::{
     UseItem,
 };
 
-/// 式を一意に識別するためのID
+/// Represents a unique ID for an expression in HIR
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ExprId(Idx<Expr>);
 impl ExprId {
-    /// このIDに対応する式を取得する
+    /// Retrieves the expression associated with this ID, given a context
     pub fn lookup(self, ctx: &HirFileDatabase) -> &Expr {
         &ctx.exprs[self.0]
     }

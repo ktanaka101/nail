@@ -40,7 +40,7 @@ either = "*"
 expect-test = "*"
 indexmap = "*"
 inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = [
-  "llvm17-0",
+  "llvm18-0",
 ] }
 la-arena = "*"
 logos = "*"

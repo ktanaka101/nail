@@ -52,7 +52,9 @@
         "unifiedjs.vscode-mdx",
         "yzhang.markdown-all-in-one",
         "ms-azuretools.vscode-docker",
-        "biomejs.biome"
+        "biomejs.biome",
+        "Codium.codium",
+        "Bito.Bito"
       ]
     }
   },

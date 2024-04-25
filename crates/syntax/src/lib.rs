@@ -124,6 +124,7 @@ pub enum SyntaxKind {
     BreakKw,
 
     // ident modifiers
+    /// `mut`
     MutKw,
 
     // ---identifier---

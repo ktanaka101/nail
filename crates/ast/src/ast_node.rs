@@ -80,6 +80,7 @@ pub fn children_nodes<TNode: AstNode, TChildNode: AstNode>(
     node.syntax().children().filter_map(TChildNode::cast)
 }
 
+/// 指定したノードから指定した`kind`のトークンを探して最初の一つ目を返します。
 pub fn token(parent: &SyntaxNode, kind: SyntaxKind) -> Option<SyntaxToken> {
     parent
         .children_with_tokens()

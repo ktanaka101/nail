@@ -1,4 +1,4 @@
-#!bin/sh
+#!/bin/sh
 
 cargo binstall tokei && \
 tokei ./ \

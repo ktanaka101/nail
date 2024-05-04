@@ -214,7 +214,11 @@ impl<'a> InferBody<'a> {
 
     fn infer_stmt(&mut self, stmt: &hir::Stmt) -> bool {
         let ty = match stmt {
-            hir::Stmt::VariableDef { name: _, value } => {
+            hir::Stmt::VariableDef {
+                name: _,
+                is_mutability: _,
+                value,
+            } => {
                 let ty = self.infer_expr(*value);
                 let ty_scheme = TypeScheme::new(ty.clone());
                 self.mut_current_scope().insert(*value, ty_scheme);

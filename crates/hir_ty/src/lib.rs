@@ -450,12 +450,14 @@ mod tests {
                 .params(self.db)
                 .iter()
                 .map(|param| {
-                    let name = if let Some(name) = param.data(hir_file.db(self.db)).name {
+                    let param_data = param.data(hir_file.db(self.db));
+                    let name = if let Some(name) = param_data.name {
                         name.text(self.db)
                     } else {
                         "<missing>"
                     };
-                    let ty = match param.data(hir_file.db(self.db)).ty {
+                    let mut_text = if param_data.mutability { "mut " } else { "" };
+                    let ty = match param_data.ty {
                         hir::Type::Integer => "int",
                         hir::Type::String => "string",
                         hir::Type::Char => "char",
@@ -463,7 +465,7 @@ mod tests {
                         hir::Type::Unit => "()",
                         hir::Type::Unknown => "<unknown>",
                     };
-                    format!("{name}: {ty}")
+                    format!("{name}: {mut_text}{ty}")
                 })
                 .collect::<Vec<_>>()
                 .join(", ");
@@ -562,11 +564,20 @@ mod tests {
             nesting: usize,
         ) -> String {
             match stmt {
-                hir::Stmt::VariableDef { name, value } => {
+                hir::Stmt::VariableDef {
+                    name,
+                    is_mutability,
+                    value,
+                } => {
                     let indent = indent(nesting);
                     let name = name.text(self.db);
                     let expr_str = self.debug_expr(hir_file, function, *value, nesting);
-                    let mut stmt_str = format!("{indent}let {name} = {expr_str};");
+                    let mut_text = if *is_mutability {
+                        "mut ".to_string()
+                    } else {
+                        "".to_string()
+                    };
+                    let mut stmt_str = format!("{indent}let {mut_text}{name} = {expr_str};");
 
                     let type_line = self.debug_type_line(function, *value);
                     stmt_str.push_str(&format!(" {type_line}\n"));
@@ -1053,13 +1064,15 @@ mod tests {
         check_in_root_file(
             r#"
                 fn main() {
-                    let a = true
+                    let a = true;
+                    let mut b = 10;
                 }
             "#,
             expect![[r#"
                 //- /main.nail
                 fn entry:main() -> () {
                     let a = true; //: bool
+                    let mut b = 10; //: int
                 }
 
                 ---
@@ -1270,7 +1283,7 @@ mod tests {
         check_in_root_file(
             r#"
                 fn main() -> int {
-                    let a = -10
+                    let a = -10;
                     a
                 }
             "#,
@@ -1535,16 +1548,18 @@ mod tests {
     fn infer_function_param() {
         check_in_root_file(
             r#"
-                fn aaa(x: int, y: string) {
-                    let a = x
-                    let b = y
+                fn aaa(x: int, y: string, z: mut bool) {
+                    let a = x;
+                    let b = y;
+                    let c = z;
                 }
             "#,
             expect![[r#"
                 //- /main.nail
-                fn aaa(x: int, y: string) -> () {
+                fn aaa(x: int, y: string, z: mut bool) -> () {
                     let a = param:x; //: int
                     let b = param:y; //: string
+                    let c = param:z; //: bool
                 }
 
                 ---

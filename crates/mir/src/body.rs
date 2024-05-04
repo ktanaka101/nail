@@ -589,7 +589,11 @@ impl<'a> FunctionLower<'a> {
 
     fn lower_stmt(&mut self, stmt: &hir::Stmt) -> LoweredStmt {
         match stmt {
-            hir::Stmt::VariableDef { name: _, value } => {
+            hir::Stmt::VariableDef {
+                name: _,
+                value,
+                is_mutability: _,
+            } => {
                 let local_idx = self.alloc_local(*value);
                 let operand = match self.lower_expr(*value) {
                     LoweredExpr::Operand(operand) => operand,

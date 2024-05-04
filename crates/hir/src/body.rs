@@ -237,7 +237,7 @@ impl<'a> BodyLower<'a> {
                     .name()
                     .map(|name| Name::new(db, name.name().to_string()));
                 let ty = self.lower_ty(param.ty());
-                Param::new(self.hir_file_db, name, ty, pos)
+                Param::new(self.hir_file_db, name, ty, pos, param.mut_token().is_some())
             })
             .collect::<Vec<_>>();
         let param_by_name = params
@@ -824,12 +824,14 @@ mod tests {
             .params(db)
             .iter()
             .map(|param| {
-                let name = if let Some(name) = param.data(hir_file.db(db)).name {
+                let param_data = param.data(hir_file.db(db));
+                let name = if let Some(name) = param_data.name {
                     name.text(db)
                 } else {
                     "<missing>"
                 };
-                let ty = match param.data(hir_file.db(db)).ty {
+                let mutable_text = if param_data.mutability { "mut " } else { "" };
+                let ty = match param_data.ty {
                     Type::Integer => "int",
                     Type::String => "string",
                     Type::Char => "char",
@@ -837,7 +839,7 @@ mod tests {
                     Type::Unit => "()",
                     Type::Unknown => "<unknown>",
                 };
-                format!("{name}: {ty}")
+                format!("{name}: {mutable_text}{ty}")
             })
             .collect::<Vec<_>>()
             .join(", ");
@@ -1993,6 +1995,26 @@ mod tests {
                     expr:1
                 }
                 error: Undefined entry point.(help: fn main() { ... })
+            "#]],
+        );
+    }
+
+    #[test]
+    fn define_function_with_mutable_params() {
+        check_in_root_file(
+            r#"
+                fn main() {}
+                fn foo(a: mut int, b: string, c: mut bool) {
+                    1
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                }
+                fn foo(a: mut int, b: string, c: mut bool) -> () {
+                    expr:1
+                }
             "#]],
         );
     }

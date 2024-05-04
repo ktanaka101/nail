@@ -30,7 +30,7 @@ mod db;
 mod input;
 mod item;
 mod name_resolver;
-mod testing;
+pub mod testing;
 
 use std::{collections::HashMap, marker::PhantomData};
 
@@ -42,7 +42,6 @@ pub use item::{Function, Item, Module, ModuleKind, Param, Type, UseItem};
 use name_resolver::resolve_symbols;
 pub use name_resolver::{ModuleScopeOrigin, ResolutionMap, ResolutionStatus};
 use syntax::SyntaxNode;
-pub use testing::TestingDatabase;
 
 /// ビルド対象全体を表します。
 #[derive(Debug)]

@@ -825,21 +825,7 @@ mod tests {
             .iter()
             .map(|param| {
                 let param_data = param.data(hir_file.db(db));
-                let name = if let Some(name) = param_data.name {
-                    name.text(db)
-                } else {
-                    "<missing>"
-                };
-                let mutable_text = if param_data.mutability { "mut " } else { "" };
-                let ty = match param_data.ty {
-                    Type::Integer => "int",
-                    Type::String => "string",
-                    Type::Char => "char",
-                    Type::Boolean => "bool",
-                    Type::Unit => "()",
-                    Type::Unknown => "<unknown>",
-                };
-                format!("{name}: {mutable_text}{ty}")
+                crate::testing::format_parameter(db, param_data)
             })
             .collect::<Vec<_>>()
             .join(", ");

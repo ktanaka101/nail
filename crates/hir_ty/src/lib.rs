@@ -451,21 +451,7 @@ mod tests {
                 .iter()
                 .map(|param| {
                     let param_data = param.data(hir_file.db(self.db));
-                    let name = if let Some(name) = param_data.name {
-                        name.text(self.db)
-                    } else {
-                        "<missing>"
-                    };
-                    let mut_text = if param_data.mutability { "mut " } else { "" };
-                    let ty = match param_data.ty {
-                        hir::Type::Integer => "int",
-                        hir::Type::String => "string",
-                        hir::Type::Char => "char",
-                        hir::Type::Boolean => "bool",
-                        hir::Type::Unit => "()",
-                        hir::Type::Unknown => "<unknown>",
-                    };
-                    format!("{name}: {mut_text}{ty}")
+                    hir::testing::format_parameter(self.db, param_data)
                 })
                 .collect::<Vec<_>>()
                 .join(", ");

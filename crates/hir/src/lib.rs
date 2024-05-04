@@ -514,7 +514,7 @@ pub enum Stmt {
     /// 変数定義を表します。
     ///
     /// 例: `let [mut] <name> = <value>;`
-    VariableDef {
+    Let {
         /// 変数名
         name: Name,
         /// 可変性
@@ -720,7 +720,7 @@ pub struct NameSolutionPath {
 /// ```nail
 /// {
 ///     let a = 10;
-/// } // Block { stmts: [Stmt::VariableDef { name: "a", value: ExprId(0) }], tail: None }
+/// } // Block { stmts: [Stmt::Let { name: "a", value: ExprId(0) }], tail: None }
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Block {

@@ -828,7 +828,7 @@ mod tests {
                     Literal@0..2
                       Char@0..2 "'a"
                   Whitespace@2..3 " "
-                  VariableDef@3..13
+                  Let@3..13
                     LetKw@3..6 "let"
                     Whitespace@6..7 " "
                     Ident@7..8 "b"
@@ -1043,7 +1043,7 @@ mod tests {
                     BlockExpr@0..24
                       LCurly@0..1 "{"
                       Whitespace@1..4 "\n  "
-                      VariableDef@4..14
+                      Let@4..14
                         LetKw@4..7 "let"
                         Whitespace@7..8 " "
                         Ident@8..9 "a"
@@ -1454,7 +1454,7 @@ mod tests {
             "let a = if true { 10 } else { 20 }",
             expect![[r#"
                 SourceFile@0..34
-                  VariableDef@0..34
+                  Let@0..34
                     LetKw@0..3 "let"
                     Whitespace@3..4 " "
                     Ident@4..5 "a"

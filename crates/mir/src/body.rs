@@ -589,7 +589,7 @@ impl<'a> FunctionLower<'a> {
 
     fn lower_stmt(&mut self, stmt: &hir::Stmt) -> LoweredStmt {
         match stmt {
-            hir::Stmt::VariableDef {
+            hir::Stmt::Let {
                 name: _,
                 value,
                 mutable: _,

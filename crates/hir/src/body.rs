@@ -362,11 +362,11 @@ impl<'a> BodyLower<'a> {
 
     fn lower_stmt(&mut self, db: &dyn HirMasterDatabase, ast_stmt: ast::Stmt) -> Option<Stmt> {
         let result = match ast_stmt {
-            ast::Stmt::VariableDef(def) => {
+            ast::Stmt::Let(def) => {
                 let expr = self.lower_expr(db, def.value());
                 let name = Name::new(db, def.name()?.name().to_owned());
                 self.scopes.define(name, expr);
-                Stmt::VariableDef {
+                Stmt::Let {
                     name,
                     mutable: def.mut_token().is_some(),
                     value: expr,
@@ -944,7 +944,7 @@ mod tests {
         nesting: usize,
     ) -> String {
         match stmt {
-            Stmt::VariableDef {
+            Stmt::Let {
                 name,
                 mutable,
                 value,
@@ -1283,7 +1283,7 @@ mod tests {
     }
 
     #[test]
-    fn lower_variable_def() {
+    fn lower_let() {
         check_in_root_file(
             r#"
                 fn main() {
@@ -1300,7 +1300,7 @@ mod tests {
     }
 
     #[test]
-    fn lower_variable_def_mutable() {
+    fn lower_let_mutable() {
         check_in_root_file(
             r#"
                 fn main() {
@@ -1317,7 +1317,7 @@ mod tests {
     }
 
     #[test]
-    fn lower_variable_def_without_name() {
+    fn lower_let_without_name() {
         check_in_root_file(
             r#"
                 fn main() {
@@ -1333,7 +1333,7 @@ mod tests {
     }
 
     #[test]
-    fn lower_variable_def_without_eq() {
+    fn lower_let_without_eq() {
         check_in_root_file(
             r#"
                 fn main() {
@@ -1350,7 +1350,7 @@ mod tests {
     }
 
     #[test]
-    fn lower_variable_def_without_value() {
+    fn lower_let_without_value() {
         check_in_root_file(
             r#"
                 fn main() {

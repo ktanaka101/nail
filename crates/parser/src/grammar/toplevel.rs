@@ -82,7 +82,7 @@ mod tests {
     use crate::check_debug_tree;
 
     #[test]
-    fn parse_variable_definition() {
+    fn parse_let() {
         check_debug_tree(
             "let foo = bar",
             expect![[r#"

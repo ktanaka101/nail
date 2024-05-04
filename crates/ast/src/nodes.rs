@@ -9,17 +9,17 @@ use crate::{
 ///
 /// # Example
 ///
-/// このマクロは、`def_ast_node(VariableDef);`と呼び出すと以下のように展開されます。
+/// このマクロは、`def_ast_node(Let);`と呼び出すと以下のように展開されます。
 /// ```ignore
 /// #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-/// pub struct VariableDef {
+/// pub struct Let {
 ///     syntax: SyntaxNode,
 /// }
 ///
-/// impl Ast for VariableDef {}
-/// impl AstNode for VariableDef {
+/// impl Ast for Let {}
+/// impl AstNode for Let {
 ///     fn can_cast(kind: SyntaxKind) -> bool {
-///         kind == SyntaxKind::VariableDef
+///         kind == SyntaxKind::Let
 ///     }
 ///
 ///     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -67,9 +67,9 @@ macro_rules! def_ast_node {
 
 def_ast_node!(
     /// 変数定義のASTノード
-    VariableDef
+    Let
 );
-impl VariableDef {
+impl Let {
     /// 変数の可変定義に位置する`mut`トークンを返します。
     pub fn mut_token(&self) -> Option<SyntaxToken> {
         ast_node::token(&self.syntax, SyntaxKind::MutKw)
@@ -197,7 +197,7 @@ impl AstNode for Expr {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Stmt {
     /// 変数定義
-    VariableDef(VariableDef),
+    Let(Let),
     /// 式ステートメント
     ExprStmt(ExprStmt),
     /// アイテム
@@ -206,12 +206,12 @@ pub enum Stmt {
 impl Ast for Stmt {}
 impl AstNode for Stmt {
     fn can_cast(kind: SyntaxKind) -> bool {
-        matches!(kind, SyntaxKind::VariableDef | SyntaxKind::ExprStmt) || Item::can_cast(kind)
+        matches!(kind, SyntaxKind::Let | SyntaxKind::ExprStmt) || Item::can_cast(kind)
     }
 
     fn cast(syntax: SyntaxNode) -> Option<Self> {
         let result = match syntax.kind() {
-            SyntaxKind::VariableDef => Self::VariableDef(VariableDef { syntax }),
+            SyntaxKind::Let => Self::Let(Let { syntax }),
             SyntaxKind::ExprStmt => Self::ExprStmt(ExprStmt::cast(syntax)?),
             _ => {
                 if let Some(item) = Item::cast(syntax) {
@@ -226,7 +226,7 @@ impl AstNode for Stmt {
 
     fn syntax(&self) -> &SyntaxNode {
         match self {
-            Stmt::VariableDef(it) => it.syntax(),
+            Stmt::Let(it) => it.syntax(),
             Stmt::ExprStmt(it) => it.syntax(),
             Stmt::Item(it) => it.syntax(),
         }

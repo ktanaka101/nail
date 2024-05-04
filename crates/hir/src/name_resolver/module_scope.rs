@@ -426,7 +426,7 @@ impl<'a> ModuleScopesBuilder<'a> {
 
     fn build_stmt(&mut self, hir_file: HirFile, current_scope_idx: ModuleScopeIdx, stmt: &Stmt) {
         match stmt {
-            crate::Stmt::VariableDef {
+            crate::Stmt::Let {
                 name: _,
                 mutable: _,
                 value,

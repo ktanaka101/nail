@@ -433,7 +433,7 @@ impl<'a> ModuleScopesBuilder<'a> {
             } => {
                 self.build_expr(hir_file, current_scope_idx, *value);
             }
-            crate::Stmt::ExprStmt {
+            crate::Stmt::Expr {
                 expr,
                 has_semicolon: _,
             } => self.build_expr(hir_file, current_scope_idx, *expr),

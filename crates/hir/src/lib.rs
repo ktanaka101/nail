@@ -526,7 +526,7 @@ pub enum Stmt {
     ///
     /// 例: `<expr>`
     /// 例: `<expr>;`
-    ExprStmt {
+    Expr {
         /// 式
         expr: ExprId,
         /// セミコロンがあるかどうか

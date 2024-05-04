@@ -199,7 +199,7 @@ pub enum Stmt {
     /// 変数定義
     Let(Let),
     /// 式ステートメント
-    ExprStmt(ExprStmt),
+    Expr(ExprStmt),
     /// アイテム
     Item(Item),
 }
@@ -212,7 +212,7 @@ impl AstNode for Stmt {
     fn cast(syntax: SyntaxNode) -> Option<Self> {
         let result = match syntax.kind() {
             SyntaxKind::Let => Self::Let(Let { syntax }),
-            SyntaxKind::ExprStmt => Self::ExprStmt(ExprStmt::cast(syntax)?),
+            SyntaxKind::ExprStmt => Self::Expr(ExprStmt::cast(syntax)?),
             _ => {
                 if let Some(item) = Item::cast(syntax) {
                     return Some(Stmt::Item(item));
@@ -227,7 +227,7 @@ impl AstNode for Stmt {
     fn syntax(&self) -> &SyntaxNode {
         match self {
             Stmt::Let(it) => it.syntax(),
-            Stmt::ExprStmt(it) => it.syntax(),
+            Stmt::Expr(it) => it.syntax(),
             Stmt::Item(it) => it.syntax(),
         }
     }

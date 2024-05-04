@@ -84,7 +84,7 @@ impl<'a> FunctionTypeChecker<'a> {
 
     fn check_stmt(&mut self, stmt: &'a hir::Stmt) {
         match stmt {
-            hir::Stmt::ExprStmt { expr, .. } => self.check_expr(*expr),
+            hir::Stmt::Expr { expr, .. } => self.check_expr(*expr),
             hir::Stmt::Let { value, .. } => self.check_expr(*value),
             hir::Stmt::Item { .. } => (),
         }

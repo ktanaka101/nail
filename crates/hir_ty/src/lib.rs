@@ -566,7 +566,7 @@ mod tests {
 
                     stmt_str
                 }
-                hir::Stmt::ExprStmt {
+                hir::Stmt::Expr {
                     expr,
                     has_semicolon,
                 } => {

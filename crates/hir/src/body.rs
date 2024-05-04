@@ -372,9 +372,9 @@ impl<'a> BodyLower<'a> {
                     value: expr,
                 }
             }
-            ast::Stmt::ExprStmt(ast) => {
+            ast::Stmt::Expr(ast) => {
                 let expr = self.lower_expr(db, ast.expr());
-                Stmt::ExprStmt {
+                Stmt::Expr {
                     expr,
                     has_semicolon: ast.semicolon().is_some(),
                 }
@@ -606,7 +606,7 @@ impl<'a> BodyLower<'a> {
         self.scopes.leave();
 
         let tail = match stmts.last() {
-            Some(Stmt::ExprStmt {
+            Some(Stmt::Expr {
                 expr,
                 has_semicolon,
             }) if !has_semicolon => {
@@ -712,7 +712,7 @@ impl<'a> BodyLower<'a> {
             // while式の条件が一致しない場合にbreakするためのブロック
             let break_block = {
                 let break_block = Expr::Block(Block {
-                    stmts: vec![Stmt::ExprStmt {
+                    stmts: vec![Stmt::Expr {
                         expr: self.alloc_expr_desugared(
                             &ast::Expr::cast(ast_while.syntax().clone()).unwrap(),
                             Expr::Break { value: None },
@@ -733,7 +733,7 @@ impl<'a> BodyLower<'a> {
                 };
 
                 Expr::Block(Block {
-                    stmts: vec![Stmt::ExprStmt {
+                    stmts: vec![Stmt::Expr {
                         expr: self.alloc_expr_desugared(
                             &ast::Expr::cast(ast_while.syntax().clone()).unwrap(),
                             if_expr,
@@ -955,7 +955,7 @@ mod tests {
                 let mutable_text = crate::testing::format_mutable(*mutable);
                 format!("{}let {mutable_text}{name} = {expr_str}\n", indent(nesting))
             }
-            Stmt::ExprStmt {
+            Stmt::Expr {
                 expr,
                 has_semicolon,
             } => format!(

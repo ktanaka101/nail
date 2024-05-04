@@ -450,20 +450,8 @@ mod tests {
                 .params(self.db)
                 .iter()
                 .map(|param| {
-                    let name = if let Some(name) = param.data(hir_file.db(self.db)).name {
-                        name.text(self.db)
-                    } else {
-                        "<missing>"
-                    };
-                    let ty = match param.data(hir_file.db(self.db)).ty {
-                        hir::Type::Integer => "int",
-                        hir::Type::String => "string",
-                        hir::Type::Char => "char",
-                        hir::Type::Boolean => "bool",
-                        hir::Type::Unit => "()",
-                        hir::Type::Unknown => "<unknown>",
-                    };
-                    format!("{name}: {ty}")
+                    let param_data = param.data(hir_file.db(self.db));
+                    hir::testing::format_parameter(self.db, param_data)
                 })
                 .collect::<Vec<_>>()
                 .join(", ");
@@ -562,11 +550,16 @@ mod tests {
             nesting: usize,
         ) -> String {
             match stmt {
-                hir::Stmt::VariableDef { name, value } => {
+                hir::Stmt::VariableDef {
+                    name,
+                    mutable,
+                    value,
+                } => {
                     let indent = indent(nesting);
                     let name = name.text(self.db);
                     let expr_str = self.debug_expr(hir_file, function, *value, nesting);
-                    let mut stmt_str = format!("{indent}let {name} = {expr_str};");
+                    let mut_text = hir::testing::format_mutable(*mutable);
+                    let mut stmt_str = format!("{indent}let {mut_text}{name} = {expr_str};");
 
                     let type_line = self.debug_type_line(function, *value);
                     stmt_str.push_str(&format!(" {type_line}\n"));
@@ -1053,13 +1046,15 @@ mod tests {
         check_in_root_file(
             r#"
                 fn main() {
-                    let a = true
+                    let a = true;
+                    let mut b = 10;
                 }
             "#,
             expect![[r#"
                 //- /main.nail
                 fn entry:main() -> () {
                     let a = true; //: bool
+                    let mut b = 10; //: int
                 }
 
                 ---
@@ -1270,7 +1265,7 @@ mod tests {
         check_in_root_file(
             r#"
                 fn main() -> int {
-                    let a = -10
+                    let a = -10;
                     a
                 }
             "#,
@@ -1535,16 +1530,18 @@ mod tests {
     fn infer_function_param() {
         check_in_root_file(
             r#"
-                fn aaa(x: int, y: string) {
-                    let a = x
-                    let b = y
+                fn aaa(x: int, y: string, z: mut bool) {
+                    let a = x;
+                    let b = y;
+                    let c = z;
                 }
             "#,
             expect![[r#"
                 //- /main.nail
-                fn aaa(x: int, y: string) -> () {
+                fn aaa(x: int, y: string, z: mut bool) -> () {
                     let a = param:x; //: int
                     let b = param:y; //: string
+                    let c = param:z; //: bool
                 }
 
                 ---

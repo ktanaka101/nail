@@ -92,6 +92,13 @@ args = [
 ]
 install_crate = false
 
+[tasks.nail_test_update]
+private = true
+command = "cargo"
+args = ["nextest", "run", "--workspace"]
+install_crate = false
+env = { "UPDATE_EXPECT" = "1" }
+
 
 [tasks.nail_check]
 private = true

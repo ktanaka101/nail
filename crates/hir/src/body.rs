@@ -237,7 +237,7 @@ impl<'a> BodyLower<'a> {
                     .name()
                     .map(|name| Name::new(db, name.name().to_string()));
                 let ty = self.lower_ty(param.ty());
-                Param::new(self.hir_file_db, name, ty, pos)
+                Param::new(self.hir_file_db, name, ty, pos, param.mut_token().is_some())
             })
             .collect::<Vec<_>>();
         let param_by_name = params
@@ -366,7 +366,11 @@ impl<'a> BodyLower<'a> {
                 let expr = self.lower_expr(db, def.value());
                 let name = Name::new(db, def.name()?.name().to_owned());
                 self.scopes.define(name, expr);
-                Stmt::VariableDef { name, value: expr }
+                Stmt::VariableDef {
+                    name,
+                    mutable: def.mut_token().is_some(),
+                    value: expr,
+                }
             }
             ast::Stmt::ExprStmt(ast) => {
                 let expr = self.lower_expr(db, ast.expr());
@@ -820,20 +824,8 @@ mod tests {
             .params(db)
             .iter()
             .map(|param| {
-                let name = if let Some(name) = param.data(hir_file.db(db)).name {
-                    name.text(db)
-                } else {
-                    "<missing>"
-                };
-                let ty = match param.data(hir_file.db(db)).ty {
-                    Type::Integer => "int",
-                    Type::String => "string",
-                    Type::Char => "char",
-                    Type::Boolean => "bool",
-                    Type::Unit => "()",
-                    Type::Unknown => "<unknown>",
-                };
-                format!("{name}: {ty}")
+                let param_data = param.data(hir_file.db(db));
+                crate::testing::format_parameter(db, param_data)
             })
             .collect::<Vec<_>>()
             .join(", ");
@@ -952,11 +944,16 @@ mod tests {
         nesting: usize,
     ) -> String {
         match stmt {
-            Stmt::VariableDef { name, value } => {
+            Stmt::VariableDef {
+                name,
+                mutable,
+                value,
+            } => {
                 let name = name.text(db);
                 let expr_str =
                     debug_expr(db, hir_file, resolution_map, scope_origin, *value, nesting);
-                format!("{}let {name} = {expr_str}\n", indent(nesting))
+                let mutable_text = crate::testing::format_mutable(*mutable);
+                format!("{}let {mutable_text}{name} = {expr_str}\n", indent(nesting))
             }
             Stmt::ExprStmt {
                 expr,
@@ -1297,6 +1294,23 @@ mod tests {
                 //- /main.nail
                 fn entry:main() -> () {
                     let foo = <missing>
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn lower_variable_def_mutable() {
+        check_in_root_file(
+            r#"
+                fn main() {
+                    let mut foo = 10
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    let mut foo = 10
                 }
             "#]],
         );
@@ -1963,6 +1977,26 @@ mod tests {
                     expr:1
                 }
                 error: Undefined entry point.(help: fn main() { ... })
+            "#]],
+        );
+    }
+
+    #[test]
+    fn define_function_with_mutable_params() {
+        check_in_root_file(
+            r#"
+                fn main() {}
+                fn foo(a: mut int, b: string, c: mut bool) {
+                    1
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                }
+                fn foo(a: mut int, b: string, c: mut bool) -> () {
+                    expr:1
+                }
             "#]],
         );
     }

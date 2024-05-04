@@ -2,6 +2,8 @@ use std::sync::{Arc, Mutex};
 
 use salsa::DebugWithDb;
 
+use crate::{item::ParamData, HirMasterDatabase, Type};
+
 /// SalsaのDB
 #[derive(Default)]
 #[salsa::db(crate::Jar)]
@@ -50,5 +52,32 @@ impl salsa::ParallelDatabase for TestingDatabase {
             storage: self.storage.snapshot(),
             logs: self.logs.clone(),
         })
+    }
+}
+
+/// HIRの[ParamData]をテスト向けにフォーマットします。
+pub fn format_parameter(db: &dyn HirMasterDatabase, param_data: &ParamData) -> String {
+    let name = if let Some(name) = param_data.name {
+        name.text(db)
+    } else {
+        "<missing>"
+    };
+    let mutable_text = format_mutable(param_data.mutable);
+    let ty = match param_data.ty {
+        Type::Integer => "int",
+        Type::String => "string",
+        Type::Char => "char",
+        Type::Boolean => "bool",
+        Type::Unit => "()",
+        Type::Unknown => "<unknown>",
+    };
+    format!("{name}: {mutable_text}{ty}")
+}
+
+pub fn format_mutable(mutable: bool) -> &'static str {
+    if mutable {
+        "mut "
+    } else {
+        ""
     }
 }

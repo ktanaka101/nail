@@ -60,6 +60,9 @@ pub enum TokenKind {
     /// `while`
     #[token("while")]
     WhileKw,
+    /// `mut
+    #[token("mut")]
+    MutKw,
 
     // identifier
     /// `[A-Za-z_][A-Za-z0-9_]*`
@@ -194,6 +197,7 @@ impl fmt::Display for TokenKind {
             Self::WhileKw => "'while'",
             Self::ContinueKw => "'continue'",
             Self::BreakKw => "'break'",
+            Self::MutKw => "'mut'",
             Self::Ident => "identifier",
             Self::IntegerLiteral => "integerLiteral",
             Self::StringLiteral => "stringLiteral",
@@ -313,6 +317,11 @@ mod tests {
     #[test]
     fn lex_while_keyword() {
         check("while", TokenKind::WhileKw);
+    }
+
+    #[test]
+    fn lex_mut_keyword() {
+        check("mut", TokenKind::MutKw);
     }
 
     #[test]

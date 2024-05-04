@@ -123,6 +123,10 @@ pub enum SyntaxKind {
     /// `break`
     BreakKw,
 
+    // ident modifiers
+    /// `mut`
+    MutKw,
+
     // ---identifier---
     /// `IDENT`
     Ident,
@@ -211,6 +215,7 @@ impl From<TokenKind> for SyntaxKind {
             TokenKind::WhileKw => Self::WhileKw,
             TokenKind::ContinueKw => Self::ContinueKw,
             TokenKind::BreakKw => Self::BreakKw,
+            TokenKind::MutKw => Self::MutKw,
 
             TokenKind::Ident => Self::Ident,
 

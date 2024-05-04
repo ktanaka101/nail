@@ -209,7 +209,7 @@ mod tests {
                       Whitespace@28..29 " "
                       RCurly@29..30 "}"
                 error at 17..19: expected ':', but found ->
-                error at 17..19: expected identifier, ',' or ')', but found ->
+                error at 17..19: expected 'mut', identifier, ',' or ')', but found ->
             "#]],
         );
 
@@ -248,7 +248,7 @@ mod tests {
                       RCurly@27..28 "}"
                 error at 15..17: expected identifier, but found ->
                 error at 15..17: expected ':', but found ->
-                error at 15..17: expected identifier, ',' or ')', but found ->
+                error at 15..17: expected 'mut', identifier, ',' or ')', but found ->
             "#]],
         );
 
@@ -315,7 +315,7 @@ mod tests {
                           Integer@19..21 "10"
                       Whitespace@21..22 " "
                       RCurly@22..23 "}"
-                error at 10..12: expected identifier, ',' or ')', but found ->
+                error at 10..12: expected 'mut', identifier, ',' or ')', but found ->
             "#]],
         );
 
@@ -347,7 +347,7 @@ mod tests {
                       Whitespace@20..21 " "
                       RCurly@21..22 "}"
                 error at 9..11: expected ':', but found ->
-                error at 9..11: expected identifier, ',' or ')', but found ->
+                error at 9..11: expected 'mut', identifier, ',' or ')', but found ->
             "#]],
         );
 

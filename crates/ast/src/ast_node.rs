@@ -1,5 +1,5 @@
 use rowan::TextRange;
-use syntax::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
+use syntax::{SyntaxKind, SyntaxNode, SyntaxToken};
 
 /// ASTノード
 pub trait Ast {}
@@ -80,12 +80,24 @@ pub fn children_nodes<TNode: AstNode, TChildNode: AstNode>(
     node.syntax().children().filter_map(TChildNode::cast)
 }
 
+/// 指定したノードから指定した`kind`のトークンを探して最初の一つ目を返します。
+pub fn token(parent: &SyntaxNode, kind: SyntaxKind) -> Option<SyntaxToken> {
+    parent
+        .children_with_tokens()
+        .find_map(|it| match it.into_token() {
+            Some(token) if token.kind() == kind => Some(token),
+            _ => None,
+        })
+}
+
 /// 指定したノードから型引数<TChildToken>を子トークンから探して最初の一つ目を返します。
 pub fn child_token<TNode: AstNode, TChildToken: AstToken>(node: &TNode) -> Option<TChildToken> {
     node.syntax()
         .children_with_tokens()
-        .filter_map(SyntaxElement::into_token)
-        .find_map(TChildToken::cast)
+        .find_map(|it| match it.into_token() {
+            Some(token) => TChildToken::cast(token),
+            None => None,
+        })
 }
 
 /// 指定したノードから型引数<TChildToken>を子トークンから探して全て返します。
@@ -94,6 +106,8 @@ pub fn children_tokens<TNode: AstNode, TChildToken: AstToken>(
 ) -> impl Iterator<Item = TChildToken> {
     node.syntax()
         .children_with_tokens()
-        .filter_map(SyntaxElement::into_token)
-        .filter_map(TChildToken::cast)
+        .filter_map(|it| match it.into_token() {
+            Some(token) => TChildToken::cast(token),
+            None => None,
+        })
 }

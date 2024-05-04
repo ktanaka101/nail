@@ -25,6 +25,10 @@ fn parse_variable_def(parser: &mut Parser) -> CompletedNodeMarker {
     let marker = parser.start();
     parser.bump();
 
+    if parser.at(TokenKind::MutKw) {
+        parser.bump();
+    }
+
     parser.expect_with_block_recovery_set(TokenKind::Ident, &[TokenKind::Eq]);
     parser.expect_on_block(TokenKind::Eq);
 
@@ -108,6 +112,11 @@ fn parse_params(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedNod
             parser.bump();
 
             parser.expect_with_recovery_set_no_default(TokenKind::Colon, recovery_set);
+
+            if parser.at(TokenKind::MutKw) {
+                parser.bump();
+            }
+
             if parser.at(TokenKind::Ident) {
                 {
                     let marker = parser.start();
@@ -123,6 +132,10 @@ fn parse_params(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedNod
                 let marker = parser.start();
                 parser.expect_with_recovery_set_no_default(TokenKind::Ident, recovery_set);
                 parser.expect_with_recovery_set_no_default(TokenKind::Colon, recovery_set);
+
+                if parser.at(TokenKind::MutKw) {
+                    parser.bump();
+                }
 
                 if parser.at(TokenKind::Ident) {
                     {
@@ -249,6 +262,28 @@ mod tests {
     }
 
     #[test]
+    fn parse_variable_definition_mutable() {
+        check_debug_tree_in_block(
+            "let mut foo = 10;",
+            expect![[r#"
+                SourceFile@0..17
+                  VariableDef@0..17
+                    LetKw@0..3 "let"
+                    Whitespace@3..4 " "
+                    MutKw@4..7 "mut"
+                    Whitespace@7..8 " "
+                    Ident@8..11 "foo"
+                    Whitespace@11..12 " "
+                    Eq@12..13 "="
+                    Whitespace@13..14 " "
+                    Literal@14..16
+                      Integer@14..16 "10"
+                    Semicolon@16..17 ";"
+            "#]],
+        );
+    }
+
+    #[test]
     fn parse_varialbe_def_without_eq() {
         check_debug_tree_in_block(
             "let foo 10",
@@ -280,7 +315,7 @@ mod tests {
                     Whitespace@5..6 " "
                     Literal@6..8
                       Integer@6..8 "10"
-                error at 4..5: expected identifier, but found '='
+                error at 4..5: expected 'mut' or identifier, but found '='
             "#]],
         )
     }
@@ -437,6 +472,51 @@ mod tests {
     }
 
     #[test]
+    fn parse_function_with_params_definition_mutable() {
+        check_debug_tree_in_block(
+            "fn foo(a: mut int, b: mut int) -> int {}",
+            expect![[r#"
+                SourceFile@0..40
+                  FunctionDef@0..40
+                    FnKw@0..2 "fn"
+                    Whitespace@2..3 " "
+                    Ident@3..6 "foo"
+                    ParamList@6..30
+                      LParen@6..7 "("
+                      Param@7..17
+                        Ident@7..8 "a"
+                        Colon@8..9 ":"
+                        Whitespace@9..10 " "
+                        MutKw@10..13 "mut"
+                        Whitespace@13..14 " "
+                        Type@14..17
+                          Ident@14..17 "int"
+                      Comma@17..18 ","
+                      Whitespace@18..19 " "
+                      Param@19..29
+                        Ident@19..20 "b"
+                        Colon@20..21 ":"
+                        Whitespace@21..22 " "
+                        MutKw@22..25 "mut"
+                        Whitespace@25..26 " "
+                        Type@26..29
+                          Ident@26..29 "int"
+                      RParen@29..30 ")"
+                    Whitespace@30..31 " "
+                    ReturnType@31..37
+                      ThinArrow@31..33 "->"
+                      Whitespace@33..34 " "
+                      Type@34..37
+                        Ident@34..37 "int"
+                    Whitespace@37..38 " "
+                    BlockExpr@38..40
+                      LCurly@38..39 "{"
+                      RCurly@39..40 "}"
+            "#]],
+        );
+    }
+
+    #[test]
     fn parse_function_with_block_definition() {
         check_debug_tree_in_block(
             "fn foo() -> int { 10 + 20 }",
@@ -512,7 +592,7 @@ mod tests {
                       Whitespace@28..29 " "
                       RCurly@29..30 "}"
                 error at 17..19: expected ':', but found ->
-                error at 17..19: expected identifier, ',' or ')', but found ->
+                error at 17..19: expected 'mut', identifier, ',' or ')', but found ->
             "#]],
         );
 
@@ -551,7 +631,7 @@ mod tests {
                       RCurly@27..28 "}"
                 error at 15..17: expected identifier, but found ->
                 error at 15..17: expected ':', but found ->
-                error at 15..17: expected identifier, ',' or ')', but found ->
+                error at 15..17: expected 'mut', identifier, ',' or ')', but found ->
             "#]],
         );
 
@@ -618,7 +698,7 @@ mod tests {
                           Integer@19..21 "10"
                       Whitespace@21..22 " "
                       RCurly@22..23 "}"
-                error at 10..12: expected identifier, ',' or ')', but found ->
+                error at 10..12: expected 'mut', identifier, ',' or ')', but found ->
             "#]],
         );
 
@@ -650,7 +730,7 @@ mod tests {
                       Whitespace@20..21 " "
                       RCurly@21..22 "}"
                 error at 9..11: expected ':', but found ->
-                error at 9..11: expected identifier, ',' or ')', but found ->
+                error at 9..11: expected 'mut', identifier, ',' or ')', but found ->
             "#]],
         );
 

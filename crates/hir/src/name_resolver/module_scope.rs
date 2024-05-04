@@ -426,7 +426,11 @@ impl<'a> ModuleScopesBuilder<'a> {
 
     fn build_stmt(&mut self, hir_file: HirFile, current_scope_idx: ModuleScopeIdx, stmt: &Stmt) {
         match stmt {
-            crate::Stmt::VariableDef { name: _, value } => {
+            crate::Stmt::VariableDef {
+                name: _,
+                mutable: _,
+                value,
+            } => {
                 self.build_expr(hir_file, current_scope_idx, *value);
             }
             crate::Stmt::ExprStmt {

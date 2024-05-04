@@ -368,7 +368,7 @@ impl<'a> BodyLower<'a> {
                 self.scopes.define(name, expr);
                 Stmt::VariableDef {
                     name,
-                    is_mutability: def.mut_token().is_some(),
+                    mutable: def.mut_token().is_some(),
                     value: expr,
                 }
             }
@@ -946,18 +946,14 @@ mod tests {
         match stmt {
             Stmt::VariableDef {
                 name,
-                is_mutability,
+                mutable,
                 value,
             } => {
                 let name = name.text(db);
                 let expr_str =
                     debug_expr(db, hir_file, resolution_map, scope_origin, *value, nesting);
-                let mutability = if *is_mutability {
-                    "mut ".to_string()
-                } else {
-                    "".to_string()
-                };
-                format!("{}let {mutability}{name} = {expr_str}\n", indent(nesting))
+                let mutable_text = crate::testing::format_mutable(*mutable);
+                format!("{}let {mutable_text}{name} = {expr_str}\n", indent(nesting))
             }
             Stmt::ExprStmt {
                 expr,

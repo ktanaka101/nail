@@ -216,7 +216,7 @@ impl<'a> InferBody<'a> {
         let ty = match stmt {
             hir::Stmt::VariableDef {
                 name: _,
-                is_mutability: _,
+                mutable: _,
                 value,
             } => {
                 let ty = self.infer_expr(*value);

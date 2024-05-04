@@ -552,17 +552,13 @@ mod tests {
             match stmt {
                 hir::Stmt::VariableDef {
                     name,
-                    is_mutability,
+                    mutable,
                     value,
                 } => {
                     let indent = indent(nesting);
                     let name = name.text(self.db);
                     let expr_str = self.debug_expr(hir_file, function, *value, nesting);
-                    let mut_text = if *is_mutability {
-                        "mut ".to_string()
-                    } else {
-                        "".to_string()
-                    };
+                    let mut_text = hir::testing::format_mutable(*mutable);
                     let mut stmt_str = format!("{indent}let {mut_text}{name} = {expr_str};");
 
                     let type_line = self.debug_type_line(function, *value);

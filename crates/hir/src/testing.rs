@@ -62,7 +62,7 @@ pub fn format_parameter(db: &dyn HirMasterDatabase, param_data: &ParamData) -> S
     } else {
         "<missing>"
     };
-    let mutable_text = if param_data.mutability { "mut " } else { "" };
+    let mutable_text = format_mutable(param_data.mutable);
     let ty = match param_data.ty {
         Type::Integer => "int",
         Type::String => "string",
@@ -72,4 +72,12 @@ pub fn format_parameter(db: &dyn HirMasterDatabase, param_data: &ParamData) -> S
         Type::Unknown => "<unknown>",
     };
     format!("{name}: {mutable_text}{ty}")
+}
+
+pub fn format_mutable(mutable: bool) -> &'static str {
+    if mutable {
+        "mut "
+    } else {
+        ""
+    }
 }

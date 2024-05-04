@@ -14,13 +14,13 @@ impl Param {
         name: Option<Name>,
         ty: Type,
         pos: usize,
-        mutability: bool,
+        mutable: bool,
     ) -> Self {
         hir_file_ctx.alloc_param(ParamData {
             name,
             ty,
             pos,
-            mutability,
+            mutable,
         })
     }
 
@@ -44,7 +44,7 @@ pub struct ParamData {
     /// 例: `fn f(x: int, y: int)` であれば `x` は `0` で `y` は `1`
     pub pos: usize,
     /// パラメータの可変性
-    pub mutability: bool,
+    pub mutable: bool,
 }
 
 /// 型を表す

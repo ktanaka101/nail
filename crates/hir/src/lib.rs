@@ -518,7 +518,7 @@ pub enum Stmt {
         /// 変数名
         name: Name,
         /// 可変性
-        is_mutability: bool,
+        mutable: bool,
         /// 初期値
         value: ExprId,
     },

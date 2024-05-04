@@ -592,7 +592,7 @@ impl<'a> FunctionLower<'a> {
             hir::Stmt::VariableDef {
                 name: _,
                 value,
-                is_mutability: _,
+                mutable: _,
             } => {
                 let local_idx = self.alloc_local(*value);
                 let operand = match self.lower_expr(*value) {

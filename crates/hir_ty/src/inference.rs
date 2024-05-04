@@ -224,7 +224,7 @@ impl<'a> InferBody<'a> {
                 self.mut_current_scope().insert(*value, ty_scheme);
                 ty
             }
-            hir::Stmt::ExprStmt {
+            hir::Stmt::Expr {
                 expr,
                 has_semicolon: _,
             } => self.infer_expr(*expr),

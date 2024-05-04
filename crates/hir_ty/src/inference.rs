@@ -214,7 +214,7 @@ impl<'a> InferBody<'a> {
 
     fn infer_stmt(&mut self, stmt: &hir::Stmt) -> bool {
         let ty = match stmt {
-            hir::Stmt::VariableDef {
+            hir::Stmt::Let {
                 name: _,
                 mutable: _,
                 value,

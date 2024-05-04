@@ -60,7 +60,7 @@ pub enum SyntaxKind {
 
     // ---statement nodes---
     /// `let IDENT: TYPE = EXPR`
-    VariableDef,
+    Let,
 
     // ---item nodes---
     /// `fn IDENT(ParamList) -> ReturnType BlockExpr`

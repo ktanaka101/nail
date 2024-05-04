@@ -550,7 +550,7 @@ mod tests {
             nesting: usize,
         ) -> String {
             match stmt {
-                hir::Stmt::VariableDef {
+                hir::Stmt::Let {
                     name,
                     mutable,
                     value,
@@ -1042,7 +1042,7 @@ mod tests {
     }
 
     #[test]
-    fn infer_variable_def() {
+    fn infer_let() {
         check_in_root_file(
             r#"
                 fn main() {
@@ -1064,7 +1064,7 @@ mod tests {
     }
 
     #[test]
-    fn infer_multiline_variable_def() {
+    fn infer_multiline_let() {
         check_in_root_file(
             r#"
                 fn main() {

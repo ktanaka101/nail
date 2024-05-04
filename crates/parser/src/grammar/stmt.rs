@@ -9,7 +9,7 @@ use crate::parser::{marker::CompletedNodeMarker, Parser, BLOCK_RECOVERY_SET};
 /// トップレベルのステートメントのパースと区別するために定義しています。
 pub(super) fn parse_stmt_on_block(parser: &mut Parser) -> Option<CompletedNodeMarker> {
     if parser.at(TokenKind::LetKw) {
-        Some(parse_variable_def(parser))
+        Some(parse_let(parser))
     } else if parser.at(TokenKind::FnKw) {
         Some(parse_function_def(parser, &BLOCK_RECOVERY_SET))
     } else if parser.at(TokenKind::ModKw) {
@@ -20,7 +20,7 @@ pub(super) fn parse_stmt_on_block(parser: &mut Parser) -> Option<CompletedNodeMa
 }
 
 /// ローカル変数の定義をパースする
-fn parse_variable_def(parser: &mut Parser) -> CompletedNodeMarker {
+fn parse_let(parser: &mut Parser) -> CompletedNodeMarker {
     assert!(parser.at(TokenKind::LetKw));
     let marker = parser.start();
     parser.bump();
@@ -38,7 +38,7 @@ fn parse_variable_def(parser: &mut Parser) -> CompletedNodeMarker {
         parser.bump();
     }
 
-    marker.complete(parser, SyntaxKind::VariableDef)
+    marker.complete(parser, SyntaxKind::Let)
 }
 
 /// 関数定義をパースする
@@ -194,12 +194,12 @@ mod tests {
     use crate::check_debug_tree_in_block;
 
     #[test]
-    fn parse_variable_definition() {
+    fn parse_let() {
         check_debug_tree_in_block(
             "let foo = bar",
             expect![[r#"
                 SourceFile@0..13
-                  VariableDef@0..13
+                  Let@0..13
                     LetKw@0..3 "let"
                     Whitespace@3..4 " "
                     Ident@4..7 "foo"
@@ -242,12 +242,12 @@ mod tests {
     }
 
     #[test]
-    fn parse_variable_definition_with_semicolon() {
+    fn parse_let_with_semicolon() {
         check_debug_tree_in_block(
             "let foo = 10;",
             expect![[r#"
                 SourceFile@0..13
-                  VariableDef@0..13
+                  Let@0..13
                     LetKw@0..3 "let"
                     Whitespace@3..4 " "
                     Ident@4..7 "foo"
@@ -262,12 +262,12 @@ mod tests {
     }
 
     #[test]
-    fn parse_variable_definition_mutable() {
+    fn parse_let_mutable() {
         check_debug_tree_in_block(
             "let mut foo = 10;",
             expect![[r#"
                 SourceFile@0..17
-                  VariableDef@0..17
+                  Let@0..17
                     LetKw@0..3 "let"
                     Whitespace@3..4 " "
                     MutKw@4..7 "mut"
@@ -289,7 +289,7 @@ mod tests {
             "let foo 10",
             expect![[r#"
                 SourceFile@0..10
-                  VariableDef@0..10
+                  Let@0..10
                     LetKw@0..3 "let"
                     Whitespace@3..4 " "
                     Ident@4..7 "foo"
@@ -308,7 +308,7 @@ mod tests {
             "let = 10",
             expect![[r#"
                 SourceFile@0..8
-                  VariableDef@0..8
+                  Let@0..8
                     LetKw@0..3 "let"
                     Whitespace@3..4 " "
                     Eq@4..5 "="
@@ -326,14 +326,14 @@ mod tests {
             "let a =\nlet b = a",
             expect![[r#"
                 SourceFile@0..17
-                  VariableDef@0..7
+                  Let@0..7
                     LetKw@0..3 "let"
                     Whitespace@3..4 " "
                     Ident@4..5 "a"
                     Whitespace@5..6 " "
                     Eq@6..7 "="
                   Whitespace@7..8 "\n"
-                  VariableDef@8..17
+                  Let@8..17
                     LetKw@8..11 "let"
                     Whitespace@11..12 " "
                     Ident@12..13 "b"
@@ -384,7 +384,7 @@ mod tests {
             "let a = 1\na",
             expect![[r#"
                 SourceFile@0..11
-                  VariableDef@0..9
+                  Let@0..9
                     LetKw@0..3 "let"
                     Whitespace@3..4 " "
                     Ident@4..5 "a"

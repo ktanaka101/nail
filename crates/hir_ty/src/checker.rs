@@ -57,6 +57,7 @@ struct FunctionTypeChecker<'a> {
     infer_result: &'a InferenceResult,
 
     hir_file: hir::HirFile,
+    hir_file_db: &'a hir::HirFileDatabase,
     function: hir::Function,
 
     errors: Vec<TypeCheckError>,
@@ -74,6 +75,7 @@ impl<'a> FunctionTypeChecker<'a> {
             db,
             infer_result,
             hir_file,
+            hir_file_db: hir_file.db(db),
             function,
             errors: vec![],
         }
@@ -113,7 +115,7 @@ impl<'a> FunctionTypeChecker<'a> {
             self.errors.push(TypeCheckError::UnresolvedType { expr });
         }
 
-        let expr = expr.lookup(self.hir_file.db(self.db));
+        let expr = expr.lookup(self.hir_file_db);
         match expr {
             hir::Expr::Symbol(_) => (),
             hir::Expr::Binary { lhs, rhs, .. } => {
@@ -139,7 +141,7 @@ impl<'a> FunctionTypeChecker<'a> {
 
                 match callee {
                     hir::Symbol::Local { binding, .. } => {
-                        let expr = binding.lookup(self.hir_file.db(self.db)).expr;
+                        let expr = binding.lookup(self.hir_file_db).expr;
                         self.check_expr(expr);
                     }
                     hir::Symbol::Param { .. } | hir::Symbol::Missing { .. } => (),

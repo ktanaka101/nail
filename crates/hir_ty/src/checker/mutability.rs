@@ -56,7 +56,7 @@ use crate::TypeCheckError;
 pub(crate) struct FunctionMutabilityChecker<'a> {
     db: &'a dyn hir::HirMasterDatabase,
     pod: &'a hir::Pod,
-    hir_file: hir::HirFile,
+    hir_file_db: &'a hir::HirFileDatabase,
     function: hir::Function,
 
     binding_by_expr: HashMap<hir::ExprId, hir::BindingId>,
@@ -72,7 +72,7 @@ impl<'a> FunctionMutabilityChecker<'a> {
         Self {
             db,
             pod,
-            hir_file,
+            hir_file_db: hir_file.db(db),
             function,
             binding_by_expr: HashMap::new(),
             errors: Vec::new(),
@@ -114,7 +114,7 @@ impl<'a> FunctionMutabilityChecker<'a> {
     }
 
     fn check_expr(&mut self, expr_id: hir::ExprId) {
-        let expr = expr_id.lookup(self.hir_file.db(self.db));
+        let expr = expr_id.lookup(self.hir_file_db);
         match expr {
             hir::Expr::Block(block) => {
                 for stmt in &block.stmts {
@@ -145,9 +145,9 @@ impl<'a> FunctionMutabilityChecker<'a> {
                 self.check_expr(*lhs);
                 self.check_expr(*rhs);
 
-                let lhs = lhs.lookup(self.hir_file.db(self.db));
+                let lhs = lhs.lookup(self.hir_file_db);
                 if let hir::Expr::Symbol(hir::Symbol::Local { binding, .. }) = lhs {
-                    let binding = binding.lookup(self.hir_file.db(self.db));
+                    let binding = binding.lookup(self.hir_file_db);
                     if *op == hir::BinaryOp::Assign && !binding.mutable {
                         self.errors
                             .push(TypeCheckError::ImmutableReassignment { expr: expr_id });

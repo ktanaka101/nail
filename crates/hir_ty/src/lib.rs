@@ -73,7 +73,7 @@ impl TyLowerResult {
     }
 
     /// 型推論エラーを取得します。
-    pub fn type_inference_errors_with_function(&self) -> Vec<(hir::Function, InferenceError)> {
+    pub fn type_inference_errors_with_function(&self) -> Vec<(hir::Function, &InferenceError)> {
         self.inference_result
             .inference_body_result_by_function
             .iter()
@@ -81,20 +81,18 @@ impl TyLowerResult {
                 inference_body_result
                     .errors
                     .iter()
-                    .map(|error| (*function, error.clone()))
+                    .map(|error| (*function, error))
             })
             .collect()
     }
 
     /// 型チェックエラーを取得します。
-    pub fn type_check_errors_with_function(&self) -> Vec<(hir::Function, TypeCheckError)> {
+    pub fn type_check_errors_with_function(&self) -> Vec<(hir::Function, &TypeCheckError)> {
         self.type_check_result
             .errors_by_function
             .iter()
             .flat_map(|(function, type_check_error)| {
-                type_check_error
-                    .iter()
-                    .map(|error| (*function, error.clone()))
+                type_check_error.iter().map(|error| (*function, error))
             })
             .collect()
     }

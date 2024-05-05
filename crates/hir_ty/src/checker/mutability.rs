@@ -49,8 +49,6 @@
 //! }
 //! ```
 
-use std::collections::HashMap;
-
 use crate::TypeCheckError;
 
 pub(crate) struct FunctionMutabilityChecker<'a> {
@@ -59,7 +57,6 @@ pub(crate) struct FunctionMutabilityChecker<'a> {
     hir_file_db: &'a hir::HirFileDatabase,
     function: hir::Function,
 
-    binding_by_expr: HashMap<hir::ExprId, hir::BindingId>,
     errors: Vec<TypeCheckError>,
 }
 impl<'a> FunctionMutabilityChecker<'a> {
@@ -74,7 +71,6 @@ impl<'a> FunctionMutabilityChecker<'a> {
             pod,
             hir_file_db: hir_file.db(db),
             function,
-            binding_by_expr: HashMap::new(),
             errors: Vec::new(),
         }
     }
@@ -101,8 +97,7 @@ impl<'a> FunctionMutabilityChecker<'a> {
                 expr,
                 has_semicolon: _,
             } => self.check_expr(*expr),
-            hir::Stmt::Let { value, binding, .. } => {
-                self.binding_by_expr.insert(*value, *binding);
+            hir::Stmt::Let { value, .. } => {
                 self.check_expr(*value);
             }
             hir::Stmt::Item { item } => match item {

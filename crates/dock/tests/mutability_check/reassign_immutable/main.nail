@@ -6,4 +6,10 @@ fn main() {
 //---stdout
 //---stderr
 
-// Ty error: [ImmutableReassignment { expr: ExprId(Idx::<Expr>(3)) }]
+// Error: Immutable reassignment
+//    ╭─[/{nail}/crates/dock/tests/mutability_check/reassign_immutable/main.nail:3:5]
+//    │
+//  3 │     a = 20;
+//    │     ───┬──  
+//    │        ╰──── cannot reassign to immutable variable
+// ───╯

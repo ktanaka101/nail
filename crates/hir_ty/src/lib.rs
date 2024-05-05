@@ -87,12 +87,15 @@ impl TyLowerResult {
     }
 
     /// 型チェックエラーを取得します。
-    pub fn type_check_errors(&self) -> Vec<TypeCheckError> {
+    pub fn type_check_errors_with_function(&self) -> Vec<(hir::Function, TypeCheckError)> {
         self.type_check_result
             .errors_by_function
-            .values()
-            .flatten()
-            .cloned()
+            .iter()
+            .flat_map(|(function, type_check_error)| {
+                type_check_error
+                    .iter()
+                    .map(|error| (*function, error.clone()))
+            })
             .collect()
     }
 }

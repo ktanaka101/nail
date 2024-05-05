@@ -3,7 +3,7 @@ pr_commands = ["/describe", "/review", "/improve"]
 
 [pr_description]
 generate_ai_title = true
-inline_file_summary = true
+inline_file_summary = false
 
 [pr_reviewer]
 num_code_suggestions = 4

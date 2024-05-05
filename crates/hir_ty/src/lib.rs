@@ -404,6 +404,12 @@ mod tests {
                                 self.debug_simplify_expr(hir_file, *expr),
                             ));
                         }
+                        TypeCheckError::ImmutableReassignment { expr } => {
+                            msg.push_str(&format!(
+                                "error ImmutableReassignment: expr: {}",
+                                self.debug_simplify_expr(hir_file, *expr),
+                            ));
+                        }
                     }
                     msg.push('\n');
                 }
@@ -1172,6 +1178,8 @@ mod tests {
                 error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: string, found_expr: `"aaa"`
                 error MismatchedType: expected_ty: int, found_ty: string, expected_expr: a, found_expr: `"aaa"`
                 ---
+                error ImmutableReassignment: expr: a = 20
+                error ImmutableReassignment: expr: a = "aaa"
             "#]],
         );
 
@@ -1237,7 +1245,7 @@ mod tests {
     }
 
     #[test]
-    fn aaa() {
+    fn infer_not() {
         check_in_root_file(
             r#"
                 fn main() -> bool {
@@ -2235,10 +2243,11 @@ mod tests {
 
     #[test]
     fn infer_while() {
+        println!("WARNING: mutable reassignment is BUG");
         check_in_root_file(
             r#"
                 fn main() -> int {
-                    let i = 1;
+                    let mut i = 1;
                     while i < 3 {
                         i = i + 1;
                     }
@@ -2249,7 +2258,7 @@ mod tests {
             expect![[r#"
                 //- /main.nail
                 fn entry:main() -> int {
-                    let i = 1; //: int
+                    let mut i = 1; //: int
                     loop {
                         if i < 3 {
                             i = i + 1; //: ()
@@ -2262,6 +2271,7 @@ mod tests {
 
                 ---
                 ---
+                error ImmutableReassignment: expr: i = i + 1
             "#]],
         );
     }
@@ -2499,6 +2509,37 @@ mod tests {
                 error MismatchedTypeReturnValue: expected_ty: int, found_ty: <unknown>, found_expr: `<missing>()`
                 ---
                 error Type is unknown: expr: <missing>()
+            "#]],
+        );
+    }
+
+    #[test]
+    fn check_reassignment_allow_mutable() {
+        println!("WARNING: mutable reassignment is BUG");
+        check_pod_start_with_root_file(
+            r#"
+                //- /main.nail
+                fn main() {
+                    let a = 10;
+                    a = 20;
+
+                    let mut b = 30;
+                    b = 40;
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    let a = 10; //: int
+                    a = 20; //: ()
+                    let mut b = 30; //: int
+                    b = 40; //: ()
+                }
+
+                ---
+                ---
+                error ImmutableReassignment: expr: a = 20
+                error ImmutableReassignment: expr: b = 40
             "#]],
         );
     }

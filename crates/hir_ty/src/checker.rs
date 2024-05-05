@@ -2,6 +2,8 @@ use indexmap::IndexMap;
 
 use crate::inference::{InferenceBodyResult, InferenceResult, Monotype};
 
+mod mutability;
+
 pub fn check_type_pods(
     db: &dyn hir::HirMasterDatabase,
     pods: &hir::Pods,
@@ -17,6 +19,16 @@ pub fn check_type_pods(
         errors_by_function.insert(function, type_errors);
     }
 
+    for (hir_file, function) in pod.all_functions(db) {
+        let mutability_checker =
+            mutability::FunctionMutabilityChecker::new(db, pod, hir_file, function);
+        let error = mutability_checker.check();
+        errors_by_function
+            .entry(function)
+            .or_insert_with(Vec::new)
+            .extend(error);
+    }
+
     TypeCheckResult { errors_by_function }
 }
 
@@ -26,6 +38,9 @@ pub enum TypeCheckError {
     /// 型を解決できない
     UnresolvedType {
         /// 対象の式
+        expr: hir::ExprId,
+    },
+    ImmutableReassignment {
         expr: hir::ExprId,
     },
 }

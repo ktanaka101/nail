@@ -110,6 +110,15 @@ pub enum NailExecutablePath {
     /// テストコードなど、簡易にnailファイルのみで実行したい場合に使用します。
     RootFile(path::PathBuf),
 }
+impl NailExecutablePath {
+    /// ファイルパスを取得します。
+    pub fn to_path(&self) -> &path::PathBuf {
+        match self {
+            NailExecutablePath::PodFile(pod_file_path) => pod_file_path,
+            NailExecutablePath::RootFile(root_nail_file_path) => root_nail_file_path,
+        }
+    }
+}
 
 /// Nailプログラムを実行します。
 ///

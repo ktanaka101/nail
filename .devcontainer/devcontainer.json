@@ -53,8 +53,7 @@
         "yzhang.markdown-all-in-one",
         "ms-azuretools.vscode-docker",
         "biomejs.biome",
-        "Codium.codium",
-        "Bito.Bito"
+        "Codium.codium"
       ]
     }
   },

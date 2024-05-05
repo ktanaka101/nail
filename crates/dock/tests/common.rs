@@ -42,21 +42,6 @@ pub(crate) fn check_single(dir_name: &str) {
         },
     }
 
-    fn normalize(stdout_or_stderr: String) -> String {
-        let path_pattern = Regex::new(r"(\[.*?)/crates/").unwrap();
-
-        return stdout_or_stderr
-            .lines()
-            .map(|line| normalize_path(line, &path_pattern))
-            .map(|line| format!("// {}", line))
-            .collect::<Vec<String>>()
-            .join("\n");
-
-        /// 環境が異なってもテストが通るようにパスを正規化します。
-        fn normalize_path(line: &str, path_pattern: &Regex) -> String {
-            path_pattern.replace(line, "[/{nail}/crates/").to_string()
-        }
-    }
     let stdout = String::from_utf8(out).unwrap();
     let stderr = String::from_utf8(err).unwrap();
     let stdout = normalize(stdout);
@@ -116,21 +101,6 @@ pub(crate) fn check_pod(dir_name: &str) {
         },
     }
 
-    fn normalize(stdout_or_stderr: String) -> String {
-        let path_pattern = Regex::new(r"(\[.*?)/crates/").unwrap();
-
-        return stdout_or_stderr
-            .lines()
-            .map(|line| normalize_path(line, &path_pattern))
-            .map(|line| format!("// {}", line))
-            .collect::<Vec<String>>()
-            .join("\n");
-
-        /// 環境が異なってもテストが通るようにパスを正規化します。
-        fn normalize_path(line: &str, path_pattern: &Regex) -> String {
-            path_pattern.replace(line, "[/{nail}/crates/").to_string()
-        }
-    }
     let stdout = String::from_utf8(out).unwrap();
     let stderr = String::from_utf8(err).unwrap();
     let stdout = normalize(stdout);
@@ -151,4 +121,20 @@ pub(crate) fn check_pod(dir_name: &str) {
     }
 
     expect_file![format!("{dir_name}/pod.toml")].assert_eq(&main_contents);
+}
+
+fn normalize(stdout_or_stderr: String) -> String {
+    let path_pattern = Regex::new(r"(\[.*?)/crates/").unwrap();
+
+    return stdout_or_stderr
+        .lines()
+        .map(|line| normalize_path(line, &path_pattern))
+        .map(|line| format!("// {}", line))
+        .collect::<Vec<String>>()
+        .join("\n");
+
+    /// 環境が異なってもテストが通るようにパスを正規化します。
+    fn normalize_path(line: &str, path_pattern: &Regex) -> String {
+        path_pattern.replace(line, "[/{nail}/crates/").to_string()
+    }
 }

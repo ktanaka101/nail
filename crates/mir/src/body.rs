@@ -191,9 +191,10 @@ impl<'a> FunctionLower<'a> {
                 hir::Symbol::Param { name: _, param } => LoweredExpr::Operand(Operand::Place(
                     Place::Param(self.get_param_by_expr(*param)),
                 )),
-                hir::Symbol::Local { name: _, expr } => LoweredExpr::Operand(Operand::Place(
-                    Place::Local(self.get_local_by_expr(*expr)),
-                )),
+                hir::Symbol::Local { binding, .. } => {
+                    let expr = binding.lookup(self.hir_file.db(self.db)).expr;
+                    LoweredExpr::Operand(Operand::Place(Place::Local(self.get_local_by_expr(expr))))
+                }
                 hir::Symbol::Missing { .. } => todo!(),
             },
             hir::Expr::Literal(literal) => match literal {
@@ -589,11 +590,7 @@ impl<'a> FunctionLower<'a> {
 
     fn lower_stmt(&mut self, stmt: &hir::Stmt) -> LoweredStmt {
         match stmt {
-            hir::Stmt::Let {
-                name: _,
-                value,
-                mutable: _,
-            } => {
+            hir::Stmt::Let { value, .. } => {
                 let local_idx = self.alloc_local(*value);
                 let operand = match self.lower_expr(*value) {
                     LoweredExpr::Operand(operand) => operand,

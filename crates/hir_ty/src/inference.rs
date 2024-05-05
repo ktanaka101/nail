@@ -216,7 +216,7 @@ impl<'a> InferBody<'a> {
         let ty = match stmt {
             hir::Stmt::Let {
                 name: _,
-                mutable: _,
+                binding: _,
                 value,
             } => {
                 let ty = self.infer_expr(*value);
@@ -240,8 +240,9 @@ impl<'a> InferBody<'a> {
                 let param = param.data(self.hir_file.db(self.db));
                 self.infer_type(&param.ty)
             }
-            hir::Symbol::Local { name: _, expr } => {
-                let ty_scheme = self.current_scope().get(expr).cloned();
+            hir::Symbol::Local { name: _, binding } => {
+                let expr = binding.lookup(self.hir_file.db(self.db)).expr;
+                let ty_scheme = self.current_scope().get(&expr).cloned();
                 if let Some(ty_scheme) = ty_scheme {
                     ty_scheme.instantiate(&mut self.cxt)
                 } else {

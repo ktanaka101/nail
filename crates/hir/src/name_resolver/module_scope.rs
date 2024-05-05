@@ -428,7 +428,7 @@ impl<'a> ModuleScopesBuilder<'a> {
         match stmt {
             crate::Stmt::Let {
                 name: _,
-                mutable: _,
+                binding: _,
                 value,
             } => {
                 self.build_expr(hir_file, current_scope_idx, *value);

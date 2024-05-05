@@ -153,7 +153,7 @@ impl FixtureDatabase {
     /// // `//- /main.nail`というファイル名で始まる行は、ソースコードのルートファイルとして扱われます。
     /// // この例では、/main.nailというエントリポイントと、/foo.nailというnailファイルが存在します。
     /// // /main.nailから、/foo.nailのbar関数が呼び出されています。
-    /// use hir::{FixtureDatabase, TestingDatabase};
+    /// use hir::{FixtureDatabase, testing::TestingDatabase};
     /// let db = TestingDatabase::default();
     /// let fixture_db = FixtureDatabase::new(&db, r#"
     ///    //- /main.nail

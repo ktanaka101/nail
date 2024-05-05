@@ -4,6 +4,10 @@ fn main() {
 }
 
 //---stdout
-//---stderr
 
-// Ty error: [ImmutableReassignment { expr: ExprId(Idx::<Expr>(3)) }]
+// {
+//   "nail_type": "Unit",
+//   "value": null
+// }
+
+//---stderr

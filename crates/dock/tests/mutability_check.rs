@@ -78,7 +78,6 @@ mod tests {
 
     #[test]
     fn reassign_immutable() {
-        println!("WARNING: mutable reassignment is BUG");
         check("reassign_immutable");
     }
 

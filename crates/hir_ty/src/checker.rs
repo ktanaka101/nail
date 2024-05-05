@@ -138,8 +138,9 @@ impl<'a> FunctionTypeChecker<'a> {
                 }
 
                 match callee {
-                    hir::Symbol::Local { expr, .. } => {
-                        self.check_expr(*expr);
+                    hir::Symbol::Local { binding, .. } => {
+                        let expr = binding.lookup(self.hir_file.db(self.db)).expr;
+                        self.check_expr(expr);
                     }
                     hir::Symbol::Param { .. } | hir::Symbol::Missing { .. } => (),
                 };

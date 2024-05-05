@@ -59,7 +59,7 @@ pub(crate) struct FunctionMutabilityChecker<'a> {
     hir_file: hir::HirFile,
     function: hir::Function,
 
-    mutable_by_expr: HashMap<hir::ExprId, bool>,
+    binding_by_expr: HashMap<hir::ExprId, hir::BindingId>,
     errors: Vec<TypeCheckError>,
 }
 impl<'a> FunctionMutabilityChecker<'a> {
@@ -74,7 +74,7 @@ impl<'a> FunctionMutabilityChecker<'a> {
             pod,
             hir_file,
             function,
-            mutable_by_expr: HashMap::new(),
+            binding_by_expr: HashMap::new(),
             errors: Vec::new(),
         }
     }
@@ -101,9 +101,9 @@ impl<'a> FunctionMutabilityChecker<'a> {
                 expr,
                 has_semicolon: _,
             } => self.check_expr(*expr),
-            hir::Stmt::Let { mutable, value, .. } => {
+            hir::Stmt::Let { value, binding, .. } => {
+                self.binding_by_expr.insert(*value, *binding);
                 self.check_expr(*value);
-                self.mutable_by_expr.insert(*value, *mutable);
             }
             hir::Stmt::Item { item } => match item {
                 hir::Item::Function(_) => (),
@@ -142,12 +142,13 @@ impl<'a> FunctionMutabilityChecker<'a> {
                 hir::Symbol::Missing { .. } => (),
             },
             hir::Expr::Binary { op, lhs, rhs } => {
+                self.check_expr(*lhs);
                 self.check_expr(*rhs);
 
-                if *op == hir::BinaryOp::Assign {
-                    let lhs_is_mutable = self.mutable_by_expr.get(lhs).copied().unwrap_or(false);
-                    dbg!(&self.mutable_by_expr, lhs, lhs_is_mutable);
-                    if !lhs_is_mutable {
+                let lhs = lhs.lookup(self.hir_file.db(self.db));
+                if let hir::Expr::Symbol(hir::Symbol::Local { binding, .. }) = lhs {
+                    let binding = binding.lookup(self.hir_file.db(self.db));
+                    if *op == hir::BinaryOp::Assign && !binding.mutable {
                         self.errors
                             .push(TypeCheckError::ImmutableReassignment { expr: expr_id });
                     }
@@ -163,9 +164,7 @@ impl<'a> FunctionMutabilityChecker<'a> {
                 }
 
                 match callee {
-                    hir::Symbol::Local { expr, .. } => {
-                        self.check_expr(*expr);
-                    }
+                    hir::Symbol::Local { .. } => (),
                     hir::Symbol::Param { .. } => (),
                     hir::Symbol::Missing { .. } => (),
                 }

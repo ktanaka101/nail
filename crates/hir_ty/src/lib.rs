@@ -558,13 +558,14 @@ mod tests {
             match stmt {
                 hir::Stmt::Let {
                     name,
-                    mutable,
+                    binding,
                     value,
                 } => {
                     let indent = indent(nesting);
                     let name = name.text(self.db);
                     let expr_str = self.debug_expr(hir_file, function, *value, nesting);
-                    let mut_text = hir::testing::format_mutable(*mutable);
+                    let binding = binding.lookup(hir_file.db(self.db));
+                    let mut_text = hir::testing::format_mutable(binding.mutable);
                     let mut stmt_str = format!("{indent}let {mut_text}{name} = {expr_str};");
 
                     let type_line = self.debug_type_line(function, *value);
@@ -835,7 +836,7 @@ mod tests {
 
         fn debug_symbol(&self, symbol: &hir::Symbol) -> String {
             match &symbol {
-                hir::Symbol::Local { name, expr: _ } => name.text(self.db).to_string(),
+                hir::Symbol::Local { name, binding: _ } => name.text(self.db).to_string(),
                 hir::Symbol::Param { name, .. } => {
                     let name = name.text(self.db);
                     format!("param:{name}")
@@ -2243,7 +2244,6 @@ mod tests {
 
     #[test]
     fn infer_while() {
-        println!("WARNING: mutable reassignment is BUG");
         check_in_root_file(
             r#"
                 fn main() -> int {
@@ -2271,7 +2271,6 @@ mod tests {
 
                 ---
                 ---
-                error ImmutableReassignment: expr: i = i + 1
             "#]],
         );
     }
@@ -2515,7 +2514,6 @@ mod tests {
 
     #[test]
     fn check_reassignment_allow_mutable() {
-        println!("WARNING: mutable reassignment is BUG");
         check_pod_start_with_root_file(
             r#"
                 //- /main.nail
@@ -2539,7 +2537,41 @@ mod tests {
                 ---
                 ---
                 error ImmutableReassignment: expr: a = 20
-                error ImmutableReassignment: expr: b = 40
+            "#]],
+        );
+    }
+
+    #[test]
+    fn check_multiple_reassignment_reference_latest_mutable() {
+        check_pod_start_with_root_file(
+            r#"
+                //- /main.nail
+                fn main() {
+                    let a = 10;
+                    a = 20;
+
+                    let mut a = 40;
+                    a = 50;
+
+                    let a = 70;
+                    a = 80;
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    let a = 10; //: int
+                    a = 20; //: ()
+                    let mut a = 40; //: int
+                    a = 50; //: ()
+                    let a = 70; //: int
+                    a = 80; //: ()
+                }
+
+                ---
+                ---
+                error ImmutableReassignment: expr: a = 20
+                error ImmutableReassignment: expr: a = 80
             "#]],
         );
     }

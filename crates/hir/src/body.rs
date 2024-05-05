@@ -6,17 +6,33 @@ use ast::AstNode;
 use la_arena::{Arena, Idx};
 
 use crate::{
-    body::scopes::ExprScopes, item::ParamData, AstPtr, BinaryOp, Block, Expr, ExprSource, Function,
-    FunctionSource, HirFileSourceMap, HirMasterDatabase, InFile, Item, Literal, Module, ModuleKind,
-    NailFile, NailGreenNode, Name, NameSolutionPath, Param, Path, Stmt, Symbol, Type, UnaryOp,
-    UseItem,
+    body::scopes::ExprScopes, item::ParamData, AstPtr, BinaryOp, Binding, Block, Expr, ExprSource,
+    Function, FunctionSource, HirFileSourceMap, HirMasterDatabase, InFile, Item, Literal, Module,
+    ModuleKind, NailFile, NailGreenNode, Name, NameSolutionPath, Param, Path, Stmt, Symbol, Type,
+    UnaryOp, UseItem,
 };
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BindingId(Idx<Binding>);
+impl BindingId {
+    /// Retrieves the binding associated with this ID, given a context
+    #[inline]
+    pub fn lookup(self, ctx: &HirFileDatabase) -> &Binding {
+        &ctx.bindings[self.0]
+    }
+
+    #[inline]
+    pub fn lookup_expr(self, ctx: &HirFileDatabase) -> &Expr {
+        ctx.bindings[self.0].expr.lookup(ctx)
+    }
+}
 
 /// Represents a unique ID for an expression in HIR
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ExprId(Idx<Expr>);
 impl ExprId {
     /// Retrieves the expression associated with this ID, given a context
+    #[inline]
     pub fn lookup(self, ctx: &HirFileDatabase) -> &Expr {
         &ctx.exprs[self.0]
     }
@@ -66,6 +82,8 @@ pub struct HirFileDatabase {
     params: Arena<ParamData>,
 
     exprs: Arena<Expr>,
+    bindings: Arena<Binding>,
+
     function_body_by_ast_block: HashMap<AstPtr<ast::BlockExpr>, FunctionBodyId>,
 
     /// 関数(HIR)を元に関数定義のASTノードを取得するためのマップ
@@ -82,6 +100,7 @@ impl HirFileDatabase {
             modules: vec![],
             params: Arena::new(),
             exprs: Arena::new(),
+            bindings: Arena::new(),
             function_body_by_ast_block: HashMap::new(),
             ast_by_function: HashMap::new(),
             body_expr_by_function: HashMap::new(),
@@ -365,10 +384,19 @@ impl<'a> BodyLower<'a> {
             ast::Stmt::Let(def) => {
                 let expr = self.lower_expr(db, def.value());
                 let name = Name::new(db, def.name()?.name().to_owned());
-                self.scopes.define(name, expr);
+                let mutable = def.mut_token().is_some();
+
+                let binding = Binding {
+                    name,
+                    mutable,
+                    expr,
+                };
+                let binding_id = self.alloc_binding(binding);
+
+                self.scopes.define(name, binding_id);
                 Stmt::Let {
                     name,
-                    mutable: def.mut_token().is_some(),
+                    binding: binding_id,
                     value: expr,
                 }
             }
@@ -450,6 +478,10 @@ impl<'a> BodyLower<'a> {
                 }
             }
         }
+    }
+
+    fn alloc_binding(&mut self, binding: Binding) -> BindingId {
+        BindingId(self.hir_file_db.bindings.alloc(binding))
     }
 
     fn alloc_expr(&mut self, ast_expr: &ast::Expr, expr: Expr) -> ExprId {
@@ -537,15 +569,15 @@ impl<'a> BodyLower<'a> {
         match path.segments(db).as_slice() {
             [name] => {
                 let name = *name;
-                if let Some(expr) = self.scopes.lookup_in_only_current_scope(name) {
-                    Symbol::Local { name, expr }
+                if let Some(binding) = self.scopes.lookup_in_only_current_scope(name) {
+                    Symbol::Local { name, binding }
                 } else if let Some(param_id) = self.lookup_param(name) {
                     Symbol::Param {
                         name,
                         param: param_id,
                     }
-                } else if let Some(expr) = self.scopes.lookup(name) {
-                    Symbol::Local { name, expr }
+                } else if let Some(binding) = self.scopes.lookup(name) {
+                    Symbol::Local { name, binding }
                 } else {
                     Symbol::Missing {
                         path: NameSolutionPath::new(db, Path::new(db, vec![name])),
@@ -946,13 +978,14 @@ mod tests {
         match stmt {
             Stmt::Let {
                 name,
-                mutable,
+                binding,
                 value,
             } => {
                 let name = name.text(db);
                 let expr_str =
                     debug_expr(db, hir_file, resolution_map, scope_origin, *value, nesting);
-                let mutable_text = crate::testing::format_mutable(*mutable);
+                let binding = binding.lookup(hir_file.db(db));
+                let mutable_text = crate::testing::format_mutable(binding.mutable);
                 format!("{}let {mutable_text}{name} = {expr_str}\n", indent(nesting))
             }
             Stmt::Expr {
@@ -1138,24 +1171,27 @@ mod tests {
         nesting: usize,
     ) -> String {
         match &symbol {
-            Symbol::Local { name, expr } => match expr.lookup(hir_file.db(db)) {
-                Expr::Symbol { .. }
-                | Expr::Binary { .. }
-                | Expr::Missing
-                | Expr::Literal(_)
-                | Expr::Unary { .. }
-                | Expr::Call { .. }
-                | Expr::If { .. }
-                | Expr::Return { .. }
-                | Expr::Loop { .. }
-                | Expr::Continue
-                | Expr::Break { .. } => {
-                    let expr_text =
-                        debug_expr(db, hir_file, resolution_map, scope_origin, *expr, nesting);
-                    format!("${}:{}", name.text(db), expr_text)
+            Symbol::Local { name, binding } => {
+                let expr = binding.lookup(hir_file.db(db)).expr;
+                match expr.lookup(hir_file.db(db)) {
+                    Expr::Symbol { .. }
+                    | Expr::Binary { .. }
+                    | Expr::Missing
+                    | Expr::Literal(_)
+                    | Expr::Unary { .. }
+                    | Expr::Call { .. }
+                    | Expr::If { .. }
+                    | Expr::Return { .. }
+                    | Expr::Loop { .. }
+                    | Expr::Continue
+                    | Expr::Break { .. } => {
+                        let expr_text =
+                            debug_expr(db, hir_file, resolution_map, scope_origin, expr, nesting);
+                        format!("${}:{}", name.text(db), expr_text)
+                    }
+                    Expr::Block { .. } => name.text(db).to_string(),
                 }
-                Expr::Block { .. } => name.text(db).to_string(),
-            },
+            }
             Symbol::Param { name, .. } => {
                 let name = name.text(db);
                 format!("param:{name}")

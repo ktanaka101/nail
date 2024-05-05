@@ -5,8 +5,6 @@ use regex::Regex;
 /// 例えば、`tests/type_check/return_type_match`の場合、`dir_name`に`type_check/return_type_match`を指定します。
 #[allow(dead_code)]
 pub(crate) fn check_single(dir_name: &str) {
-    use expect_test::expect_file;
-
     let mut out = Vec::new();
     let mut err = Vec::new();
 

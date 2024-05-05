@@ -150,22 +150,31 @@ pub fn execute(
                 .root_pod
                 .source_map_by_function(&db, *function)
                 .unwrap();
-
-            print_error(
-                &db,
-                *hir_file,
-                hir_file.db(&db),
-                source_map,
-                error,
-                write_dest_err,
-                config,
+            let file_db = hir_file.db(&db);
+            let diagnostic = diagnostic::Diagnostic::from_hir_ty_inference_error(
+                &db, *hir_file, file_db, source_map, error,
             );
+
+            print_error(&db, diagnostic, write_dest_err, config);
         }
         return Err(ExecutionError::Nail);
     }
-    let type_check_errors = ty_result.type_check_errors();
+
+    let type_check_errors = ty_result.type_check_errors_with_function();
     if !type_check_errors.is_empty() {
-        write_dest_err.write_all(format!("Ty error: {:?}", type_check_errors).as_bytes())?;
+        for (function, error) in &type_check_errors {
+            let hir_file = pods.root_pod.get_hir_file_by_function(*function).unwrap();
+            let source_map = pods
+                .root_pod
+                .source_map_by_function(&db, *function)
+                .unwrap();
+            let file_db = hir_file.db(&db);
+            let diagnostic = diagnostic::Diagnostic::from_hir_ty_check_error(
+                &db, *hir_file, file_db, source_map, error,
+            );
+
+            print_error(&db, diagnostic, write_dest_err, config);
+        }
         return Err(ExecutionError::Nail);
     }
 
@@ -202,16 +211,10 @@ pub fn execute(
 
 fn print_error(
     db: &base_db::SalsaDatabase,
-    hir_file: hir::HirFile,
-    file_db: &hir::HirFileDatabase,
-    source_map: &hir::HirFileSourceMap,
-    error: &hir_ty::InferenceError,
+    diagnostic: diagnostic::Diagnostic,
     write_dest_err: &mut impl std::io::Write,
     config: ariadne::Config,
 ) {
-    let diagnostic = diagnostic::Diagnostic::from_hir_ty_inference_error(
-        db, hir_file, file_db, source_map, error,
-    );
     let file = diagnostic.file;
     let file_path = file.file_path(db).to_str().unwrap().to_string();
     let labels = diagnostic.messages.into_iter().map(|message| {

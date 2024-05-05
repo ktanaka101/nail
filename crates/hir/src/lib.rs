@@ -35,7 +35,7 @@ pub mod testing;
 use std::{collections::HashMap, marker::PhantomData};
 
 use ast::AstNode;
-pub use body::{BodyLower, ExprId, FunctionBodyId, HirFileDatabase};
+pub use body::{BindingId, BodyLower, ExprId, FunctionBodyId, HirFileDatabase};
 pub use db::{HirMasterDatabase, Jar};
 pub use input::{FixtureDatabase, NailFile, SourceDatabase, SourceDatabaseTrait};
 pub use item::{Function, Item, Module, ModuleKind, Param, Type, UseItem};
@@ -517,8 +517,8 @@ pub enum Stmt {
     Let {
         /// 変数名
         name: Name,
-        /// 可変性
-        mutable: bool,
+        /// バインディング情報
+        binding: BindingId,
         /// 初期値
         value: ExprId,
     },
@@ -691,14 +691,15 @@ pub enum Symbol {
         /// パラメータ名
         name: Name,
         /// パラメータ
+        /// TODO: use binding
         param: Param,
     },
     /// ローカル変数
     Local {
         /// 変数名
         name: Name,
-        /// 式
-        expr: ExprId,
+        /// バインディング情報
+        binding: BindingId,
     },
     /// 解決できないシンボル
     ///
@@ -755,4 +756,12 @@ impl Block {
             None
         }
     }
+}
+
+/// An expr binding in HIR
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Binding {
+    pub name: Name,
+    pub mutable: bool,
+    pub expr: ExprId,
 }

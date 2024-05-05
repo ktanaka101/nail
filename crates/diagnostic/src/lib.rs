@@ -505,6 +505,42 @@ impl Diagnostic {
             }
         }
     }
+
+    /// hir_tyのチェックエラー情報を元に診断情報を作成します。
+    pub fn from_hir_ty_check_error(
+        db: &base_db::SalsaDatabase,
+        _hir_file: hir::HirFile,
+        _file_db: &hir::HirFileDatabase,
+        source_map: &hir::HirFileSourceMap,
+        error: &hir_ty::TypeCheckError,
+    ) -> Self {
+        match error {
+            hir_ty::TypeCheckError::UnresolvedType { expr } => {
+                let text_range = expr.text_range(db, source_map);
+                Diagnostic {
+                    file: source_map.file(db),
+                    title: "Unresolved type".to_string(),
+                    head_offset: text_range.start().into(),
+                    messages: vec![Message {
+                        message: "cannot resolve type".to_string(),
+                        range: text_range,
+                    }],
+                }
+            }
+            hir_ty::TypeCheckError::ImmutableReassignment { expr } => {
+                let text_range = expr.text_range(db, source_map);
+                Diagnostic {
+                    file: source_map.file(db),
+                    title: "Immutable reassignment".to_string(),
+                    head_offset: text_range.start().into(),
+                    messages: vec![Message {
+                        message: "cannot reassign to immutable variable".to_string(),
+                        range: text_range,
+                    }],
+                }
+            }
+        }
+    }
 }
 
 /// 診断情報のメッセージ

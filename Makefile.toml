@@ -72,14 +72,21 @@ install_crate = false
 private = true
 extend = "nail_clippy"
 
-
 [tasks.nail_test]
+private = true
+run_task = { name = ["nail_test_code", "nail_test_docs"], parallel = false }
+
+[tasks.nail_test-ci]
+private = true
+run_task = { name = ["nail_test_code-ci", "nail_test_docs"], parallel = false }
+
+[tasks.nail_test_code]
 private = true
 command = "cargo"
 args = ["nextest", "run", "--workspace"]
 install_crate = false
 
-[tasks.nail_test-ci]
+[tasks.nail_test_code-ci]
 private = true
 command = "cargo"
 args = [
@@ -92,10 +99,18 @@ args = [
 ]
 install_crate = false
 
+[tasks.nail_test_docs]
+private = true
+command = "cargo"
+args = ["test", "--workspace", "--doc"]
+install_crate = false
+
+
 [tasks.nail_test_update]
 private = true
 command = "cargo"
-args = ["nextest", "run", "--workspace"]
+# Run in one thread to avoid file update conflicts.
+args = ["test", "--workspace"]
 install_crate = false
 env = { "UPDATE_EXPECT" = "1" }
 

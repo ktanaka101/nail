@@ -2,7 +2,8 @@
 
 use std::collections::HashMap;
 
-use crate::{ExprId, Name};
+use super::BindingId;
+use crate::Name;
 
 /// スコープ種別
 ///
@@ -34,14 +35,14 @@ impl ExprScopes {
     }
 
     #[must_use]
-    pub(crate) fn lookup_in_only_current_scope(&self, name: Name) -> Option<ExprId> {
+    pub(crate) fn lookup_in_only_current_scope(&self, name: Name) -> Option<BindingId> {
         assert!(!self.inner.is_empty());
 
         self.inner.last().unwrap().table.get(&name).copied()
     }
 
     #[must_use]
-    pub(crate) fn lookup(&self, name: Name) -> Option<ExprId> {
+    pub(crate) fn lookup(&self, name: Name) -> Option<BindingId> {
         assert!(!self.inner.is_empty());
 
         for scope in self.inner.iter().rev() {
@@ -53,7 +54,7 @@ impl ExprScopes {
         None
     }
 
-    pub(crate) fn define(&mut self, name: Name, value: ExprId) {
+    pub(crate) fn define(&mut self, name: Name, value: BindingId) {
         assert!(!self.inner.is_empty());
 
         self.inner.last_mut().unwrap().table.insert(name, value);
@@ -72,7 +73,7 @@ impl ExprScopes {
 
 #[derive(Debug)]
 struct ExprScope {
-    table: HashMap<Name, ExprId>,
+    table: HashMap<Name, BindingId>,
     _scope_type: ScopeType,
 }
 impl ExprScope {

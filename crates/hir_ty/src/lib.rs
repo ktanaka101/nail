@@ -73,7 +73,7 @@ impl TyLowerResult {
     }
 
     /// 型推論エラーを取得します。
-    pub fn type_inference_errors_with_function(&self) -> Vec<(hir::Function, InferenceError)> {
+    pub fn type_inference_errors_with_function(&self) -> Vec<(hir::Function, &InferenceError)> {
         self.inference_result
             .inference_body_result_by_function
             .iter()
@@ -81,18 +81,19 @@ impl TyLowerResult {
                 inference_body_result
                     .errors
                     .iter()
-                    .map(|error| (*function, error.clone()))
+                    .map(|error| (*function, error))
             })
             .collect()
     }
 
     /// 型チェックエラーを取得します。
-    pub fn type_check_errors(&self) -> Vec<TypeCheckError> {
+    pub fn type_check_errors_with_function(&self) -> Vec<(hir::Function, &TypeCheckError)> {
         self.type_check_result
             .errors_by_function
-            .values()
-            .flatten()
-            .cloned()
+            .iter()
+            .flat_map(|(function, type_check_error)| {
+                type_check_error.iter().map(|error| (*function, error))
+            })
             .collect()
     }
 }
@@ -404,6 +405,12 @@ mod tests {
                                 self.debug_simplify_expr(hir_file, *expr),
                             ));
                         }
+                        TypeCheckError::ImmutableReassignment { expr } => {
+                            msg.push_str(&format!(
+                                "error ImmutableReassignment: expr: {}",
+                                self.debug_simplify_expr(hir_file, *expr),
+                            ));
+                        }
                     }
                     msg.push('\n');
                 }
@@ -552,13 +559,14 @@ mod tests {
             match stmt {
                 hir::Stmt::Let {
                     name,
-                    mutable,
+                    binding,
                     value,
                 } => {
                     let indent = indent(nesting);
                     let name = name.text(self.db);
                     let expr_str = self.debug_expr(hir_file, function, *value, nesting);
-                    let mut_text = hir::testing::format_mutable(*mutable);
+                    let binding = binding.lookup(hir_file.db(self.db));
+                    let mut_text = hir::testing::format_mutable(binding.mutable);
                     let mut stmt_str = format!("{indent}let {mut_text}{name} = {expr_str};");
 
                     let type_line = self.debug_type_line(function, *value);
@@ -829,7 +837,7 @@ mod tests {
 
         fn debug_symbol(&self, symbol: &hir::Symbol) -> String {
             match &symbol {
-                hir::Symbol::Local { name, expr: _ } => name.text(self.db).to_string(),
+                hir::Symbol::Local { name, binding: _ } => name.text(self.db).to_string(),
                 hir::Symbol::Param { name, .. } => {
                     let name = name.text(self.db);
                     format!("param:{name}")
@@ -1172,6 +1180,8 @@ mod tests {
                 error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: string, found_expr: `"aaa"`
                 error MismatchedType: expected_ty: int, found_ty: string, expected_expr: a, found_expr: `"aaa"`
                 ---
+                error ImmutableReassignment: expr: a = 20
+                error ImmutableReassignment: expr: a = "aaa"
             "#]],
         );
 
@@ -1237,7 +1247,7 @@ mod tests {
     }
 
     #[test]
-    fn aaa() {
+    fn infer_not() {
         check_in_root_file(
             r#"
                 fn main() -> bool {
@@ -2238,7 +2248,7 @@ mod tests {
         check_in_root_file(
             r#"
                 fn main() -> int {
-                    let i = 1;
+                    let mut i = 1;
                     while i < 3 {
                         i = i + 1;
                     }
@@ -2249,7 +2259,7 @@ mod tests {
             expect![[r#"
                 //- /main.nail
                 fn entry:main() -> int {
-                    let i = 1; //: int
+                    let mut i = 1; //: int
                     loop {
                         if i < 3 {
                             i = i + 1; //: ()
@@ -2499,6 +2509,70 @@ mod tests {
                 error MismatchedTypeReturnValue: expected_ty: int, found_ty: <unknown>, found_expr: `<missing>()`
                 ---
                 error Type is unknown: expr: <missing>()
+            "#]],
+        );
+    }
+
+    #[test]
+    fn check_reassignment_allow_mutable() {
+        check_pod_start_with_root_file(
+            r#"
+                //- /main.nail
+                fn main() {
+                    let a = 10;
+                    a = 20;
+
+                    let mut b = 30;
+                    b = 40;
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    let a = 10; //: int
+                    a = 20; //: ()
+                    let mut b = 30; //: int
+                    b = 40; //: ()
+                }
+
+                ---
+                ---
+                error ImmutableReassignment: expr: a = 20
+            "#]],
+        );
+    }
+
+    #[test]
+    fn check_multiple_reassignment_reference_latest_mutable() {
+        check_pod_start_with_root_file(
+            r#"
+                //- /main.nail
+                fn main() {
+                    let a = 10;
+                    a = 20;
+
+                    let mut a = 40;
+                    a = 50;
+
+                    let a = 70;
+                    a = 80;
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    let a = 10; //: int
+                    a = 20; //: ()
+                    let mut a = 40; //: int
+                    a = 50; //: ()
+                    let a = 70; //: int
+                    a = 80; //: ()
+                }
+
+                ---
+                ---
+                error ImmutableReassignment: expr: a = 20
+                error ImmutableReassignment: expr: a = 80
             "#]],
         );
     }

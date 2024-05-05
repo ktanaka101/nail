@@ -1,0 +1,15 @@
+fn main() {
+    let a = 10;
+    a = 20;
+}
+
+//---stdout
+//---stderr
+
+// Error: Immutable reassignment
+//    ╭─[/{nail}/crates/dock/tests/mutability_check/reassign_immutable/main.nail:3:5]
+//    │
+//  3 │     a = 20;
+//    │     ───┬──  
+//    │        ╰──── cannot reassign to immutable variable
+// ───╯

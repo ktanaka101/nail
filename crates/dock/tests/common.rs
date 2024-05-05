@@ -6,7 +6,6 @@ use regex::Regex;
 #[allow(dead_code)]
 pub(crate) fn check_single(dir_name: &str) {
     use expect_test::expect_file;
-    use regex::Regex;
 
     let mut out = Vec::new();
     let mut err = Vec::new();

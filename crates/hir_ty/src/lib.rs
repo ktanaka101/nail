@@ -237,8 +237,7 @@ mod tests {
                         } => {
                             msg.push_str(
                             &format!(
-                                "error MismatchedBinaryInteger: op: {}, expected_ty: {}, found_ty: {}, found_expr: `{}`",
-                                self.debug_binary_op(*op),
+                                "error MismatchedBinaryInteger: op: {op}, expected_ty: {}, found_ty: {}, found_expr: `{}`",
                                 self.debug_monotype(expected_int_ty),
                                 self.debug_monotype(found_ty),
                                 self.debug_simplify_expr(hir_file, *found_expr),
@@ -253,8 +252,7 @@ mod tests {
                         } => {
                             msg.push_str(
                             &format!(
-                                "error MismatchedBinaryCompare: op: {}, expected_ty: {}, found_ty: {}, expected_expr: `{}`, found_expr: `{}`",
-                                self.debug_binary_op(*op),
+                                "error MismatchedBinaryCompare: op: {op}, expected_ty: {}, found_ty: {}, expected_expr: `{}`, found_expr: `{}`",
                                 self.debug_monotype(compare_from_ty),
                                 self.debug_monotype(compare_to_ty),
                                 self.debug_simplify_expr(hir_file, *compare_from_expr),
@@ -630,19 +628,6 @@ mod tests {
                     hir::Literal::Integer(i) => i.to_string(),
                 },
                 hir::Expr::Binary { op, lhs, rhs } => {
-                    let op = match op {
-                        hir::BinaryOp::Add => "+",
-                        hir::BinaryOp::Sub => "-",
-                        hir::BinaryOp::Mul => "*",
-                        hir::BinaryOp::Div => "/",
-                        hir::BinaryOp::Equal => "==",
-                        hir::BinaryOp::NotEq => "!=",
-                        hir::BinaryOp::GreaterThan => ">",
-                        hir::BinaryOp::LessThan => "<",
-                        hir::BinaryOp::GtEq => ">=",
-                        hir::BinaryOp::LtEq => "<=",
-                        hir::BinaryOp::Assign => "=",
-                    };
                     let lhs_str = self.debug_expr(hir_file, function, *lhs, nesting);
                     let rhs_str = self.debug_expr(hir_file, function, *rhs, nesting);
                     format!("{lhs_str} {op} {rhs_str}")
@@ -742,19 +727,7 @@ mod tests {
                     hir::Literal::Integer(i) => i.to_string(),
                 },
                 hir::Expr::Binary { op, lhs, rhs } => {
-                    let op = match op {
-                        hir::BinaryOp::Add => "+",
-                        hir::BinaryOp::Sub => "-",
-                        hir::BinaryOp::Mul => "*",
-                        hir::BinaryOp::Div => "/",
-                        hir::BinaryOp::Equal => "==",
-                        hir::BinaryOp::NotEq => "!=",
-                        hir::BinaryOp::GreaterThan => ">",
-                        hir::BinaryOp::LessThan => "<",
-                        hir::BinaryOp::GtEq => ">=",
-                        hir::BinaryOp::LtEq => "<=",
-                        hir::BinaryOp::Assign => "=",
-                    };
+                    let op = op.to_string();
                     let lhs_str = self.debug_simplify_expr(hir_file, *lhs);
                     let rhs_str = self.debug_simplify_expr(hir_file, *rhs);
                     format!("{lhs_str} {op} {rhs_str}")
@@ -853,23 +826,6 @@ mod tests {
                     self.debug_resolution_status(resolving_status)
                 }
             }
-        }
-
-        fn debug_binary_op(&self, op: hir::BinaryOp) -> String {
-            match op {
-                hir::BinaryOp::Add => "+",
-                hir::BinaryOp::Sub => "-",
-                hir::BinaryOp::Mul => "*",
-                hir::BinaryOp::Div => "/",
-                hir::BinaryOp::Equal => "==",
-                hir::BinaryOp::NotEq => "!=",
-                hir::BinaryOp::GreaterThan => ">",
-                hir::BinaryOp::LessThan => "<",
-                hir::BinaryOp::GtEq => ">=",
-                hir::BinaryOp::LtEq => "<=",
-                hir::BinaryOp::Assign => "=",
-            }
-            .to_string()
         }
 
         fn debug_unary_op(&self, op: hir::UnaryOp) -> String {

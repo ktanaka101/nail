@@ -578,6 +578,23 @@ pub enum BinaryOp {
     /// `=`
     Assign,
 }
+impl std::fmt::Display for BinaryOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BinaryOp::Add => write!(f, "+"),
+            BinaryOp::Sub => write!(f, "-"),
+            BinaryOp::Mul => write!(f, "*"),
+            BinaryOp::Div => write!(f, "/"),
+            BinaryOp::Equal => write!(f, "=="),
+            BinaryOp::NotEq => write!(f, "!="),
+            BinaryOp::GreaterThan => write!(f, ">"),
+            BinaryOp::LessThan => write!(f, "<"),
+            BinaryOp::GtEq => write!(f, ">="),
+            BinaryOp::LtEq => write!(f, "<="),
+            BinaryOp::Assign => write!(f, "="),
+        }
+    }
+}
 
 /// 単項演算子
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

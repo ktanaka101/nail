@@ -1023,19 +1023,6 @@ mod tests {
                 Literal::Integer(i) => i.to_string(),
             },
             Expr::Binary { op, lhs, rhs } => {
-                let op = match op {
-                    BinaryOp::Add => "+",
-                    BinaryOp::Sub => "-",
-                    BinaryOp::Mul => "*",
-                    BinaryOp::Div => "/",
-                    BinaryOp::Equal => "==",
-                    BinaryOp::NotEq => "!=",
-                    BinaryOp::GreaterThan => ">",
-                    BinaryOp::LessThan => "<",
-                    BinaryOp::GtEq => ">=",
-                    BinaryOp::LtEq => "<=",
-                    BinaryOp::Assign => "=",
-                };
                 let lhs_str = debug_expr(db, hir_file, resolution_map, scope_origin, *lhs, nesting);
                 let rhs_str = debug_expr(db, hir_file, resolution_map, scope_origin, *rhs, nesting);
                 format!("{lhs_str} {op} {rhs_str}")

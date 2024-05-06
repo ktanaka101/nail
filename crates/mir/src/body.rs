@@ -411,8 +411,11 @@ impl<'a> FunctionLower<'a> {
                     hir::BinaryOp::Mul => BinaryOp::Mul,
                     hir::BinaryOp::Div => BinaryOp::Div,
                     hir::BinaryOp::Equal => BinaryOp::Equal,
+                    hir::BinaryOp::NotEq => BinaryOp::NotEq,
                     hir::BinaryOp::GreaterThan => BinaryOp::GreaterThan,
                     hir::BinaryOp::LessThan => BinaryOp::LessThan,
+                    hir::BinaryOp::GtEq => BinaryOp::GtEq,
+                    hir::BinaryOp::LtEq => BinaryOp::LtEq,
                     hir::BinaryOp::Assign => {
                         let place = match lhs_operand {
                             Operand::Place(place) => place,

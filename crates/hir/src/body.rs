@@ -529,8 +529,11 @@ impl<'a> BodyLower<'a> {
             ast::BinaryOp::Mul(_) => BinaryOp::Mul,
             ast::BinaryOp::Div(_) => BinaryOp::Div,
             ast::BinaryOp::Equal(_) => BinaryOp::Equal,
+            ast::BinaryOp::NotEq(_) => BinaryOp::NotEq,
             ast::BinaryOp::GreaterThan(_) => BinaryOp::GreaterThan,
             ast::BinaryOp::LessThan(_) => BinaryOp::LessThan,
+            ast::BinaryOp::GtEq(_) => BinaryOp::GtEq,
+            ast::BinaryOp::LtEq(_) => BinaryOp::LtEq,
             ast::BinaryOp::Assign(_) => BinaryOp::Assign,
         };
 
@@ -1020,16 +1023,6 @@ mod tests {
                 Literal::Integer(i) => i.to_string(),
             },
             Expr::Binary { op, lhs, rhs } => {
-                let op = match op {
-                    BinaryOp::Add => "+",
-                    BinaryOp::Sub => "-",
-                    BinaryOp::Mul => "*",
-                    BinaryOp::Div => "/",
-                    BinaryOp::Equal => "==",
-                    BinaryOp::GreaterThan => ">",
-                    BinaryOp::LessThan => "<",
-                    BinaryOp::Assign => "=",
-                };
                 let lhs_str = debug_expr(db, hir_file, resolution_map, scope_origin, *lhs, nesting);
                 let rhs_str = debug_expr(db, hir_file, resolution_map, scope_origin, *rhs, nesting);
                 format!("{lhs_str} {op} {rhs_str}")
@@ -1451,8 +1444,11 @@ mod tests {
                     1 * 2;
                     1 / 2;
                     1 == 2;
-                    1 < 2;
+                    1 != 2;
                     1 > 2;
+                    1 < 2;
+                    1 >= 2;
+                    1 <= 2;
                 }
             "#,
             expect![[r#"
@@ -1463,8 +1459,11 @@ mod tests {
                     1 * 2;
                     1 / 2;
                     1 == 2;
-                    1 < 2;
+                    1 != 2;
                     1 > 2;
+                    1 < 2;
+                    1 >= 2;
+                    1 <= 2;
                 }
             "#]],
         );

@@ -64,10 +64,16 @@ fn parse_expr_binding_power(
             BinaryOp::Div
         } else if parser.at(TokenKind::Eq2) {
             BinaryOp::Equal
-        } else if parser.at(TokenKind::LAngle) {
-            BinaryOp::LessThan
+        } else if parser.at(TokenKind::NotEq) {
+            BinaryOp::NotEq
         } else if parser.at(TokenKind::RAngle) {
             BinaryOp::GreaterThan
+        } else if parser.at(TokenKind::LAngle) {
+            BinaryOp::LessThan
+        } else if parser.at(TokenKind::GtEq) {
+            BinaryOp::GtEq
+        } else if parser.at(TokenKind::LtEq) {
+            BinaryOp::LtEq
         } else if parser.at(TokenKind::Eq) {
             BinaryOp::Assign
         } else {
@@ -106,10 +112,16 @@ enum BinaryOp {
     Div,
     /// `==`
     Equal,
+    /// `!=`
+    NotEq,
     /// `>`
     GreaterThan,
     /// `<`
     LessThan,
+    /// `>=`
+    GtEq,
+    /// `<=`
+    LtEq,
     /// `=`
     Assign,
 }
@@ -121,8 +133,8 @@ impl BinaryOp {
     fn binding_power(&self) -> (u8, u8) {
         match self {
             Self::Assign => (2, 1),
-            Self::Equal => (3, 4),
-            Self::GreaterThan | Self::LessThan => (5, 6),
+            Self::Equal | Self::NotEq => (3, 4),
+            Self::GreaterThan | Self::LessThan | Self::GtEq | Self::LtEq => (5, 6),
             Self::Add | Self::Sub => (7, 8),
             Self::Mul | Self::Div => (9, 10),
         }
@@ -472,54 +484,72 @@ mod tests {
     #[test]
     fn parse_binary_expression() {
         check_debug_tree_in_block(
-            "1 + 2 - 3 * 4 / 5 == 6 < 7 > 8",
+            "1 + 2 - 3 * 4 / 5 == 6 != 7 > 8 < 9 >= 10 <= 11",
             expect![[r#"
-                SourceFile@0..30
-                  ExprStmt@0..30
-                    BinaryExpr@0..30
-                      BinaryExpr@0..17
-                        BinaryExpr@0..5
-                          Literal@0..1
-                            Integer@0..1 "1"
-                          Whitespace@1..2 " "
-                          Plus@2..3 "+"
-                          Whitespace@3..4 " "
-                          Literal@4..5
-                            Integer@4..5 "2"
-                        Whitespace@5..6 " "
-                        Minus@6..7 "-"
-                        Whitespace@7..8 " "
-                        BinaryExpr@8..17
-                          BinaryExpr@8..13
-                            Literal@8..9
-                              Integer@8..9 "3"
-                            Whitespace@9..10 " "
-                            Star@10..11 "*"
-                            Whitespace@11..12 " "
-                            Literal@12..13
-                              Integer@12..13 "4"
-                          Whitespace@13..14 " "
-                          Slash@14..15 "/"
-                          Whitespace@15..16 " "
-                          Literal@16..17
-                            Integer@16..17 "5"
-                      Whitespace@17..18 " "
-                      Eq2@18..20 "=="
-                      Whitespace@20..21 " "
-                      BinaryExpr@21..30
-                        BinaryExpr@21..26
-                          Literal@21..22
-                            Integer@21..22 "6"
-                          Whitespace@22..23 " "
-                          LAngle@23..24 "<"
-                          Whitespace@24..25 " "
-                          Literal@25..26
-                            Integer@25..26 "7"
-                        Whitespace@26..27 " "
-                        RAngle@27..28 ">"
-                        Whitespace@28..29 " "
-                        Literal@29..30
-                          Integer@29..30 "8"
+                SourceFile@0..47
+                  ExprStmt@0..47
+                    BinaryExpr@0..47
+                      BinaryExpr@0..22
+                        BinaryExpr@0..17
+                          BinaryExpr@0..5
+                            Literal@0..1
+                              Integer@0..1 "1"
+                            Whitespace@1..2 " "
+                            Plus@2..3 "+"
+                            Whitespace@3..4 " "
+                            Literal@4..5
+                              Integer@4..5 "2"
+                          Whitespace@5..6 " "
+                          Minus@6..7 "-"
+                          Whitespace@7..8 " "
+                          BinaryExpr@8..17
+                            BinaryExpr@8..13
+                              Literal@8..9
+                                Integer@8..9 "3"
+                              Whitespace@9..10 " "
+                              Star@10..11 "*"
+                              Whitespace@11..12 " "
+                              Literal@12..13
+                                Integer@12..13 "4"
+                            Whitespace@13..14 " "
+                            Slash@14..15 "/"
+                            Whitespace@15..16 " "
+                            Literal@16..17
+                              Integer@16..17 "5"
+                        Whitespace@17..18 " "
+                        Eq2@18..20 "=="
+                        Whitespace@20..21 " "
+                        Literal@21..22
+                          Integer@21..22 "6"
+                      Whitespace@22..23 " "
+                      NotEq@23..25 "!="
+                      Whitespace@25..26 " "
+                      BinaryExpr@26..47
+                        BinaryExpr@26..41
+                          BinaryExpr@26..35
+                            BinaryExpr@26..31
+                              Literal@26..27
+                                Integer@26..27 "7"
+                              Whitespace@27..28 " "
+                              RAngle@28..29 ">"
+                              Whitespace@29..30 " "
+                              Literal@30..31
+                                Integer@30..31 "8"
+                            Whitespace@31..32 " "
+                            LAngle@32..33 "<"
+                            Whitespace@33..34 " "
+                            Literal@34..35
+                              Integer@34..35 "9"
+                          Whitespace@35..36 " "
+                          GtEq@36..38 ">="
+                          Whitespace@38..39 " "
+                          Literal@39..41
+                            Integer@39..41 "10"
+                        Whitespace@41..42 " "
+                        LtEq@42..44 "<="
+                        Whitespace@44..45 " "
+                        Literal@45..47
+                          Integer@45..47 "11"
             "#]],
         );
     }
@@ -968,7 +998,7 @@ mod tests {
                         Path@1..4
                           PathSegment@1..4
                             Ident@1..4 "foo"
-                error at 1..4: expected '::', '+', '-', '*', '/', '==', '<', '>', '=' or ')'
+                error at 1..4: expected '::', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=' or ')'
             "#]],
         );
     }
@@ -1025,7 +1055,7 @@ mod tests {
                         Literal@2..3
                           Integer@2..3 "1"
                   Whitespace@3..4 " "
-                error at 3..4: expected '+', '-', '*', '/', '==', '<', '>', '=', ';' or '}'
+                error at 3..4: expected '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ';' or '}'
             "#]],
         );
     }
@@ -1203,7 +1233,7 @@ mod tests {
                             Path@5..6
                               PathSegment@5..6
                                 Ident@5..6 "y"
-                error at 5..6: expected '::', '+', '-', '*', '/', '==', '<', '>', '=', ',' or ')'
+                error at 5..6: expected '::', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ',' or ')'
             "#]],
         );
 
@@ -1246,7 +1276,7 @@ mod tests {
                             Path@2..3
                               PathSegment@2..3
                                 Ident@2..3 "x"
-                error at 2..3: expected '::', '+', '-', '*', '/', '==', '<', '>', '=', ',' or ')'
+                error at 2..3: expected '::', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ',' or ')'
             "#]],
         );
 
@@ -1317,8 +1347,8 @@ mod tests {
                   ExprStmt@5..6
                     Error@5..6
                       RParen@5..6 ")"
-                error at 4..5: expected '::', '+', '-', '*', '/', '==', '<', '>', '=', ',' or ')', but found identifier
-                error at 5..6: expected '+', '-', '*', '/', '==', '<', '>', '=', ';', 'let', 'fn', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found ')'
+                error at 4..5: expected '::', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ',' or ')', but found identifier
+                error at 5..6: expected '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ';', 'let', 'fn', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found ')'
             "#]],
         );
     }
@@ -1666,6 +1696,25 @@ mod tests {
                         Integer@0..2 "10"
                       Whitespace@2..3 " "
                       Eq2@3..5 "=="
+                      Whitespace@5..6 " "
+                      Literal@6..8
+                        Integer@6..8 "20"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_not_equal() {
+        check_debug_tree_in_block(
+            "10 != 20",
+            expect![[r#"
+                SourceFile@0..8
+                  ExprStmt@0..8
+                    BinaryExpr@0..8
+                      Literal@0..2
+                        Integer@0..2 "10"
+                      Whitespace@2..3 " "
+                      NotEq@3..5 "!="
                       Whitespace@5..6 " "
                       Literal@6..8
                         Integer@6..8 "20"

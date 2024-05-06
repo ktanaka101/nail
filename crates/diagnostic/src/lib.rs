@@ -239,8 +239,11 @@ impl Diagnostic {
                     hir::BinaryOp::Mul => "*",
                     hir::BinaryOp::Div => "/",
                     hir::BinaryOp::Equal
+                    | hir::BinaryOp::NotEq
                     | hir::BinaryOp::GreaterThan
                     | hir::BinaryOp::LessThan
+                    | hir::BinaryOp::GtEq
+                    | hir::BinaryOp::LtEq
                     | hir::BinaryOp::Assign => unreachable!(),
                 };
 
@@ -268,8 +271,11 @@ impl Diagnostic {
 
                 let op = match op {
                     hir::BinaryOp::Equal => "==",
+                    hir::BinaryOp::NotEq => "!=",
                     hir::BinaryOp::GreaterThan => ">",
                     hir::BinaryOp::LessThan => "<",
+                    hir::BinaryOp::GtEq => ">=",
+                    hir::BinaryOp::LtEq => "<=",
                     hir::BinaryOp::Add
                     | hir::BinaryOp::Sub
                     | hir::BinaryOp::Mul

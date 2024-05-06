@@ -105,12 +105,21 @@ pub enum TokenKind {
     /// `==`
     #[token("==")]
     Eq2,
-    /// `<`
-    #[token("<")]
-    LAngle,
+    /// `!=`
+    #[token("!=")]
+    NotEq,
     /// `>`
     #[token(">")]
     RAngle,
+    /// `<`
+    #[token("<")]
+    LAngle,
+    /// `>=`
+    #[token(">=")]
+    GtEq,
+    /// `<=`
+    #[token("<=")]
+    LtEq,
 
     // composite symbols
     /// `->`
@@ -209,8 +218,11 @@ impl fmt::Display for TokenKind {
             Self::Bang => "'!'",
             Self::Eq => "'='",
             Self::Eq2 => "'=='",
-            Self::LAngle => "'<'",
+            Self::NotEq => "'!='",
             Self::RAngle => "'>'",
+            Self::LAngle => "'<'",
+            Self::GtEq => "'>='",
+            Self::LtEq => "'<='",
             Self::ThinArrow => "->",
             Self::Comma => "','",
             Self::Colon => "':'",
@@ -425,13 +437,28 @@ mod tests {
     }
 
     #[test]
-    fn lex_left_angle() {
-        check("<", TokenKind::LAngle);
+    fn lex_not_equals() {
+        check("!=", TokenKind::NotEq);
     }
 
     #[test]
     fn lex_right_angle() {
         check(">", TokenKind::RAngle);
+    }
+
+    #[test]
+    fn lex_left_angle() {
+        check("<", TokenKind::LAngle);
+    }
+
+    #[test]
+    fn lex_gteq_angle() {
+        check(">=", TokenKind::GtEq);
+    }
+
+    #[test]
+    fn lex_lteq_angle() {
+        check("<=", TokenKind::LtEq);
     }
 
     #[test]

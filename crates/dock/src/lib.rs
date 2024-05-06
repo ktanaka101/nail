@@ -112,7 +112,7 @@ pub enum NailExecutablePath {
 }
 impl NailExecutablePath {
     /// ファイルパスを取得します。
-    pub fn to_path(&self) -> &path::PathBuf {
+    pub fn as_path(&self) -> &path::Path {
         match self {
             NailExecutablePath::PodFile(pod_file_path) => pod_file_path,
             NailExecutablePath::RootFile(root_nail_file_path) => root_nail_file_path,

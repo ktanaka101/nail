@@ -27,7 +27,7 @@ fn check(execution_path: dock::NailExecutablePath) {
     let mut out = Vec::new();
     let mut err = Vec::new();
 
-    let abs_execution_path = execution_path.to_path().to_owned();
+    let abs_execution_path = execution_path.as_path().to_owned();
 
     let main_file_contents = std::fs::read_to_string(&abs_execution_path).unwrap();
     // //---stdoutで区切ることで、標準出力と標準エラー出力をテストする

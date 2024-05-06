@@ -132,11 +132,11 @@ pub enum SyntaxKind {
     Ident,
 
     // ---literals---
-    /// `INTEGER_LITERAL`
+    /// `INTEGER_LITERAL`, ex. 10
     Integer,
-    /// `STRING_LITERAL`
+    /// `STRING_LITERAL`, ex. "hello"
     String,
-    /// `CHAR_LITERAL`
+    /// `CHAR_LITERAL`, ex. 'a'
     Char,
 
     // ---symbols---
@@ -154,10 +154,14 @@ pub enum SyntaxKind {
     Eq,
     /// `==`
     Eq2,
-    /// `<`
-    LAngle,
     /// `>`
     RAngle,
+    /// `<`
+    LAngle,
+    /// `>=`
+    GtEq,
+    /// `<=`
+    LtEq,
 
     // ---composite symbols---
     /// `->`
@@ -230,8 +234,10 @@ impl From<TokenKind> for SyntaxKind {
             TokenKind::Bang => Self::Bang,
             TokenKind::Eq => Self::Eq,
             TokenKind::Eq2 => Self::Eq2,
-            TokenKind::LAngle => Self::LAngle,
             TokenKind::RAngle => Self::RAngle,
+            TokenKind::LAngle => Self::LAngle,
+            TokenKind::GtEq => Self::GtEq,
+            TokenKind::LtEq => Self::LtEq,
 
             TokenKind::ThinArrow => Self::ThinArrow,
 

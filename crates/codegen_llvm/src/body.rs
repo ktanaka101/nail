@@ -177,6 +177,28 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                                     )
                                     .unwrap()
                                     .into(),
+                                mir::BinaryOp::GtEq => self
+                                    .codegen
+                                    .builder
+                                    .build_int_compare(
+                                        inkwell::IntPredicate::SGE,
+                                        lhs,
+                                        rhs,
+                                        "gteq_number",
+                                    )
+                                    .unwrap()
+                                    .into(),
+                                mir::BinaryOp::LtEq => self
+                                    .codegen
+                                    .builder
+                                    .build_int_compare(
+                                        inkwell::IntPredicate::SLE,
+                                        lhs,
+                                        rhs,
+                                        "lteq_number",
+                                    )
+                                    .unwrap()
+                                    .into(),
                             }
                         }
                         mir::Value::UnaryOp { op, expr } => {

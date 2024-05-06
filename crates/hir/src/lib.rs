@@ -569,6 +569,10 @@ pub enum BinaryOp {
     GreaterThan,
     /// `<`
     LessThan,
+    /// `>=`
+    GtEq,
+    /// `<=`
+    LtEq,
     /// `=`
     Assign,
 }

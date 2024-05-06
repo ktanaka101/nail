@@ -383,7 +383,11 @@ impl<'a> InferBody<'a> {
 
                     Monotype::Integer
                 }
-                hir::BinaryOp::Equal | hir::BinaryOp::GreaterThan | hir::BinaryOp::LessThan => {
+                hir::BinaryOp::Equal
+                | hir::BinaryOp::GreaterThan
+                | hir::BinaryOp::LessThan
+                | hir::BinaryOp::GtEq
+                | hir::BinaryOp::LtEq => {
                     let lhs_ty = self.infer_expr(*lhs);
                     let rhs_ty = self.infer_expr(*rhs);
                     self.unifier.unify(

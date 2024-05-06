@@ -1360,6 +1360,22 @@ mod tests {
             fn main() -> bool {
                 let a = 1;
                 let b = 2;
+                a > b
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Boolean",
+                  "value": false
+                }
+            "#]],
+        );
+
+        check_result_in_root_file(
+            r#"
+            fn main() -> bool {
+                let a = 1;
+                let b = 2;
                 a < b
             }
         "#,
@@ -1374,15 +1390,15 @@ mod tests {
         check_result_in_root_file(
             r#"
             fn main() -> bool {
-                let a = 1;
-                let b = 2;
+                let a = 2;
+                let b = 1;
                 a > b
             }
         "#,
             expect![[r#"
                 {
                   "nail_type": "Boolean",
-                  "value": false
+                  "value": true
                 }
             "#]],
         );
@@ -1406,9 +1422,25 @@ mod tests {
         check_result_in_root_file(
             r#"
             fn main() -> bool {
-                let a = 2;
+                let a = 1;
                 let b = 1;
-                a > b
+                a >= b
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Boolean",
+                  "value": true
+                }
+            "#]],
+        );
+
+        check_result_in_root_file(
+            r#"
+            fn main() -> bool {
+                let a = 1;
+                let b = 1;
+                a <= b
             }
         "#,
             expect![[r#"
@@ -1439,12 +1471,18 @@ mod tests {
     fn test_compare() {
         check_bool("0 > 0", false);
         check_bool("0 < 0", false);
-        check_bool("0 > 1", false);
+        check_bool("1 > 0", true);
         check_bool("0 < 1", true);
+        check_bool("-1 >= 0", false);
+        check_bool("0 <= -1", false);
+        check_bool("0 >= 0", true);
+        check_bool("0 <= 0", true);
         check_bool("0 == 0", true);
         check_bool("0 == 1", false);
         check_bool("let a = 10; a > 0", true);
         check_bool("let a = 10; a < 0", false);
+        check_bool("let a = 10; a >= 0", true);
+        check_bool("let a = 10; a <= 0", false);
         check_bool("let a = 10; (a + 10) < 10", false);
         check_bool("let a = 10; (a + 10) > 10", true);
         check_bool("let a = 10; (a == 10) == true", true);

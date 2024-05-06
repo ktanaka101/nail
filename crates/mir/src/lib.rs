@@ -339,28 +339,32 @@ pub enum Value {
 /// 二項演算子
 #[derive(Debug)]
 pub enum BinaryOp {
-    /// 加算
+    /// `+`
     Add,
-    /// 減算
+    /// `-`
     Sub,
-    /// 乗算
+    /// `*`
     Mul,
-    /// 除算
+    /// `/`
     Div,
-    /// 等価
+    /// `==`
     Equal,
-    /// 大なり(>)
+    /// `>`
     GreaterThan,
-    /// 小なり(<)
+    /// `<`
     LessThan,
+    /// `>=`
+    GtEq,
+    /// `<=`
+    LtEq,
 }
 
 /// 単項演算子
 #[derive(Debug)]
 pub enum UnaryOp {
-    /// 負符号(-)
+    /// `-`
     Neg,
-    /// 論理否定(!)
+    /// `!`
     Not,
 }
 
@@ -616,6 +620,8 @@ mod tests {
                     crate::BinaryOp::Equal => "equal",
                     crate::BinaryOp::GreaterThan => "greater_than",
                     crate::BinaryOp::LessThan => "less_than",
+                    crate::BinaryOp::GtEq => "gteq",
+                    crate::BinaryOp::LtEq => "lteq",
                 }
                 .to_string();
                 let left = debug_operand(left, body);
@@ -942,10 +948,14 @@ mod tests {
                 fn main() -> bool {
                     let a = 1;
                     let b = 2;
-                    a < b;
                     a > b;
-                    b < a;
+                    a < b;
                     b > a;
+                    b < a;
+                    a >= b;
+                    a <= b;
+                    b >= a;
+                    b <= a;
                 }
             "#,
             expect![[r#"
@@ -957,14 +967,22 @@ mod tests {
                     let _4: bool
                     let _5: bool
                     let _6: bool
+                    let _7: bool
+                    let _8: bool
+                    let _9: bool
+                    let _10: bool
 
                     entry: {
                         _1 = const 1
                         _2 = const 2
-                        _3 = less_than(_1, _2)
-                        _4 = greater_than(_1, _2)
-                        _5 = less_than(_2, _1)
-                        _6 = greater_than(_2, _1)
+                        _3 = greater_than(_1, _2)
+                        _4 = less_than(_1, _2)
+                        _5 = greater_than(_2, _1)
+                        _6 = less_than(_2, _1)
+                        _7 = gteq(_1, _2)
+                        _8 = lteq(_1, _2)
+                        _9 = gteq(_2, _1)
+                        _10 = lteq(_2, _1)
                         goto -> exit
                     }
 

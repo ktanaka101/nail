@@ -241,6 +241,8 @@ impl Diagnostic {
                     hir::BinaryOp::Equal
                     | hir::BinaryOp::GreaterThan
                     | hir::BinaryOp::LessThan
+                    | hir::BinaryOp::GtEq
+                    | hir::BinaryOp::LtEq
                     | hir::BinaryOp::Assign => unreachable!(),
                 };
 
@@ -270,6 +272,8 @@ impl Diagnostic {
                     hir::BinaryOp::Equal => "==",
                     hir::BinaryOp::GreaterThan => ">",
                     hir::BinaryOp::LessThan => "<",
+                    hir::BinaryOp::GtEq => ">=",
+                    hir::BinaryOp::LtEq => "<=",
                     hir::BinaryOp::Add
                     | hir::BinaryOp::Sub
                     | hir::BinaryOp::Mul

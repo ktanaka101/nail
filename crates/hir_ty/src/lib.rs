@@ -638,6 +638,8 @@ mod tests {
                         hir::BinaryOp::Equal => "==",
                         hir::BinaryOp::GreaterThan => ">",
                         hir::BinaryOp::LessThan => "<",
+                        hir::BinaryOp::GtEq => ">=",
+                        hir::BinaryOp::LtEq => "<=",
                         hir::BinaryOp::Assign => "=",
                     };
                     let lhs_str = self.debug_expr(hir_file, function, *lhs, nesting);
@@ -747,6 +749,8 @@ mod tests {
                         hir::BinaryOp::Equal => "==",
                         hir::BinaryOp::GreaterThan => ">",
                         hir::BinaryOp::LessThan => "<",
+                        hir::BinaryOp::GtEq => ">=",
+                        hir::BinaryOp::LtEq => "<=",
                         hir::BinaryOp::Assign => "=",
                     };
                     let lhs_str = self.debug_simplify_expr(hir_file, *lhs);
@@ -858,6 +862,8 @@ mod tests {
                 hir::BinaryOp::Equal => "==",
                 hir::BinaryOp::GreaterThan => ">",
                 hir::BinaryOp::LessThan => "<",
+                hir::BinaryOp::GtEq => ">=",
+                hir::BinaryOp::LtEq => "<=",
                 hir::BinaryOp::Assign => "=",
             }
             .to_string()
@@ -1107,8 +1113,10 @@ mod tests {
                     10 + "aaa"
                     'a' + 'a'
                     10 + 'a'
-                    10 < 'a'
                     10 > 'a'
+                    10 < 'a'
+                    10 >= 'a'
+                    10 <= 'a'
                     true + true
                     true - true
                     true * true
@@ -1122,8 +1130,10 @@ mod tests {
                     10 * 20
                     10 / 20
                     10 == 20
-                    10 < 20
-                    10 > 20;
+                    10 > 20
+                    10 < 20;
+                    10 >= 20
+                    10 <= 20;
                     let a = 10;
                     a = 20;
                     a = "aaa";
@@ -1137,8 +1147,10 @@ mod tests {
                     10 + "aaa" //: int
                     'a' + 'a' //: int
                     10 + 'a' //: int
-                    10 < 'a' //: bool
                     10 > 'a' //: bool
+                    10 < 'a' //: bool
+                    10 >= 'a' //: bool
+                    10 <= 'a' //: bool
                     true + true //: int
                     true - true //: int
                     true * true //: int
@@ -1152,8 +1164,10 @@ mod tests {
                     10 * 20 //: int
                     10 / 20 //: int
                     10 == 20 //: bool
-                    10 < 20 //: bool
-                    10 > 20; //: bool
+                    10 > 20 //: bool
+                    10 < 20; //: bool
+                    10 >= 20 //: bool
+                    10 <= 20; //: bool
                     let a = 10; //: int
                     a = 20; //: ()
                     a = "aaa"; //: ()
@@ -1166,8 +1180,10 @@ mod tests {
                 error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: char, found_expr: `'a'`
                 error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: char, found_expr: `'a'`
                 error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: char, found_expr: `'a'`
-                error MismatchedBinaryCompare: op: <, expected_ty: int, found_ty: char, expected_expr: `10`, found_expr: `'a'`
                 error MismatchedBinaryCompare: op: >, expected_ty: int, found_ty: char, expected_expr: `10`, found_expr: `'a'`
+                error MismatchedBinaryCompare: op: <, expected_ty: int, found_ty: char, expected_expr: `10`, found_expr: `'a'`
+                error MismatchedBinaryCompare: op: >=, expected_ty: int, found_ty: char, expected_expr: `10`, found_expr: `'a'`
+                error MismatchedBinaryCompare: op: <=, expected_ty: int, found_ty: char, expected_expr: `10`, found_expr: `'a'`
                 error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: bool, found_expr: `true`
                 error MismatchedBinaryInteger: op: +, expected_ty: int, found_ty: bool, found_expr: `true`
                 error MismatchedBinaryInteger: op: -, expected_ty: int, found_ty: bool, found_expr: `true`

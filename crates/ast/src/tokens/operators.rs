@@ -20,6 +20,10 @@ pub enum BinaryOp {
     GreaterThan(RAngle),
     /// `<`
     LessThan(LAngle),
+    /// `>=`
+    GtEq(GtEq),
+    /// `<=`
+    LtEq(LtEq),
     /// `=`
     Assign(Eq),
 }
@@ -28,8 +32,10 @@ def_ast_token!(Minus);
 def_ast_token!(Star);
 def_ast_token!(Slash);
 def_ast_token!(Eq2);
-def_ast_token!(LAngle);
 def_ast_token!(RAngle);
+def_ast_token!(LAngle);
+def_ast_token!(GtEq);
+def_ast_token!(LtEq);
 def_ast_token!(Eq);
 
 impl Ast for BinaryOp {}
@@ -42,8 +48,10 @@ impl AstToken for BinaryOp {
                 | SyntaxKind::Star
                 | SyntaxKind::Slash
                 | SyntaxKind::Eq2
-                | SyntaxKind::LAngle
                 | SyntaxKind::RAngle
+                | SyntaxKind::LAngle
+                | SyntaxKind::GtEq
+                | SyntaxKind::LtEq
                 | SyntaxKind::Eq
         )
     }
@@ -55,8 +63,10 @@ impl AstToken for BinaryOp {
             SyntaxKind::Star => Some(Self::Mul(Star { syntax })),
             SyntaxKind::Slash => Some(Self::Div(Slash { syntax })),
             SyntaxKind::Eq2 => Some(Self::Equal(Eq2 { syntax })),
-            SyntaxKind::LAngle => Some(Self::LessThan(LAngle { syntax })),
             SyntaxKind::RAngle => Some(Self::GreaterThan(RAngle { syntax })),
+            SyntaxKind::LAngle => Some(Self::LessThan(LAngle { syntax })),
+            SyntaxKind::GtEq => Some(Self::GtEq(GtEq { syntax })),
+            SyntaxKind::LtEq => Some(Self::LtEq(LtEq { syntax })),
             SyntaxKind::Eq => Some(Self::Assign(Eq { syntax })),
             _ => None,
         }
@@ -71,6 +81,8 @@ impl AstToken for BinaryOp {
             Self::Equal(it) => it.syntax(),
             Self::GreaterThan(it) => it.syntax(),
             Self::LessThan(it) => it.syntax(),
+            Self::GtEq(it) => it.syntax(),
+            Self::LtEq(it) => it.syntax(),
             Self::Assign(it) => it.syntax(),
         }
     }

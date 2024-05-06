@@ -531,6 +531,8 @@ impl<'a> BodyLower<'a> {
             ast::BinaryOp::Equal(_) => BinaryOp::Equal,
             ast::BinaryOp::GreaterThan(_) => BinaryOp::GreaterThan,
             ast::BinaryOp::LessThan(_) => BinaryOp::LessThan,
+            ast::BinaryOp::GtEq(_) => BinaryOp::GtEq,
+            ast::BinaryOp::LtEq(_) => BinaryOp::LtEq,
             ast::BinaryOp::Assign(_) => BinaryOp::Assign,
         };
 
@@ -1028,6 +1030,8 @@ mod tests {
                     BinaryOp::Equal => "==",
                     BinaryOp::GreaterThan => ">",
                     BinaryOp::LessThan => "<",
+                    BinaryOp::GtEq => ">=",
+                    BinaryOp::LtEq => "<=",
                     BinaryOp::Assign => "=",
                 };
                 let lhs_str = debug_expr(db, hir_file, resolution_map, scope_origin, *lhs, nesting);
@@ -1451,8 +1455,10 @@ mod tests {
                     1 * 2;
                     1 / 2;
                     1 == 2;
-                    1 < 2;
                     1 > 2;
+                    1 < 2;
+                    1 >= 2;
+                    1 <= 2;
                 }
             "#,
             expect![[r#"
@@ -1463,8 +1469,10 @@ mod tests {
                     1 * 2;
                     1 / 2;
                     1 == 2;
-                    1 < 2;
                     1 > 2;
+                    1 < 2;
+                    1 >= 2;
+                    1 <= 2;
                 }
             "#]],
         );

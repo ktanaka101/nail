@@ -154,6 +154,8 @@ pub enum SyntaxKind {
     Eq,
     /// `==`
     Eq2,
+    /// `!=`
+    NotEq,
     /// `>`
     RAngle,
     /// `<`
@@ -234,6 +236,7 @@ impl From<TokenKind> for SyntaxKind {
             TokenKind::Bang => Self::Bang,
             TokenKind::Eq => Self::Eq,
             TokenKind::Eq2 => Self::Eq2,
+            TokenKind::NotEq => Self::NotEq,
             TokenKind::RAngle => Self::RAngle,
             TokenKind::LAngle => Self::LAngle,
             TokenKind::GtEq => Self::GtEq,

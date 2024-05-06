@@ -64,6 +64,8 @@ fn parse_expr_binding_power(
             BinaryOp::Div
         } else if parser.at(TokenKind::Eq2) {
             BinaryOp::Equal
+        } else if parser.at(TokenKind::NotEq) {
+            BinaryOp::NotEq
         } else if parser.at(TokenKind::RAngle) {
             BinaryOp::GreaterThan
         } else if parser.at(TokenKind::LAngle) {
@@ -110,6 +112,8 @@ enum BinaryOp {
     Div,
     /// `==`
     Equal,
+    /// `!=`
+    NotEq,
     /// `>`
     GreaterThan,
     /// `<`
@@ -129,7 +133,7 @@ impl BinaryOp {
     fn binding_power(&self) -> (u8, u8) {
         match self {
             Self::Assign => (2, 1),
-            Self::Equal => (3, 4),
+            Self::Equal | Self::NotEq => (3, 4),
             Self::GreaterThan | Self::LessThan | Self::GtEq | Self::LtEq => (5, 6),
             Self::Add | Self::Sub => (7, 8),
             Self::Mul | Self::Div => (9, 10),
@@ -988,7 +992,7 @@ mod tests {
                         Path@1..4
                           PathSegment@1..4
                             Ident@1..4 "foo"
-                error at 1..4: expected '::', '+', '-', '*', '/', '==', '>', '<', '>=', '<=', '=' or ')'
+                error at 1..4: expected '::', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=' or ')'
             "#]],
         );
     }
@@ -1045,7 +1049,7 @@ mod tests {
                         Literal@2..3
                           Integer@2..3 "1"
                   Whitespace@3..4 " "
-                error at 3..4: expected '+', '-', '*', '/', '==', '>', '<', '>=', '<=', '=', ';' or '}'
+                error at 3..4: expected '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ';' or '}'
             "#]],
         );
     }
@@ -1223,7 +1227,7 @@ mod tests {
                             Path@5..6
                               PathSegment@5..6
                                 Ident@5..6 "y"
-                error at 5..6: expected '::', '+', '-', '*', '/', '==', '>', '<', '>=', '<=', '=', ',' or ')'
+                error at 5..6: expected '::', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ',' or ')'
             "#]],
         );
 
@@ -1266,7 +1270,7 @@ mod tests {
                             Path@2..3
                               PathSegment@2..3
                                 Ident@2..3 "x"
-                error at 2..3: expected '::', '+', '-', '*', '/', '==', '>', '<', '>=', '<=', '=', ',' or ')'
+                error at 2..3: expected '::', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ',' or ')'
             "#]],
         );
 
@@ -1337,8 +1341,8 @@ mod tests {
                   ExprStmt@5..6
                     Error@5..6
                       RParen@5..6 ")"
-                error at 4..5: expected '::', '+', '-', '*', '/', '==', '>', '<', '>=', '<=', '=', ',' or ')', but found identifier
-                error at 5..6: expected '+', '-', '*', '/', '==', '>', '<', '>=', '<=', '=', ';', 'let', 'fn', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found ')'
+                error at 4..5: expected '::', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ',' or ')', but found identifier
+                error at 5..6: expected '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ';', 'let', 'fn', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found ')'
             "#]],
         );
     }
@@ -1686,6 +1690,25 @@ mod tests {
                         Integer@0..2 "10"
                       Whitespace@2..3 " "
                       Eq2@3..5 "=="
+                      Whitespace@5..6 " "
+                      Literal@6..8
+                        Integer@6..8 "20"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_not_equal() {
+        check_debug_tree_in_block(
+            "10 != 20",
+            expect![[r#"
+                SourceFile@0..8
+                  ExprStmt@0..8
+                    BinaryExpr@0..8
+                      Literal@0..2
+                        Integer@0..2 "10"
+                      Whitespace@2..3 " "
+                      NotEq@3..5 "!="
                       Whitespace@5..6 " "
                       Literal@6..8
                         Integer@6..8 "20"

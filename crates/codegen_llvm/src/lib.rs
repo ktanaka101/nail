@@ -441,8 +441,8 @@ mod tests {
                   br label %entry
 
                 entry:                                            ; preds = %start
-                  %compare_number = icmp eq i64 %0, 0
-                  store i1 %compare_number, ptr %"3", align 1
+                  %equal_number = icmp eq i64 %0, 0
+                  store i1 %equal_number, ptr %"3", align 1
                   %load = load i1, ptr %"3", align 1
                   store i1 %load, ptr %"2", align 1
                   %load1 = load i1, ptr %"2", align 1
@@ -464,8 +464,8 @@ mod tests {
                   br label %bb0
 
                 else0:                                            ; preds = %entry
-                  %compare_number4 = icmp eq i64 %0, 1
-                  store i1 %compare_number4, ptr %"6", align 1
+                  %equal_number4 = icmp eq i64 %0, 1
+                  store i1 %equal_number4, ptr %"6", align 1
                   %load5 = load i1, ptr %"6", align 1
                   store i1 %load5, ptr %"5", align 1
                   %load6 = load i1, ptr %"5", align 1
@@ -1354,6 +1354,41 @@ mod tests {
     }
 
     #[test]
+    fn test_not_equal_number() {
+        check_result_in_root_file(
+            r#"
+            fn main() -> bool {
+                let a = 1;
+                let b = 1;
+                a != b
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Boolean",
+                  "value": false
+                }
+            "#]],
+        );
+
+        check_result_in_root_file(
+            r#"
+            fn main() -> bool {
+                let a = 1;
+                let b = 3;
+                a != b
+            }
+        "#,
+            expect![[r#"
+                {
+                  "nail_type": "Boolean",
+                  "value": true
+                }
+            "#]],
+        );
+    }
+
+    #[test]
     fn test_ord_number() {
         check_result_in_root_file(
             r#"
@@ -1479,6 +1514,8 @@ mod tests {
         check_bool("0 <= 0", true);
         check_bool("0 == 0", true);
         check_bool("0 == 1", false);
+        check_bool("0 != 0", false);
+        check_bool("0 != 1", true);
         check_bool("let a = 10; a > 0", true);
         check_bool("let a = 10; a < 0", false);
         check_bool("let a = 10; a >= 0", true);
@@ -1488,6 +1525,9 @@ mod tests {
         check_bool("let a = 10; (a == 10) == true", true);
         check_bool("let a = 10; (a == 10) == false", false);
         check_bool("let a = 10; (a == a) == true", true);
+        check_bool("let a = 10; (a != 10) != true", true);
+        check_bool("let a = 10; (a != 10) != false", false);
+        check_bool("let a = 10; (a != a) != true", true);
     }
 
     #[test]

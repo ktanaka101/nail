@@ -1,5 +1,5 @@
 fn main() -> int {
-  let a = 10;
+  let mut a = 10;
   a = "aaa";
 
   a

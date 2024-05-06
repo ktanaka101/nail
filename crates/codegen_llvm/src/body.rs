@@ -151,7 +151,18 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                                         inkwell::IntPredicate::EQ,
                                         lhs,
                                         rhs,
-                                        "compare_number",
+                                        "equal_number",
+                                    )
+                                    .unwrap()
+                                    .into(),
+                                mir::BinaryOp::NotEq => self
+                                    .codegen
+                                    .builder
+                                    .build_int_compare(
+                                        inkwell::IntPredicate::NE,
+                                        lhs,
+                                        rhs,
+                                        "not_equal_number",
                                     )
                                     .unwrap()
                                     .into(),

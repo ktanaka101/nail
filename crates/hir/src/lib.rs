@@ -565,6 +565,8 @@ pub enum BinaryOp {
     Div,
     /// `==`
     Equal,
+    /// `!=`
+    NotEq,
     /// `>`
     GreaterThan,
     /// `<`

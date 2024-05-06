@@ -2,6 +2,21 @@ fn main() {
   10 == "aaa";
   "aaa" == 10;
 
+  10 != "aaa";
+  "aaa" != 10;
+
+  10 > "aaa";
+  "aaa" > 10;
+
+  10 < "aaa";
+  "aaa" < 10;
+
+  10 >= "aaa";
+  "aaa" >= 10;
+
+  10 <= "aaa";
+  "aaa" <= 10;
+
   return;
 }
 
@@ -26,3 +41,93 @@ fn main() {
 //    │             │  
 //    │             ╰── Type is int
 // ───╯
+// Error: Mismatched type in binary compare expression `!=`
+//    ╭─[/{nail}/crates/dock/tests/type_check/binary_compare_mismatch/main.nail:5:3]
+//    │
+//  5 │   10 != "aaa";
+//    │   ─┬    ──┬──  
+//    │    ╰─────────── Type is int
+//    │           │    
+//    │           ╰──── Type is string
+// ───╯
+// Error: Mismatched type in binary compare expression `!=`
+//    ╭─[/{nail}/crates/dock/tests/type_check/binary_compare_mismatch/main.nail:6:3]
+//    │
+//  6 │   "aaa" != 10;
+//    │   ──┬──    ─┬  
+//    │     ╰────────── Type is string
+//    │             │  
+//    │             ╰── Type is int
+// ───╯
+// Error: Mismatched type in binary compare expression `>`
+//    ╭─[/{nail}/crates/dock/tests/type_check/binary_compare_mismatch/main.nail:8:3]
+//    │
+//  8 │   10 > "aaa";
+//    │   ─┬   ──┬──  
+//    │    ╰────────── Type is int
+//    │          │    
+//    │          ╰──── Type is string
+// ───╯
+// Error: Mismatched type in binary compare expression `>`
+//    ╭─[/{nail}/crates/dock/tests/type_check/binary_compare_mismatch/main.nail:9:3]
+//    │
+//  9 │   "aaa" > 10;
+//    │   ──┬──   ─┬  
+//    │     ╰───────── Type is string
+//    │            │  
+//    │            ╰── Type is int
+// ───╯
+// Error: Mismatched type in binary compare expression `<`
+//     ╭─[/{nail}/crates/dock/tests/type_check/binary_compare_mismatch/main.nail:11:3]
+//     │
+//  11 │   10 < "aaa";
+//     │   ─┬   ──┬──  
+//     │    ╰────────── Type is int
+//     │          │    
+//     │          ╰──── Type is string
+// ────╯
+// Error: Mismatched type in binary compare expression `<`
+//     ╭─[/{nail}/crates/dock/tests/type_check/binary_compare_mismatch/main.nail:12:3]
+//     │
+//  12 │   "aaa" < 10;
+//     │   ──┬──   ─┬  
+//     │     ╰───────── Type is string
+//     │            │  
+//     │            ╰── Type is int
+// ────╯
+// Error: Mismatched type in binary compare expression `>=`
+//     ╭─[/{nail}/crates/dock/tests/type_check/binary_compare_mismatch/main.nail:14:3]
+//     │
+//  14 │   10 >= "aaa";
+//     │   ─┬    ──┬──  
+//     │    ╰─────────── Type is int
+//     │           │    
+//     │           ╰──── Type is string
+// ────╯
+// Error: Mismatched type in binary compare expression `>=`
+//     ╭─[/{nail}/crates/dock/tests/type_check/binary_compare_mismatch/main.nail:15:3]
+//     │
+//  15 │   "aaa" >= 10;
+//     │   ──┬──    ─┬  
+//     │     ╰────────── Type is string
+//     │             │  
+//     │             ╰── Type is int
+// ────╯
+// Error: Mismatched type in binary compare expression `<=`
+//     ╭─[/{nail}/crates/dock/tests/type_check/binary_compare_mismatch/main.nail:17:3]
+//     │
+//  17 │   10 <= "aaa";
+//     │   ─┬    ──┬──  
+//     │    ╰─────────── Type is int
+//     │           │    
+//     │           ╰──── Type is string
+// ────╯
+// Error: Mismatched type in binary compare expression `<=`
+//     ╭─[/{nail}/crates/dock/tests/type_check/binary_compare_mismatch/main.nail:18:3]
+//     │
+//  18 │   "aaa" <= 10;
+//     │   ──┬──    ─┬  
+//     │     ╰────────── Type is string
+//     │             │  
+//     │             ╰── Type is int
+// ────╯

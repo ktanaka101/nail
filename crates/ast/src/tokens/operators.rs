@@ -16,6 +16,8 @@ pub enum BinaryOp {
     Div(Slash),
     /// `==`
     Equal(Eq2),
+    /// `!=`
+    NotEq(NotEq),
     /// `>`
     GreaterThan(RAngle),
     /// `<`
@@ -32,6 +34,7 @@ def_ast_token!(Minus);
 def_ast_token!(Star);
 def_ast_token!(Slash);
 def_ast_token!(Eq2);
+def_ast_token!(NotEq);
 def_ast_token!(RAngle);
 def_ast_token!(LAngle);
 def_ast_token!(GtEq);
@@ -48,6 +51,7 @@ impl AstToken for BinaryOp {
                 | SyntaxKind::Star
                 | SyntaxKind::Slash
                 | SyntaxKind::Eq2
+                | SyntaxKind::NotEq
                 | SyntaxKind::RAngle
                 | SyntaxKind::LAngle
                 | SyntaxKind::GtEq
@@ -63,6 +67,7 @@ impl AstToken for BinaryOp {
             SyntaxKind::Star => Some(Self::Mul(Star { syntax })),
             SyntaxKind::Slash => Some(Self::Div(Slash { syntax })),
             SyntaxKind::Eq2 => Some(Self::Equal(Eq2 { syntax })),
+            SyntaxKind::NotEq => Some(Self::NotEq(NotEq { syntax })),
             SyntaxKind::RAngle => Some(Self::GreaterThan(RAngle { syntax })),
             SyntaxKind::LAngle => Some(Self::LessThan(LAngle { syntax })),
             SyntaxKind::GtEq => Some(Self::GtEq(GtEq { syntax })),
@@ -79,6 +84,7 @@ impl AstToken for BinaryOp {
             Self::Mul(it) => it.syntax(),
             Self::Div(it) => it.syntax(),
             Self::Equal(it) => it.syntax(),
+            Self::NotEq(it) => it.syntax(),
             Self::GreaterThan(it) => it.syntax(),
             Self::LessThan(it) => it.syntax(),
             Self::GtEq(it) => it.syntax(),

@@ -529,6 +529,7 @@ impl<'a> BodyLower<'a> {
             ast::BinaryOp::Mul(_) => BinaryOp::Mul,
             ast::BinaryOp::Div(_) => BinaryOp::Div,
             ast::BinaryOp::Equal(_) => BinaryOp::Equal,
+            ast::BinaryOp::NotEq(_) => BinaryOp::NotEq,
             ast::BinaryOp::GreaterThan(_) => BinaryOp::GreaterThan,
             ast::BinaryOp::LessThan(_) => BinaryOp::LessThan,
             ast::BinaryOp::GtEq(_) => BinaryOp::GtEq,
@@ -1028,6 +1029,7 @@ mod tests {
                     BinaryOp::Mul => "*",
                     BinaryOp::Div => "/",
                     BinaryOp::Equal => "==",
+                    BinaryOp::NotEq => "!=",
                     BinaryOp::GreaterThan => ">",
                     BinaryOp::LessThan => "<",
                     BinaryOp::GtEq => ">=",
@@ -1455,6 +1457,7 @@ mod tests {
                     1 * 2;
                     1 / 2;
                     1 == 2;
+                    1 != 2;
                     1 > 2;
                     1 < 2;
                     1 >= 2;
@@ -1469,6 +1472,7 @@ mod tests {
                     1 * 2;
                     1 / 2;
                     1 == 2;
+                    1 != 2;
                     1 > 2;
                     1 < 2;
                     1 >= 2;

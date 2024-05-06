@@ -384,6 +384,7 @@ impl<'a> InferBody<'a> {
                     Monotype::Integer
                 }
                 hir::BinaryOp::Equal
+                | hir::BinaryOp::NotEq
                 | hir::BinaryOp::GreaterThan
                 | hir::BinaryOp::LessThan
                 | hir::BinaryOp::GtEq

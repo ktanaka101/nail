@@ -636,6 +636,7 @@ mod tests {
                         hir::BinaryOp::Mul => "*",
                         hir::BinaryOp::Div => "/",
                         hir::BinaryOp::Equal => "==",
+                        hir::BinaryOp::NotEq => "!=",
                         hir::BinaryOp::GreaterThan => ">",
                         hir::BinaryOp::LessThan => "<",
                         hir::BinaryOp::GtEq => ">=",
@@ -747,6 +748,7 @@ mod tests {
                         hir::BinaryOp::Mul => "*",
                         hir::BinaryOp::Div => "/",
                         hir::BinaryOp::Equal => "==",
+                        hir::BinaryOp::NotEq => "!=",
                         hir::BinaryOp::GreaterThan => ">",
                         hir::BinaryOp::LessThan => "<",
                         hir::BinaryOp::GtEq => ">=",
@@ -860,6 +862,7 @@ mod tests {
                 hir::BinaryOp::Mul => "*",
                 hir::BinaryOp::Div => "/",
                 hir::BinaryOp::Equal => "==",
+                hir::BinaryOp::NotEq => "!=",
                 hir::BinaryOp::GreaterThan => ">",
                 hir::BinaryOp::LessThan => "<",
                 hir::BinaryOp::GtEq => ">=",
@@ -1122,6 +1125,7 @@ mod tests {
                     true * true
                     true / true
                     true == true
+                    true != true
                     true < false
                     true > false
                     10 + true
@@ -1156,6 +1160,7 @@ mod tests {
                     true * true //: int
                     true / true //: int
                     true == true //: bool
+                    true != true //: bool
                     true < false //: bool
                     true > false //: bool
                     10 + true //: int

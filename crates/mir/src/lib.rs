@@ -349,6 +349,8 @@ pub enum BinaryOp {
     Div,
     /// `==`
     Equal,
+    /// `!=`
+    NotEq,
     /// `>`
     GreaterThan,
     /// `<`
@@ -618,6 +620,7 @@ mod tests {
                     crate::BinaryOp::Mul => "mul",
                     crate::BinaryOp::Div => "div",
                     crate::BinaryOp::Equal => "equal",
+                    crate::BinaryOp::NotEq => "not_equal",
                     crate::BinaryOp::GreaterThan => "greater_than",
                     crate::BinaryOp::LessThan => "less_than",
                     crate::BinaryOp::GtEq => "gteq",
@@ -930,6 +933,33 @@ mod tests {
                         _2 = const true
                         _3 = equal(_1, _2)
                         _0 = _3
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_not_equal_number() {
+        check_in_root_file(
+            r#"
+                fn main() -> bool {
+                    10 != 20
+                }
+            "#,
+            expect![[r#"
+                fn t_pod::main() -> bool {
+                    let _0: bool
+                    let _1: bool
+
+                    entry: {
+                        _1 = not_equal(const 10, const 20)
+                        _0 = _1
                         goto -> exit
                     }
 

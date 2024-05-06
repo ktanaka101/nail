@@ -346,6 +346,7 @@ dependencies = [
  "hir_ty",
  "inkwell",
  "mir",
+ "once_cell",
  "rayon",
  "regex",
  "thiserror",

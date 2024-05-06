@@ -1,4 +1,5 @@
 use expect_test::expect_file;
+use once_cell::sync::Lazy;
 use regex::Regex;
 
 /// `dir_name`は`tests/`に続くテスト対象のディレクトリ名を指定します。
@@ -73,11 +74,11 @@ fn check(execution_path: dock::NailExecutablePath) {
 }
 
 fn normalize(stdout_or_stderr: String) -> String {
-    let path_pattern = Regex::new(r"(\[.*?)/crates/").unwrap();
+    static PATH_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"(\[.*?)/crates/").unwrap());
 
     return stdout_or_stderr
         .lines()
-        .map(|line| normalize_path(line, &path_pattern))
+        .map(|line| normalize_path(line, &PATH_PATTERN))
         .map(|line| format!("// {}", line))
         .collect::<Vec<String>>()
         .join("\n");

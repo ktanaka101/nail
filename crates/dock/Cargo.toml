@@ -10,6 +10,7 @@ workspace = true
 [dependencies]
 ariadne = { workspace = true }
 anyhow = { workspace = true }
+once_cell = { workspace = true }
 rayon = { workspace = true }
 thiserror = { workspace = true }
 inkwell = { workspace = true }

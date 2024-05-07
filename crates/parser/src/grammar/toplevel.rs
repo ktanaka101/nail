@@ -545,10 +545,10 @@ struct A { foo: i32, bar: i32 }
                     Whitespace@37..38 " "
                     Ident@38..39 "A"
                     Whitespace@39..40 " "
-                    RecordFieldList@40..62
+                    NamedFieldList@40..62
                       LCurly@40..41 "{"
                       Whitespace@41..42 " "
-                      RecordField@42..50
+                      NamedField@42..50
                         Ident@42..45 "foo"
                         Colon@45..46 ":"
                         Whitespace@46..47 " "
@@ -556,7 +556,7 @@ struct A { foo: i32, bar: i32 }
                           Ident@47..50 "i32"
                       Comma@50..51 ","
                       Whitespace@51..52 " "
-                      RecordField@52..60
+                      NamedField@52..60
                         Ident@52..55 "bar"
                         Colon@55..56 ":"
                         Whitespace@56..57 " "

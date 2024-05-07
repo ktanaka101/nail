@@ -22,6 +22,9 @@ pub enum TokenKind {
     /// `fn`
     #[token("fn")]
     FnKw,
+    /// `struct`
+    #[token("struct")]
+    StructKw,
     /// `mod`
     #[token("mod")]
     ModKw,
@@ -194,6 +197,7 @@ impl fmt::Display for TokenKind {
         f.write_str(match self {
             Self::Whitespace => "whitespace",
             Self::FnKw => "'fn'",
+            Self::StructKw => "'struct'",
             Self::ModKw => "'mod'",
             Self::UseKw => "'use'",
             Self::LetKw => "'let'",
@@ -269,6 +273,11 @@ mod tests {
     #[test]
     fn lex_fn_keyword() {
         check("fn", TokenKind::FnKw);
+    }
+
+    #[test]
+    fn lex_struct_keyword() {
+        check("struct", TokenKind::StructKw);
     }
 
     #[test]

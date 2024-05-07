@@ -32,10 +32,15 @@ pub(crate) struct Parser<'l, 'input> {
 }
 
 /// トップレベルで回復可能なトークンの集合
-pub(crate) const TOPLEVEL_RECOVERY_SET: [TokenKind; 2] = [TokenKind::FnKw, TokenKind::ModKw];
+pub(crate) const TOPLEVEL_RECOVERY_SET: [TokenKind; 3] =
+    [TokenKind::FnKw, TokenKind::StructKw, TokenKind::ModKw];
 /// ブロック内で回復可能なトークンの集合
-pub(crate) const BLOCK_RECOVERY_SET: [TokenKind; 3] =
-    [TokenKind::LetKw, TokenKind::FnKw, TokenKind::ModKw];
+pub(crate) const BLOCK_RECOVERY_SET: [TokenKind; 4] = [
+    TokenKind::LetKw,
+    TokenKind::StructKw,
+    TokenKind::FnKw,
+    TokenKind::ModKw,
+];
 
 impl<'l, 'input> Parser<'l, 'input> {
     /// CSTを構築するパーサーを作成します。

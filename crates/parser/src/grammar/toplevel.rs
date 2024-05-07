@@ -11,6 +11,8 @@ use crate::{
 pub(super) fn parse_stmt_on_toplevel(parser: &mut Parser) -> Option<CompletedNodeMarker> {
     if parser.at(TokenKind::FnKw) {
         Some(stmt::parse_function_def(parser, &TOPLEVEL_RECOVERY_SET))
+    } else if parser.at(TokenKind::StructKw) {
+        Some(stmt::parse_struct(parser, &TOPLEVEL_RECOVERY_SET))
     } else if parser.at(TokenKind::ModKw) {
         Some(parse_module(parser, &TOPLEVEL_RECOVERY_SET))
     } else if parser.at(TokenKind::UseKw) {
@@ -98,10 +100,10 @@ mod tests {
                   Whitespace@9..10 " "
                   Error@10..13
                     Ident@10..13 "bar"
-                error at 0..3: expected 'fn', 'mod' or 'use', but found 'let'
-                error at 4..7: expected 'fn', 'mod' or 'use', but found identifier
-                error at 8..9: expected 'fn', 'mod' or 'use', but found '='
-                error at 10..13: expected 'fn', 'mod' or 'use', but found identifier
+                error at 0..3: expected 'fn', 'struct', 'mod' or 'use', but found 'let'
+                error at 4..7: expected 'fn', 'struct', 'mod' or 'use', but found identifier
+                error at 8..9: expected 'fn', 'struct', 'mod' or 'use', but found '='
+                error at 10..13: expected 'fn', 'struct', 'mod' or 'use', but found identifier
             "#]],
         );
     }
@@ -497,10 +499,72 @@ mod tests {
                   Whitespace@15..16 " "
                   Error@16..17
                     RCurly@16..17 "}"
-                error at 7..10: expected ->, '{', 'fn', 'mod' or 'use', but found identifier
-                error at 11..12: expected 'fn', 'mod' or 'use', but found '{'
-                error at 13..15: expected 'fn', 'mod' or 'use', but found integerLiteral
-                error at 16..17: expected 'fn', 'mod' or 'use', but found '}'
+                error at 7..10: expected ->, '{', 'fn', 'struct', 'mod' or 'use', but found identifier
+                error at 11..12: expected 'fn', 'struct', 'mod' or 'use', but found '{'
+                error at 13..15: expected 'fn', 'struct', 'mod' or 'use', but found integerLiteral
+                error at 16..17: expected 'fn', 'struct', 'mod' or 'use', but found '}'
+            "#]],
+        );
+    }
+
+    // Structの詳細は`stmt.rs`側で行う
+    #[test]
+    fn parse_struct_definition() {
+        check_debug_tree(
+            r#"
+struct A;
+struct A(i32, i32);
+struct A { foo: i32, bar: i32 }
+            "#,
+            expect![[r#"
+                SourceFile@0..75
+                  Whitespace@0..1 "\n"
+                  StructDef@1..10
+                    StructKw@1..7 "struct"
+                    Whitespace@7..8 " "
+                    Ident@8..9 "A"
+                    Semicolon@9..10 ";"
+                  Whitespace@10..11 "\n"
+                  StructDef@11..30
+                    StructKw@11..17 "struct"
+                    Whitespace@17..18 " "
+                    Ident@18..19 "A"
+                    TupleFieldList@19..29
+                      LParen@19..20 "("
+                      TupleField@20..23
+                        Ident@20..23 "i32"
+                      Comma@23..24 ","
+                      Whitespace@24..25 " "
+                      TupleField@25..28
+                        Ident@25..28 "i32"
+                      RParen@28..29 ")"
+                    Semicolon@29..30 ";"
+                  Whitespace@30..31 "\n"
+                  StructDef@31..62
+                    StructKw@31..37 "struct"
+                    Whitespace@37..38 " "
+                    Ident@38..39 "A"
+                    Whitespace@39..40 " "
+                    RecordFieldList@40..62
+                      LCurly@40..41 "{"
+                      Whitespace@41..42 " "
+                      RecordField@42..50
+                        Ident@42..45 "foo"
+                        Colon@45..46 ":"
+                        Whitespace@46..47 " "
+                        Type@47..50
+                          Ident@47..50 "i32"
+                      Comma@50..51 ","
+                      Whitespace@51..52 " "
+                      RecordField@52..60
+                        Ident@52..55 "bar"
+                        Colon@55..56 ":"
+                        Whitespace@56..57 " "
+                        Type@57..60
+                          Ident@57..60 "i32"
+                      Whitespace@60..61 " "
+                      RCurly@61..62 "}"
+                  Whitespace@62..75 "\n            "
             "#]],
         );
     }

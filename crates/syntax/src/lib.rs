@@ -1,5 +1,4 @@
 //! Syntax tree definitions for the Nail language.
-
 use lexer::TokenKind;
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::{FromPrimitive, ToPrimitive};
@@ -65,6 +64,12 @@ pub enum SyntaxKind {
     // ---item nodes---
     /// `fn IDENT(ParamList) -> ReturnType BlockExpr`
     FunctionDef,
+    /// `struct IDENT { TupleFieldList | RecordFieldList }`
+    ///
+    /// Represents a structure definition,
+    /// which can either be a tuple-like struct (e.g., `struct IDENT(TupleFieldList);`) or
+    /// a classic C-like struct (e.g., `struct IDENT { RecordFieldList }`).
+    StructDef,
     /// `mod IDENT { ItemList }`
     Module,
     /// `use Path;`
@@ -79,6 +84,14 @@ pub enum SyntaxKind {
     ArgList,
     /// `EXPR`
     Arg,
+    /// `(TupleField, TupleField, ...)`
+    TupleFieldList,
+    /// `TYPE`
+    TupleField,
+    /// `{ RecordField, RecordField, ... }`
+    RecordFieldList,
+    /// `IDENT: TYPE`
+    RecordField,
     /// `TYPE`
     Type,
     /// fn foo() -> i32 { ... }
@@ -96,6 +109,8 @@ pub enum SyntaxKind {
     // ---item keywords---
     /// `fn`
     FnKw,
+    /// `struct`
+    StructKw,
     /// `mod`
     ModKw,
     /// `use`
@@ -208,6 +223,7 @@ impl From<TokenKind> for SyntaxKind {
     fn from(token_kind: TokenKind) -> Self {
         match token_kind {
             TokenKind::FnKw => Self::FnKw,
+            TokenKind::StructKw => Self::StructKw,
             TokenKind::ModKw => Self::ModKw,
             TokenKind::UseKw => Self::UseKw,
 

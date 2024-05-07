@@ -1348,7 +1348,7 @@ mod tests {
                     Error@5..6
                       RParen@5..6 ")"
                 error at 4..5: expected '::', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ',' or ')', but found identifier
-                error at 5..6: expected '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ';', 'let', 'fn', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found ')'
+                error at 5..6: expected '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ';', 'let', 'fn', 'struct', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found ')'
             "#]],
         );
     }

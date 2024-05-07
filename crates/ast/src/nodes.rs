@@ -238,6 +238,8 @@ impl AstNode for Stmt {
 pub enum Item {
     /// 関数定義
     FunctionDef(FunctionDef),
+    /// 構造体定義
+    StructDef(StructDef),
     /// モジュール
     Module(Module),
     /// `use`アイテム
@@ -248,13 +250,14 @@ impl AstNode for Item {
     fn can_cast(kind: SyntaxKind) -> bool {
         matches!(
             kind,
-            SyntaxKind::FunctionDef | SyntaxKind::Module | SyntaxKind::Use
+            SyntaxKind::FunctionDef | SyntaxKind::StructDef | SyntaxKind::Module | SyntaxKind::Use
         )
     }
 
     fn cast(syntax: SyntaxNode) -> Option<Self> {
         let result = match syntax.kind() {
             SyntaxKind::FunctionDef => Self::FunctionDef(FunctionDef { syntax }),
+            SyntaxKind::StructDef => Self::StructDef(StructDef { syntax }),
             SyntaxKind::Module => Self::Module(Module { syntax }),
             SyntaxKind::Use => Self::Use(Use { syntax }),
             _ => return None,
@@ -266,6 +269,7 @@ impl AstNode for Item {
     fn syntax(&self) -> &SyntaxNode {
         match self {
             Item::FunctionDef(it) => it.syntax(),
+            Item::StructDef(it) => it.syntax(),
             Item::Module(it) => it.syntax(),
             Item::Use(it) => it.syntax(),
         }
@@ -544,6 +548,134 @@ def_ast_node!(
 );
 impl ReturnType {
     /// 関数の戻り値の型に位置する型ノードを返します。
+    pub fn ty(&self) -> Option<Type> {
+        ast_node::child_node(self)
+    }
+}
+
+def_ast_node!(
+    /// 構造体のASTノード
+    StructDef
+);
+impl StructDef {
+    /// 構造体の名前に位置するトークンを返します。
+    pub fn name(&self) -> Option<tokens::Ident> {
+        ast_node::child_token(self)
+    }
+
+    /// 構造体のフィールドのリストに位置するフィールドリストノードを返します。
+    pub fn fields(&self) -> Option<FieldList> {
+        if let Some(tuple_fields) = self.tuple_fields() {
+            Some(FieldList::Tuple(tuple_fields))
+        } else {
+            Some(FieldList::Named(self.named_fields()?))
+        }
+    }
+
+    /// セミコロンに位置するASTトークンを返します。
+    pub fn semicolon(&self) -> Option<tokens::Semicolon> {
+        ast_node::child_token(self)
+    }
+
+    /// タプルフィールドで定義された構造体かどうかを返します。
+    pub fn is_tuple(&self) -> bool {
+        self.tuple_fields().is_some()
+    }
+
+    /// 名前付きフィールドで定義された構造体かどうかを返します。
+    pub fn is_named(&self) -> bool {
+        self.named_fields().is_some()
+    }
+
+    /// タプルフィールドのリストに位置するタプルフィールドリストノードを返します。
+    fn tuple_fields(&self) -> Option<TupleFieldList> {
+        ast_node::child_node(self)
+    }
+
+    /// 名前付きフィールドのリストに位置する名前付きフィールドリストノードを返します。
+    fn named_fields(&self) -> Option<NamedFieldList> {
+        ast_node::child_node(self)
+    }
+}
+
+/// 構造体のフィールドのリスト
+pub enum FieldList {
+    /// タプルフィールドのリスト
+    Tuple(TupleFieldList),
+    /// 名前付きフィールドのリスト
+    Named(NamedFieldList),
+}
+impl Ast for FieldList {}
+impl AstNode for FieldList {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::TupleFieldList | SyntaxKind::NamedFieldList
+        )
+    }
+
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let result = match syntax.kind() {
+            SyntaxKind::TupleFieldList => Self::Tuple(TupleFieldList { syntax }),
+            SyntaxKind::NamedFieldList => Self::Named(NamedFieldList { syntax }),
+            _ => return None,
+        };
+
+        Some(result)
+    }
+
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            FieldList::Tuple(it) => it.syntax(),
+            FieldList::Named(it) => it.syntax(),
+        }
+    }
+}
+
+def_ast_node!(
+    /// タプルフィールドのリストのASTノード
+    TupleFieldList
+);
+impl TupleFieldList {
+    /// フィールドの一覧を返します。
+    pub fn fields(&self) -> impl Iterator<Item = TupleField> {
+        ast_node::children_nodes(self)
+    }
+}
+
+def_ast_node!(
+    /// タプルフィールドのASTノード
+    TupleField
+);
+impl TupleField {
+    /// フィールドの型に位置する型ノードを返します。
+    pub fn ty(&self) -> Option<Type> {
+        ast_node::child_node(self)
+    }
+}
+
+def_ast_node!(
+    /// 名前付きフィールドのリストのASTノード
+    NamedFieldList
+);
+impl NamedFieldList {
+    /// フィールドの一覧を返します。
+    pub fn fields(&self) -> impl Iterator<Item = NamedField> {
+        ast_node::children_nodes(self)
+    }
+}
+
+def_ast_node!(
+    /// 名前付きフィールドのASTノード
+    NamedField
+);
+impl NamedField {
+    /// フィールドの名前に位置するトークンを返します。
+    pub fn name(&self) -> Option<tokens::Ident> {
+        ast_node::child_token(self)
+    }
+
+    /// フィールドの型に位置する型ノードを返します。
     pub fn ty(&self) -> Option<Type> {
         ast_node::child_node(self)
     }

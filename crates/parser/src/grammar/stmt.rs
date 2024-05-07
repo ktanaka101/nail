@@ -240,7 +240,10 @@ fn parse_record_fields(parser: &mut Parser, recovery_set: &[TokenKind]) -> Compl
     let marker = parser.start();
     parser.bump();
 
-    if parser.at(TokenKind::Ident) || parser.at(TokenKind::Colon) || parser.at(TokenKind::Comma) {
+    if parser.at(TokenKind::Ident)
+        || parser.peek() == Some(TokenKind::Colon)
+        || parser.peek() == Some(TokenKind::Comma)
+    {
         {
             let marker = parser.start();
             parser.expect_with_recovery_set_no_default(TokenKind::Ident, recovery_set);
@@ -261,8 +264,7 @@ fn parse_record_fields(parser: &mut Parser, recovery_set: &[TokenKind]) -> Compl
                 // struct AAA { a: int, b: int, }
                 //                            ^時点で停止させる
                 if parser.at(TokenKind::RCurly) {
-                    parser.bump();
-                    return marker.complete(parser, SyntaxKind::RecordFieldList);
+                    break;
                 }
 
                 let marker = parser.start();
@@ -317,8 +319,7 @@ fn parse_tuple_fields(parser: &mut Parser, recovery_set: &[TokenKind]) -> Comple
                 // struct AAA(i32, i32,);
                 //                    ^時点で停止させる(`(`は`parse_struct`側でbump)
                 if parser.at(TokenKind::RParen) {
-                    parser.bump();
-                    return marker.complete(parser, SyntaxKind::TupleFieldList);
+                    break;
                 }
 
                 let marker = parser.start();
@@ -1063,54 +1064,94 @@ struct AAA;
     #[test]
     fn parse_struct_definition_tuple_fields() {
         check_debug_tree_in_block(
-            r#"
-struct AAA();
-struct AAA(int, int);
-struct AAA(int, int,);
-            "#,
+            "struct AAA();",
             expect![[r#"
-                SourceFile@0..72
-                  Whitespace@0..1 "\n"
-                  StructDef@1..14
-                    StructKw@1..7 "struct"
-                    Whitespace@7..8 " "
-                    Ident@8..11 "AAA"
-                    TupleFieldList@11..13
-                      LParen@11..12 "("
-                      RParen@12..13 ")"
-                    Semicolon@13..14 ";"
-                  Whitespace@14..15 "\n"
-                  StructDef@15..36
-                    StructKw@15..21 "struct"
-                    Whitespace@21..22 " "
-                    Ident@22..25 "AAA"
-                    TupleFieldList@25..35
-                      LParen@25..26 "("
-                      TupleField@26..29
-                        Ident@26..29 "int"
-                      Comma@29..30 ","
-                      Whitespace@30..31 " "
-                      TupleField@31..34
-                        Ident@31..34 "int"
-                      RParen@34..35 ")"
-                    Semicolon@35..36 ";"
-                  Whitespace@36..37 "\n"
-                  StructDef@37..59
-                    StructKw@37..43 "struct"
-                    Whitespace@43..44 " "
-                    Ident@44..47 "AAA"
-                    TupleFieldList@47..58
-                      LParen@47..48 "("
-                      TupleField@48..51
-                        Ident@48..51 "int"
-                      Comma@51..52 ","
-                      Whitespace@52..53 " "
-                      TupleField@53..56
-                        Ident@53..56 "int"
-                      Comma@56..57 ","
-                      RParen@57..58 ")"
-                    Semicolon@58..59 ";"
-                  Whitespace@59..72 "\n            "
+                SourceFile@0..13
+                  StructDef@0..13
+                    StructKw@0..6 "struct"
+                    Whitespace@6..7 " "
+                    Ident@7..10 "AAA"
+                    TupleFieldList@10..12
+                      LParen@10..11 "("
+                      RParen@11..12 ")"
+                    Semicolon@12..13 ";"
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            "struct AAA(int);",
+            expect![[r#"
+                SourceFile@0..16
+                  StructDef@0..16
+                    StructKw@0..6 "struct"
+                    Whitespace@6..7 " "
+                    Ident@7..10 "AAA"
+                    TupleFieldList@10..15
+                      LParen@10..11 "("
+                      TupleField@11..14
+                        Ident@11..14 "int"
+                      RParen@14..15 ")"
+                    Semicolon@15..16 ";"
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            "struct AAA(int,);",
+            expect![[r#"
+                SourceFile@0..17
+                  StructDef@0..17
+                    StructKw@0..6 "struct"
+                    Whitespace@6..7 " "
+                    Ident@7..10 "AAA"
+                    TupleFieldList@10..16
+                      LParen@10..11 "("
+                      TupleField@11..14
+                        Ident@11..14 "int"
+                      Comma@14..15 ","
+                      RParen@15..16 ")"
+                    Semicolon@16..17 ";"
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            "struct AAA(int, int);",
+            expect![[r#"
+                SourceFile@0..21
+                  StructDef@0..21
+                    StructKw@0..6 "struct"
+                    Whitespace@6..7 " "
+                    Ident@7..10 "AAA"
+                    TupleFieldList@10..20
+                      LParen@10..11 "("
+                      TupleField@11..14
+                        Ident@11..14 "int"
+                      Comma@14..15 ","
+                      Whitespace@15..16 " "
+                      TupleField@16..19
+                        Ident@16..19 "int"
+                      RParen@19..20 ")"
+                    Semicolon@20..21 ";"
+            "#]],
+        );
+        check_debug_tree_in_block(
+            "struct AAA(int, int,);",
+            expect![[r#"
+                SourceFile@0..22
+                  StructDef@0..22
+                    StructKw@0..6 "struct"
+                    Whitespace@6..7 " "
+                    Ident@7..10 "AAA"
+                    TupleFieldList@10..21
+                      LParen@10..11 "("
+                      TupleField@11..14
+                        Ident@11..14 "int"
+                      Comma@14..15 ","
+                      Whitespace@15..16 " "
+                      TupleField@16..19
+                        Ident@16..19 "int"
+                      Comma@19..20 ","
+                      RParen@20..21 ")"
+                    Semicolon@21..22 ";"
             "#]],
         );
     }
@@ -1118,82 +1159,127 @@ struct AAA(int, int,);
     #[test]
     fn parse_struct_definition_record_fields() {
         check_debug_tree_in_block(
-            r#"
-struct AAA {
-}
-struct AAA {
-    a: int,
-    b: int
-}
-struct AAA {
-    a: int,
-    b: int,
-}
-            "#,
+            "struct AAA {}",
             expect![[r#"
-                SourceFile@0..105
-                  Whitespace@0..1 "\n"
-                  StructDef@1..15
-                    StructKw@1..7 "struct"
-                    Whitespace@7..8 " "
-                    Ident@8..11 "AAA"
-                    Whitespace@11..12 " "
-                    RecordFieldList@12..15
-                      LCurly@12..13 "{"
-                      Whitespace@13..14 "\n"
-                      RCurly@14..15 "}"
-                  Whitespace@15..16 "\n"
-                  StructDef@16..53
-                    StructKw@16..22 "struct"
-                    Whitespace@22..23 " "
-                    Ident@23..26 "AAA"
-                    Whitespace@26..27 " "
-                    RecordFieldList@27..53
-                      LCurly@27..28 "{"
-                      Whitespace@28..33 "\n    "
-                      RecordField@33..39
-                        Ident@33..34 "a"
-                        Colon@34..35 ":"
-                        Whitespace@35..36 " "
-                        Type@36..39
-                          Ident@36..39 "int"
-                      Comma@39..40 ","
-                      Whitespace@40..45 "\n    "
-                      RecordField@45..51
-                        Ident@45..46 "b"
-                        Colon@46..47 ":"
-                        Whitespace@47..48 " "
-                        Type@48..51
-                          Ident@48..51 "int"
-                      Whitespace@51..52 "\n"
-                      RCurly@52..53 "}"
-                  Whitespace@53..54 "\n"
-                  StructDef@54..92
-                    StructKw@54..60 "struct"
-                    Whitespace@60..61 " "
-                    Ident@61..64 "AAA"
-                    Whitespace@64..65 " "
-                    RecordFieldList@65..92
-                      LCurly@65..66 "{"
-                      Whitespace@66..71 "\n    "
-                      RecordField@71..77
-                        Ident@71..72 "a"
-                        Colon@72..73 ":"
-                        Whitespace@73..74 " "
-                        Type@74..77
-                          Ident@74..77 "int"
-                      Comma@77..78 ","
-                      Whitespace@78..83 "\n    "
-                      RecordField@83..89
-                        Ident@83..84 "b"
-                        Colon@84..85 ":"
-                        Whitespace@85..86 " "
-                        Type@86..89
-                          Ident@86..89 "int"
-                      Comma@89..90 ","
-                      Whitespace@90..91 "\n"
-                      RCurly@91..92 "}"
-                  Whitespace@92..105 "\n            "
+                SourceFile@0..13
+                  StructDef@0..13
+                    StructKw@0..6 "struct"
+                    Whitespace@6..7 " "
+                    Ident@7..10 "AAA"
+                    Whitespace@10..11 " "
+                    RecordFieldList@11..13
+                      LCurly@11..12 "{"
+                      RCurly@12..13 "}"
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            "struct AAA { a: int }",
+            expect![[r#"
+                SourceFile@0..21
+                  StructDef@0..21
+                    StructKw@0..6 "struct"
+                    Whitespace@6..7 " "
+                    Ident@7..10 "AAA"
+                    Whitespace@10..11 " "
+                    RecordFieldList@11..21
+                      LCurly@11..12 "{"
+                      Whitespace@12..13 " "
+                      RecordField@13..19
+                        Ident@13..14 "a"
+                        Colon@14..15 ":"
+                        Whitespace@15..16 " "
+                        Type@16..19
+                          Ident@16..19 "int"
+                      Whitespace@19..20 " "
+                      RCurly@20..21 "}"
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            "struct AAA { a: int, }",
+            expect![[r#"
+                SourceFile@0..22
+                  StructDef@0..22
+                    StructKw@0..6 "struct"
+                    Whitespace@6..7 " "
+                    Ident@7..10 "AAA"
+                    Whitespace@10..11 " "
+                    RecordFieldList@11..22
+                      LCurly@11..12 "{"
+                      Whitespace@12..13 " "
+                      RecordField@13..19
+                        Ident@13..14 "a"
+                        Colon@14..15 ":"
+                        Whitespace@15..16 " "
+                        Type@16..19
+                          Ident@16..19 "int"
+                      Comma@19..20 ","
+                      Whitespace@20..21 " "
+                      RCurly@21..22 "}"
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            "struct AAA { a: int, b: int }",
+            expect![[r#"
+                SourceFile@0..29
+                  StructDef@0..29
+                    StructKw@0..6 "struct"
+                    Whitespace@6..7 " "
+                    Ident@7..10 "AAA"
+                    Whitespace@10..11 " "
+                    RecordFieldList@11..29
+                      LCurly@11..12 "{"
+                      Whitespace@12..13 " "
+                      RecordField@13..19
+                        Ident@13..14 "a"
+                        Colon@14..15 ":"
+                        Whitespace@15..16 " "
+                        Type@16..19
+                          Ident@16..19 "int"
+                      Comma@19..20 ","
+                      Whitespace@20..21 " "
+                      RecordField@21..27
+                        Ident@21..22 "b"
+                        Colon@22..23 ":"
+                        Whitespace@23..24 " "
+                        Type@24..27
+                          Ident@24..27 "int"
+                      Whitespace@27..28 " "
+                      RCurly@28..29 "}"
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            "struct AAA { a: int, b: int, }",
+            expect![[r#"
+                SourceFile@0..30
+                  StructDef@0..30
+                    StructKw@0..6 "struct"
+                    Whitespace@6..7 " "
+                    Ident@7..10 "AAA"
+                    Whitespace@10..11 " "
+                    RecordFieldList@11..30
+                      LCurly@11..12 "{"
+                      Whitespace@12..13 " "
+                      RecordField@13..19
+                        Ident@13..14 "a"
+                        Colon@14..15 ":"
+                        Whitespace@15..16 " "
+                        Type@16..19
+                          Ident@16..19 "int"
+                      Comma@19..20 ","
+                      Whitespace@20..21 " "
+                      RecordField@21..27
+                        Ident@21..22 "b"
+                        Colon@22..23 ":"
+                        Whitespace@23..24 " "
+                        Type@24..27
+                          Ident@24..27 "int"
+                      Comma@27..28 ","
+                      Whitespace@28..29 " "
+                      RCurly@29..30 "}"
             "#]],
         );
     }
@@ -1201,145 +1287,146 @@ struct AAA {
     #[test]
     fn parse_struct_definition_missing() {
         check_debug_tree_in_block(
-            r#"
-struct ;
-            "#,
+            "struct ;",
             expect![[r#"
-                SourceFile@0..22
-                  Whitespace@0..1 "\n"
-                  StructDef@1..9
-                    StructKw@1..7 "struct"
-                    Whitespace@7..8 " "
-                    Semicolon@8..9 ";"
-                  Whitespace@9..22 "\n            "
-                error at 8..9: expected identifier, but found ';'
+                SourceFile@0..8
+                  StructDef@0..8
+                    StructKw@0..6 "struct"
+                    Whitespace@6..7 " "
+                    Semicolon@7..8 ";"
+                error at 7..8: expected identifier, but found ';'
             "#]],
         );
 
         check_debug_tree_in_block(
-            r#"
-struct ;
-            "#,
+            "struct ;",
             expect![[r#"
-                SourceFile@0..22
-                  Whitespace@0..1 "\n"
-                  StructDef@1..9
-                    StructKw@1..7 "struct"
-                    Whitespace@7..8 " "
-                    Semicolon@8..9 ";"
-                  Whitespace@9..22 "\n            "
-                error at 8..9: expected identifier, but found ';'
+                SourceFile@0..8
+                  StructDef@0..8
+                    StructKw@0..6 "struct"
+                    Whitespace@6..7 " "
+                    Semicolon@7..8 ";"
+                error at 7..8: expected identifier, but found ';'
             "#]],
         );
 
         check_debug_tree_in_block(
-            r#"
-struct (i32);
-            "#,
+            "struct (i32);",
             expect![[r#"
-                SourceFile@0..27
-                  Whitespace@0..1 "\n"
-                  StructDef@1..14
-                    StructKw@1..7 "struct"
-                    Whitespace@7..8 " "
-                    TupleFieldList@8..13
-                      LParen@8..9 "("
-                      TupleField@9..12
-                        Ident@9..12 "i32"
-                      RParen@12..13 ")"
-                    Semicolon@13..14 ";"
-                  Whitespace@14..27 "\n            "
-                error at 8..9: expected identifier, but found '('
+                SourceFile@0..13
+                  StructDef@0..13
+                    StructKw@0..6 "struct"
+                    Whitespace@6..7 " "
+                    TupleFieldList@7..12
+                      LParen@7..8 "("
+                      TupleField@8..11
+                        Ident@8..11 "i32"
+                      RParen@11..12 ")"
+                    Semicolon@12..13 ";"
+                error at 7..8: expected identifier, but found '('
             "#]],
         );
 
         check_debug_tree_in_block(
-            r#"
-struct { a: i32 }
-            "#,
+            "struct { a: i32 }",
             expect![[r#"
-                SourceFile@0..31
-                  Whitespace@0..1 "\n"
-                  StructDef@1..18
-                    StructKw@1..7 "struct"
-                    Whitespace@7..8 " "
-                    RecordFieldList@8..18
-                      LCurly@8..9 "{"
-                      Whitespace@9..10 " "
-                      RecordField@10..16
-                        Ident@10..11 "a"
-                        Colon@11..12 ":"
-                        Whitespace@12..13 " "
-                        Type@13..16
-                          Ident@13..16 "i32"
-                      Whitespace@16..17 " "
-                      RCurly@17..18 "}"
-                  Whitespace@18..31 "\n            "
-                error at 8..9: expected identifier, but found '{'
+                SourceFile@0..17
+                  StructDef@0..17
+                    StructKw@0..6 "struct"
+                    Whitespace@6..7 " "
+                    RecordFieldList@7..17
+                      LCurly@7..8 "{"
+                      Whitespace@8..9 " "
+                      RecordField@9..15
+                        Ident@9..10 "a"
+                        Colon@10..11 ":"
+                        Whitespace@11..12 " "
+                        Type@12..15
+                          Ident@12..15 "i32"
+                      Whitespace@15..16 " "
+                      RCurly@16..17 "}"
+                error at 7..8: expected identifier, but found '{'
             "#]],
         );
 
         check_debug_tree_in_block(
-            r#"
-struct AAA { : i32, : bool }
-            "#,
+            "struct AAA { :, : }",
             expect![[r#"
-                SourceFile@0..42
-                  Whitespace@0..1 "\n"
-                  StructDef@1..29
-                    StructKw@1..7 "struct"
-                    Whitespace@7..8 " "
-                    Ident@8..11 "AAA"
-                    Whitespace@11..12 " "
-                    RecordFieldList@12..29
-                      LCurly@12..13 "{"
-                      Whitespace@13..14 " "
-                      RecordField@14..19
-                        Colon@14..15 ":"
-                        Whitespace@15..16 " "
-                        Type@16..19
-                          Ident@16..19 "i32"
-                      Comma@19..20 ","
-                      Whitespace@20..21 " "
-                      RecordField@21..27
-                        Colon@21..22 ":"
-                        Whitespace@22..23 " "
-                        Type@23..27
-                          Ident@23..27 "bool"
-                      Whitespace@27..28 " "
-                      RCurly@28..29 "}"
-                  Whitespace@29..42 "\n            "
-                error at 14..15: expected identifier or ':', but found ':'
-                error at 21..22: expected '}' or identifier, but found ':'
-            "#]],
-        );
-
-        check_debug_tree_in_block(
-            r#"
-struct AAA { a:, b: }
-            "#,
-            expect![[r#"
-                SourceFile@0..35
-                  Whitespace@0..1 "\n"
-                  StructDef@1..22
-                    StructKw@1..7 "struct"
-                    Whitespace@7..8 " "
-                    Ident@8..11 "AAA"
-                    Whitespace@11..12 " "
-                    RecordFieldList@12..22
-                      LCurly@12..13 "{"
-                      Whitespace@13..14 " "
-                      RecordField@14..16
-                        Ident@14..15 "a"
-                        Colon@15..16 ":"
-                      Comma@16..17 ","
+                SourceFile@0..19
+                  StructDef@0..19
+                    StructKw@0..6 "struct"
+                    Whitespace@6..7 " "
+                    Ident@7..10 "AAA"
+                    Whitespace@10..11 " "
+                    RecordFieldList@11..19
+                      LCurly@11..12 "{"
+                      Whitespace@12..13 " "
+                      RecordField@13..14
+                        Colon@13..14 ":"
+                      Comma@14..15 ","
+                      Whitespace@15..16 " "
+                      RecordField@16..17
+                        Colon@16..17 ":"
                       Whitespace@17..18 " "
-                      RecordField@18..20
-                        Ident@18..19 "b"
-                        Colon@19..20 ":"
-                      Whitespace@20..21 " "
-                      RCurly@21..22 "}"
-                  Whitespace@22..35 "\n            "
+                      RCurly@18..19 "}"
+                error at 13..14: expected identifier, but found ':'
+                error at 16..17: expected '}' or identifier, but found ':'
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            "struct AAA { : i32, : bool }",
+            expect![[r#"
+                SourceFile@0..28
+                  StructDef@0..28
+                    StructKw@0..6 "struct"
+                    Whitespace@6..7 " "
+                    Ident@7..10 "AAA"
+                    Whitespace@10..11 " "
+                    RecordFieldList@11..28
+                      LCurly@11..12 "{"
+                      Whitespace@12..13 " "
+                      RecordField@13..18
+                        Colon@13..14 ":"
+                        Whitespace@14..15 " "
+                        Type@15..18
+                          Ident@15..18 "i32"
+                      Comma@18..19 ","
+                      Whitespace@19..20 " "
+                      RecordField@20..26
+                        Colon@20..21 ":"
+                        Whitespace@21..22 " "
+                        Type@22..26
+                          Ident@22..26 "bool"
+                      Whitespace@26..27 " "
+                      RCurly@27..28 "}"
+                error at 13..14: expected identifier, but found ':'
+                error at 20..21: expected '}' or identifier, but found ':'
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            "struct AAA { a:, b: }",
+            expect![[r#"
+                SourceFile@0..21
+                  StructDef@0..21
+                    StructKw@0..6 "struct"
+                    Whitespace@6..7 " "
+                    Ident@7..10 "AAA"
+                    Whitespace@10..11 " "
+                    RecordFieldList@11..21
+                      LCurly@11..12 "{"
+                      Whitespace@12..13 " "
+                      RecordField@13..15
+                        Ident@13..14 "a"
+                        Colon@14..15 ":"
+                      Comma@15..16 ","
+                      Whitespace@16..17 " "
+                      RecordField@17..19
+                        Ident@17..18 "b"
+                        Colon@18..19 ":"
+                      Whitespace@19..20 " "
+                      RCurly@20..21 "}"
             "#]],
         );
     }

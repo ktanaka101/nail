@@ -65,6 +65,10 @@ pub enum SyntaxKind {
     /// `fn IDENT(ParamList) -> ReturnType BlockExpr`
     FunctionDef,
     /// `struct IDENT { TupleFieldList | RecordFieldList }`
+    ///
+    /// Represents a structure definition,
+    /// which can either be a tuple-like struct (e.g., `struct IDENT(TupleFieldList);`) or
+    /// a classic C-like struct (e.g., `struct IDENT { RecordFieldList }`).
     StructDef,
     /// `mod IDENT { ItemList }`
     Module,

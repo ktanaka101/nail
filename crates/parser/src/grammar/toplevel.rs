@@ -62,13 +62,13 @@ pub(super) fn parse_module(parser: &mut Parser, recovery_set: &[TokenKind]) -> C
 }
 
 /// 使用宣言のパースを行います。
-pub(crate) fn parse_use(parser: &mut Parser, _recovery_set: &[TokenKind]) -> CompletedNodeMarker {
+pub(crate) fn parse_use(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedNodeMarker {
     assert!(parser.at(TokenKind::UseKw));
 
     let marker = parser.start();
     parser.bump();
 
-    parse_path(parser);
+    parse_path(parser, recovery_set);
 
     if parser.at(TokenKind::Semicolon) {
         parser.bump();

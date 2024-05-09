@@ -3,7 +3,7 @@ use syntax::SyntaxKind;
 
 use crate::{
     grammar::{parse_path, stmt::parse_stmt_on_block},
-    parser::{marker::CompletedNodeMarker, Parser},
+    parser::{marker::CompletedNodeMarker, Parser, BLOCK_RECOVERY_SET},
 };
 
 /// 式の最初に現れる可能性があるトークンの集合
@@ -252,13 +252,13 @@ fn validate_literal(parser: &mut Parser) {
     }
 }
 
-/// パスのパース
+/// パス式のパース
 fn parse_path_expr(parser: &mut Parser) -> CompletedNodeMarker {
     assert!(parser.at(TokenKind::Ident));
 
     let marker = parser.start();
 
-    parse_path(parser);
+    parse_path(parser, &BLOCK_RECOVERY_SET);
 
     marker.complete(parser, SyntaxKind::PathExpr)
 }

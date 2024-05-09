@@ -144,7 +144,7 @@ impl<'a> FunctionTypeChecker<'a> {
                         let expr = binding.lookup(self.hir_file_db).expr;
                         self.check_expr(expr);
                     }
-                    hir::Symbol::Param { .. } | hir::Symbol::Missing { .. } => (),
+                    hir::Symbol::Param { .. } | hir::Symbol::MissingExpr { .. } => (),
                 };
             }
             hir::Expr::If {

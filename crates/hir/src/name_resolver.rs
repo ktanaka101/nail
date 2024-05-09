@@ -185,7 +185,7 @@ impl<'a> NameResolver<'a> {
         }
 
         for symbol_in_scope in self.name_resolution_collection.symbols() {
-            if let Symbol::Missing { path } = &symbol_in_scope.symbol {
+            if let Symbol::MissingExpr { path } = &symbol_in_scope.symbol {
                 let module_scope = self
                     .module_scopes
                     .module_scope_by_origin(symbol_in_scope.scope_origin)

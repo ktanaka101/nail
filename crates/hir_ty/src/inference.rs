@@ -250,7 +250,7 @@ impl<'a> InferBody<'a> {
                     panic!("Unbound variable {symbol:?}");
                 }
             }
-            hir::Symbol::Missing { path } => {
+            hir::Symbol::MissingExpr { path } => {
                 let resolution_status = self.pods.resolution_map.item_by_symbol(path).unwrap();
                 match self.resolve_resolution_status(resolution_status) {
                     Some(item) => match item {

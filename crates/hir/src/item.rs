@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use la_arena::Idx;
 
-use crate::{Expr, HirFile, HirFileDatabase, HirMasterDatabase, Name, Path};
+use crate::{Expr, HirFile, HirFileDatabase, HirMasterDatabase, Name, Path, Symbol};
 
 /// 関数のパラメータのIDを表す
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -76,7 +76,7 @@ pub enum Type {
     /// 型のある部分が欠けている場合に取る可能性があります。
     Unknown,
     /// 構造体など組み込み以外の型
-    Custom(Name),
+    Custom(Symbol),
 }
 
 /// 関数定義を表す

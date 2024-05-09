@@ -252,7 +252,7 @@ impl<'a> BodyLower<'a> {
                 let name = param
                     .name()
                     .map(|name| Name::new(db, name.name().to_string()));
-                let ty = self.lower_ty(db, param.ty());
+                let ty = self.lower_path_type(db, param.ty());
                 Param::new(self.hir_file_db, name, ty, pos, param.mut_token().is_some())
             })
             .collect::<Vec<_>>();
@@ -261,7 +261,7 @@ impl<'a> BodyLower<'a> {
             .filter_map(|param| param.data(self.hir_file_db).name.map(|name| (name, *param)))
             .collect::<HashMap<_, _>>();
         let return_type = if let Some(return_type) = def.return_type() {
-            self.lower_ty(db, return_type.ty())
+            self.lower_path_type(db, return_type.ty())
         } else {
             Type::Unit
         };
@@ -317,7 +317,7 @@ impl<'a> BodyLower<'a> {
             ast::StructKind::Tuple(tuple_fileds) => StructKind::Tuple(
                 tuple_fileds
                     .fields()
-                    .map(|field| self.lower_ty(db, field.ty()))
+                    .map(|field| self.lower_path_type(db, field.ty()))
                     .collect(),
             ),
             ast::StructKind::Named(named_fields) => StructKind::Named(
@@ -326,7 +326,7 @@ impl<'a> BodyLower<'a> {
                     .enumerate()
                     .map(|(pos, field)| {
                         let name = Name::new(db, field.name().unwrap().name().to_string());
-                        let ty = self.lower_ty(db, field.ty());
+                        let ty = self.lower_path_type(db, field.ty());
                         NamedField { name, ty, pos }
                     })
                     .collect(),
@@ -390,21 +390,64 @@ impl<'a> BodyLower<'a> {
 
     /// 型を構築します。
     /// 型を表す名前がない場合は`Type::Unknown`を返します。
-    /// 組み込み方以外は`Type::Custom(Name)`を返します。この時点では型の名前解決をしません。
-    fn lower_ty(&mut self, db: &dyn HirMasterDatabase, ty: Option<ast::Type>) -> Type {
-        let ident = match ty.and_then(|ty| ty.ty()) {
-            Some(ident) => ident,
-            None => return Type::Unknown,
-        };
+    /// 組み込み型以外は`Type::Custom(Name)`を返します。この時点では型の名前解決をしません。
+    fn lower_path_type(
+        &mut self,
+        db: &dyn HirMasterDatabase,
+        path_type: Option<ast::PathType>,
+    ) -> Type {
+        match path_type {
+            Some(ty) => {
+                let path = ty.path();
+                match path {
+                    Some(path) => {
+                        let segments: Vec<ast::PathSegment> = path.segments().collect();
+                        match segments.len() {
+                            1 => {
+                                let ident = &segments[0].name().unwrap();
+                                let name = ident.name();
 
-        let type_name = ident.name();
-        match type_name {
-            "int" => Type::Integer,
-            "string" => Type::String,
-            "char" => Type::Char,
-            "bool" => Type::Boolean,
-            "()" => Type::Unit,
-            name => Type::Custom(Name::new(db, name.to_string())),
+                                match name {
+                                    "int" => Type::Integer,
+                                    "string" => Type::String,
+                                    "char" => Type::Char,
+                                    "bool" => Type::Boolean,
+                                    "()" => Type::Unit,
+                                    name => {
+                                        let path =
+                                            Path::new(db, vec![Name::new(db, name.to_string())]);
+                                        let symbol = Symbol::MissingType {
+                                            path: NameSolutionPath::new(db, path),
+                                        };
+                                        Type::Custom(symbol)
+                                    }
+                                }
+                            }
+                            _ => {
+                                let path = Path::new(
+                                    db,
+                                    segments
+                                        .iter()
+                                        .map(|segment| {
+                                            Name::new(
+                                                db,
+                                                segment.name().unwrap().name().to_string(),
+                                            )
+                                        })
+                                        .collect(),
+                                );
+                                let symbol = Symbol::MissingType {
+                                    path: NameSolutionPath::new(db, path),
+                                };
+
+                                Type::Custom(symbol)
+                            }
+                        }
+                    }
+                    None => Type::Unknown,
+                }
+            }
+            None => Type::Unknown,
         }
     }
 
@@ -612,12 +655,12 @@ impl<'a> BodyLower<'a> {
                 } else if let Some(binding) = self.scopes.lookup(name) {
                     Symbol::Local { name, binding }
                 } else {
-                    Symbol::Missing {
+                    Symbol::MissingExpr {
                         path: NameSolutionPath::new(db, Path::new(db, vec![name])),
                     }
                 }
             }
-            [_segments @ .., _item_segment] => Symbol::Missing {
+            [_segments @ .., _item_segment] => Symbol::MissingExpr {
                 path: NameSolutionPath::new(db, path),
             },
             [] => unreachable!(),
@@ -821,470 +864,7 @@ impl<'a> BodyLower<'a> {
 mod tests {
     use expect_test::{expect, Expect};
 
-    use super::*;
-    use crate::{
-        input::FixtureDatabase,
-        name_resolver::{ModuleScopeOrigin, ResolutionMap, ResolutionStatus},
-        parse_pods,
-        testing::TestingDatabase,
-        HirFile, LowerError, Pod, Pods,
-    };
-
-    fn indent(nesting: usize) -> String {
-        "    ".repeat(nesting)
-    }
-
-    fn debug_pods(db: &dyn HirMasterDatabase, pods: &Pods) -> String {
-        debug_pod(db, &pods.root_pod, &pods.resolution_map)
-    }
-
-    fn debug_pod(db: &dyn HirMasterDatabase, pod: &Pod, resolution_map: &ResolutionMap) -> String {
-        let mut msg = "".to_string();
-
-        msg.push_str("//- /main.nail\n");
-        msg.push_str(&debug_hir_file(db, &pod.root_hir_file, resolution_map));
-
-        for (file, hir_file) in pod.get_hir_files_order_registration_asc() {
-            let file_path = file.file_path(db);
-            msg.push_str(&format!("//- {}\n", file_path.to_string_lossy()));
-            msg.push_str(&debug_hir_file(db, hir_file, resolution_map));
-        }
-
-        msg
-    }
-
-    fn debug_hir_file(
-        db: &dyn HirMasterDatabase,
-        hir_file: &HirFile,
-        resolution_map: &ResolutionMap,
-    ) -> String {
-        let mut msg = "".to_string();
-
-        for item in hir_file.top_level_items(db) {
-            msg.push_str(&debug_item(db, hir_file, resolution_map, item, 0));
-        }
-
-        for error in hir_file.errors(db) {
-            match error {
-                LowerError::UndefinedEntryPoint => {
-                    msg.push_str("error: Undefined entry point.(help: fn main() { ... })\n");
-                }
-            }
-        }
-
-        msg
-    }
-
-    fn debug_function(
-        db: &dyn HirMasterDatabase,
-        hir_file: &HirFile,
-        rsolution_map: &ResolutionMap,
-        function: Function,
-        nesting: usize,
-    ) -> String {
-        let body_expr = function.body(db, *hir_file).unwrap();
-
-        let name = function.name(db).text(db);
-        let params = function
-            .params(db)
-            .iter()
-            .map(|param| {
-                let param_data = param.data(hir_file.db(db));
-                crate::testing::format_parameter(db, param_data)
-            })
-            .collect::<Vec<_>>()
-            .join(", ");
-        let return_type = crate::testing::format_type(db, &function.return_type(db));
-
-        let scope_origin = ModuleScopeOrigin::Function { origin: function };
-
-        let Expr::Block(block) = body_expr else {
-            panic!("Should be Block")
-        };
-
-        let mut body = "{\n".to_string();
-        for stmt in &block.stmts {
-            body.push_str(&debug_stmt(
-                db,
-                hir_file,
-                rsolution_map,
-                scope_origin,
-                stmt,
-                nesting + 1,
-            ));
-        }
-        if let Some(tail) = block.tail {
-            body.push_str(&format!(
-                "{}expr:{}\n",
-                indent(nesting + 1),
-                debug_expr(db, hir_file, rsolution_map, scope_origin, tail, nesting + 1)
-            ));
-        }
-        body.push_str(&format!("{}}}", indent(nesting)));
-
-        let is_entry_point = hir_file.entry_point(db) == Some(function);
-        format!(
-            "{}fn {}{name}({params}) -> {return_type} {body}\n",
-            indent(nesting),
-            if is_entry_point { "entry:" } else { "" }
-        )
-    }
-
-    fn debug_struct(db: &dyn HirMasterDatabase, structure: Struct, nesting: usize) -> String {
-        let name = structure.name(db).text(db);
-
-        let kind = match structure.kind(db) {
-            StructKind::Tuple(tuple_fields) => {
-                let fields = tuple_fields
-                    .iter()
-                    .map(|field| crate::testing::format_type(db, field))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                format!("({fields});")
-            }
-            StructKind::Named(fields) => {
-                let fields = fields
-                    .iter()
-                    .map(|field| {
-                        let name = field.name.text(db);
-                        let ty = crate::testing::format_type(db, &field.ty);
-                        format!("{name}: {ty}")
-                    })
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                format!("{{ {fields} }}")
-            }
-            StructKind::Unit => ";".to_string(),
-        };
-
-        format!("{indent}struct {name} {kind}\n", indent = indent(nesting))
-    }
-
-    fn debug_module(
-        db: &dyn HirMasterDatabase,
-        hir_file: &HirFile,
-        resolution_map: &ResolutionMap,
-        module: Module,
-        nesting: usize,
-    ) -> String {
-        let _scope_origin = ModuleScopeOrigin::Module { origin: module };
-
-        let curr_indent = indent(nesting);
-
-        let module_name = module.name(db).text(db);
-
-        match module.kind(db) {
-            ModuleKind::Inline { items } => {
-                let mut module_str = "".to_string();
-                module_str.push_str(&format!("{curr_indent}mod {module_name} {{\n"));
-                for (i, item) in items.iter().enumerate() {
-                    module_str.push_str(&debug_item(
-                        db,
-                        hir_file,
-                        resolution_map,
-                        item,
-                        nesting + 1,
-                    ));
-                    if i == items.len() - 1 {
-                        continue;
-                    }
-
-                    module_str.push('\n');
-                }
-                module_str.push_str(&format!("{curr_indent}}}\n"));
-                module_str
-            }
-            ModuleKind::Outline => {
-                format!("{curr_indent}mod {module_name};\n")
-            }
-        }
-    }
-
-    fn debug_use_item(db: &dyn HirMasterDatabase, use_item: UseItem) -> String {
-        let path_name = debug_path(db, use_item.path(db));
-        let item_name = use_item.name(db).text(db);
-
-        format!("{path_name}::{item_name}")
-    }
-
-    fn debug_item(
-        db: &dyn HirMasterDatabase,
-        hir_file: &HirFile,
-        resolution_map: &ResolutionMap,
-        item: &Item,
-        nesting: usize,
-    ) -> String {
-        match item {
-            Item::Function(function) => {
-                debug_function(db, hir_file, resolution_map, *function, nesting)
-            }
-            Item::Struct(struct_) => debug_struct(db, *struct_, nesting),
-            Item::Module(module) => debug_module(db, hir_file, resolution_map, *module, nesting),
-            Item::UseItem(use_item) => debug_use_item(db, *use_item),
-        }
-    }
-
-    fn debug_stmt(
-        db: &dyn HirMasterDatabase,
-        hir_file: &HirFile,
-        resolution_map: &ResolutionMap,
-        scope_origin: ModuleScopeOrigin,
-        stmt: &Stmt,
-        nesting: usize,
-    ) -> String {
-        match stmt {
-            Stmt::Let {
-                name,
-                binding,
-                value,
-            } => {
-                let name = name.text(db);
-                let expr_str =
-                    debug_expr(db, hir_file, resolution_map, scope_origin, *value, nesting);
-                let binding = binding.lookup(hir_file.db(db));
-                let mutable_text = crate::testing::format_mutable(binding.mutable);
-                format!("{}let {mutable_text}{name} = {expr_str}\n", indent(nesting))
-            }
-            Stmt::Expr {
-                expr,
-                has_semicolon,
-            } => format!(
-                "{}{}{}\n",
-                indent(nesting),
-                debug_expr(db, hir_file, resolution_map, scope_origin, *expr, nesting),
-                if *has_semicolon { ";" } else { "" }
-            ),
-            Stmt::Item { item } => debug_item(db, hir_file, resolution_map, item, nesting),
-        }
-    }
-
-    fn debug_expr(
-        db: &dyn HirMasterDatabase,
-        hir_file: &HirFile,
-        resolution_map: &ResolutionMap,
-        scope_origin: ModuleScopeOrigin,
-        expr_id: ExprId,
-        nesting: usize,
-    ) -> String {
-        match expr_id.lookup(hir_file.db(db)) {
-            Expr::Symbol(symbol) => {
-                debug_symbol(db, hir_file, resolution_map, scope_origin, symbol, nesting)
-            }
-            Expr::Literal(literal) => match literal {
-                Literal::Bool(b) => b.to_string(),
-                Literal::Char(c) => format!("'{c}'"),
-                Literal::String(s) => format!("\"{s}\""),
-                Literal::Integer(i) => i.to_string(),
-            },
-            Expr::Binary { op, lhs, rhs } => {
-                let lhs_str = debug_expr(db, hir_file, resolution_map, scope_origin, *lhs, nesting);
-                let rhs_str = debug_expr(db, hir_file, resolution_map, scope_origin, *rhs, nesting);
-                format!("{lhs_str} {op} {rhs_str}")
-            }
-            Expr::Unary { op, expr } => {
-                let op = match op {
-                    UnaryOp::Neg => "-",
-                    UnaryOp::Not => "!",
-                };
-                let expr_str =
-                    debug_expr(db, hir_file, resolution_map, scope_origin, *expr, nesting);
-                format!("{op}{expr_str}")
-            }
-            Expr::Call { callee, args } => {
-                let callee =
-                    debug_symbol(db, hir_file, resolution_map, scope_origin, callee, nesting);
-                let args = args
-                    .iter()
-                    .map(|arg| {
-                        debug_expr(db, hir_file, resolution_map, scope_origin, *arg, nesting)
-                    })
-                    .collect::<Vec<_>>()
-                    .join(", ");
-
-                format!("{callee}({args})")
-            }
-            Expr::Block(block) => {
-                let scope_origin = ModuleScopeOrigin::Block { origin: expr_id };
-
-                let mut msg = "{\n".to_string();
-                for stmt in &block.stmts {
-                    msg.push_str(&debug_stmt(
-                        db,
-                        hir_file,
-                        resolution_map,
-                        scope_origin,
-                        stmt,
-                        nesting + 1,
-                    ));
-                }
-                if let Some(tail) = block.tail {
-                    msg.push_str(&format!(
-                        "{}expr:{}\n",
-                        indent(nesting + 1),
-                        debug_expr(
-                            db,
-                            hir_file,
-                            resolution_map,
-                            scope_origin,
-                            tail,
-                            nesting + 1
-                        )
-                    ));
-                }
-                msg.push_str(&format!("{}}}", indent(nesting)));
-
-                msg
-            }
-            Expr::If {
-                condition,
-                then_branch,
-                else_branch,
-            } => {
-                let mut msg = "if ".to_string();
-                msg.push_str(&debug_expr(
-                    db,
-                    hir_file,
-                    resolution_map,
-                    scope_origin,
-                    *condition,
-                    nesting,
-                ));
-                msg.push(' ');
-                msg.push_str(&debug_expr(
-                    db,
-                    hir_file,
-                    resolution_map,
-                    scope_origin,
-                    *then_branch,
-                    nesting,
-                ));
-
-                if let Some(else_branch) = else_branch {
-                    msg.push_str(" else ");
-                    msg.push_str(&debug_expr(
-                        db,
-                        hir_file,
-                        resolution_map,
-                        scope_origin,
-                        *else_branch,
-                        nesting,
-                    ));
-                }
-
-                msg
-            }
-            Expr::Return { value } => {
-                let mut msg = "return".to_string();
-                if let Some(value) = value {
-                    msg.push_str(&format!(
-                        " {}",
-                        &debug_expr(db, hir_file, resolution_map, scope_origin, *value, nesting,)
-                    ));
-                }
-
-                msg
-            }
-            Expr::Loop { block } => {
-                let mut msg = "loop".to_string();
-                msg.push_str(&format!(
-                    " {}",
-                    &debug_expr(db, hir_file, resolution_map, scope_origin, *block, nesting)
-                ));
-
-                msg
-            }
-            Expr::Continue => "continue".to_string(),
-            Expr::Break { value } => {
-                let mut msg = "break".to_string();
-                if let Some(value) = value {
-                    msg.push_str(&format!(
-                        " {}",
-                        &debug_expr(db, hir_file, resolution_map, scope_origin, *value, nesting,)
-                    ));
-                }
-
-                msg
-            }
-            Expr::Missing => "<missing>".to_string(),
-        }
-    }
-
-    fn debug_symbol(
-        db: &dyn HirMasterDatabase,
-        hir_file: &HirFile,
-        resolution_map: &ResolutionMap,
-        scope_origin: ModuleScopeOrigin,
-        symbol: &Symbol,
-        nesting: usize,
-    ) -> String {
-        match &symbol {
-            Symbol::Local { name, binding } => {
-                let expr = binding.lookup(hir_file.db(db)).expr;
-                match expr.lookup(hir_file.db(db)) {
-                    Expr::Symbol { .. }
-                    | Expr::Binary { .. }
-                    | Expr::Missing
-                    | Expr::Literal(_)
-                    | Expr::Unary { .. }
-                    | Expr::Call { .. }
-                    | Expr::If { .. }
-                    | Expr::Return { .. }
-                    | Expr::Loop { .. }
-                    | Expr::Continue
-                    | Expr::Break { .. } => {
-                        let expr_text =
-                            debug_expr(db, hir_file, resolution_map, scope_origin, expr, nesting);
-                        format!("${}:{}", name.text(db), expr_text)
-                    }
-                    Expr::Block { .. } => name.text(db).to_string(),
-                }
-            }
-            Symbol::Param { name, .. } => {
-                let name = name.text(db);
-                format!("param:{name}")
-            }
-            Symbol::Missing { path } => {
-                let resolving_status = resolution_map.item_by_symbol(path).unwrap();
-                debug_resolution_status(db, resolving_status, resolution_map)
-            }
-        }
-    }
-
-    fn debug_resolution_status(
-        db: &dyn HirMasterDatabase,
-        resolution_status: ResolutionStatus,
-        _resolution_map: &ResolutionMap,
-    ) -> String {
-        match resolution_status {
-            ResolutionStatus::Unresolved => "<unknown>".to_string(),
-            ResolutionStatus::Error => "<missing>".to_string(),
-            ResolutionStatus::Resolved { path, item } => {
-                let path = debug_path(db, &path);
-                match item {
-                    Item::Function(_) => {
-                        format!("fn:{path}")
-                    }
-                    Item::Struct(_) => {
-                        format!("struct:{path}")
-                    }
-                    Item::Module(_) => {
-                        format!("mod:{path}")
-                    }
-                    Item::UseItem(_) => {
-                        unreachable!()
-                    }
-                }
-            }
-        }
-    }
-
-    fn debug_path(db: &dyn HirMasterDatabase, path: &Path) -> String {
-        path.segments(db)
-            .iter()
-            .map(|segment| segment.text(db).to_string())
-            .collect::<Vec<_>>()
-            .join("::")
-    }
+    use crate::{input::FixtureDatabase, parse_pods, testing::TestingDatabase};
 
     /// ルートファイル前提としてパースして、Podの期待結果をテストする
     fn check_in_root_file(fixture: &str, expected: Expect) {
@@ -1301,7 +881,8 @@ mod tests {
 
         let pods = parse_pods(&db, &source_db);
 
-        expected.assert_eq(&debug_pods(&db, &pods));
+        let pretty_hir = &crate::testing::Pretty::new(&db, &pods).format_pods(&pods);
+        expected.assert_eq(pretty_hir);
     }
 
     #[test]

@@ -847,7 +847,7 @@ mod tests {
                     let name = name.text(self.db);
                     format!("param:{name}")
                 }
-                hir::Symbol::Missing { path } => {
+                hir::Symbol::MissingExpr { path } => {
                     let resolving_status = self.pods.resolution_map.item_by_symbol(path).unwrap();
                     self.debug_resolution_status(resolving_status)
                 }

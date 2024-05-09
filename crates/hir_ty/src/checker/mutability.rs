@@ -135,7 +135,7 @@ impl<'a> FunctionMutabilityChecker<'a> {
                 hir::Symbol::Param { .. } => (),
                 // `VariableDef`で処理済みのため、ここでは何もしません
                 hir::Symbol::Local { .. } => (),
-                hir::Symbol::Missing { .. } => (),
+                hir::Symbol::MissingExpr { .. } => (),
             },
             hir::Expr::Binary { op, lhs, rhs } => {
                 self.check_expr(*lhs);
@@ -162,7 +162,7 @@ impl<'a> FunctionMutabilityChecker<'a> {
                 match callee {
                     hir::Symbol::Local { .. } => (),
                     hir::Symbol::Param { .. } => (),
-                    hir::Symbol::Missing { .. } => (),
+                    hir::Symbol::MissingExpr { .. } => (),
                 }
             }
             hir::Expr::Return { value } => {

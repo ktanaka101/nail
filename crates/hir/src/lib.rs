@@ -727,10 +727,17 @@ pub enum Symbol {
         /// バインディング情報
         binding: BindingId,
     },
-    /// 解決できないシンボル
+    /// 解決できない式シンボル
     ///
     /// 名前解決フェーズで名前解決を試みます。
-    Missing {
+    MissingExpr {
+        /// パス
+        path: NameSolutionPath,
+    },
+    /// 解決できない型シンボル
+    ///
+    /// 型解決フェーズで名前解決を試みます。
+    MissingType {
         /// パス
         path: NameSolutionPath,
     },

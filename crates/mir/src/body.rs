@@ -195,7 +195,7 @@ impl<'a> FunctionLower<'a> {
                     let expr = binding.lookup(self.hir_file.db(self.db)).expr;
                     LoweredExpr::Operand(Operand::Place(Place::Local(self.get_local_by_expr(expr))))
                 }
-                hir::Symbol::Missing { .. } => todo!(),
+                hir::Symbol::MissingExpr { .. } => todo!(),
             },
             hir::Expr::Literal(literal) => match literal {
                 hir::Literal::Integer(value) => {
@@ -485,7 +485,7 @@ impl<'a> FunctionLower<'a> {
                 match callee {
                     hir::Symbol::Param { .. } => unimplemented!(),
                     hir::Symbol::Local { .. } => unimplemented!(),
-                    hir::Symbol::Missing { path } => {
+                    hir::Symbol::MissingExpr { path } => {
                         let resolution_status = self.resolution_map.item_by_symbol(path).unwrap();
                         let item = match resolution_status {
                             hir::ResolutionStatus::Unresolved | hir::ResolutionStatus::Error => {

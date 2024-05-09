@@ -30,6 +30,20 @@ pub(crate) fn parse_in_block(parser: &mut Parser) -> CompletedNodeMarker {
     marker.complete(parser, SyntaxKind::SourceFile)
 }
 
+/// パス型のパース
+pub(crate) fn parse_path_type(
+    parser: &mut Parser,
+    recovery_set: &[TokenKind],
+) -> CompletedNodeMarker {
+    assert!(parser.at(TokenKind::Ident));
+
+    let marker = parser.start();
+
+    parse_path(parser, recovery_set);
+
+    marker.complete(parser, SyntaxKind::PathType)
+}
+
 /// パスをパースします。
 pub(crate) fn parse_path(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedNodeMarker {
     assert!(parser.at(TokenKind::Ident));

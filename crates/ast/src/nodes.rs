@@ -537,7 +537,7 @@ impl Param {
     }
 
     /// パラメータの型に位置する型ノードを返します。
-    pub fn ty(&self) -> Option<Type> {
+    pub fn ty(&self) -> Option<PathType> {
         ast_node::child_node(self)
     }
 }
@@ -548,7 +548,7 @@ def_ast_node!(
 );
 impl ReturnType {
     /// 関数の戻り値の型に位置する型ノードを返します。
-    pub fn ty(&self) -> Option<Type> {
+    pub fn ty(&self) -> Option<PathType> {
         ast_node::child_node(self)
     }
 }
@@ -649,7 +649,7 @@ def_ast_node!(
 );
 impl TupleField {
     /// フィールドの型に位置する型ノードを返します。
-    pub fn ty(&self) -> Option<Type> {
+    pub fn ty(&self) -> Option<PathType> {
         ast_node::child_node(self)
     }
 }
@@ -676,19 +676,19 @@ impl NamedField {
     }
 
     /// フィールドの型に位置する型ノードを返します。
-    pub fn ty(&self) -> Option<Type> {
+    pub fn ty(&self) -> Option<PathType> {
         ast_node::child_node(self)
     }
 }
 
 def_ast_node!(
-    /// 型のASTノード
-    Type
+    /// パス型のASTノード
+    PathType
 );
-impl Type {
-    /// 型の名前に位置するトークンを返します。
-    pub fn ty(&self) -> Option<tokens::Ident> {
-        ast_node::child_token(self)
+impl PathType {
+    /// 型を表すパスに位置するトークンを返します。
+    pub fn path(&self) -> Option<Path> {
+        ast_node::child_node(self)
     }
 }
 

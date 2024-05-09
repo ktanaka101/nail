@@ -558,6 +558,17 @@ def_ast_node!(
     StructDef
 );
 impl StructDef {
+    /// 構造体の種類を返します。
+    pub fn to_kind(&self) -> StructKind {
+        if self.is_tuple() {
+            StructKind::Tuple(self.tuple_fields().unwrap())
+        } else if self.is_named() {
+            StructKind::Named(self.named_fields().unwrap())
+        } else {
+            StructKind::Unit
+        }
+    }
+
     /// 構造体の名前に位置するトークンを返します。
     pub fn name(&self) -> Option<tokens::Ident> {
         ast_node::child_token(self)
@@ -596,6 +607,17 @@ impl StructDef {
     fn named_fields(&self) -> Option<NamedFieldList> {
         ast_node::child_node(self)
     }
+}
+
+/// 構造体の種類
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StructKind {
+    /// タプル構造体
+    Tuple(TupleFieldList),
+    /// 名前付き構造体
+    Named(NamedFieldList),
+    /// 空構造体
+    Unit,
 }
 
 /// 構造体のフィールドのリスト

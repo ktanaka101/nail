@@ -63,14 +63,7 @@ pub fn format_parameter(db: &dyn HirMasterDatabase, param_data: &ParamData) -> S
         "<missing>"
     };
     let mutable_text = format_mutable(param_data.mutable);
-    let ty = match param_data.ty {
-        Type::Integer => "int",
-        Type::String => "string",
-        Type::Char => "char",
-        Type::Boolean => "bool",
-        Type::Unit => "()",
-        Type::Unknown => "<unknown>",
-    };
+    let ty = format_type(db, &param_data.ty);
     format!("{name}: {mutable_text}{ty}")
 }
 
@@ -80,4 +73,17 @@ pub fn format_mutable(mutable: bool) -> &'static str {
     } else {
         ""
     }
+}
+
+pub fn format_type(db: &dyn HirMasterDatabase, ty: &Type) -> String {
+    match ty {
+        Type::Integer => "int",
+        Type::String => "string",
+        Type::Char => "char",
+        Type::Boolean => "bool",
+        Type::Unit => "()",
+        Type::Unknown => "<unknown>",
+        Type::Custom(name) => name.text(db),
+    }
+    .to_string()
 }

@@ -460,14 +460,7 @@ mod tests {
                 })
                 .collect::<Vec<_>>()
                 .join(", ");
-            let return_type = match &function.return_type(self.db) {
-                hir::Type::Integer => "int",
-                hir::Type::String => "string",
-                hir::Type::Char => "char",
-                hir::Type::Boolean => "bool",
-                hir::Type::Unit => "()",
-                hir::Type::Unknown => "<unknown>",
-            };
+            let return_type = hir::testing::format_type(self.db, &function.return_type(self.db));
 
             let hir::Expr::Block(block) = body_expr else {
                 panic!("Should be Block")
@@ -493,6 +486,37 @@ mod tests {
                 indent(nesting),
                 if is_entry_point { "entry:" } else { "" }
             )
+        }
+
+        fn debug_struct(&self, struct_: hir::Struct, nesting: usize) -> String {
+            let name = struct_.name(self.db).text(self.db);
+            let kind = match struct_.kind(self.db) {
+                hir::StructKind::Tuple(fields) => {
+                    let fields = fields
+                        .iter()
+                        .map(hir::testing::format_type)
+                        .collect::<Vec<_>>()
+                        .join(", ");
+
+                    format!("({fields});")
+                }
+                hir::StructKind::Named(fields) => {
+                    let fields = fields
+                        .iter()
+                        .map(|field| {
+                            let name = field.name.text(self.db);
+                            let ty = hir::testing::format_type(self.db, &field.ty);
+                            format!("{name}: {ty}")
+                        })
+                        .collect::<Vec<_>>()
+                        .join(", ");
+
+                    format!("{{ {fields} }}", fields = fields)
+                }
+                hir::StructKind::Unit => ";".to_string(),
+            };
+
+            format!("{indent}struct {name}{kind}\n", indent = indent(nesting))
         }
 
         fn debug_module(
@@ -542,6 +566,7 @@ mod tests {
         fn debug_item(&self, hir_file: hir::HirFile, item: hir::Item, nesting: usize) -> String {
             match item {
                 hir::Item::Function(function) => self.debug_function(hir_file, function, nesting),
+                hir::Item::Struct(struct_) => self.debug_struct(struct_, nesting),
                 hir::Item::Module(module) => self.debug_module(hir_file, module, nesting),
                 hir::Item::UseItem(use_item) => self.debug_use_item(use_item),
             }
@@ -605,6 +630,7 @@ mod tests {
                 Monotype::Unit => "()".to_string(),
                 Monotype::Char => "char".to_string(),
                 Monotype::String => "string".to_string(),
+                Monotype::Struct(struct_) => struct_.name(self.db).text(self.db).to_string(),
                 Monotype::Variable(id) => format!("${}", id),
                 Monotype::Function(signature) => self.debug_signature(signature),
                 Monotype::Never => "!".to_string(),
@@ -845,6 +871,9 @@ mod tests {
                     match item {
                         hir::Item::Function(_) => {
                             format!("fn:{path}")
+                        }
+                        hir::Item::Struct(_) => {
+                            format!("struct:{path}")
                         }
                         hir::Item::Module(_) => {
                             format!("mod:{path}")

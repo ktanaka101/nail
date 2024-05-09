@@ -73,9 +73,10 @@ pub enum Type {
     /// 例: `()`, `fn f() -> () { () }`
     Unit,
     /// 型が不明なことを表す
-    ///
-    /// この型を直接指定することはできませんが、型推論の結果として得られることがあります。
+    /// 型のある部分が欠けている場合に取る可能性があります。
     Unknown,
+    /// 構造体など組み込み以外の型
+    Custom(Name),
 }
 
 /// 関数定義を表す
@@ -119,6 +120,60 @@ impl Function {
             .function_ast_by_function(db, self)
             .and_then(|f| f.body())
     }
+}
+
+/// 構造体定義を表す
+/// 例: `struct Point { x: int, y: int }`
+#[salsa::tracked]
+pub struct Struct {
+    /// 構造体名
+    pub name: Name,
+    /// 構造体種別
+    #[return_ref]
+    pub kind: StructKind,
+}
+
+/// 構造体種別
+///
+/// 構造体定義には以下の3種類があります。
+/// - タプル構造体: `struct Point(int, int)`
+/// - 名前付き構造体: `struct Point { x: int, y: int }`
+/// - 空構造体: `struct Point;`
+///
+/// 種別によって、初期化方法が異なります。
+/// - タプル構造体:
+///     - `struct Point(int, int)`: `Point(1, 2)`
+///         関数呼び出しと同等なため、型としては`(int, int) -> Point`で表されます。
+///     - `struct Point()`: `Point()`
+///         関数呼び出しと同等なため、型としては`() -> Point`で表されます。
+/// - 名前付き構造体:
+///     - `struct Point { x: int, y: int }`: `Point { x: 1, y: 2 }`
+///         型として表すことはできません。
+///     - `struct Point { }`: `Point { }`
+///         型として表すことはできません。
+/// - 空構造体:
+///     - `struct Point;`: `Point`
+///         型として表すことはできません。
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum StructKind {
+    /// タプル構造体
+    Tuple(Vec<Type>),
+    /// 名前付き構造体
+    Named(Vec<NamedField>),
+    /// 空構造体
+    Unit,
+}
+
+/// 名前付きフィールドを表す
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct NamedField {
+    /// 名前
+    pub name: Name,
+    /// 型
+    pub ty: Type,
+    /// 名前付きフィールドの位置(0-indexed)
+    /// 例: `struct Point { x: int, y: int }` であれば `x` は `0` で `y` は `1`
+    pub pos: usize,
 }
 
 /// モジュール定義を表す
@@ -193,6 +248,8 @@ pub struct UseItem {
 pub enum Item {
     /// 関数定義
     Function(Function),
+    /// 構造体定義
+    Struct(Struct),
     /// モジュール定義
     Module(Module),
     /// アイテム使用宣言

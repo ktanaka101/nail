@@ -6,10 +6,11 @@ use ast::AstNode;
 use la_arena::{Arena, Idx};
 
 use crate::{
-    body::scopes::ExprScopes, item::ParamData, AstPtr, BinaryOp, Binding, Block, Expr, ExprSource,
-    Function, FunctionSource, HirFileSourceMap, HirMasterDatabase, InFile, Item, Literal, Module,
-    ModuleKind, NailFile, NailGreenNode, Name, NameSolutionPath, Param, Path, Stmt, Symbol, Type,
-    UnaryOp, UseItem,
+    body::scopes::ExprScopes,
+    item::{NamedField, ParamData, StructKind},
+    AstPtr, BinaryOp, Binding, Block, Expr, ExprSource, Function, FunctionSource, HirFileSourceMap,
+    HirMasterDatabase, InFile, Item, Literal, Module, ModuleKind, NailFile, NailGreenNode, Name,
+    NameSolutionPath, Param, Path, Stmt, Struct, Symbol, Type, UnaryOp, UseItem,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -229,11 +230,7 @@ impl<'a> BodyLower<'a> {
         db: &dyn HirMasterDatabase,
         ast: ast::Item,
     ) -> Option<Item> {
-        match ast {
-            ast::Item::FunctionDef(def) => Some(Item::Function(self.lower_function(db, def)?)),
-            ast::Item::Module(module) => Some(Item::Module(self.lower_module(db, module)?)),
-            ast::Item::Use(r#use) => Some(Item::UseItem(self.lower_use(db, r#use)?)),
-        }
+        self.lower_item(db, ast)
     }
 
     /// 関数のHIRを構築します。
@@ -255,7 +252,7 @@ impl<'a> BodyLower<'a> {
                 let name = param
                     .name()
                     .map(|name| Name::new(db, name.name().to_string()));
-                let ty = self.lower_ty(param.ty());
+                let ty = self.lower_ty(db, param.ty());
                 Param::new(self.hir_file_db, name, ty, pos, param.mut_token().is_some())
             })
             .collect::<Vec<_>>();
@@ -264,7 +261,7 @@ impl<'a> BodyLower<'a> {
             .filter_map(|param| param.data(self.hir_file_db).name.map(|name| (name, *param)))
             .collect::<HashMap<_, _>>();
         let return_type = if let Some(return_type) = def.return_type() {
-            self.lower_ty(return_type.ty())
+            self.lower_ty(db, return_type.ty())
         } else {
             Type::Unit
         };
@@ -308,6 +305,36 @@ impl<'a> BodyLower<'a> {
             .insert(AstPtr::new(&ast_block), FunctionBodyId(body_expr));
 
         Some(function)
+    }
+
+    /// 構造体のHIRを構築します。
+    fn lower_struct(&mut self, db: &dyn HirMasterDatabase, def: ast::StructDef) -> Option<Struct> {
+        let name = def
+            .name()
+            .map(|name| Name::new(db, name.name().to_string()))?;
+
+        let kind = match def.to_kind() {
+            ast::StructKind::Tuple(tuple_fileds) => StructKind::Tuple(
+                tuple_fileds
+                    .fields()
+                    .map(|field| self.lower_ty(db, field.ty()))
+                    .collect(),
+            ),
+            ast::StructKind::Named(named_fields) => StructKind::Named(
+                named_fields
+                    .fields()
+                    .enumerate()
+                    .map(|(pos, field)| {
+                        let name = Name::new(db, field.name().unwrap().name().to_string());
+                        let ty = self.lower_ty(db, field.ty());
+                        NamedField { name, ty, pos }
+                    })
+                    .collect(),
+            ),
+            ast::StructKind::Unit => StructKind::Unit,
+        };
+
+        Some(Struct::new(db, name, kind))
     }
 
     /// モジュールのHIRを構築します。
@@ -362,8 +389,9 @@ impl<'a> BodyLower<'a> {
     }
 
     /// 型を構築します。
-    /// 型を構築できなかった場合は`Type::Unknown`を返します。
-    fn lower_ty(&mut self, ty: Option<ast::Type>) -> Type {
+    /// 型を表す名前がない場合は`Type::Unknown`を返します。
+    /// 組み込み方以外は`Type::Custom(Name)`を返します。この時点では型の名前解決をしません。
+    fn lower_ty(&mut self, db: &dyn HirMasterDatabase, ty: Option<ast::Type>) -> Type {
         let ident = match ty.and_then(|ty| ty.ty()) {
             Some(ident) => ident,
             None => return Type::Unknown,
@@ -375,7 +403,8 @@ impl<'a> BodyLower<'a> {
             "string" => Type::String,
             "char" => Type::Char,
             "bool" => Type::Boolean,
-            _ => Type::Unknown,
+            "()" => Type::Unit,
+            name => Type::Custom(Name::new(db, name.to_string())),
         }
     }
 
@@ -419,6 +448,7 @@ impl<'a> BodyLower<'a> {
     fn lower_item(&mut self, db: &dyn HirMasterDatabase, ast_item: ast::Item) -> Option<Item> {
         match ast_item {
             ast::Item::FunctionDef(def) => Some(Item::Function(self.lower_function(db, def)?)),
+            ast::Item::StructDef(def) => Some(Item::Struct(self.lower_struct(db, def)?)),
             ast::Item::Module(module) => Some(Item::Module(self.lower_module(db, module)?)),
             ast::Item::Use(r#use) => Some(Item::UseItem(self.lower_use(db, r#use)?)),
         }
@@ -864,14 +894,7 @@ mod tests {
             })
             .collect::<Vec<_>>()
             .join(", ");
-        let return_type = match &function.return_type(db) {
-            Type::Integer => "int",
-            Type::String => "string",
-            Type::Char => "char",
-            Type::Boolean => "bool",
-            Type::Unit => "()",
-            Type::Unknown => "<unknown>",
-        };
+        let return_type = crate::testing::format_type(db, &function.return_type(db));
 
         let scope_origin = ModuleScopeOrigin::Function { origin: function };
 
@@ -905,6 +928,36 @@ mod tests {
             indent(nesting),
             if is_entry_point { "entry:" } else { "" }
         )
+    }
+
+    fn debug_struct(db: &dyn HirMasterDatabase, structure: Struct, nesting: usize) -> String {
+        let name = structure.name(db).text(db);
+
+        let kind = match structure.kind(db) {
+            StructKind::Tuple(tuple_fields) => {
+                let fields = tuple_fields
+                    .iter()
+                    .map(|field| crate::testing::format_type(db, field))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("({fields});")
+            }
+            StructKind::Named(fields) => {
+                let fields = fields
+                    .iter()
+                    .map(|field| {
+                        let name = field.name.text(db);
+                        let ty = crate::testing::format_type(db, &field.ty);
+                        format!("{name}: {ty}")
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("{{ {fields} }}")
+            }
+            StructKind::Unit => ";".to_string(),
+        };
+
+        format!("{indent}struct {name} {kind}\n", indent = indent(nesting))
     }
 
     fn debug_module(
@@ -965,6 +1018,7 @@ mod tests {
             Item::Function(function) => {
                 debug_function(db, hir_file, resolution_map, *function, nesting)
             }
+            Item::Struct(struct_) => debug_struct(db, *struct_, nesting),
             Item::Module(module) => debug_module(db, hir_file, resolution_map, *module, nesting),
             Item::UseItem(use_item) => debug_use_item(db, *use_item),
         }
@@ -1209,6 +1263,9 @@ mod tests {
                 match item {
                     Item::Function(_) => {
                         format!("fn:{path}")
+                    }
+                    Item::Struct(_) => {
+                        format!("struct:{path}")
                     }
                     Item::Module(_) => {
                         format!("mod:{path}")
@@ -2854,6 +2911,85 @@ mod tests {
                 }
                 //- /mod_aaa/mod_bbb.nail
                 fn fn_bbb() -> () {
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn define_struct() {
+        check_in_root_file(
+            r#"
+                //- /main.nail
+                struct Point {
+                    x: int,
+                    y: int
+                }
+                fn main() {
+                    Point
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                error: Undefined entry point.(help: fn main() { ... })
+            "#]],
+        );
+    }
+
+    #[test]
+    fn define_struct_in_module() {
+        check_pod_start_with_root_file(
+            r#"
+                //- /main.nail
+                mod mod_aaa;
+                fn main() {
+                    mod_aaa::Point
+                }
+
+                //- /mod_aaa.nail
+                struct Point {
+                    x: int,
+                    y: int
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                mod mod_aaa;
+                fn entry:main() -> () {
+                    expr:struct:mod_aaa::Point
+                }
+                //- /mod_aaa.nail
+                struct Point { x: int, y: int }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn ref_struct_in_scope_only() {
+        check_in_root_file(
+            r#"
+                fn main() {
+                    struct Point {
+                        x: int,
+                        y: int
+                    }
+
+                    Point
+                }
+                fn foo() {
+                    Point
+                    main::Point
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    struct Point { x: int, y: int }
+                    expr:struct:Point
+                }
+                fn foo() -> () {
+                    <missing>
+                    expr:<missing>
                 }
             "#]],
         );

@@ -38,7 +38,9 @@ use ast::AstNode;
 pub use body::{BindingId, BodyLower, ExprId, FunctionBodyId, HirFileDatabase};
 pub use db::{HirMasterDatabase, Jar};
 pub use input::{FixtureDatabase, NailFile, SourceDatabase, SourceDatabaseTrait};
-pub use item::{Function, Item, Module, ModuleKind, Param, Type, UseItem};
+pub use item::{
+    Function, Item, Module, ModuleKind, NamedField, Param, Struct, StructKind, Type, UseItem,
+};
 use name_resolver::resolve_symbols;
 pub use name_resolver::{ModuleScopeOrigin, ResolutionMap, ResolutionStatus};
 use syntax::SyntaxNode;
@@ -491,6 +493,7 @@ fn get_entry_point(db: &dyn HirMasterDatabase, top_level_items: &[Item]) -> Opti
                     return Some(*function);
                 }
             }
+            Item::Struct(_) => (),
             Item::Module(_) => (),
             Item::UseItem(_) => (),
         }

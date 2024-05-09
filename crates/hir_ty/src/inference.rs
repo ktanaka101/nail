@@ -69,6 +69,7 @@ fn lower_type(ty: &hir::Type) -> Monotype {
         hir::Type::Boolean => Monotype::Bool,
         hir::Type::Unit => Monotype::Unit,
         hir::Type::Unknown => Monotype::Unknown,
+        hir::Type::Custom(name) => Monotype::Struct(name),
     }
 }
 
@@ -257,6 +258,7 @@ impl<'a> InferBody<'a> {
                             let signature = self.signature_by_function.get(&function).unwrap();
                             Monotype::Function(*signature)
                         }
+                        hir::Item::Struct(struct_) => Monotype::Struct(struct_),
                         hir::Item::Module(module) => {
                             self.unifier.add_error(InferenceError::ModuleAsExpr {
                                 found_module: module,
@@ -279,7 +281,7 @@ impl<'a> InferBody<'a> {
         match resolution_status {
             hir::ResolutionStatus::Unresolved | hir::ResolutionStatus::Error => None,
             hir::ResolutionStatus::Resolved { path: _, item } => match item {
-                hir::Item::Function(_) | hir::Item::Module(_) => Some(item),
+                hir::Item::Function(_) | hir::Item::Struct(_) | hir::Item::Module(_) => Some(item),
                 hir::Item::UseItem(use_item) => {
                     let resolution_status = self.pods.resolution_map.item_by_use_item(&use_item)?;
                     self.resolve_resolution_status(resolution_status)
@@ -355,6 +357,49 @@ impl<'a> InferBody<'a> {
                         // 引数の数が異なったとしても、関数の戻り値は返す。
                         signature.return_type(self.db)
                     }
+                    Monotype::Struct(struct_) => match struct_.kind(self.db) {
+                        hir::StructKind::Tuple(fields) => {
+                            if call_args.len() != fields.len() {
+                                self.unifier
+                                    .add_error(InferenceError::MismatchedCallArgCount {
+                                        expected_callee_arg_count: fields.len(),
+                                        found_arg_count: call_args.len(),
+                                        found_expr: expr_id,
+                                    });
+                            } else {
+                                let field_types: Vec<Monotype> =
+                                    fields.iter().map(|field| self.infer_type(field)).collect();
+                                for ((arg_pos, call_arg), field_ty) in
+                                    call_args.iter().enumerate().zip(field_types.clone())
+                                {
+                                    let call_arg_ty = self.infer_expr(*call_arg);
+                                    self.unifier.unify(
+                                        &field_ty,
+                                        &call_arg_ty,
+                                        &UnifyPurpose::CallArg {
+                                            found_arg_expr: *call_arg,
+                                            callee_signature: Signature::new(
+                                                self.db,
+                                                field_types.clone(),
+                                                Monotype::Struct(struct_),
+                                            ),
+                                            arg_pos,
+                                        },
+                                    );
+                                }
+                            }
+
+                            Monotype::Struct(struct_)
+                        }
+                        hir::StructKind::Named(_) | hir::StructKind::Unit => {
+                            self.unifier.add_error(InferenceError::NotCallable {
+                                found_callee_ty: callee_ty,
+                                found_callee_symbol: callee.clone(),
+                                found_callee_expr: expr_id,
+                            });
+                            Monotype::Unknown
+                        }
+                    },
                 }
             }
             hir::Expr::Binary { op, lhs, rhs } => match op {

@@ -102,6 +102,7 @@ impl<'a> FunctionMutabilityChecker<'a> {
             }
             hir::Stmt::Item { item } => match item {
                 hir::Item::Function(_) => (),
+                hir::Item::Struct(_) => (),
                 hir::Item::Module(_) => (),
                 hir::Item::UseItem(_) => (),
             },

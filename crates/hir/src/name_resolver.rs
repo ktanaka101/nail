@@ -25,7 +25,7 @@ pub use module_scope::{ModuleScope, ModuleScopeOrigin};
 
 use self::module_scope::{ModuleScopes, ModuleScopesBuilder, NameResolutionCollection, PathMap};
 use crate::{
-    Function, HirMasterDatabase, Item, Name, NameSolutionPath, Path, Pod, Symbol, UseItem,
+    Function, HirMasterDatabase, Item, Name, NameSolutionPath, Path, Pod, Struct, Symbol, UseItem,
 };
 
 /// 名前解決を行います。
@@ -61,6 +61,11 @@ impl ResolutionMap {
     /// 関数のフルパスを取得します。パス中に関数名は含まれません。
     pub fn path_of_function(&self, function: Function) -> Option<Path> {
         self.path_map.path_by_function(function)
+    }
+
+    /// 構造体のフルパスを取得します。パス中に構造体名は含まれません。
+    pub fn path_of_struct(&self, struct_: Struct) -> Option<Path> {
+        self.path_map.path_by_struct(struct_)
     }
 }
 
@@ -237,6 +242,10 @@ impl<'a> NameResolver<'a> {
                             // TODO: 関数内のスコープは外部から参照できないエラーを返す
                             None
                         }
+                        Item::Struct(_) => {
+                            // TODO: 構造体内のスコープは外部から参照できないエラーを返す
+                            None
+                        }
                         Item::UseItem(_) => unimplemented!(),
                     }
                 }
@@ -273,6 +282,10 @@ impl<'a> NameResolver<'a> {
                         }
                         Item::Function(_) => {
                             // TODO: 関数内のスコープは外部から参照できないエラーを返す
+                            None
+                        }
+                        Item::Struct(_) => {
+                            // TODO: 構造体内のスコープは外部から参照できないエラーを返す
                             None
                         }
                         Item::UseItem(_) => unimplemented!(),

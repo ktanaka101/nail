@@ -4,7 +4,7 @@ use la_arena::{Arena, Idx};
 
 use crate::{
     Expr, ExprId, Function, HirFile, HirMasterDatabase, Item, Module, Name, Path, Pod, Stmt,
-    Symbol, UseItem,
+    Struct, Symbol, UseItem,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -34,6 +34,9 @@ pub struct ModuleScope {
 
     /// スコープ内で定義されている関数一覧です。
     defined_function_by_name: HashMap<Name, Function>,
+
+    /// スコープ内で定義されている構造体一覧です。
+    defined_struct_by_name: HashMap<Name, Struct>,
 
     /// 子のモジュールスコープ一覧です。
     ///
@@ -83,6 +86,7 @@ impl ModuleScope {
             use_item_by_name: HashMap::new(),
             defined_module_by_name: HashMap::new(),
             defined_function_by_name: HashMap::new(),
+            defined_struct_by_name: HashMap::new(),
             children: HashMap::new(),
         }
     }
@@ -97,6 +101,7 @@ impl ModuleScope {
             use_item_by_name: HashMap::new(),
             defined_module_by_name: HashMap::new(),
             defined_function_by_name: HashMap::new(),
+            defined_struct_by_name: HashMap::new(),
             children: HashMap::new(),
         }
     }
@@ -109,6 +114,7 @@ impl ModuleScope {
             use_item_by_name: HashMap::new(),
             defined_module_by_name: HashMap::new(),
             defined_function_by_name: HashMap::new(),
+            defined_struct_by_name: HashMap::new(),
             children: HashMap::new(),
         }
     }
@@ -121,6 +127,7 @@ impl ModuleScope {
             use_item_by_name: HashMap::new(),
             defined_module_by_name: HashMap::new(),
             defined_function_by_name: HashMap::new(),
+            defined_struct_by_name: HashMap::new(),
             children: HashMap::new(),
         }
     }
@@ -140,6 +147,11 @@ impl ModuleScope {
         let item = self.defined_function_by_name.get(&name);
         if let Some(item) = item {
             return Some(Item::Function(*item));
+        }
+
+        let item = self.defined_struct_by_name.get(&name);
+        if let Some(item) = item {
+            return Some(Item::Struct(*item));
         }
 
         None
@@ -168,6 +180,10 @@ impl ModuleScope {
 
     fn define_function(&mut self, name: Name, function: Function) {
         self.defined_function_by_name.insert(name, function);
+    }
+
+    fn define_struct(&mut self, name: Name, struct_: Struct) {
+        self.defined_struct_by_name.insert(name, struct_);
     }
 
     fn define_module(&mut self, name: Name, module: Module) {
@@ -295,11 +311,13 @@ impl NameResolutionCollection {
 #[derive(Debug)]
 pub struct PathMap {
     path_by_function: HashMap<Function, Path>,
+    path_by_struct: HashMap<Struct, Path>,
 }
 impl PathMap {
     fn new() -> Self {
         Self {
             path_by_function: HashMap::new(),
+            path_by_struct: HashMap::new(),
         }
     }
 
@@ -307,8 +325,16 @@ impl PathMap {
         self.path_by_function.get(&function).copied()
     }
 
-    fn insert_path(&mut self, function: Function, path: Path) {
+    pub(crate) fn path_by_struct(&self, struct_: Struct) -> Option<Path> {
+        self.path_by_struct.get(&struct_).copied()
+    }
+
+    fn insert_function_path(&mut self, function: Function, path: Path) {
         self.path_by_function.insert(function, path);
+    }
+
+    fn insert_struct_path(&mut self, struct_: Struct, path: Path) {
+        self.path_by_struct.insert(struct_, path);
     }
 }
 
@@ -363,6 +389,9 @@ impl<'a> ModuleScopesBuilder<'a> {
             crate::Item::Function(function) => {
                 self.build_function(hir_file, current_scope_idx, function);
             }
+            crate::Item::Struct(struct_) => {
+                self.build_struct(hir_file, current_scope_idx, struct_);
+            }
             crate::Item::UseItem(use_item) => {
                 self.register_use_item(current_scope_idx, use_item.name(self.db), use_item);
             }
@@ -406,7 +435,7 @@ impl<'a> ModuleScopesBuilder<'a> {
         self.define_function(current_scope_idx, function);
 
         let current_scope_idx = self.create_scope_on_function(self.db, current_scope_idx, function);
-        self.path_map.insert_path(
+        self.path_map.insert_function_path(
             function,
             self.storage.module_scopes[current_scope_idx.0].path,
         );
@@ -422,6 +451,18 @@ impl<'a> ModuleScopesBuilder<'a> {
         if let Some(tail) = function_body.tail {
             self.build_expr(hir_file, current_scope_idx, tail);
         }
+    }
+
+    fn build_struct(
+        &mut self,
+        _hir_file: HirFile,
+        current_scope_idx: ModuleScopeIdx,
+        struct_: Struct,
+    ) {
+        self.define_struct(current_scope_idx, struct_);
+
+        let current_path = self.build_current_path(current_scope_idx);
+        self.path_map.insert_struct_path(struct_, current_path);
     }
 
     fn build_stmt(&mut self, hir_file: HirFile, current_scope_idx: ModuleScopeIdx, stmt: &Stmt) {
@@ -582,6 +623,12 @@ impl<'a> ModuleScopesBuilder<'a> {
     fn define_function(&mut self, current_scope_idx: ModuleScopeIdx, function: Function) {
         self.storage.module_scopes[current_scope_idx.0]
             .define_function(function.name(self.db), function);
+    }
+
+    /// モジュールスコープに構造体を登録します。
+    fn define_struct(&mut self, current_scope_idx: ModuleScopeIdx, struct_: Struct) {
+        self.storage.module_scopes[current_scope_idx.0]
+            .define_struct(struct_.name(self.db), struct_);
     }
 
     /// モジュールスコープにモジュールを登録します。

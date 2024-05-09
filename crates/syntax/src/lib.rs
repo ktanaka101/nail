@@ -44,7 +44,7 @@ pub enum SyntaxKind {
     IfExpr,
     /// `return EXPR`
     ReturnExpr,
-    /// `let IDENT: TYPE = EXPR`
+    /// `let IDENT: PathType = EXPR`
     ExprStmt,
     /// `Path`
     PathExpr,
@@ -58,7 +58,7 @@ pub enum SyntaxKind {
     WhileExpr,
 
     // ---statement nodes---
-    /// `let IDENT: TYPE = EXPR`
+    /// `let IDENT: PathType = EXPR`
     Let,
 
     // ---item nodes---
@@ -78,7 +78,7 @@ pub enum SyntaxKind {
     // ---part nodes---
     /// `Param, Param, ...`
     ParamList,
-    /// `IDENT: TYPE`
+    /// `IDENT: PathType`
     Param,
     /// `Arg, Arg, ...`
     ArgList,
@@ -86,18 +86,16 @@ pub enum SyntaxKind {
     Arg,
     /// `(TupleField, TupleField, ...)`
     TupleFieldList,
-    /// `TYPE`
+    /// `PathType`
     TupleField,
     /// `{ NamedField, NamedField, ... }`
     NamedFieldList,
-    /// `IDENT: TYPE`
+    /// `IDENT: PathType`
     NamedField,
-    /// `TYPE`
-    Type,
     /// fn foo() -> i32 { ... }
     ///             ^^^
     ///
-    /// `TYPE`
+    /// `PathType`
     ReturnType,
     /// `Item*`
     ItemList,
@@ -105,6 +103,8 @@ pub enum SyntaxKind {
     Path,
     /// `IDENT::IDENT::...`
     PathSegment,
+    /// `Path`
+    PathType,
 
     // ---item keywords---
     /// `fn`

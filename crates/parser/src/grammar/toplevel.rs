@@ -125,8 +125,10 @@ mod tests {
                     ReturnType@9..15
                       ThinArrow@9..11 "->"
                       Whitespace@11..12 " "
-                      Type@12..15
-                        Ident@12..15 "int"
+                      PathType@12..15
+                        Path@12..15
+                          PathSegment@12..15
+                            Ident@12..15 "int"
                     Whitespace@15..16 " "
                     BlockExpr@16..18
                       LCurly@16..17 "{"
@@ -152,8 +154,10 @@ mod tests {
                     ReturnType@9..15
                       ThinArrow@9..11 "->"
                       Whitespace@11..12 " "
-                      Type@12..15
-                        Ident@12..15 "int"
+                      PathType@12..15
+                        Path@12..15
+                          PathSegment@12..15
+                            Ident@12..15 "int"
                     Whitespace@15..16 " "
                     BlockExpr@16..27
                       LCurly@16..17 "{"
@@ -189,8 +193,10 @@ mod tests {
                         Ident@7..8 "x"
                         Colon@8..9 ":"
                         Whitespace@9..10 " "
-                        Type@10..13
-                          Ident@10..13 "int"
+                        PathType@10..13
+                          Path@10..13
+                            PathSegment@10..13
+                              Ident@10..13 "int"
                       Comma@13..14 ","
                       Whitespace@14..15 " "
                       Param@15..16
@@ -199,8 +205,10 @@ mod tests {
                     ReturnType@17..23
                       ThinArrow@17..19 "->"
                       Whitespace@19..20 " "
-                      Type@20..23
-                        Ident@20..23 "int"
+                      PathType@20..23
+                        Path@20..23
+                          PathSegment@20..23
+                            Ident@20..23 "int"
                     Whitespace@23..24 " "
                     BlockExpr@24..30
                       LCurly@24..25 "{"
@@ -229,16 +237,20 @@ mod tests {
                         Ident@7..8 "x"
                         Colon@8..9 ":"
                         Whitespace@9..10 " "
-                        Type@10..13
-                          Ident@10..13 "int"
+                        PathType@10..13
+                          Path@10..13
+                            PathSegment@10..13
+                              Ident@10..13 "int"
                       Comma@13..14 ","
                       Whitespace@14..15 " "
                       Param@15..15
                     ReturnType@15..21
                       ThinArrow@15..17 "->"
                       Whitespace@17..18 " "
-                      Type@18..21
-                        Ident@18..21 "int"
+                      PathType@18..21
+                        Path@18..21
+                          PathSegment@18..21
+                            Ident@18..21 "int"
                     Whitespace@21..22 " "
                     BlockExpr@22..28
                       LCurly@22..23 "{"
@@ -268,14 +280,18 @@ mod tests {
                         Ident@7..8 "x"
                         Colon@8..9 ":"
                         Whitespace@9..10 " "
-                        Type@10..13
-                          Ident@10..13 "int"
+                        PathType@10..13
+                          Path@10..13
+                            PathSegment@10..13
+                              Ident@10..13 "int"
                     Whitespace@13..14 " "
                     ReturnType@14..20
                       ThinArrow@14..16 "->"
                       Whitespace@16..17 " "
-                      Type@17..20
-                        Ident@17..20 "int"
+                      PathType@17..20
+                        Path@17..20
+                          PathSegment@17..20
+                            Ident@17..20 "int"
                     Whitespace@20..21 " "
                     BlockExpr@21..27
                       LCurly@21..22 "{"
@@ -285,7 +301,7 @@ mod tests {
                           Integer@23..25 "10"
                       Whitespace@25..26 " "
                       RCurly@26..27 "}"
-                error at 14..16: expected ',' or ')', but found ->
+                error at 14..16: expected '::', ',' or ')', but found ->
             "#]],
         );
 
@@ -306,8 +322,10 @@ mod tests {
                     ReturnType@10..16
                       ThinArrow@10..12 "->"
                       Whitespace@12..13 " "
-                      Type@13..16
-                        Ident@13..16 "int"
+                      PathType@13..16
+                        Path@13..16
+                          PathSegment@13..16
+                            Ident@13..16 "int"
                     Whitespace@16..17 " "
                     BlockExpr@17..23
                       LCurly@17..18 "{"
@@ -337,8 +355,10 @@ mod tests {
                     ReturnType@9..15
                       ThinArrow@9..11 "->"
                       Whitespace@11..12 " "
-                      Type@12..15
-                        Ident@12..15 "int"
+                      PathType@12..15
+                        Path@12..15
+                          PathSegment@12..15
+                            Ident@12..15 "int"
                     Whitespace@15..16 " "
                     BlockExpr@16..22
                       LCurly@16..17 "{"
@@ -367,8 +387,10 @@ mod tests {
                     ReturnType@8..14
                       ThinArrow@8..10 "->"
                       Whitespace@10..11 " "
-                      Type@11..14
-                        Ident@11..14 "int"
+                      PathType@11..14
+                        Path@11..14
+                          PathSegment@11..14
+                            Ident@11..14 "int"
                     Whitespace@14..15 " "
                     BlockExpr@15..21
                       LCurly@15..16 "{"
@@ -405,8 +427,10 @@ mod tests {
                     ReturnType@10..16
                       ThinArrow@10..12 "->"
                       Whitespace@12..13 " "
-                      Type@13..16
-                        Ident@13..16 "int"
+                      PathType@13..16
+                        Path@13..16
+                          PathSegment@13..16
+                            Ident@13..16 "int"
                     Whitespace@16..17 " "
                     BlockExpr@17..23
                       LCurly@17..18 "{"
@@ -460,10 +484,9 @@ mod tests {
                       LParen@4..5 "("
                       RParen@5..6 ")"
                     Whitespace@6..7 " "
-                    ReturnType@7..10
+                    ReturnType@7..9
                       ThinArrow@7..9 "->"
-                      Whitespace@9..10 " "
-                      Type@10..10
+                    Whitespace@9..10 " "
                     BlockExpr@10..16
                       LCurly@10..11 "{"
                       Whitespace@11..12 " "
@@ -532,11 +555,17 @@ struct A { foo: i32, bar: i32 }
                     TupleFieldList@19..29
                       LParen@19..20 "("
                       TupleField@20..23
-                        Ident@20..23 "i32"
+                        PathType@20..23
+                          Path@20..23
+                            PathSegment@20..23
+                              Ident@20..23 "i32"
                       Comma@23..24 ","
                       Whitespace@24..25 " "
                       TupleField@25..28
-                        Ident@25..28 "i32"
+                        PathType@25..28
+                          Path@25..28
+                            PathSegment@25..28
+                              Ident@25..28 "i32"
                       RParen@28..29 ")"
                     Semicolon@29..30 ";"
                   Whitespace@30..31 "\n"
@@ -552,16 +581,20 @@ struct A { foo: i32, bar: i32 }
                         Ident@42..45 "foo"
                         Colon@45..46 ":"
                         Whitespace@46..47 " "
-                        Type@47..50
-                          Ident@47..50 "i32"
+                        PathType@47..50
+                          Path@47..50
+                            PathSegment@47..50
+                              Ident@47..50 "i32"
                       Comma@50..51 ","
                       Whitespace@51..52 " "
                       NamedField@52..60
                         Ident@52..55 "bar"
                         Colon@55..56 ":"
                         Whitespace@56..57 " "
-                        Type@57..60
-                          Ident@57..60 "i32"
+                        PathType@57..60
+                          Path@57..60
+                            PathSegment@57..60
+                              Ident@57..60 "i32"
                       Whitespace@60..61 " "
                       RCurly@61..62 "}"
                   Whitespace@62..75 "\n            "
@@ -602,8 +635,10 @@ fn main() {}
                         ReturnType@31..37
                           ThinArrow@31..33 "->"
                           Whitespace@33..34 " "
-                          Type@34..37
-                            Ident@34..37 "int"
+                          PathType@34..37
+                            Path@34..37
+                              PathSegment@34..37
+                                Ident@34..37 "int"
                         Whitespace@37..38 " "
                         BlockExpr@38..56
                           LCurly@38..39 "{"
@@ -682,8 +717,10 @@ fn main() {}
                             ReturnType@59..65
                               ThinArrow@59..61 "->"
                               Whitespace@61..62 " "
-                              Type@62..65
-                                Ident@62..65 "int"
+                              PathType@62..65
+                                Path@62..65
+                                  PathSegment@62..65
+                                    Ident@62..65 "int"
                             Whitespace@65..66 " "
                             BlockExpr@66..92
                               LCurly@66..67 "{"
@@ -707,8 +744,10 @@ fn main() {}
                         ReturnType@112..118
                           ThinArrow@112..114 "->"
                           Whitespace@114..115 " "
-                          Type@115..118
-                            Ident@115..118 "int"
+                          PathType@115..118
+                            Path@115..118
+                              PathSegment@115..118
+                                Ident@115..118 "int"
                         Whitespace@118..119 " "
                         BlockExpr@119..226
                           LCurly@119..120 "{"
@@ -732,8 +771,10 @@ fn main() {}
                                 ReturnType@169..175
                                   ThinArrow@169..171 "->"
                                   Whitespace@171..172 " "
-                                  Type@172..175
-                                    Ident@172..175 "int"
+                                  PathType@172..175
+                                    Path@172..175
+                                      PathSegment@172..175
+                                        Ident@172..175 "int"
                                 Whitespace@175..176 " "
                                 BlockExpr@176..210
                                   LCurly@176..177 "{"
@@ -838,8 +879,10 @@ mod module_aaa {
                             ReturnType@90..96
                               ThinArrow@90..92 "->"
                               Whitespace@92..93 " "
-                              Type@93..96
-                                Ident@93..96 "int"
+                              PathType@93..96
+                                Path@93..96
+                                  PathSegment@93..96
+                                    Ident@93..96 "int"
                             Whitespace@96..97 " "
                             BlockExpr@97..251
                               LCurly@97..98 "{"
@@ -863,8 +906,10 @@ mod module_aaa {
                                     ReturnType@162..168
                                       ThinArrow@162..164 "->"
                                       Whitespace@164..165 " "
-                                      Type@165..168
-                                        Ident@165..168 "int"
+                                      PathType@165..168
+                                        Path@165..168
+                                          PathSegment@165..168
+                                            Ident@165..168 "int"
                                     Whitespace@168..169 " "
                                     BlockExpr@169..211
                                       LCurly@169..170 "{"
@@ -896,8 +941,10 @@ mod module_aaa {
                         ReturnType@281..287
                           ThinArrow@281..283 "->"
                           Whitespace@283..284 " "
-                          Type@284..287
-                            Ident@284..287 "int"
+                          PathType@284..287
+                            Path@284..287
+                              PathSegment@284..287
+                                Ident@284..287 "int"
                         Whitespace@287..288 " "
                         BlockExpr@288..306
                           LCurly@288..289 "{"

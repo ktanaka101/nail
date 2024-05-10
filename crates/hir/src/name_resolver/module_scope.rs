@@ -527,6 +527,12 @@ impl<'a> ModuleScopesBuilder<'a> {
                     self.build_expr(hir_file, current_scope_idx, *value);
                 }
             }
+            Expr::Record { symbol, fields } => {
+                self.register_symbol(current_scope_idx, symbol.clone());
+                for field in fields {
+                    self.build_expr(hir_file, current_scope_idx, field.value);
+                }
+            }
         }
     }
 

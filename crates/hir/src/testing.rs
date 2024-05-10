@@ -369,6 +369,19 @@ impl<'a> PrettyFile<'a> {
 
                 msg
             }
+            Expr::Record { symbol, fields } => {
+                let symbol = self.format_symbol(symbol, nesting);
+                let fields = fields
+                    .iter()
+                    .map(|record_field| {
+                        let value = self.format_expr(record_field.value, nesting);
+                        format!("{name}: {value}", name = record_field.name.text(self.db))
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+
+                format!("{symbol} {{ {fields} }}")
+            }
             Expr::Missing => "<missing>".to_string(),
         }
     }
@@ -388,6 +401,7 @@ impl<'a> PrettyFile<'a> {
                     | Expr::Return { .. }
                     | Expr::Loop { .. }
                     | Expr::Continue
+                    | Expr::Record { .. }
                     | Expr::Break { .. } => {
                         let expr_text = self.format_expr(expr, nesting);
                         format!("${}:{}", name.text(self.db), expr_text)

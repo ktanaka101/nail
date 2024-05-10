@@ -131,6 +131,8 @@ pub enum Expr {
     BreakExpr(BreakExpr),
     /// `while`式
     WhileExpr(WhileExpr),
+    /// レコード式
+    RecordExpr(RecordExpr),
 }
 impl Ast for Expr {}
 impl AstNode for Expr {
@@ -150,6 +152,7 @@ impl AstNode for Expr {
                 | SyntaxKind::ContinueExpr
                 | SyntaxKind::BreakExpr
                 | SyntaxKind::WhileExpr
+                | SyntaxKind::RecordExpr
         )
     }
 
@@ -168,6 +171,7 @@ impl AstNode for Expr {
             SyntaxKind::ContinueExpr => Self::ContinueExpr(ContinueExpr { syntax }),
             SyntaxKind::BreakExpr => Self::BreakExpr(BreakExpr { syntax }),
             SyntaxKind::WhileExpr => Self::WhileExpr(WhileExpr { syntax }),
+            SyntaxKind::RecordExpr => Self::RecordExpr(RecordExpr { syntax }),
             _ => return None,
         };
 
@@ -189,6 +193,7 @@ impl AstNode for Expr {
             Expr::ContinueExpr(it) => it.syntax(),
             Expr::BreakExpr(it) => it.syntax(),
             Expr::WhileExpr(it) => it.syntax(),
+            Expr::RecordExpr(it) => it.syntax(),
         }
     }
 }
@@ -699,6 +704,49 @@ impl RecordField {
 
     /// フィールドの型に位置する型ノードを返します。
     pub fn ty(&self) -> Option<PathType> {
+        ast_node::child_node(self)
+    }
+}
+
+def_ast_node!(
+    /// レコード式のASTノード
+    RecordExpr
+);
+impl RecordExpr {
+    /// レコードの名前に位置するトークンを返します。
+    pub fn path(&self) -> Option<Path> {
+        ast_node::child_node(self)
+    }
+
+    /// レコードフィールドの一覧を返します。
+    pub fn fields(&self) -> Option<RecordFieldListExpr> {
+        ast_node::child_node(self)
+    }
+}
+
+def_ast_node!(
+    /// レコード式のフィールドリストのASTノード
+    RecordFieldListExpr
+);
+impl RecordFieldListExpr {
+    /// フィールドの一覧を返します。
+    pub fn fields(&self) -> impl Iterator<Item = RecordFieldExpr> {
+        ast_node::children_nodes(self)
+    }
+}
+
+def_ast_node!(
+    /// レコード式のフィールドリストのフィールドのASTノード
+    RecordFieldExpr
+);
+impl RecordFieldExpr {
+    /// フィールドの名前に位置するトークンを返します。
+    pub fn name(&self) -> Option<tokens::Ident> {
+        ast_node::child_token(self)
+    }
+
+    /// フィールドの値に位置する式ノードを返します。
+    pub fn value(&self) -> Option<Expr> {
         ast_node::child_node(self)
     }
 }

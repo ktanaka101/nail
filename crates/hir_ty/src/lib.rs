@@ -1799,4 +1799,70 @@ mod tests {
             "#]],
         );
     }
+
+    #[test]
+    fn init_struct_unit() {
+        check_in_root_file(
+            r#"
+                struct Point;
+                fn main() {
+                    let point = Point;
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point ;
+                fn entry:main() -> () {
+                    let point = struct:Point
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_struct_tuple_fileds() {
+        check_in_root_file(
+            r#"
+                struct Point(int, int);
+                fn main() {
+                    let point = Point(10, 20);
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point (int, int);
+                fn entry:main() -> () {
+                    let point = struct:Point(10, 20)
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_struct_record_fileds() {
+        check_in_root_file(
+            r#"
+                struct Point { x: int, y: int }
+                fn main() {
+                    let point = Point { x: 10, y: 20 };
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point { x: int, y: int }
+                fn entry:main() -> () {
+                    let point = struct:Point
+                    {
+                        <missing>
+                        <missing>
+                        10
+                        <missing>
+                        <missing>
+                        <missing>
+                        expr:20
+                    };
+                }
+            "#]],
+        );
+    }
 }

@@ -688,6 +688,15 @@ pub enum Expr {
         /// Breakの値
         value: Option<ExprId>,
     },
+    Record {
+        /// レコード式のシンボル
+        ///
+        /// ex. `aaa::bbb::Point { x: i32, y: i32 }`
+        ///      ^^^^^^^^^^^^^^^
+        symbol: Symbol,
+        /// フィールド
+        fields: Vec<RecordFieldExpr>,
+    },
     /// 解釈できない不明な式です。
     Missing,
 }
@@ -798,4 +807,13 @@ pub struct Binding {
     pub name: Name,
     pub mutable: bool,
     pub expr: ExprId,
+}
+
+/// レコード式のフィールドを表す
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RecordFieldExpr {
+    /// 名前
+    pub name: Name,
+    /// 値
+    pub value: ExprId,
 }

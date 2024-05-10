@@ -10,7 +10,7 @@ use crate::{
     item::{ParamData, RecordField, StructKind},
     AstPtr, BinaryOp, Binding, Block, Expr, ExprSource, Function, FunctionSource, HirFileSourceMap,
     HirMasterDatabase, InFile, Item, Literal, Module, ModuleKind, NailFile, NailGreenNode, Name,
-    NameSolutionPath, Param, Path, Stmt, Struct, Symbol, Type, UnaryOp, UseItem,
+    NameSolutionPath, Param, Path, RecordFieldExpr, Stmt, Struct, Symbol, Type, UnaryOp, UseItem,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -403,6 +403,7 @@ impl<'a> BodyLower<'a> {
                     Some(path) => {
                         let segments: Vec<ast::PathSegment> = path.segments().collect();
                         match segments.len() {
+                            0 => unreachable!("AST with zero length path is not created."),
                             1 => {
                                 let ident = &segments[0].name().unwrap();
                                 let name = ident.name();
@@ -513,6 +514,7 @@ impl<'a> BodyLower<'a> {
                 ast::Expr::ContinueExpr(_ast) => Expr::Continue,
                 ast::Expr::BreakExpr(ast) => self.lower_break(db, ast),
                 ast::Expr::WhileExpr(ast) => self.lower_while(db, ast),
+                ast::Expr::RecordExpr(ast) => self.lower_record_expr(db, ast),
             };
             self.alloc_expr(&ast, expr)
         } else {
@@ -693,6 +695,7 @@ impl<'a> BodyLower<'a> {
             Expr::Continue => todo!(),
             Expr::Break { .. } => todo!(),
             Expr::Missing => todo!(),
+            Expr::Record { .. } => todo!(),
         };
 
         Expr::Call {
@@ -857,6 +860,38 @@ impl<'a> BodyLower<'a> {
         } else {
             Expr::Missing
         }
+    }
+
+    fn lower_record_expr(
+        &mut self,
+        db: &dyn HirMasterDatabase,
+        ast_record_expr: &ast::RecordExpr,
+    ) -> Expr {
+        let path = Path::new(
+            db,
+            ast_record_expr
+                .path()
+                .unwrap()
+                .segments()
+                .map(|segment| Name::new(db, segment.name().unwrap().name().to_string()))
+                .collect(),
+        );
+        let symbol = Symbol::MissingExpr {
+            path: NameSolutionPath::new(db, path),
+        };
+
+        let fields: Vec<RecordFieldExpr> = ast_record_expr
+            .fields()
+            .unwrap()
+            .fields()
+            .map(|field| {
+                let name = Name::new(db, field.name().unwrap().name().to_string());
+                let value = self.lower_expr(db, field.value());
+                RecordFieldExpr { name, value }
+            })
+            .collect();
+
+        Expr::Record { symbol, fields }
     }
 }
 
@@ -1453,39 +1488,39 @@ mod tests {
         check_in_root_file(
             r#"
                 fn main() {
-                    a
-                    let a = 10
-                    a
+                    a;
+                    let a = 10;
+                    a;
                     {
-                        a
-                        let a = 20
+                        a;
+                        let a = 20;
                         {
-                            a
-                            let a = 30
-                            a
+                            a;
+                            let a = 30;
+                            a;
                         }
-                        a
+                        a;
                     }
-                    a
+                    a;
                 }
             "#,
             expect![[r#"
                 //- /main.nail
                 fn entry:main() -> () {
-                    <missing>
+                    <missing>;
                     let a = 10
-                    $a:10
+                    $a:10;
                     {
-                        $a:10
+                        $a:10;
                         let a = 20
                         {
-                            $a:20
+                            $a:20;
                             let a = 30
-                            expr:$a:30
+                            $a:30;
                         }
-                        expr:$a:20
+                        $a:20;
                     }
-                    expr:$a:10
+                    $a:10;
                 }
             "#]],
         );
@@ -1836,53 +1871,53 @@ mod tests {
         check_in_root_file(
             r#"
                 fn main() {
-                    a
+                    a;
                     let a = 10;
-                    a
+                    a;
                     fn foo() {
-                        a
+                        a;
                         let a = 20;
-                        a
+                        a;
                         {
-                            a
+                            a;
                             let a = 30;
-                            a
+                            a;
                         }
-                        a
+                        a;
                         fn bar() {
-                            a
+                            a;
                             let a = 40;
-                            a
+                            a;
                         }
-                        a
+                        a;
                     }
-                    a
+                    a;
                 }
             "#,
             expect![[r#"
                 //- /main.nail
                 fn entry:main() -> () {
-                    <missing>
+                    <missing>;
                     let a = 10
-                    $a:10
+                    $a:10;
                     fn foo() -> () {
-                        <missing>
+                        <missing>;
                         let a = 20
-                        $a:20
+                        $a:20;
                         {
-                            $a:20
+                            $a:20;
                             let a = 30
-                            expr:$a:30
+                            $a:30;
                         }
-                        $a:20
+                        $a:20;
                         fn bar() -> () {
-                            <missing>
+                            <missing>;
                             let a = 40
-                            expr:$a:40
+                            $a:40;
                         }
-                        expr:$a:20
+                        $a:20;
                     }
-                    expr:$a:10
+                    $a:10;
                 }
             "#]],
         );
@@ -2507,7 +2542,10 @@ mod tests {
                     y: int
                 }
                 fn main() {
-                    Point
+                    foo();
+                }
+                fn foo() -> Point {
+                    Point { x: 10, y: 20 }
                 }
             "#,
             expect![[r#"
@@ -2524,7 +2562,10 @@ mod tests {
                 //- /main.nail
                 mod mod_aaa;
                 fn main() {
-                    mod_aaa::Point
+                    foo();
+                }
+                fn foo() {
+                    mod_aaa::Point { x: 10, y: 20 }
                 }
 
                 //- /mod_aaa.nail
@@ -2537,7 +2578,10 @@ mod tests {
                 //- /main.nail
                 mod mod_aaa;
                 fn entry:main() -> () {
-                    expr:struct:mod_aaa::Point
+                    fn:foo();
+                }
+                fn foo() -> () {
+                    expr:struct:mod_aaa::Point { x: 10, y: 20 }
                 }
                 //- /mod_aaa.nail
                 struct Point { x: int, y: int }
@@ -2571,6 +2615,63 @@ mod tests {
                 fn foo() -> () {
                     <missing>
                     expr:<missing>
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_struct_unit() {
+        check_in_root_file(
+            r#"
+                struct Point;
+                fn main() {
+                    let point = Point;
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point ;
+                fn entry:main() -> () {
+                    let point = struct:Point
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_struct_tuple_fileds() {
+        check_in_root_file(
+            r#"
+                struct Point(int, int);
+                fn main() {
+                    let point = Point(10, 20);
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point (int, int);
+                fn entry:main() -> () {
+                    let point = struct:Point(10, 20)
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_struct_record_fileds() {
+        check_in_root_file(
+            r#"
+                struct Point { x: int, y: int }
+                fn main() {
+                    let point = Point { x: 10, y: 20 };
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point { x: int, y: int }
+                fn entry:main() -> () {
+                    let point = struct:Point { x: 10, y: 20 }
                 }
             "#]],
         );

@@ -7,7 +7,7 @@ use la_arena::{Arena, Idx};
 
 use crate::{
     body::scopes::ExprScopes,
-    item::{NamedField, ParamData, StructKind},
+    item::{ParamData, RecordField, StructKind},
     AstPtr, BinaryOp, Binding, Block, Expr, ExprSource, Function, FunctionSource, HirFileSourceMap,
     HirMasterDatabase, InFile, Item, Literal, Module, ModuleKind, NailFile, NailGreenNode, Name,
     NameSolutionPath, Param, Path, Stmt, Struct, Symbol, Type, UnaryOp, UseItem,
@@ -314,20 +314,20 @@ impl<'a> BodyLower<'a> {
             .map(|name| Name::new(db, name.name().to_string()))?;
 
         let kind = match def.to_kind() {
-            ast::StructKind::Tuple(tuple_fileds) => StructKind::Tuple(
-                tuple_fileds
+            ast::StructKind::Tuple(fileds) => StructKind::Tuple(
+                fileds
                     .fields()
                     .map(|field| self.lower_path_type(db, field.ty()))
                     .collect(),
             ),
-            ast::StructKind::Named(named_fields) => StructKind::Named(
-                named_fields
+            ast::StructKind::Record(fields) => StructKind::Record(
+                fields
                     .fields()
                     .enumerate()
                     .map(|(pos, field)| {
                         let name = Name::new(db, field.name().unwrap().name().to_string());
                         let ty = self.lower_path_type(db, field.ty());
-                        NamedField { name, ty, pos }
+                        RecordField { name, ty, pos }
                     })
                     .collect(),
             ),

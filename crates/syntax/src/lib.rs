@@ -64,11 +64,11 @@ pub enum SyntaxKind {
     // ---item nodes---
     /// `fn IDENT(ParamList) -> ReturnType BlockExpr`
     FunctionDef,
-    /// `struct IDENT { TupleFieldList | NamedFieldList }`
+    /// `struct IDENT { TupleFieldList | RecordFieldList }`
     ///
     /// Represents a structure definition,
     /// which can either be a tuple-like struct (e.g., `struct IDENT(TupleFieldList);`) or
-    /// a classic C-like struct (e.g., `struct IDENT { NamedFieldList }`).
+    /// a classic C-like struct (e.g., `struct IDENT { RecordFieldList }`).
     StructDef,
     /// `mod IDENT { ItemList }`
     Module,
@@ -88,10 +88,10 @@ pub enum SyntaxKind {
     TupleFieldList,
     /// `PathType`
     TupleField,
-    /// `{ NamedField, NamedField, ... }`
-    NamedFieldList,
+    /// `{ RecordField, RecordField, ... }`
+    RecordFieldList,
     /// `IDENT: PathType`
-    NamedField,
+    RecordField,
     /// fn foo() -> i32 { ... }
     ///             ^^^
     ///

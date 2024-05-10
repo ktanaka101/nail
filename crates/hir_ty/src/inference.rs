@@ -394,7 +394,7 @@ impl<'a> InferBody<'a> {
 
                             Monotype::Struct(struct_)
                         }
-                        hir::StructKind::Named(_) | hir::StructKind::Unit => {
+                        hir::StructKind::Record(_) | hir::StructKind::Unit => {
                             self.unifier.add_error(InferenceError::NotCallable {
                                 found_callee_ty: callee_ty,
                                 found_callee_symbol: callee.clone(),

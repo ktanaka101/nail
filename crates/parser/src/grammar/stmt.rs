@@ -247,7 +247,7 @@ fn parse_record_fields(parser: &mut Parser, recovery_set: &[TokenKind]) -> Compl
             if parser.at(TokenKind::Ident) {
                 super::parse_path_type(parser, recovery_set);
             }
-            marker.complete(parser, SyntaxKind::NamedField);
+            marker.complete(parser, SyntaxKind::RecordField);
         }
         while parser.at(TokenKind::Comma) {
             parser.bump();
@@ -265,13 +265,13 @@ fn parse_record_fields(parser: &mut Parser, recovery_set: &[TokenKind]) -> Compl
                 if parser.at(TokenKind::Ident) {
                     super::parse_path_type(parser, recovery_set);
                 }
-                marker.complete(parser, SyntaxKind::NamedField);
+                marker.complete(parser, SyntaxKind::RecordField);
             }
         }
     }
     parser.expect_with_recovery_set_no_default(TokenKind::RCurly, recovery_set);
 
-    marker.complete(parser, SyntaxKind::NamedFieldList)
+    marker.complete(parser, SyntaxKind::RecordFieldList)
 }
 
 /// 構造体のタプルフィールドをパースする
@@ -1193,7 +1193,7 @@ struct AAA;
                     Whitespace@6..7 " "
                     Ident@7..10 "AAA"
                     Whitespace@10..11 " "
-                    NamedFieldList@11..13
+                    RecordFieldList@11..13
                       LCurly@11..12 "{"
                       RCurly@12..13 "}"
             "#]],
@@ -1208,10 +1208,10 @@ struct AAA;
                     Whitespace@6..7 " "
                     Ident@7..10 "AAA"
                     Whitespace@10..11 " "
-                    NamedFieldList@11..21
+                    RecordFieldList@11..21
                       LCurly@11..12 "{"
                       Whitespace@12..13 " "
-                      NamedField@13..19
+                      RecordField@13..19
                         Ident@13..14 "a"
                         Colon@14..15 ":"
                         Whitespace@15..16 " "
@@ -1233,10 +1233,10 @@ struct AAA;
                     Whitespace@6..7 " "
                     Ident@7..10 "AAA"
                     Whitespace@10..11 " "
-                    NamedFieldList@11..22
+                    RecordFieldList@11..22
                       LCurly@11..12 "{"
                       Whitespace@12..13 " "
-                      NamedField@13..19
+                      RecordField@13..19
                         Ident@13..14 "a"
                         Colon@14..15 ":"
                         Whitespace@15..16 " "
@@ -1259,10 +1259,10 @@ struct AAA;
                     Whitespace@6..7 " "
                     Ident@7..10 "AAA"
                     Whitespace@10..11 " "
-                    NamedFieldList@11..29
+                    RecordFieldList@11..29
                       LCurly@11..12 "{"
                       Whitespace@12..13 " "
-                      NamedField@13..19
+                      RecordField@13..19
                         Ident@13..14 "a"
                         Colon@14..15 ":"
                         Whitespace@15..16 " "
@@ -1272,7 +1272,7 @@ struct AAA;
                               Ident@16..19 "int"
                       Comma@19..20 ","
                       Whitespace@20..21 " "
-                      NamedField@21..27
+                      RecordField@21..27
                         Ident@21..22 "b"
                         Colon@22..23 ":"
                         Whitespace@23..24 " "
@@ -1294,10 +1294,10 @@ struct AAA;
                     Whitespace@6..7 " "
                     Ident@7..10 "AAA"
                     Whitespace@10..11 " "
-                    NamedFieldList@11..30
+                    RecordFieldList@11..30
                       LCurly@11..12 "{"
                       Whitespace@12..13 " "
-                      NamedField@13..19
+                      RecordField@13..19
                         Ident@13..14 "a"
                         Colon@14..15 ":"
                         Whitespace@15..16 " "
@@ -1307,7 +1307,7 @@ struct AAA;
                               Ident@16..19 "int"
                       Comma@19..20 ","
                       Whitespace@20..21 " "
-                      NamedField@21..27
+                      RecordField@21..27
                         Ident@21..22 "b"
                         Colon@22..23 ":"
                         Whitespace@23..24 " "
@@ -1375,10 +1375,10 @@ struct AAA;
                   StructDef@0..17
                     StructKw@0..6 "struct"
                     Whitespace@6..7 " "
-                    NamedFieldList@7..17
+                    RecordFieldList@7..17
                       LCurly@7..8 "{"
                       Whitespace@8..9 " "
-                      NamedField@9..15
+                      RecordField@9..15
                         Ident@9..10 "a"
                         Colon@10..11 ":"
                         Whitespace@11..12 " "
@@ -1401,14 +1401,14 @@ struct AAA;
                     Whitespace@6..7 " "
                     Ident@7..10 "AAA"
                     Whitespace@10..11 " "
-                    NamedFieldList@11..19
+                    RecordFieldList@11..19
                       LCurly@11..12 "{"
                       Whitespace@12..13 " "
-                      NamedField@13..14
+                      RecordField@13..14
                         Colon@13..14 ":"
                       Comma@14..15 ","
                       Whitespace@15..16 " "
-                      NamedField@16..17
+                      RecordField@16..17
                         Colon@16..17 ":"
                       Whitespace@17..18 " "
                       RCurly@18..19 "}"
@@ -1426,10 +1426,10 @@ struct AAA;
                     Whitespace@6..7 " "
                     Ident@7..10 "AAA"
                     Whitespace@10..11 " "
-                    NamedFieldList@11..28
+                    RecordFieldList@11..28
                       LCurly@11..12 "{"
                       Whitespace@12..13 " "
-                      NamedField@13..18
+                      RecordField@13..18
                         Colon@13..14 ":"
                         Whitespace@14..15 " "
                         PathType@15..18
@@ -1438,7 +1438,7 @@ struct AAA;
                               Ident@15..18 "i32"
                       Comma@18..19 ","
                       Whitespace@19..20 " "
-                      NamedField@20..26
+                      RecordField@20..26
                         Colon@20..21 ":"
                         Whitespace@21..22 " "
                         PathType@22..26
@@ -1461,15 +1461,15 @@ struct AAA;
                     Whitespace@6..7 " "
                     Ident@7..10 "AAA"
                     Whitespace@10..11 " "
-                    NamedFieldList@11..21
+                    RecordFieldList@11..21
                       LCurly@11..12 "{"
                       Whitespace@12..13 " "
-                      NamedField@13..15
+                      RecordField@13..15
                         Ident@13..14 "a"
                         Colon@14..15 ":"
                       Comma@15..16 ","
                       Whitespace@16..17 " "
-                      NamedField@17..19
+                      RecordField@17..19
                         Ident@17..18 "b"
                         Colon@18..19 ":"
                       Whitespace@19..20 " "
@@ -1578,10 +1578,10 @@ struct AAA;
                     Whitespace@6..7 " "
                     Ident@7..10 "AAA"
                     Whitespace@10..11 " "
-                    NamedFieldList@11..39
+                    RecordFieldList@11..39
                       LCurly@11..12 "{"
                       Whitespace@12..13 " "
-                      NamedField@13..24
+                      RecordField@13..24
                         Ident@13..14 "x"
                         Colon@14..15 ":"
                         Whitespace@15..16 " "
@@ -1594,7 +1594,7 @@ struct AAA;
                               Ident@21..24 "bar"
                       Comma@24..25 ","
                       Whitespace@25..26 " "
-                      NamedField@26..37
+                      RecordField@26..37
                         Ident@26..27 "y"
                         Colon@27..28 ":"
                         Whitespace@28..29 " "

@@ -189,7 +189,7 @@ impl<'a> PrettyFile<'a> {
                     .join(", ");
                 format!("({fields});")
             }
-            StructKind::Named(fields) => {
+            StructKind::Record(fields) => {
                 let fields = fields
                     .iter()
                     .map(|field| {

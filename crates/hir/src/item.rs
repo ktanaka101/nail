@@ -137,7 +137,7 @@ pub struct Struct {
 ///
 /// 構造体定義には以下の3種類があります。
 /// - タプル構造体: `struct Point(int, int)`
-/// - 名前付き構造体: `struct Point { x: int, y: int }`
+/// - レコード構造体: `struct Point { x: int, y: int }`
 /// - 空構造体: `struct Point;`
 ///
 /// 種別によって、初期化方法が異なります。
@@ -146,7 +146,7 @@ pub struct Struct {
 ///         関数呼び出しと同等なため、型としては`(int, int) -> Point`で表されます。
 ///     - `struct Point()`: `Point()`
 ///         関数呼び出しと同等なため、型としては`() -> Point`で表されます。
-/// - 名前付き構造体:
+/// - レコード構造体:
 ///     - `struct Point { x: int, y: int }`: `Point { x: 1, y: 2 }`
 ///         型として表すことはできません。
 ///     - `struct Point { }`: `Point { }`
@@ -158,20 +158,20 @@ pub struct Struct {
 pub enum StructKind {
     /// タプル構造体
     Tuple(Vec<Type>),
-    /// 名前付き構造体
-    Named(Vec<NamedField>),
+    /// レコード構造体
+    Record(Vec<RecordField>),
     /// 空構造体
     Unit,
 }
 
-/// 名前付きフィールドを表す
+/// レコードフィールドを表す
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct NamedField {
+pub struct RecordField {
     /// 名前
     pub name: Name,
     /// 型
     pub ty: Type,
-    /// 名前付きフィールドの位置(0-indexed)
+    /// レコードフィールドの位置(0-indexed)
     /// 例: `struct Point { x: int, y: int }` であれば `x` は `0` で `y` は `1`
     pub pos: usize,
 }

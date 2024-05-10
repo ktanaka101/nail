@@ -562,8 +562,8 @@ impl StructDef {
     pub fn to_kind(&self) -> StructKind {
         if self.is_tuple() {
             StructKind::Tuple(self.tuple_fields().unwrap())
-        } else if self.is_named() {
-            StructKind::Named(self.named_fields().unwrap())
+        } else if self.is_record() {
+            StructKind::Record(self.record_fields().unwrap())
         } else {
             StructKind::Unit
         }
@@ -579,7 +579,7 @@ impl StructDef {
         if let Some(tuple_fields) = self.tuple_fields() {
             Some(FieldList::Tuple(tuple_fields))
         } else {
-            Some(FieldList::Named(self.named_fields()?))
+            Some(FieldList::Record(self.record_fields()?))
         }
     }
 
@@ -593,9 +593,9 @@ impl StructDef {
         self.tuple_fields().is_some()
     }
 
-    /// 名前付きフィールドで定義された構造体かどうかを返します。
-    pub fn is_named(&self) -> bool {
-        self.named_fields().is_some()
+    /// レコードフィールドで定義された構造体かどうかを返します。
+    pub fn is_record(&self) -> bool {
+        self.record_fields().is_some()
     }
 
     /// タプルフィールドのリストに位置するタプルフィールドリストノードを返します。
@@ -603,8 +603,8 @@ impl StructDef {
         ast_node::child_node(self)
     }
 
-    /// 名前付きフィールドのリストに位置する名前付きフィールドリストノードを返します。
-    fn named_fields(&self) -> Option<NamedFieldList> {
+    /// レコードフィールドのリストに位置するレコードフィールドリストノードを返します。
+    fn record_fields(&self) -> Option<RecordFieldList> {
         ast_node::child_node(self)
     }
 }
@@ -614,8 +614,8 @@ impl StructDef {
 pub enum StructKind {
     /// タプル構造体
     Tuple(TupleFieldList),
-    /// 名前付き構造体
-    Named(NamedFieldList),
+    /// レコード構造体
+    Record(RecordFieldList),
     /// 空構造体
     Unit,
 }
@@ -624,22 +624,22 @@ pub enum StructKind {
 pub enum FieldList {
     /// タプルフィールドのリスト
     Tuple(TupleFieldList),
-    /// 名前付きフィールドのリスト
-    Named(NamedFieldList),
+    /// レコードフィールドのリスト
+    Record(RecordFieldList),
 }
 impl Ast for FieldList {}
 impl AstNode for FieldList {
     fn can_cast(kind: SyntaxKind) -> bool {
         matches!(
             kind,
-            SyntaxKind::TupleFieldList | SyntaxKind::NamedFieldList
+            SyntaxKind::TupleFieldList | SyntaxKind::RecordFieldList
         )
     }
 
     fn cast(syntax: SyntaxNode) -> Option<Self> {
         let result = match syntax.kind() {
             SyntaxKind::TupleFieldList => Self::Tuple(TupleFieldList { syntax }),
-            SyntaxKind::NamedFieldList => Self::Named(NamedFieldList { syntax }),
+            SyntaxKind::RecordFieldList => Self::Record(RecordFieldList { syntax }),
             _ => return None,
         };
 
@@ -649,7 +649,7 @@ impl AstNode for FieldList {
     fn syntax(&self) -> &SyntaxNode {
         match self {
             FieldList::Tuple(it) => it.syntax(),
-            FieldList::Named(it) => it.syntax(),
+            FieldList::Record(it) => it.syntax(),
         }
     }
 }
@@ -677,21 +677,21 @@ impl TupleField {
 }
 
 def_ast_node!(
-    /// 名前付きフィールドのリストのASTノード
-    NamedFieldList
+    /// レコードフィールドのリストのASTノード
+    RecordFieldList
 );
-impl NamedFieldList {
+impl RecordFieldList {
     /// フィールドの一覧を返します。
-    pub fn fields(&self) -> impl Iterator<Item = NamedField> {
+    pub fn fields(&self) -> impl Iterator<Item = RecordField> {
         ast_node::children_nodes(self)
     }
 }
 
 def_ast_node!(
-    /// 名前付きフィールドのASTノード
-    NamedField
+    /// レコードフィールドのASTノード
+    RecordField
 );
-impl NamedField {
+impl RecordField {
     /// フィールドの名前に位置するトークンを返します。
     pub fn name(&self) -> Option<tokens::Ident> {
         ast_node::child_token(self)

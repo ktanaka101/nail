@@ -424,7 +424,7 @@ impl<'a> Pretty<'a> {
 
                 format!("({fields});")
             }
-            hir::StructKind::Named(fields) => {
+            hir::StructKind::Record(fields) => {
                 let fields = fields
                     .iter()
                     .map(|field| {

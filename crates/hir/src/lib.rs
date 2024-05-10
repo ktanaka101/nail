@@ -39,7 +39,8 @@ pub use body::{BindingId, BodyLower, ExprId, FunctionBodyId, HirFileDatabase};
 pub use db::{HirMasterDatabase, Jar};
 pub use input::{FixtureDatabase, NailFile, SourceDatabase, SourceDatabaseTrait};
 pub use item::{
-    Function, Item, Module, ModuleKind, NamedField, Param, Struct, StructKind, Type, UseItem,
+    Function, Item, Module, ModuleKind, NamedField, Param, ParamData, Struct, StructKind, Type,
+    UseItem,
 };
 use name_resolver::resolve_symbols;
 pub use name_resolver::{ModuleScopeOrigin, ResolutionMap, ResolutionStatus};

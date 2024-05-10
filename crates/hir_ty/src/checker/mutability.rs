@@ -136,6 +136,7 @@ impl<'a> FunctionMutabilityChecker<'a> {
                 // `VariableDef`で処理済みのため、ここでは何もしません
                 hir::Symbol::Local { .. } => (),
                 hir::Symbol::MissingExpr { .. } => (),
+                hir::Symbol::MissingType { .. } => (),
             },
             hir::Expr::Binary { op, lhs, rhs } => {
                 self.check_expr(*lhs);
@@ -163,6 +164,7 @@ impl<'a> FunctionMutabilityChecker<'a> {
                     hir::Symbol::Local { .. } => (),
                     hir::Symbol::Param { .. } => (),
                     hir::Symbol::MissingExpr { .. } => (),
+                    hir::Symbol::MissingType { .. } => (),
                 }
             }
             hir::Expr::Return { value } => {

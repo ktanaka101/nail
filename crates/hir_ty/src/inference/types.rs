@@ -28,6 +28,8 @@ pub enum Monotype {
     Struct(hir::Struct),
     /// 値を取り得ないことを表す型
     Never,
+    /// 未知のカスタム型
+    UnknownCustom(hir::Symbol),
     /// 未知の型
     /// この型は型推論の途中で使われます。
     /// この型が残っている場合、型推論が完了していないか、型を推論できないことを表します。
@@ -66,8 +68,9 @@ impl Monotype {
             | Monotype::Unit
             | Monotype::Char
             | Monotype::String
-            | Monotype::Struct(_)
+            | Monotype::Struct { .. }
             | Monotype::Never
+            | Monotype::UnknownCustom(_)
             | Monotype::Unknown => self.clone(),
             Monotype::Variable(id) => {
                 if let Some(ty) = subst.lookup(*id) {

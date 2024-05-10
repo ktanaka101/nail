@@ -69,7 +69,7 @@ fn lower_type(ty: &hir::Type) -> Monotype {
         hir::Type::Boolean => Monotype::Bool,
         hir::Type::Unit => Monotype::Unit,
         hir::Type::Unknown => Monotype::Unknown,
-        hir::Type::Custom(name) => Monotype::Struct(name),
+        hir::Type::Custom(symbol) => Monotype::UnknownCustom(symbol.clone()),
     }
 }
 
@@ -210,6 +210,7 @@ impl<'a> InferBody<'a> {
             hir::Type::Boolean => Monotype::Bool,
             hir::Type::Unit => Monotype::Unit,
             hir::Type::Unknown => Monotype::Unknown,
+            hir::Type::Custom(symbol) => Monotype::UnknownCustom(symbol.clone()),
         }
     }
 
@@ -258,7 +259,7 @@ impl<'a> InferBody<'a> {
                             let signature = self.signature_by_function.get(&function).unwrap();
                             Monotype::Function(*signature)
                         }
-                        hir::Item::Struct(struct_) => Monotype::Struct(struct_),
+                        hir::Item::Struct(_) => todo!(),
                         hir::Item::Module(module) => {
                             self.unifier.add_error(InferenceError::ModuleAsExpr {
                                 found_module: module,
@@ -271,6 +272,7 @@ impl<'a> InferBody<'a> {
                     None => Monotype::Unknown,
                 }
             }
+            hir::Symbol::MissingType { .. } => todo!(),
         }
     }
 
@@ -322,6 +324,7 @@ impl<'a> InferBody<'a> {
                         });
                         Monotype::Unknown
                     }
+                    Monotype::UnknownCustom(_) => todo!(),
                     Monotype::Function(signature) => {
                         let call_args_ty = call_args
                             .iter()

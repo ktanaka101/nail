@@ -251,13 +251,13 @@ fn parse_record_fields(parser: &mut Parser, recovery_set: &[TokenKind]) -> Compl
         }
         while parser.at(TokenKind::Comma) {
             parser.bump();
-            {
-                // struct AAA { a: int, b: int, }
-                //                            ^時点で停止させる
-                if parser.at(TokenKind::RCurly) {
-                    break;
-                }
+            // struct AAA { a: int, b: int, }
+            //                            ^,時点で停止させる
+            if parser.at(TokenKind::RCurly) {
+                break;
+            }
 
+            {
                 let marker = parser.start();
                 parser.expect_with_recovery_set_no_default(TokenKind::Ident, recovery_set);
                 parser.expect_with_recovery_set_no_default(TokenKind::Colon, recovery_set);
@@ -294,13 +294,13 @@ fn parse_tuple_fields(parser: &mut Parser, recovery_set: &[TokenKind]) -> Comple
         }
         while parser.at(TokenKind::Comma) {
             parser.bump();
-            {
-                // struct AAA(i32, i32,);
-                //                    ^時点で停止させる(`(`は`parse_struct`側でbump)
-                if parser.at(TokenKind::RParen) {
-                    break;
-                }
+            // struct AAA(i32, i32,);
+            //                    ^,時点で停止させる(`(`は`parse_struct`側でbump)
+            if parser.at(TokenKind::RParen) {
+                break;
+            }
 
+            {
                 let marker = parser.start();
                 if parser.at(TokenKind::Ident) {
                     super::parse_path_type(parser, recovery_set);
@@ -1031,21 +1031,23 @@ mod tests {
                       LParen@4..5 "("
                       RParen@5..6 ")"
                   Whitespace@6..7 " "
-                  ExprStmt@7..10
-                    PathExpr@7..10
+                  ExprStmt@7..15
+                    RecordExpr@7..15
                       Path@7..10
                         PathSegment@7..10
                           Ident@7..10 "int"
-                  Whitespace@10..11 " "
-                  ExprStmt@11..17
-                    BlockExpr@11..17
-                      LCurly@11..12 "{"
-                      Whitespace@12..13 " "
-                      ExprStmt@13..15
-                        Literal@13..15
+                      Whitespace@10..11 " "
+                      RecordFieldListExpr@11..15
+                        LCurly@11..12 "{"
+                        Whitespace@12..13 " "
+                        Error@13..15
                           Integer@13..15 "10"
-                      Whitespace@15..16 " "
+                  Whitespace@15..16 " "
+                  ExprStmt@16..17
+                    Error@16..17
                       RCurly@16..17 "}"
+                error at 13..15: expected identifier or '}', but found integerLiteral
+                error at 16..17: expected '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ';', 'let', 'fn', 'struct', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found '}'
             "#]],
         );
     }

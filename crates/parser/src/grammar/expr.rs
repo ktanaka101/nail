@@ -177,7 +177,7 @@ fn parse_lhs(parser: &mut Parser) -> Option<CompletedNodeMarker> {
     {
         parse_literal(parser)
     } else if parser.at(TokenKind::Ident) {
-        parse_path_expr(parser)
+        parse_path_expr_or_record_expr(parser)
     } else if parser.at_set(&[TokenKind::Minus, TokenKind::Bang]) {
         parse_prefix_expr(parser)
     } else if parser.at(TokenKind::LParen) {
@@ -252,15 +252,26 @@ fn validate_literal(parser: &mut Parser) {
     }
 }
 
-/// パス式のパース
-fn parse_path_expr(parser: &mut Parser) -> CompletedNodeMarker {
+/// パス式あるいはレコード式のパース
+///
+/// 以下は両方のパースが可能です。区別をするためには、`{`が続くかどうかで判断します。
+/// - RecordExpr: `let point = Point { x: 10, y: 20 };`
+/// - PathExpr: `let point = Point`
+fn parse_path_expr_or_record_expr(parser: &mut Parser) -> CompletedNodeMarker {
     assert!(parser.at(TokenKind::Ident));
 
     let marker = parser.start();
 
     parse_path(parser, &BLOCK_RECOVERY_SET);
 
-    marker.complete(parser, SyntaxKind::PathExpr)
+    if parser.at(TokenKind::LCurly) {
+        // Pathの次に`{`がある場合はRecordExprとして返す
+        parse_record_field_list_expr(parser);
+        marker.complete(parser, SyntaxKind::RecordExpr)
+    } else {
+        // Pathの次にパス式の場合はPathExprとして返す
+        marker.complete(parser, SyntaxKind::PathExpr)
+    }
 }
 
 /// 関数呼び出しの引数のパース
@@ -428,6 +439,48 @@ fn parse_while(parser: &mut Parser) -> CompletedNodeMarker {
     }
 
     marker.complete(parser, SyntaxKind::WhileExpr)
+}
+
+fn parse_record_field_list_expr(parser: &mut Parser) -> CompletedNodeMarker {
+    assert!(parser.at(TokenKind::LCurly));
+
+    let marker = parser.start();
+
+    parser.expect_on_block(TokenKind::LCurly);
+
+    if parser.at(TokenKind::Ident)
+        || parser.peek() == Some(TokenKind::Colon)
+        || parser.peek() == Some(TokenKind::Comma)
+    {
+        {
+            let marker = parser.start();
+            parser.expect_on_block(TokenKind::Ident);
+            parser.expect_on_block(TokenKind::Colon);
+            parse_expr(parser);
+            marker.complete(parser, SyntaxKind::RecordFieldExpr);
+        }
+
+        while parser.at(TokenKind::Comma) {
+            parser.bump();
+            // Point { x: 10, y: 20, }
+            //                     ^,時点で停止させる
+            if parser.at(TokenKind::RCurly) {
+                break;
+            }
+
+            {
+                let marker = parser.start();
+                parser.expect_on_block(TokenKind::Ident);
+                parser.expect_on_block(TokenKind::Colon);
+                parse_expr(parser);
+                marker.complete(parser, SyntaxKind::RecordFieldExpr);
+            }
+        }
+    }
+
+    parser.expect_on_block(TokenKind::RCurly);
+
+    marker.complete(parser, SyntaxKind::RecordFieldListExpr)
 }
 
 #[cfg(test)]
@@ -998,7 +1051,7 @@ mod tests {
                         Path@1..4
                           PathSegment@1..4
                             Ident@1..4 "foo"
-                error at 1..4: expected '::', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=' or ')'
+                error at 1..4: expected '::', '{', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=' or ')'
             "#]],
         );
     }
@@ -1233,7 +1286,7 @@ mod tests {
                             Path@5..6
                               PathSegment@5..6
                                 Ident@5..6 "y"
-                error at 5..6: expected '::', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ',' or ')'
+                error at 5..6: expected '::', '{', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ',' or ')'
             "#]],
         );
 
@@ -1276,7 +1329,7 @@ mod tests {
                             Path@2..3
                               PathSegment@2..3
                                 Ident@2..3 "x"
-                error at 2..3: expected '::', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ',' or ')'
+                error at 2..3: expected '::', '{', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ',' or ')'
             "#]],
         );
 
@@ -1347,7 +1400,7 @@ mod tests {
                   ExprStmt@5..6
                     Error@5..6
                       RParen@5..6 ")"
-                error at 4..5: expected '::', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ',' or ')', but found identifier
+                error at 4..5: expected '::', '{', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ',' or ')', but found identifier
                 error at 5..6: expected '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ';', 'let', 'fn', 'struct', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found ')'
             "#]],
         );
@@ -2205,6 +2258,174 @@ mod tests {
                             Integer@21..23 "20"
                         Whitespace@23..24 " "
                         RCurly@24..25 "}"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_record_expr() {
+        check_debug_tree_in_block(
+            "let point = Point {};",
+            expect![[r#"
+                SourceFile@0..21
+                  Let@0..21
+                    LetKw@0..3 "let"
+                    Whitespace@3..4 " "
+                    Ident@4..9 "point"
+                    Whitespace@9..10 " "
+                    Eq@10..11 "="
+                    Whitespace@11..12 " "
+                    RecordExpr@12..20
+                      Path@12..17
+                        PathSegment@12..17
+                          Ident@12..17 "Point"
+                      Whitespace@17..18 " "
+                      RecordFieldListExpr@18..20
+                        LCurly@18..19 "{"
+                        RCurly@19..20 "}"
+                    Semicolon@20..21 ";"
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            "let point = Point { x: 10 };",
+            expect![[r#"
+                SourceFile@0..28
+                  Let@0..28
+                    LetKw@0..3 "let"
+                    Whitespace@3..4 " "
+                    Ident@4..9 "point"
+                    Whitespace@9..10 " "
+                    Eq@10..11 "="
+                    Whitespace@11..12 " "
+                    RecordExpr@12..27
+                      Path@12..17
+                        PathSegment@12..17
+                          Ident@12..17 "Point"
+                      Whitespace@17..18 " "
+                      RecordFieldListExpr@18..27
+                        LCurly@18..19 "{"
+                        Whitespace@19..20 " "
+                        RecordFieldExpr@20..25
+                          Ident@20..21 "x"
+                          Colon@21..22 ":"
+                          Whitespace@22..23 " "
+                          Literal@23..25
+                            Integer@23..25 "10"
+                        Whitespace@25..26 " "
+                        RCurly@26..27 "}"
+                    Semicolon@27..28 ";"
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            "let point = Point { x: 10 ,};",
+            expect![[r#"
+                SourceFile@0..29
+                  Let@0..29
+                    LetKw@0..3 "let"
+                    Whitespace@3..4 " "
+                    Ident@4..9 "point"
+                    Whitespace@9..10 " "
+                    Eq@10..11 "="
+                    Whitespace@11..12 " "
+                    RecordExpr@12..28
+                      Path@12..17
+                        PathSegment@12..17
+                          Ident@12..17 "Point"
+                      Whitespace@17..18 " "
+                      RecordFieldListExpr@18..28
+                        LCurly@18..19 "{"
+                        Whitespace@19..20 " "
+                        RecordFieldExpr@20..25
+                          Ident@20..21 "x"
+                          Colon@21..22 ":"
+                          Whitespace@22..23 " "
+                          Literal@23..25
+                            Integer@23..25 "10"
+                        Whitespace@25..26 " "
+                        Comma@26..27 ","
+                        RCurly@27..28 "}"
+                    Semicolon@28..29 ";"
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            "let point = Point { x: 10, y: 20 };",
+            expect![[r#"
+                SourceFile@0..35
+                  Let@0..35
+                    LetKw@0..3 "let"
+                    Whitespace@3..4 " "
+                    Ident@4..9 "point"
+                    Whitespace@9..10 " "
+                    Eq@10..11 "="
+                    Whitespace@11..12 " "
+                    RecordExpr@12..34
+                      Path@12..17
+                        PathSegment@12..17
+                          Ident@12..17 "Point"
+                      Whitespace@17..18 " "
+                      RecordFieldListExpr@18..34
+                        LCurly@18..19 "{"
+                        Whitespace@19..20 " "
+                        RecordFieldExpr@20..25
+                          Ident@20..21 "x"
+                          Colon@21..22 ":"
+                          Whitespace@22..23 " "
+                          Literal@23..25
+                            Integer@23..25 "10"
+                        Comma@25..26 ","
+                        Whitespace@26..27 " "
+                        RecordFieldExpr@27..32
+                          Ident@27..28 "y"
+                          Colon@28..29 ":"
+                          Whitespace@29..30 " "
+                          Literal@30..32
+                            Integer@30..32 "20"
+                        Whitespace@32..33 " "
+                        RCurly@33..34 "}"
+                    Semicolon@34..35 ";"
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            "let point = Point { x: 10, y: 20, };",
+            expect![[r#"
+                SourceFile@0..36
+                  Let@0..36
+                    LetKw@0..3 "let"
+                    Whitespace@3..4 " "
+                    Ident@4..9 "point"
+                    Whitespace@9..10 " "
+                    Eq@10..11 "="
+                    Whitespace@11..12 " "
+                    RecordExpr@12..35
+                      Path@12..17
+                        PathSegment@12..17
+                          Ident@12..17 "Point"
+                      Whitespace@17..18 " "
+                      RecordFieldListExpr@18..35
+                        LCurly@18..19 "{"
+                        Whitespace@19..20 " "
+                        RecordFieldExpr@20..25
+                          Ident@20..21 "x"
+                          Colon@21..22 ":"
+                          Whitespace@22..23 " "
+                          Literal@23..25
+                            Integer@23..25 "10"
+                        Comma@25..26 ","
+                        Whitespace@26..27 " "
+                        RecordFieldExpr@27..32
+                          Ident@27..28 "y"
+                          Colon@28..29 ":"
+                          Whitespace@29..30 " "
+                          Literal@30..32
+                            Integer@30..32 "20"
+                        Comma@32..33 ","
+                        Whitespace@33..34 " "
+                        RCurly@34..35 "}"
+                    Semicolon@35..36 ";"
             "#]],
         );
     }

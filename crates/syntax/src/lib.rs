@@ -56,6 +56,8 @@ pub enum SyntaxKind {
     BreakExpr,
     /// `while EXPR BlockExpr`
     WhileExpr,
+    /// `IDENT RecordFieldListExpr`
+    RecordExpr,
 
     // ---statement nodes---
     /// `let IDENT: PathType = EXPR`
@@ -92,6 +94,10 @@ pub enum SyntaxKind {
     RecordFieldList,
     /// `IDENT: PathType`
     RecordField,
+    /// `{ RecordFieldExpr, RecordFieldExpr, ... }`
+    RecordFieldListExpr,
+    /// `IDENT: EXPR`
+    RecordFieldExpr,
     /// fn foo() -> i32 { ... }
     ///             ^^^
     ///

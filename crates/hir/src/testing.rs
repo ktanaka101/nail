@@ -101,13 +101,13 @@ impl<'a> Pretty<'a> {
     }
 }
 
-pub struct PrettyFile<'a> {
+struct PrettyFile<'a> {
     db: &'a dyn HirMasterDatabase,
     hir_file: &'a HirFile,
     resolution_map: &'a ResolutionMap,
 }
 impl<'a> PrettyFile<'a> {
-    pub fn new(
+    fn new(
         db: &'a dyn HirMasterDatabase,
         hir_file: &'a HirFile,
         resolution_map: &'a ResolutionMap,
@@ -119,7 +119,7 @@ impl<'a> PrettyFile<'a> {
         }
     }
 
-    pub fn format_file(&self) -> String {
+    fn format_file(&self) -> String {
         let mut msg = "".to_string();
 
         for item in self.hir_file.top_level_items(self.db) {

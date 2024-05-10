@@ -123,7 +123,7 @@ impl<'a> PrettyFile<'a> {
         let mut msg = "".to_string();
 
         for item in self.hir_file.top_level_items(self.db) {
-            msg.push_str(&self.debug_item(item, 0));
+            msg.push_str(&self.format_item(item, 0));
         }
 
         for error in self.hir_file.errors(self.db) {
@@ -137,7 +137,7 @@ impl<'a> PrettyFile<'a> {
         msg
     }
 
-    fn debug_function(&self, function: Function, nesting: usize) -> String {
+    fn format_function(&self, function: Function, nesting: usize) -> String {
         let body_expr = function.body(self.db, *self.hir_file).unwrap();
 
         let name = function.name(self.db).text(self.db);
@@ -158,13 +158,13 @@ impl<'a> PrettyFile<'a> {
 
         let mut body = "{\n".to_string();
         for stmt in &block.stmts {
-            body.push_str(&self.debug_stmt(stmt, nesting + 1));
+            body.push_str(&self.format_stmt(stmt, nesting + 1));
         }
         if let Some(tail) = block.tail {
             body.push_str(&format!(
                 "{}expr:{}\n",
                 Pretty::format_indent(nesting + 1),
-                self.debug_expr(tail, nesting + 1)
+                self.format_expr(tail, nesting + 1)
             ));
         }
         body.push_str(&format!("{}}}", Pretty::format_indent(nesting)));
@@ -177,7 +177,7 @@ impl<'a> PrettyFile<'a> {
         )
     }
 
-    fn debug_struct(&self, structure: Struct, nesting: usize) -> String {
+    fn format_struct(&self, structure: Struct, nesting: usize) -> String {
         let name = structure.name(self.db).text(self.db);
 
         let kind = match structure.kind(self.db) {
@@ -210,7 +210,7 @@ impl<'a> PrettyFile<'a> {
         )
     }
 
-    fn debug_module(&self, module: Module, nesting: usize) -> String {
+    fn format_module(&self, module: Module, nesting: usize) -> String {
         let curr_indent = Pretty::format_indent(nesting);
 
         let module_name = module.name(self.db).text(self.db);
@@ -220,7 +220,7 @@ impl<'a> PrettyFile<'a> {
                 let mut module_str = "".to_string();
                 module_str.push_str(&format!("{curr_indent}mod {module_name} {{\n"));
                 for (i, item) in items.iter().enumerate() {
-                    module_str.push_str(&self.debug_item(item, nesting + 1));
+                    module_str.push_str(&self.format_item(item, nesting + 1));
                     if i == items.len() - 1 {
                         continue;
                     }
@@ -236,23 +236,23 @@ impl<'a> PrettyFile<'a> {
         }
     }
 
-    fn debug_use_item(&self, use_item: UseItem) -> String {
-        let path_name = self.debug_path(use_item.path(self.db));
+    fn format_use_item(&self, use_item: UseItem) -> String {
+        let path_name = self.format_path(use_item.path(self.db));
         let item_name = use_item.name(self.db).text(self.db);
 
         format!("{path_name}::{item_name}")
     }
 
-    fn debug_item(&self, item: &Item, nesting: usize) -> String {
+    fn format_item(&self, item: &Item, nesting: usize) -> String {
         match item {
-            Item::Function(function) => self.debug_function(*function, nesting),
-            Item::Struct(struct_) => self.debug_struct(*struct_, nesting),
-            Item::Module(module) => self.debug_module(*module, nesting),
-            Item::UseItem(use_item) => self.debug_use_item(*use_item),
+            Item::Function(function) => self.format_function(*function, nesting),
+            Item::Struct(struct_) => self.format_struct(*struct_, nesting),
+            Item::Module(module) => self.format_module(*module, nesting),
+            Item::UseItem(use_item) => self.format_use_item(*use_item),
         }
     }
 
-    fn debug_stmt(&self, stmt: &Stmt, nesting: usize) -> String {
+    fn format_stmt(&self, stmt: &Stmt, nesting: usize) -> String {
         match stmt {
             Stmt::Let {
                 name,
@@ -260,7 +260,7 @@ impl<'a> PrettyFile<'a> {
                 value,
             } => {
                 let name = name.text(self.db);
-                let expr_str = self.debug_expr(*value, nesting);
+                let expr_str = self.format_expr(*value, nesting);
                 let binding = binding.lookup(self.hir_file.db(self.db));
                 let mutable_text = Pretty::format_mutable(binding.mutable);
                 format!(
@@ -274,16 +274,16 @@ impl<'a> PrettyFile<'a> {
             } => format!(
                 "{}{}{}\n",
                 Pretty::format_indent(nesting),
-                self.debug_expr(*expr, nesting),
+                self.format_expr(*expr, nesting),
                 if *has_semicolon { ";" } else { "" }
             ),
-            Stmt::Item { item } => self.debug_item(item, nesting),
+            Stmt::Item { item } => self.format_item(item, nesting),
         }
     }
 
-    fn debug_expr(&self, expr_id: ExprId, nesting: usize) -> String {
+    fn format_expr(&self, expr_id: ExprId, nesting: usize) -> String {
         match expr_id.lookup(self.hir_file.db(self.db)) {
-            Expr::Symbol(symbol) => self.debug_symbol(symbol, nesting),
+            Expr::Symbol(symbol) => self.format_symbol(symbol, nesting),
             Expr::Literal(literal) => match literal {
                 Literal::Bool(b) => b.to_string(),
                 Literal::Char(c) => format!("'{c}'"),
@@ -291,8 +291,8 @@ impl<'a> PrettyFile<'a> {
                 Literal::Integer(i) => i.to_string(),
             },
             Expr::Binary { op, lhs, rhs } => {
-                let lhs_str = self.debug_expr(*lhs, nesting);
-                let rhs_str = self.debug_expr(*rhs, nesting);
+                let lhs_str = self.format_expr(*lhs, nesting);
+                let rhs_str = self.format_expr(*rhs, nesting);
                 format!("{lhs_str} {op} {rhs_str}")
             }
             Expr::Unary { op, expr } => {
@@ -300,14 +300,14 @@ impl<'a> PrettyFile<'a> {
                     UnaryOp::Neg => "-",
                     UnaryOp::Not => "!",
                 };
-                let expr_str = self.debug_expr(*expr, nesting);
+                let expr_str = self.format_expr(*expr, nesting);
                 format!("{op}{expr_str}")
             }
             Expr::Call { callee, args } => {
-                let callee = self.debug_symbol(callee, nesting);
+                let callee = self.format_symbol(callee, nesting);
                 let args = args
                     .iter()
-                    .map(|arg| self.debug_expr(*arg, nesting))
+                    .map(|arg| self.format_expr(*arg, nesting))
                     .collect::<Vec<_>>()
                     .join(", ");
 
@@ -316,13 +316,13 @@ impl<'a> PrettyFile<'a> {
             Expr::Block(block) => {
                 let mut msg = "{\n".to_string();
                 for stmt in &block.stmts {
-                    msg.push_str(&self.debug_stmt(stmt, nesting + 1));
+                    msg.push_str(&self.format_stmt(stmt, nesting + 1));
                 }
                 if let Some(tail) = block.tail {
                     msg.push_str(&format!(
                         "{}expr:{}\n",
                         Pretty::format_indent(nesting + 1),
-                        self.debug_expr(tail, nesting + 1)
+                        self.format_expr(tail, nesting + 1)
                     ));
                 }
                 msg.push_str(&format!("{}}}", Pretty::format_indent(nesting)));
@@ -335,13 +335,13 @@ impl<'a> PrettyFile<'a> {
                 else_branch,
             } => {
                 let mut msg = "if ".to_string();
-                msg.push_str(&self.debug_expr(*condition, nesting));
+                msg.push_str(&self.format_expr(*condition, nesting));
                 msg.push(' ');
-                msg.push_str(&self.debug_expr(*then_branch, nesting));
+                msg.push_str(&self.format_expr(*then_branch, nesting));
 
                 if let Some(else_branch) = else_branch {
                     msg.push_str(" else ");
-                    msg.push_str(&self.debug_expr(*else_branch, nesting));
+                    msg.push_str(&self.format_expr(*else_branch, nesting));
                 }
 
                 msg
@@ -349,14 +349,14 @@ impl<'a> PrettyFile<'a> {
             Expr::Return { value } => {
                 let mut msg = "return".to_string();
                 if let Some(value) = value {
-                    msg.push_str(&format!(" {}", &self.debug_expr(*value, nesting,)));
+                    msg.push_str(&format!(" {}", &self.format_expr(*value, nesting,)));
                 }
 
                 msg
             }
             Expr::Loop { block } => {
                 let mut msg = "loop".to_string();
-                msg.push_str(&format!(" {}", &self.debug_expr(*block, nesting)));
+                msg.push_str(&format!(" {}", &self.format_expr(*block, nesting)));
 
                 msg
             }
@@ -364,7 +364,7 @@ impl<'a> PrettyFile<'a> {
             Expr::Break { value } => {
                 let mut msg = "break".to_string();
                 if let Some(value) = value {
-                    msg.push_str(&format!(" {}", &self.debug_expr(*value, nesting,)));
+                    msg.push_str(&format!(" {}", &self.format_expr(*value, nesting,)));
                 }
 
                 msg
@@ -373,7 +373,7 @@ impl<'a> PrettyFile<'a> {
         }
     }
 
-    fn debug_symbol(&self, symbol: &Symbol, nesting: usize) -> String {
+    fn format_symbol(&self, symbol: &Symbol, nesting: usize) -> String {
         match &symbol {
             Symbol::Local { name, binding } => {
                 let expr = binding.lookup(self.hir_file.db(self.db)).expr;
@@ -389,7 +389,7 @@ impl<'a> PrettyFile<'a> {
                     | Expr::Loop { .. }
                     | Expr::Continue
                     | Expr::Break { .. } => {
-                        let expr_text = self.debug_expr(expr, nesting);
+                        let expr_text = self.format_expr(expr, nesting);
                         format!("${}:{}", name.text(self.db), expr_text)
                     }
                     Expr::Block { .. } => name.text(self.db).to_string(),
@@ -401,21 +401,21 @@ impl<'a> PrettyFile<'a> {
             }
             Symbol::MissingExpr { path } => {
                 let resolving_status = self.resolution_map.item_by_symbol(path).unwrap();
-                self.debug_resolution_status(resolving_status)
+                self.format_resolution_status(resolving_status)
             }
             Symbol::MissingType { path } => {
                 let resolving_status = self.resolution_map.item_by_symbol(path).unwrap();
-                self.debug_resolution_status(resolving_status)
+                self.format_resolution_status(resolving_status)
             }
         }
     }
 
-    fn debug_resolution_status(&self, resolution_status: ResolutionStatus) -> String {
+    fn format_resolution_status(&self, resolution_status: ResolutionStatus) -> String {
         match resolution_status {
             ResolutionStatus::Unresolved => "<unknown>".to_string(),
             ResolutionStatus::Error => "<missing>".to_string(),
             ResolutionStatus::Resolved { path, item } => {
-                let path = self.debug_path(&path);
+                let path = self.format_path(&path);
                 match item {
                     Item::Function(_) => {
                         format!("fn:{path}")
@@ -434,7 +434,7 @@ impl<'a> PrettyFile<'a> {
         }
     }
 
-    fn debug_path(&self, path: &Path) -> String {
+    fn format_path(&self, path: &Path) -> String {
         path.segments(self.db)
             .iter()
             .map(|segment| segment.text(self.db).to_string())
@@ -442,7 +442,7 @@ impl<'a> PrettyFile<'a> {
             .join("::")
     }
 
-    pub fn format_type(&self, ty: &Type, nesting: usize) -> String {
+    fn format_type(&self, ty: &Type, nesting: usize) -> String {
         match ty {
             Type::Integer => "int",
             Type::String => "string",
@@ -457,40 +457,6 @@ impl<'a> PrettyFile<'a> {
         .to_string()
     }
 
-    pub fn format_symbol(&self, symbol: &Symbol, nesting: usize) -> String {
-        match &symbol {
-            Symbol::Local { name, binding } => {
-                let expr = binding.lookup(self.hir_file.db(self.db)).expr;
-                match expr.lookup(self.hir_file.db(self.db)) {
-                    Expr::Symbol { .. }
-                    | Expr::Binary { .. }
-                    | Expr::Missing
-                    | Expr::Literal(_)
-                    | Expr::Unary { .. }
-                    | Expr::Call { .. }
-                    | Expr::If { .. }
-                    | Expr::Return { .. }
-                    | Expr::Loop { .. }
-                    | Expr::Continue
-                    | Expr::Break { .. } => {
-                        let expr_text = self.debug_expr(expr, nesting);
-                        format!("${}:{}", name.text(self.db), expr_text)
-                    }
-                    Expr::Block { .. } => name.text(self.db).to_string(),
-                }
-            }
-            Symbol::Param { name, .. } => {
-                let name = name.text(self.db);
-                format!("param:{name}")
-            }
-            Symbol::MissingExpr { path } | Symbol::MissingType { path } => {
-                let resolving_status = self.resolution_map.item_by_symbol(path).unwrap();
-                self.debug_resolution_status(resolving_status)
-            }
-        }
-    }
-
-    /// HIRの[ParamData]をテスト向けにフォーマットします。
     fn format_parameter(&self, param_data: &ParamData) -> String {
         let name = if let Some(name) = param_data.name {
             name.text(self.db)

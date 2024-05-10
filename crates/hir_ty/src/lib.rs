@@ -17,7 +17,7 @@
 mod checker;
 mod db;
 mod inference;
-mod testing;
+pub mod testing;
 
 pub use checker::{TypeCheckError, TypeCheckResult};
 pub use db::{HirTyMasterDatabase, Jar};

@@ -54,13 +54,13 @@ fn indent(nesting: usize) -> String {
     "    ".repeat(nesting)
 }
 
-pub(crate) struct TestingDebug<'a> {
+pub struct TestingDebug<'a> {
     db: &'a dyn HirTyMasterDatabase,
     pods: &'a hir::Pods,
     ty_lower_result: &'a TyLowerResult,
 }
 impl<'a> TestingDebug<'a> {
-    pub(crate) fn new(
+    pub fn new(
         db: &'a dyn HirTyMasterDatabase,
         pods: &'a hir::Pods,
         ty_lower_result: &'a TyLowerResult,
@@ -72,7 +72,7 @@ impl<'a> TestingDebug<'a> {
         }
     }
 
-    pub(crate) fn debug(&self) -> String {
+    pub fn debug(&self) -> String {
         let mut msg = "".to_string();
 
         msg.push_str(&self.debug_hir_file(self.pods.root_pod.root_hir_file, None));
@@ -567,7 +567,7 @@ impl<'a> TestingDebug<'a> {
 
             format!("//: {}", self.debug_monotype(ty))
         } else {
-            return "//: no result".to_string();
+            "//: no result".to_string()
         }
     }
 

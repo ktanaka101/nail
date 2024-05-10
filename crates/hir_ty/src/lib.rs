@@ -111,7 +111,7 @@ mod tests {
         let pods = hir::parse_pods(&db, &source_db);
         let ty_lower_result = lower_pods(&db, &pods);
 
-        expect.assert_eq(&crate::testing::TestingDebug::new(&db, &pods, &ty_lower_result).debug());
+        expect.assert_eq(&crate::testing::Pretty::new(&db, &pods, &ty_lower_result).format());
     }
 
     fn check_in_root_file(fixture: &str, expect: Expect) {

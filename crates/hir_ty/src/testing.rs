@@ -1,6 +1,5 @@
 use std::sync::{Arc, Mutex};
 
-use hir::{Expr, Function, HirFile, Symbol};
 use salsa::DebugWithDb;
 
 use crate::{
@@ -50,16 +49,12 @@ impl salsa::Database for TestingDatabase {
     }
 }
 
-fn indent(nesting: usize) -> String {
-    "    ".repeat(nesting)
-}
-
-pub struct TestingDebug<'a> {
+pub struct Pretty<'a> {
     db: &'a dyn HirTyMasterDatabase,
     pods: &'a hir::Pods,
     ty_lower_result: &'a TyLowerResult,
 }
-impl<'a> TestingDebug<'a> {
+impl<'a> Pretty<'a> {
     pub fn new(
         db: &'a dyn HirTyMasterDatabase,
         pods: &'a hir::Pods,
@@ -72,14 +67,14 @@ impl<'a> TestingDebug<'a> {
         }
     }
 
-    pub fn debug(&self) -> String {
+    pub fn format(&self) -> String {
         let mut msg = "".to_string();
 
-        msg.push_str(&self.debug_hir_file(self.pods.root_pod.root_hir_file, None));
+        msg.push_str(&self.format_hir_file(self.pods.root_pod.root_hir_file, None));
         msg.push('\n');
 
         for (_nail_file, hir_file) in self.pods.root_pod.get_hir_files_order_registration_asc() {
-            msg.push_str(&self.debug_hir_file(*hir_file, None));
+            msg.push_str(&self.format_hir_file(*hir_file, None));
             msg.push('\n');
         }
 
@@ -102,9 +97,9 @@ impl<'a> TestingDebug<'a> {
                         msg.push_str(
                             &format!(
                                 "error MismatchedTypeIfCondition: expected_ty: {}, found_ty: {}, found_expr: `{}`",
-                                self.debug_monotype(expected_condition_bool_ty),
-                                self.debug_monotype(found_condition_ty),
-                                self.debug_simplify_expr(hir_file, *found_condition_expr),
+                                self.format_monotype(expected_condition_bool_ty),
+                                self.format_monotype(found_condition_ty),
+                                self.format_simplify_expr(hir_file, *found_condition_expr),
                             ));
                     }
                     InferenceError::MismatchedTypeElseBranch {
@@ -116,10 +111,10 @@ impl<'a> TestingDebug<'a> {
                         msg.push_str(
                             &format!(
                                 "error MismatchedTypeElseBranch: then_branch_ty: {}, else_branch_ty: {}, then_branch: `{}`, else_branch: `{}`",
-                                self.debug_monotype(then_branch_ty),
-                                self.debug_monotype(else_branch_ty),
-                                self.debug_simplify_expr(hir_file, *then_branch),
-                                self.debug_simplify_expr(hir_file, *else_branch),
+                                self.format_monotype(then_branch_ty),
+                                self.format_monotype(else_branch_ty),
+                                self.format_simplify_expr(hir_file, *then_branch),
+                                self.format_simplify_expr(hir_file, *else_branch),
                             ));
                     }
                     InferenceError::MismatchedTypeOnlyIfBranch {
@@ -130,9 +125,9 @@ impl<'a> TestingDebug<'a> {
                         msg.push_str(
                             &format!(
                                 "error MismatchedTypeOnlyIfBranch: then_branch_ty: {}, else_branch_ty: {}, then_branch: `{}`",
-                                self.debug_monotype(then_branch_ty),
-                                self.debug_monotype(else_branch_unit_ty),
-                                self.debug_simplify_expr(hir_file, *then_branch),
+                                self.format_monotype(then_branch_ty),
+                                self.format_monotype(else_branch_unit_ty),
+                                self.format_simplify_expr(hir_file, *then_branch),
                             ));
                     }
                     InferenceError::MismaatchedTypeCallArg {
@@ -145,10 +140,10 @@ impl<'a> TestingDebug<'a> {
                         msg.push_str(
                             &format!(
                                 "error MismaatchedSignature: expected_ty: {}, found_ty: {}, found_expr: `{}`, signature: {}, arg_pos: {}",
-                                self.debug_monotype(expected_ty),
-                                self.debug_monotype(found_ty),
-                                self.debug_simplify_expr(hir_file, *found_expr),
-                                self.debug_signature(expected_signature),
+                                self.format_monotype(expected_ty),
+                                self.format_monotype(found_ty),
+                                self.format_simplify_expr(hir_file, *found_expr),
+                                self.format_signature(expected_signature),
                                 arg_pos
                             ));
                     }
@@ -161,9 +156,9 @@ impl<'a> TestingDebug<'a> {
                         msg.push_str(
                             &format!(
                                 "error MismatchedBinaryInteger: op: {op}, expected_ty: {}, found_ty: {}, found_expr: `{}`",
-                                self.debug_monotype(expected_int_ty),
-                                self.debug_monotype(found_ty),
-                                self.debug_simplify_expr(hir_file, *found_expr),
+                                self.format_monotype(expected_int_ty),
+                                self.format_monotype(found_ty),
+                                self.format_simplify_expr(hir_file, *found_expr),
                             ));
                     }
                     InferenceError::MismatchedBinaryCompare {
@@ -176,10 +171,10 @@ impl<'a> TestingDebug<'a> {
                         msg.push_str(
                             &format!(
                                 "error MismatchedBinaryCompare: op: {op}, expected_ty: {}, found_ty: {}, expected_expr: `{}`, found_expr: `{}`",
-                                self.debug_monotype(compare_from_ty),
-                                self.debug_monotype(compare_to_ty),
-                                self.debug_simplify_expr(hir_file, *compare_from_expr),
-                                self.debug_simplify_expr(hir_file, *compare_to_expr),
+                                self.format_monotype(compare_from_ty),
+                                self.format_monotype(compare_to_ty),
+                                self.format_simplify_expr(hir_file, *compare_from_expr),
+                                self.format_simplify_expr(hir_file, *compare_to_expr),
                             ));
                     }
                     InferenceError::MismatchedUnary {
@@ -191,10 +186,10 @@ impl<'a> TestingDebug<'a> {
                         msg.push_str(
                             &format!(
                                 "error MismatchedUnary: op: {}, expected_ty: {}, found_ty: {}, found_expr: `{}`",
-                                self.debug_unary_op(*op),
-                                self.debug_monotype(expected_ty),
-                                self.debug_monotype(found_ty),
-                                self.debug_simplify_expr(hir_file, *found_expr),
+                                self.format_unary_op(*op),
+                                self.format_monotype(expected_ty),
+                                self.format_monotype(found_ty),
+                                self.format_simplify_expr(hir_file, *found_expr),
                             ));
                     }
                     InferenceError::MismatchedTypeReturnExpr {
@@ -207,15 +202,15 @@ impl<'a> TestingDebug<'a> {
                             msg.push_str(
                             &format!(
                                 "error MismatchedReturnType: expected_ty: {}, found_ty: {}, found_expr: `{}`",
-                                self.debug_monotype(&expected_signature.return_type(self.db)),
-                                self.debug_monotype(found_ty),
-                                self.debug_simplify_expr(hir_file, *found_return_expr),
+                                self.format_monotype(&expected_signature.return_type(self.db)),
+                                self.format_monotype(found_ty),
+                                self.format_simplify_expr(hir_file, *found_return_expr),
                             ));
                         } else {
                             msg.push_str(&format!(
                                 "error MismatchedReturnType: expected_ty: {}, found_ty: {}",
-                                self.debug_monotype(&expected_signature.return_type(self.db)),
-                                self.debug_monotype(found_ty),
+                                self.format_monotype(&expected_signature.return_type(self.db)),
+                                self.format_monotype(found_ty),
                             ));
                         }
                     }
@@ -229,15 +224,15 @@ impl<'a> TestingDebug<'a> {
                             msg.push_str(
                             &format!(
                                 "error MismatchedTypeReturnValue: expected_ty: {}, found_ty: {}, found_expr: `{}`",
-                                self.debug_monotype(&expected_signature.return_type(self.db)),
-                                self.debug_monotype(found_ty),
-                                self.debug_simplify_expr(hir_file, *found_last_expr),
+                                self.format_monotype(&expected_signature.return_type(self.db)),
+                                self.format_monotype(found_ty),
+                                self.format_simplify_expr(hir_file, *found_last_expr),
                             ));
                         } else {
                             msg.push_str(&format!(
                                 "error MismatchedTypeReturnValue: expected_ty: {}, found_ty: {}",
-                                self.debug_monotype(&expected_signature.return_type(self.db)),
-                                self.debug_monotype(found_ty),
+                                self.format_monotype(&expected_signature.return_type(self.db)),
+                                self.format_monotype(found_ty),
                             ));
                         }
                     }
@@ -259,8 +254,8 @@ impl<'a> TestingDebug<'a> {
                     } => {
                         msg.push_str(&format!(
                             "error NotCallable: found_callee_ty: {}, found_callee_symbol: {}",
-                            self.debug_monotype(found_callee_ty),
-                            self.debug_symbol(found_callee_symbol),
+                            self.format_monotype(found_callee_ty),
+                            self.format_symbol(found_callee_symbol),
                         ));
                     }
                     InferenceError::ModuleAsExpr {
@@ -282,18 +277,18 @@ impl<'a> TestingDebug<'a> {
                             msg.push_str(
                                 &format!(
                                     "error MismatchedType: expected_ty: {}, found_ty: {}, expected_expr: {}, found_expr: `{}`",
-                                    self.debug_monotype(expected_ty),
-                                    self.debug_monotype(found_ty),
-                                    self.debug_simplify_expr(hir_file, *expected_expr),
-                                    self.debug_simplify_expr(hir_file, *found_expr),
+                                    self.format_monotype(expected_ty),
+                                    self.format_monotype(found_ty),
+                                    self.format_simplify_expr(hir_file, *expected_expr),
+                                    self.format_simplify_expr(hir_file, *found_expr),
                                 ));
                         } else {
                             msg.push_str(
                                 &format!(
                                 "error MismatchedType: expected_ty: {}, found_ty: {}, found_expr: `{}`",
-                                self.debug_monotype(expected_ty),
-                                self.debug_monotype(found_ty),
-                                self.debug_simplify_expr(hir_file, *found_expr),
+                                self.format_monotype(expected_ty),
+                                self.format_monotype(found_ty),
+                                self.format_simplify_expr(hir_file, *found_expr),
                             ));
                         }
                     }
@@ -304,7 +299,7 @@ impl<'a> TestingDebug<'a> {
                         };
                         msg.push_str(&format!(
                             "error BreakOutsideOfLoop({kind_text}): found_expr: `{}`",
-                            self.debug_simplify_expr(hir_file, *found_expr),
+                            self.format_simplify_expr(hir_file, *found_expr),
                         ));
                     }
                 }
@@ -323,13 +318,13 @@ impl<'a> TestingDebug<'a> {
                     TypeCheckError::UnresolvedType { expr } => {
                         msg.push_str(&format!(
                             "error Type is unknown: expr: {}",
-                            self.debug_simplify_expr(hir_file, *expr),
+                            self.format_simplify_expr(hir_file, *expr),
                         ));
                     }
                     TypeCheckError::ImmutableReassignment { expr } => {
                         msg.push_str(&format!(
                             "error ImmutableReassignment: expr: {}",
-                            self.debug_simplify_expr(hir_file, *expr),
+                            self.format_simplify_expr(hir_file, *expr),
                         ));
                     }
                 }
@@ -340,32 +335,32 @@ impl<'a> TestingDebug<'a> {
         msg
     }
 
-    fn debug_signature(&self, signature: &Signature) -> String {
+    fn format_signature(&self, signature: &Signature) -> String {
         let params = signature
             .params(self.db)
             .iter()
-            .map(|param| self.debug_monotype(param))
+            .map(|param| self.format_monotype(param))
             .collect::<Vec<_>>()
             .join(", ");
-        let return_type = self.debug_monotype(&signature.return_type(self.db));
+        let return_type = self.format_monotype(&signature.return_type(self.db));
 
         format!("({params}) -> {return_type}")
     }
 
-    fn debug_hir_file(&self, hir_file: hir::HirFile, function: Option<hir::Function>) -> String {
+    fn format_hir_file(&self, hir_file: hir::HirFile, function: Option<hir::Function>) -> String {
         let mut msg = format!(
             "//- {}\n",
             hir_file.file(self.db).file_path(self.db).to_str().unwrap()
         );
 
         for item in hir_file.top_level_items(self.db) {
-            msg.push_str(&self.debug_item(hir_file, function, *item, 0));
+            msg.push_str(&self.format_item(hir_file, function, *item, 0));
         }
 
         msg
     }
 
-    fn debug_function(
+    fn format_function(
         &self,
         hir_file: hir::HirFile,
         function: hir::Function,
@@ -379,16 +374,11 @@ impl<'a> TestingDebug<'a> {
             .iter()
             .map(|param| {
                 let param_data = param.data(hir_file.db(self.db));
-                self.format_parameter(hir_file, Some(function), param_data)
+                self.format_parameter(param_data)
             })
             .collect::<Vec<_>>()
             .join(", ");
-        let return_type = self.format_type(
-            hir_file,
-            Some(function),
-            &function.return_type(self.db),
-            nesting,
-        );
+        let return_type = self.format_type(&function.return_type(self.db));
 
         let hir::Expr::Block(block) = body_expr else {
             panic!("Should be Block")
@@ -396,42 +386,39 @@ impl<'a> TestingDebug<'a> {
 
         let mut body = "{\n".to_string();
         for stmt in &block.stmts {
-            body.push_str(&self.debug_stmt(hir_file, Some(function), stmt, nesting + 1));
+            body.push_str(&self.format_stmt(hir_file, Some(function), stmt, nesting + 1));
         }
         if let Some(tail) = block.tail {
-            let indent = indent(nesting + 1);
+            let indent = hir::testing::Pretty::format_indent(nesting + 1);
             body.push_str(&format!(
                 "{indent}expr:{}",
-                self.debug_expr(hir_file, Some(function), tail, nesting + 1)
+                self.format_expr(hir_file, Some(function), tail, nesting + 1)
             ));
             body.push_str(&format!(
                 " {}\n",
-                self.debug_type_line(Some(function), tail)
+                self.format_type_line(Some(function), tail)
             ));
         }
-        body.push_str(&format!("{}}}", indent(nesting)));
+        body.push_str(&format!(
+            "{}}}",
+            hir::testing::Pretty::format_indent(nesting)
+        ));
 
         let is_entry_point = hir_file.entry_point(self.db) == Some(function);
         format!(
             "{}fn {}{name}({params}) -> {return_type} {body}\n",
-            indent(nesting),
+            hir::testing::Pretty::format_indent(nesting),
             if is_entry_point { "entry:" } else { "" }
         )
     }
 
-    fn debug_struct(
-        &self,
-        hir_file: HirFile,
-        function: Option<hir::Function>,
-        struct_: hir::Struct,
-        nesting: usize,
-    ) -> String {
+    fn format_struct(&self, struct_: hir::Struct, nesting: usize) -> String {
         let name = struct_.name(self.db).text(self.db);
         let kind = match struct_.kind(self.db) {
             hir::StructKind::Tuple(fields) => {
                 let fields = fields
                     .iter()
-                    .map(|field| self.format_type(hir_file, function, field, nesting))
+                    .map(|field| self.format_type(field))
                     .collect::<Vec<_>>()
                     .join(", ");
 
@@ -442,7 +429,7 @@ impl<'a> TestingDebug<'a> {
                     .iter()
                     .map(|field| {
                         let name = field.name.text(self.db);
-                        let ty = self.format_type(hir_file, function, &field.ty, nesting);
+                        let ty = self.format_type(&field.ty);
                         format!("{name}: {ty}")
                     })
                     .collect::<Vec<_>>()
@@ -453,10 +440,13 @@ impl<'a> TestingDebug<'a> {
             hir::StructKind::Unit => ";".to_string(),
         };
 
-        format!("{indent}struct {name}{kind}\n", indent = indent(nesting))
+        format!(
+            "{indent}struct {name}{kind}\n",
+            indent = hir::testing::Pretty::format_indent(nesting)
+        )
     }
 
-    fn debug_module(
+    fn format_module(
         &self,
         hir_file: hir::HirFile,
         function: Option<hir::Function>,
@@ -465,7 +455,7 @@ impl<'a> TestingDebug<'a> {
     ) -> String {
         let _scope_origin = hir::ModuleScopeOrigin::Module { origin: module };
 
-        let curr_indent = indent(nesting);
+        let curr_indent = hir::testing::Pretty::format_indent(nesting);
 
         let module_name = module.name(self.db).text(self.db);
 
@@ -474,7 +464,7 @@ impl<'a> TestingDebug<'a> {
                 let mut module_str = "".to_string();
                 module_str.push_str(&format!("{curr_indent}mod {module_name} {{\n"));
                 for (i, item) in items.iter().enumerate() {
-                    module_str.push_str(&self.debug_item(hir_file, function, *item, nesting + 1));
+                    module_str.push_str(&self.format_item(hir_file, function, *item, nesting + 1));
                     if i == items.len() - 1 {
                         continue;
                     }
@@ -490,8 +480,8 @@ impl<'a> TestingDebug<'a> {
         }
     }
 
-    fn debug_use_item(&self, use_item: hir::UseItem) -> String {
-        let path_name = self.debug_path(use_item.path(self.db));
+    fn format_use_item(&self, use_item: hir::UseItem) -> String {
+        let path_name = self.format_path(use_item.path(self.db));
         let item_name = use_item.name(self.db).text(self.db);
 
         if path_name.is_empty() {
@@ -501,7 +491,7 @@ impl<'a> TestingDebug<'a> {
         }
     }
 
-    fn debug_item(
+    fn format_item(
         &self,
         hir_file: hir::HirFile,
         function: Option<hir::Function>,
@@ -509,14 +499,14 @@ impl<'a> TestingDebug<'a> {
         nesting: usize,
     ) -> String {
         match item {
-            hir::Item::Function(function) => self.debug_function(hir_file, function, nesting),
-            hir::Item::Struct(struct_) => self.debug_struct(hir_file, function, struct_, nesting),
-            hir::Item::Module(module) => self.debug_module(hir_file, function, module, nesting),
-            hir::Item::UseItem(use_item) => self.debug_use_item(use_item),
+            hir::Item::Function(function) => self.format_function(hir_file, function, nesting),
+            hir::Item::Struct(struct_) => self.format_struct(struct_, nesting),
+            hir::Item::Module(module) => self.format_module(hir_file, function, module, nesting),
+            hir::Item::UseItem(use_item) => self.format_use_item(use_item),
         }
     }
 
-    fn debug_stmt(
+    fn format_stmt(
         &self,
         hir_file: hir::HirFile,
         function: Option<hir::Function>,
@@ -529,14 +519,14 @@ impl<'a> TestingDebug<'a> {
                 binding,
                 value,
             } => {
-                let indent = indent(nesting);
+                let indent = hir::testing::Pretty::format_indent(nesting);
                 let name = name.text(self.db);
-                let expr_str = self.debug_expr(hir_file, function, *value, nesting);
+                let expr_str = self.format_expr(hir_file, function, *value, nesting);
                 let binding = binding.lookup(hir_file.db(self.db));
                 let mut_text = hir::testing::Pretty::format_mutable(binding.mutable);
                 let mut stmt_str = format!("{indent}let {mut_text}{name} = {expr_str};");
 
-                let type_line = self.debug_type_line(function, *value);
+                let type_line = self.format_type_line(function, *value);
                 stmt_str.push_str(&format!(" {type_line}\n"));
 
                 stmt_str
@@ -545,17 +535,17 @@ impl<'a> TestingDebug<'a> {
                 expr,
                 has_semicolon,
             } => {
-                let indent = indent(nesting);
-                let expr_str = self.debug_expr(hir_file, function, *expr, nesting);
-                let type_line = self.debug_type_line(function, *expr);
+                let indent = hir::testing::Pretty::format_indent(nesting);
+                let expr_str = self.format_expr(hir_file, function, *expr, nesting);
+                let type_line = self.format_type_line(function, *expr);
                 let maybe_semicolon = if *has_semicolon { ";" } else { "" };
                 format!("{indent}{expr_str}{maybe_semicolon} {type_line}\n")
             }
-            hir::Stmt::Item { item } => self.debug_item(hir_file, function, *item, nesting),
+            hir::Stmt::Item { item } => self.format_item(hir_file, function, *item, nesting),
         }
     }
 
-    fn debug_type_line(&self, function: Option<hir::Function>, expr_id: hir::ExprId) -> String {
+    fn format_type_line(&self, function: Option<hir::Function>, expr_id: hir::ExprId) -> String {
         if let Some(function) = function {
             let ty = self
                 .ty_lower_result
@@ -565,13 +555,13 @@ impl<'a> TestingDebug<'a> {
                 .get(&expr_id)
                 .unwrap();
 
-            format!("//: {}", self.debug_monotype(ty))
+            format!("//: {}", self.format_monotype(ty))
         } else {
             "//: no result".to_string()
         }
     }
 
-    fn debug_monotype(&self, monotype: &Monotype) -> String {
+    fn format_monotype(&self, monotype: &Monotype) -> String {
         match monotype {
             Monotype::Integer => "int".to_string(),
             Monotype::Bool => "bool".to_string(),
@@ -580,14 +570,14 @@ impl<'a> TestingDebug<'a> {
             Monotype::String => "string".to_string(),
             Monotype::Struct(struct_) => struct_.name(self.db).text(self.db).to_string(),
             Monotype::Variable(id) => format!("${}", id),
-            Monotype::Function(signature) => self.debug_signature(signature),
+            Monotype::Function(signature) => self.format_signature(signature),
             Monotype::Never => "!".to_string(),
             Monotype::Unknown => "<unknown>".to_string(),
             Monotype::UnknownCustom(_) => "<unknown>".to_string(),
         }
     }
 
-    fn debug_expr(
+    fn format_expr(
         &self,
         hir_file: hir::HirFile,
         function: Option<hir::Function>,
@@ -595,7 +585,7 @@ impl<'a> TestingDebug<'a> {
         nesting: usize,
     ) -> String {
         match expr_id.lookup(hir_file.db(self.db)) {
-            hir::Expr::Symbol(symbol) => self.debug_symbol(symbol),
+            hir::Expr::Symbol(symbol) => self.format_symbol(symbol),
             hir::Expr::Literal(literal) => match literal {
                 hir::Literal::Bool(b) => b.to_string(),
                 hir::Literal::Char(c) => format!("'{c}'"),
@@ -603,8 +593,8 @@ impl<'a> TestingDebug<'a> {
                 hir::Literal::Integer(i) => i.to_string(),
             },
             hir::Expr::Binary { op, lhs, rhs } => {
-                let lhs_str = self.debug_expr(hir_file, function, *lhs, nesting);
-                let rhs_str = self.debug_expr(hir_file, function, *rhs, nesting);
+                let lhs_str = self.format_expr(hir_file, function, *lhs, nesting);
+                let rhs_str = self.format_expr(hir_file, function, *rhs, nesting);
                 format!("{lhs_str} {op} {rhs_str}")
             }
             hir::Expr::Unary { op, expr } => {
@@ -612,14 +602,14 @@ impl<'a> TestingDebug<'a> {
                     hir::UnaryOp::Neg => "-",
                     hir::UnaryOp::Not => "!",
                 };
-                let expr_str = self.debug_expr(hir_file, function, *expr, nesting);
+                let expr_str = self.format_expr(hir_file, function, *expr, nesting);
                 format!("{op}{expr_str}")
             }
             hir::Expr::Call { callee, args } => {
-                let callee = self.debug_symbol(callee);
+                let callee = self.format_symbol(callee);
                 let args = args
                     .iter()
-                    .map(|arg| self.debug_expr(hir_file, function, *arg, nesting))
+                    .map(|arg| self.format_expr(hir_file, function, *arg, nesting))
                     .collect::<Vec<_>>()
                     .join(", ");
 
@@ -628,17 +618,20 @@ impl<'a> TestingDebug<'a> {
             hir::Expr::Block(block) => {
                 let mut msg = "{\n".to_string();
                 for stmt in &block.stmts {
-                    msg.push_str(&self.debug_stmt(hir_file, function, stmt, nesting + 1));
+                    msg.push_str(&self.format_stmt(hir_file, function, stmt, nesting + 1));
                 }
                 if let Some(tail) = block.tail {
-                    let indent = indent(nesting + 1);
+                    let indent = hir::testing::Pretty::format_indent(nesting + 1);
                     msg.push_str(&format!(
                         "{indent}expr:{}",
-                        self.debug_expr(hir_file, function, tail, nesting + 1)
+                        self.format_expr(hir_file, function, tail, nesting + 1)
                     ));
-                    msg.push_str(&format!(" {}\n", self.debug_type_line(function, tail)));
+                    msg.push_str(&format!(" {}\n", self.format_type_line(function, tail)));
                 }
-                msg.push_str(&format!("{}}}", indent(nesting)));
+                msg.push_str(&format!(
+                    "{}}}",
+                    hir::testing::Pretty::format_indent(nesting)
+                ));
 
                 msg
             }
@@ -648,13 +641,13 @@ impl<'a> TestingDebug<'a> {
                 else_branch,
             } => {
                 let mut msg = "if ".to_string();
-                msg.push_str(&self.debug_expr(hir_file, function, *condition, nesting));
+                msg.push_str(&self.format_expr(hir_file, function, *condition, nesting));
                 msg.push(' ');
-                msg.push_str(&self.debug_expr(hir_file, function, *then_branch, nesting));
+                msg.push_str(&self.format_expr(hir_file, function, *then_branch, nesting));
 
                 if let Some(else_branch) = else_branch {
                     msg.push_str(" else ");
-                    msg.push_str(&self.debug_expr(hir_file, function, *else_branch, nesting));
+                    msg.push_str(&self.format_expr(hir_file, function, *else_branch, nesting));
                 }
 
                 msg
@@ -664,7 +657,7 @@ impl<'a> TestingDebug<'a> {
                 if let Some(value) = value {
                     msg.push_str(&format!(
                         " {}",
-                        &self.debug_expr(hir_file, function, *value, nesting,)
+                        &self.format_expr(hir_file, function, *value, nesting,)
                     ));
                 }
 
@@ -672,7 +665,7 @@ impl<'a> TestingDebug<'a> {
             }
             hir::Expr::Loop { block } => {
                 let mut msg = "loop ".to_string();
-                msg.push_str(&self.debug_expr(hir_file, function, *block, nesting));
+                msg.push_str(&self.format_expr(hir_file, function, *block, nesting));
 
                 msg
             }
@@ -682,7 +675,7 @@ impl<'a> TestingDebug<'a> {
                 if let Some(value) = value {
                     msg.push_str(&format!(
                         " {}",
-                        &self.debug_expr(hir_file, function, *value, nesting,)
+                        &self.format_expr(hir_file, function, *value, nesting,)
                     ));
                 }
 
@@ -692,9 +685,9 @@ impl<'a> TestingDebug<'a> {
         }
     }
 
-    fn debug_simplify_expr(&self, hir_file: hir::HirFile, expr_id: hir::ExprId) -> String {
+    fn format_simplify_expr(&self, hir_file: hir::HirFile, expr_id: hir::ExprId) -> String {
         match expr_id.lookup(hir_file.db(self.db)) {
-            hir::Expr::Symbol(symbol) => self.debug_symbol(symbol),
+            hir::Expr::Symbol(symbol) => self.format_symbol(symbol),
             hir::Expr::Literal(literal) => match literal {
                 hir::Literal::Bool(b) => b.to_string(),
                 hir::Literal::Char(c) => format!("'{c}'"),
@@ -703,8 +696,8 @@ impl<'a> TestingDebug<'a> {
             },
             hir::Expr::Binary { op, lhs, rhs } => {
                 let op = op.to_string();
-                let lhs_str = self.debug_simplify_expr(hir_file, *lhs);
-                let rhs_str = self.debug_simplify_expr(hir_file, *rhs);
+                let lhs_str = self.format_simplify_expr(hir_file, *lhs);
+                let rhs_str = self.format_simplify_expr(hir_file, *rhs);
                 format!("{lhs_str} {op} {rhs_str}")
             }
             hir::Expr::Unary { op, expr } => {
@@ -712,14 +705,14 @@ impl<'a> TestingDebug<'a> {
                     hir::UnaryOp::Neg => "-",
                     hir::UnaryOp::Not => "!",
                 };
-                let expr_str = self.debug_simplify_expr(hir_file, *expr);
+                let expr_str = self.format_simplify_expr(hir_file, *expr);
                 format!("{op}{expr_str}")
             }
             hir::Expr::Call { callee, args } => {
-                let callee = self.debug_symbol(callee);
+                let callee = self.format_symbol(callee);
                 let args = args
                     .iter()
-                    .map(|arg| self.debug_simplify_expr(hir_file, *arg))
+                    .map(|arg| self.format_simplify_expr(hir_file, *arg))
                     .collect::<Vec<_>>()
                     .join(", ");
 
@@ -728,7 +721,7 @@ impl<'a> TestingDebug<'a> {
             hir::Expr::Block(block) => {
                 let mut msg = "{ tail:".to_string();
                 if let Some(tail) = block.tail {
-                    msg.push_str(&self.debug_simplify_expr(hir_file, tail));
+                    msg.push_str(&self.format_simplify_expr(hir_file, tail));
                 } else {
                     msg.push_str("none");
                 }
@@ -741,16 +734,16 @@ impl<'a> TestingDebug<'a> {
                 then_branch,
                 else_branch,
             } => {
-                let cond_str = self.debug_simplify_expr(hir_file, *condition);
+                let cond_str = self.format_simplify_expr(hir_file, *condition);
                 let mut msg = format!(
                     "if {cond_str} {}",
-                    self.debug_simplify_expr(hir_file, *then_branch)
+                    self.format_simplify_expr(hir_file, *then_branch)
                 );
 
                 if let Some(else_branch) = else_branch {
                     msg.push_str(&format!(
                         " else {}",
-                        self.debug_simplify_expr(hir_file, *else_branch)
+                        self.format_simplify_expr(hir_file, *else_branch)
                     ));
                 }
 
@@ -761,7 +754,7 @@ impl<'a> TestingDebug<'a> {
                 if let Some(value) = value {
                     msg.push_str(&format!(
                         " {}",
-                        &self.debug_simplify_expr(hir_file, *value,)
+                        &self.format_simplify_expr(hir_file, *value,)
                     ));
                 }
 
@@ -769,7 +762,7 @@ impl<'a> TestingDebug<'a> {
             }
             hir::Expr::Loop { block } => {
                 let mut msg = "loop ".to_string();
-                msg.push_str(&self.debug_simplify_expr(hir_file, *block));
+                msg.push_str(&self.format_simplify_expr(hir_file, *block));
 
                 msg
             }
@@ -779,7 +772,7 @@ impl<'a> TestingDebug<'a> {
                 if let Some(value) = value {
                     msg.push_str(&format!(
                         " {}",
-                        &self.debug_simplify_expr(hir_file, *value,)
+                        &self.format_simplify_expr(hir_file, *value,)
                     ));
                 }
 
@@ -789,7 +782,7 @@ impl<'a> TestingDebug<'a> {
         }
     }
 
-    fn debug_symbol(&self, symbol: &hir::Symbol) -> String {
+    fn format_symbol(&self, symbol: &hir::Symbol) -> String {
         match &symbol {
             hir::Symbol::Local { name, binding: _ } => name.text(self.db).to_string(),
             hir::Symbol::Param { name, .. } => {
@@ -798,16 +791,16 @@ impl<'a> TestingDebug<'a> {
             }
             hir::Symbol::MissingExpr { path } => {
                 let resolving_status = self.pods.resolution_map.item_by_symbol(path).unwrap();
-                self.debug_resolution_status(resolving_status)
+                self.format_resolution_status(resolving_status)
             }
             hir::Symbol::MissingType { path } => {
                 let resolving_status = self.pods.resolution_map.item_by_symbol(path).unwrap();
-                self.debug_resolution_status(resolving_status)
+                self.format_resolution_status(resolving_status)
             }
         }
     }
 
-    fn debug_unary_op(&self, op: hir::UnaryOp) -> String {
+    fn format_unary_op(&self, op: hir::UnaryOp) -> String {
         match op {
             hir::UnaryOp::Neg => "-",
             hir::UnaryOp::Not => "!",
@@ -815,12 +808,12 @@ impl<'a> TestingDebug<'a> {
         .to_string()
     }
 
-    fn debug_resolution_status(&self, resolution_status: hir::ResolutionStatus) -> String {
+    fn format_resolution_status(&self, resolution_status: hir::ResolutionStatus) -> String {
         match resolution_status {
             hir::ResolutionStatus::Unresolved => "<unknown>".to_string(),
             hir::ResolutionStatus::Error => "<missing>".to_string(),
             hir::ResolutionStatus::Resolved { path, item } => {
-                let path = self.debug_path(&path);
+                let path = self.format_path(&path);
                 match item {
                     hir::Item::Function(_) => {
                         format!("fn:{path}")
@@ -839,7 +832,7 @@ impl<'a> TestingDebug<'a> {
                             .unwrap();
                         format!(
                             "{}::{}",
-                            self.debug_resolution_status(item),
+                            self.format_resolution_status(item),
                             use_item.name(self.db).text(self.db)
                         )
                     }
@@ -848,7 +841,7 @@ impl<'a> TestingDebug<'a> {
         }
     }
 
-    fn debug_path(&self, path: &hir::Path) -> String {
+    fn format_path(&self, path: &hir::Path) -> String {
         path.segments(self.db)
             .iter()
             .map(|segment| segment.text(self.db).to_string())
@@ -856,13 +849,7 @@ impl<'a> TestingDebug<'a> {
             .join("::")
     }
 
-    fn format_type(
-        &self,
-        hir_file: HirFile,
-        function: Option<hir::Function>,
-        ty: &hir::Type,
-        nesting: usize,
-    ) -> String {
+    fn format_type(&self, ty: &hir::Type) -> String {
         match ty {
             hir::Type::Integer => "int",
             hir::Type::String => "string",
@@ -871,64 +858,20 @@ impl<'a> TestingDebug<'a> {
             hir::Type::Unit => "()",
             hir::Type::Unknown => "<unknown>",
             hir::Type::Custom(symbol) => {
-                return self.format_symbol(hir_file, function, symbol, nesting);
+                return self.format_symbol(symbol);
             }
         }
         .to_string()
     }
 
-    pub fn format_symbol(
-        &self,
-        hir_file: HirFile,
-        function: Option<hir::Function>,
-        symbol: &Symbol,
-        nesting: usize,
-    ) -> String {
-        match &symbol {
-            Symbol::Local { name, binding } => {
-                let expr = binding.lookup(hir_file.db(self.db)).expr;
-                match expr.lookup(hir_file.db(self.db)) {
-                    Expr::Symbol { .. }
-                    | Expr::Binary { .. }
-                    | Expr::Missing
-                    | Expr::Literal(_)
-                    | Expr::Unary { .. }
-                    | Expr::Call { .. }
-                    | Expr::If { .. }
-                    | Expr::Return { .. }
-                    | Expr::Loop { .. }
-                    | Expr::Continue
-                    | Expr::Break { .. } => {
-                        let expr_text = self.debug_expr(hir_file, function, expr, nesting);
-                        format!("${}:{}", name.text(self.db), expr_text)
-                    }
-                    Expr::Block { .. } => name.text(self.db).to_string(),
-                }
-            }
-            Symbol::Param { name, .. } => {
-                let name = name.text(self.db);
-                format!("param:{name}")
-            }
-            Symbol::MissingExpr { path } | Symbol::MissingType { path } => {
-                let resolving_status = self.pods.resolution_map.item_by_symbol(path).unwrap();
-                self.debug_resolution_status(resolving_status)
-            }
-        }
-    }
-
-    fn format_parameter(
-        &self,
-        hir_file: HirFile,
-        function: Option<Function>,
-        param_data: &hir::ParamData,
-    ) -> String {
+    fn format_parameter(&self, param_data: &hir::ParamData) -> String {
         let name = if let Some(name) = param_data.name {
             name.text(self.db)
         } else {
             "<missing>"
         };
         let mutable_text = hir::testing::Pretty::format_mutable(param_data.mutable);
-        let ty = self.format_type(hir_file, function, &param_data.ty, 0);
+        let ty = self.format_type(&param_data.ty);
         format!("{name}: {mutable_text}{ty}")
     }
 }

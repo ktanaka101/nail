@@ -171,9 +171,6 @@ pub struct RecordField {
     pub name: Name,
     /// 型
     pub ty: Type,
-    /// レコードフィールドの位置(0-indexed)
-    /// 例: `struct Point { x: int, y: int }` であれば `x` は `0` で `y` は `1`
-    pub pos: usize,
 }
 
 /// モジュール定義を表す

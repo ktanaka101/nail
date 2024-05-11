@@ -323,11 +323,10 @@ impl<'a> BodyLower<'a> {
             ast::StructKind::Record(fields) => StructKind::Record(
                 fields
                     .fields()
-                    .enumerate()
-                    .map(|(pos, field)| {
+                    .map(|field| {
                         let name = Name::new(db, field.name().unwrap().name().to_string());
                         let ty = self.lower_path_type(db, field.ty());
-                        RecordField { name, ty, pos }
+                        RecordField { name, ty }
                     })
                     .collect(),
             ),

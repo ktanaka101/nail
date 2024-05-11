@@ -185,26 +185,29 @@ impl<'a> NameResolver<'a> {
         }
 
         for symbol_in_scope in self.name_resolution_collection.symbols() {
-            if let Symbol::MissingExpr { path } = &symbol_in_scope.symbol {
-                let module_scope = self
-                    .module_scopes
-                    .module_scope_by_origin(symbol_in_scope.scope_origin)
-                    .unwrap();
+            match &symbol_in_scope.symbol {
+                Symbol::Param { .. } | Symbol::Local { .. } => (),
+                Symbol::MissingExpr { path } | Symbol::MissingType { path } => {
+                    let module_scope = self
+                        .module_scopes
+                        .module_scope_by_origin(symbol_in_scope.scope_origin)
+                        .unwrap();
 
-                let segments = self.resolve_path(&path.path(self.db));
+                    let segments = self.resolve_path(&path.path(self.db));
 
-                let resolved_item = self.resolve_relative_item(module_scope, &segments);
-                if let Some(resolved_item) = resolved_item {
-                    self.symbol_table.insert_symbol(
-                        *path,
-                        ResolutionStatus::Resolved {
-                            path: path.path(self.db),
-                            item: resolved_item,
-                        },
-                    );
-                } else {
-                    self.symbol_table
-                        .insert_symbol(*path, ResolutionStatus::Error);
+                    let resolved_item = self.resolve_relative_item(module_scope, &segments);
+                    if let Some(resolved_item) = resolved_item {
+                        self.symbol_table.insert_symbol(
+                            *path,
+                            ResolutionStatus::Resolved {
+                                path: path.path(self.db),
+                                item: resolved_item,
+                            },
+                        );
+                    } else {
+                        self.symbol_table
+                            .insert_symbol(*path, ResolutionStatus::Error);
+                    }
                 }
             }
         }

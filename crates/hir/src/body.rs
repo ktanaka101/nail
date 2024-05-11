@@ -2564,7 +2564,7 @@ mod tests {
                 fn main() {
                     foo();
                 }
-                fn foo() {
+                fn foo() -> mod_aaa::Point {
                     mod_aaa::Point { x: 10, y: 20 }
                 }
 
@@ -2580,7 +2580,7 @@ mod tests {
                 fn entry:main() -> () {
                     fn:foo();
                 }
-                fn foo() -> () {
+                fn foo() -> struct:mod_aaa::Point {
                     expr:struct:mod_aaa::Point { x: 10, y: 20 }
                 }
                 //- /mod_aaa.nail
@@ -2590,10 +2590,36 @@ mod tests {
     }
 
     #[test]
+    fn not_ref_defined_struct_in_func_signature() {
+        check_in_root_file(
+            r#"
+                fn main() {
+                }
+                fn foo(point: Point) -> Point {
+                    struct Point {
+                        x: int,
+                        y: int
+                    }
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                }
+                fn foo(point: <missing>) -> <missing> {
+                    struct Point { x: int, y: int }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
     fn ref_struct_in_scope_only() {
         check_in_root_file(
             r#"
                 fn main() {
+                }
+                fn foo() {
                     struct Point {
                         x: int,
                         y: int
@@ -2601,20 +2627,47 @@ mod tests {
 
                     Point
                 }
-                fn foo() {
+                fn bar() {
                     Point
-                    main::Point
                 }
             "#,
             expect![[r#"
                 //- /main.nail
                 fn entry:main() -> () {
+                }
+                fn foo() -> () {
                     struct Point { x: int, y: int }
                     expr:struct:Point
                 }
+                fn bar() -> () {
+                    expr:<missing>
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn not_use_function_name_scope() {
+        check_in_root_file(
+            r#"
+                fn main() {
+                    foo::Point { x: 10, y: 20 }
+                }
+                fn foo() {
+                    pub struct Point {
+                        x: int,
+                        y: int
+                    }
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> () {
+                    expr:<missing> { x: 10, y: 20 }
+                }
                 fn foo() -> () {
                     <missing>
-                    expr:<missing>
+                    struct Point { x: int, y: int }
                 }
             "#]],
         );

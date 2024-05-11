@@ -4,7 +4,7 @@ use la_arena::{Arena, Idx};
 
 use crate::{
     Expr, ExprId, Function, HirFile, HirMasterDatabase, Item, Module, Name, Path, Pod, Stmt,
-    Struct, Symbol, UseItem,
+    Struct, Symbol, Type, UseItem,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -362,10 +362,15 @@ impl<'a> ModuleScopesBuilder<'a> {
     }
 
     pub(crate) fn build(mut self) -> (ModuleScopes, NameResolutionCollection, PathMap) {
-        // トップレベルは必ずPodと紐づくので対応表への追加は不要
         let top_level_scope_idx = self
             .storage
             .alloc(ModuleScope::root(self.db, self.pod.name));
+        self.ref_map.insert_scope_origin(
+            ModuleScopeOrigin::Pod {
+                name: self.pod.name,
+            },
+            top_level_scope_idx,
+        );
 
         for item in self.pod.root_hir_file.top_level_items(self.db) {
             self.build_item(self.pod.root_hir_file, top_level_scope_idx, *item);
@@ -434,6 +439,15 @@ impl<'a> ModuleScopesBuilder<'a> {
     ) {
         self.define_function(current_scope_idx, function);
 
+        // 関数のパラメータと戻り値の型は関数外スコープとして解決する
+        // なぜなら、関数内の型を呼び出し側から参照することはできないため
+        for param in function.params(self.db) {
+            let param = param.data(hir_file.db(self.db));
+            self.register_type_if_needed(current_scope_idx, param.ty.clone());
+        }
+        self.register_type_if_needed(current_scope_idx, function.return_type(self.db));
+
+        // 関数のスコープを作成
         let current_scope_idx = self.create_scope_on_function(self.db, current_scope_idx, function);
         self.path_map.insert_function_path(
             function,
@@ -667,6 +681,21 @@ impl<'a> ModuleScopesBuilder<'a> {
                 scope_origin: self.storage.module_scopes[module_scope_idx.0].origin,
                 symbol,
             });
+    }
+
+    /// 型がパスの場合、その型を登録します。
+    fn register_type_if_needed(&mut self, module_scope_idx: ModuleScopeIdx, ty: Type) {
+        match ty {
+            Type::Integer
+            | Type::String
+            | Type::Char
+            | Type::Boolean
+            | Type::Unit
+            | Type::Unknown => (),
+            Type::Custom(symbol) => {
+                self.register_symbol(module_scope_idx, symbol);
+            }
+        }
     }
 
     /// 指定したモジュールスコープのパスを生成し返します。

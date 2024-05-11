@@ -1943,7 +1943,7 @@ mod tests {
                 }
 
                 ---
-                error MismatchedTypeInitStructTuple: expected_ty: int, found_ty: string, init_struct: Point, found_arg_expr: `"aaa"`, arg_pos: 1
+                error MismatchedTypeInitStructTuple: expected_ty: int, found_ty: string, init_struct: Point, found_arg_expr: `"aaa"`, arg_pos: 1, found_expr: `struct:Point(10, "aaa")`
                 ---
             "#]],
         );
@@ -1992,8 +1992,8 @@ mod tests {
                 }
 
                 ---
-                error MissingStructRecordField: missing_fields: ["y"], found_struct: Point
-                error NoSuchStructRecordField: no_such_fields: ["z"], found_struct: Point
+                error MissingStructRecordField: missing_fields: ["y"], found_struct: Point, found_expr: `struct:Point { x: 10 }`
+                error NoSuchStructRecordField: no_such_fields: ["z"], found_struct: Point, found_expr: `struct:Point { x: 10, y: 20, z: 30 }`
                 ---
             "#]],
         );

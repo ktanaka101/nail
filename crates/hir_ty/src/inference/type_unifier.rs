@@ -92,6 +92,7 @@ pub(crate) enum UnifyPurpose {
         found_arg_expr: hir::ExprId,
         /// 引数の位置
         arg_pos: usize,
+        found_expr: hir::ExprId,
     },
     InitStructRecord {
         /// 初期化対象の構造体
@@ -202,12 +203,14 @@ fn build_unify_error_from_unify_purpose(
             init_struct,
             found_arg_expr,
             arg_pos,
+            found_expr,
         } => InferenceError::MismatchedTypeInitStructTuple {
             expected_ty,
             found_ty,
             init_struct: *init_struct,
             found_arg_expr: *found_arg_expr,
             arg_pos: *arg_pos,
+            found_expr: *found_expr,
         },
         UnifyPurpose::InitStructRecord {
             init_struct,
@@ -216,7 +219,7 @@ fn build_unify_error_from_unify_purpose(
         } => InferenceError::MismatchedTypeInitStructRecord {
             expected_ty,
             found_ty,
-            init_struct: *init_struct,
+            found_struct: *init_struct,
             found_name: *found_name,
             found_expr: *found_expr,
         },

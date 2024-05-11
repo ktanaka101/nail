@@ -152,6 +152,7 @@ pub enum InferenceError {
     },
     NotAllowedType {
         found_symbol: hir::Symbol,
+        found_expr: hir::ExprId,
     },
     MismatchedTypeInitStructTuple {
         /// 期待される型
@@ -160,6 +161,7 @@ pub enum InferenceError {
         found_arg_expr: hir::ExprId,
         arg_pos: usize,
         init_struct: hir::Struct,
+        found_expr: hir::ExprId,
     },
     /// 構造体の初期化でフィールド名が足りない
     MissingStructRecordField {
@@ -167,12 +169,14 @@ pub enum InferenceError {
         missing_fields: Vec<hir::Name>,
         /// 実際の構造体
         found_struct: hir::Struct,
+        found_expr: hir::ExprId,
     },
     NoSuchStructRecordField {
         /// 余計なフィールド一覧
         no_such_fields: Vec<hir::RecordFieldExpr>,
         /// 実際の構造体
         found_struct: hir::Struct,
+        found_expr: hir::ExprId,
     },
     MismatchedTypeInitStructRecord {
         /// 期待される型
@@ -180,7 +184,7 @@ pub enum InferenceError {
         found_ty: Monotype,
         found_name: hir::Name,
         found_expr: hir::ExprId,
-        init_struct: hir::Struct,
+        found_struct: hir::Struct,
     },
     NeededInitTupleOrRecord {
         found_ty: Monotype,

@@ -314,10 +314,14 @@ impl<'a> Pretty<'a> {
                             self.format_simplify_expr(hir_file, *found_expr),
                         ));
                     }
-                    InferenceError::NotAllowedType { found_symbol } => {
+                    InferenceError::NotAllowedType {
+                        found_symbol,
+                        found_expr,
+                    } => {
                         msg.push_str(&format!(
-                            "error NotAllowedType: found_symbol: {}",
+                            "error NotAllowedType: found_symbol: {}, found_expr: `{}`",
                             self.format_symbol(found_symbol),
+                            self.format_simplify_expr(hir_file, *found_expr),
                         ));
                     }
                     InferenceError::MismatchedTypeInitStructTuple {
@@ -326,46 +330,52 @@ impl<'a> Pretty<'a> {
                         init_struct,
                         found_arg_expr,
                         arg_pos,
+                        found_expr,
                     } => {
                         msg.push_str(&format!(
-                            "error MismatchedTypeInitStructTuple: expected_ty: {}, found_ty: {}, init_struct: {}, found_arg_expr: `{}`, arg_pos: {}",
+                            "error MismatchedTypeInitStructTuple: expected_ty: {}, found_ty: {}, init_struct: {}, found_arg_expr: `{}`, arg_pos: {}, found_expr: `{}`",
                             self.format_monotype(expected_ty),
                             self.format_monotype(found_ty),
                             init_struct.name(self.db).text(self.db),
                             self.format_simplify_expr(hir_file, *found_arg_expr),
                             arg_pos,
+                            self.format_simplify_expr(hir_file, *found_expr),
                         ));
                     }
                     InferenceError::MissingStructRecordField {
                         missing_fields,
                         found_struct,
+                        found_expr,
                     } => {
                         msg.push_str(&format!(
-                            "error MissingStructRecordField: missing_fields: {:?}, found_struct: {}",
+                            "error MissingStructRecordField: missing_fields: {:?}, found_struct: {}, found_expr: `{}`",
                             missing_fields
                                 .iter()
                                 .map(|field| field.text(self.db))
                                 .collect::<Vec<_>>(),
-                            found_struct.name(self.db).text(self.db)
+                            found_struct.name(self.db).text(self.db),
+                            self.format_simplify_expr(hir_file, *found_expr),
                         ));
                     }
                     InferenceError::NoSuchStructRecordField {
                         no_such_fields,
                         found_struct,
+                        found_expr,
                     } => {
                         msg.push_str(&format!(
-                            "error NoSuchStructRecordField: no_such_fields: {:?}, found_struct: {}",
+                            "error NoSuchStructRecordField: no_such_fields: {:?}, found_struct: {}, found_expr: `{}`",
                             no_such_fields
                                 .iter()
                                 .map(|field| field.name.text(self.db))
                                 .collect::<Vec<_>>(),
-                            found_struct.name(self.db).text(self.db)
+                            found_struct.name(self.db).text(self.db),
+                            self.format_simplify_expr(hir_file, *found_expr),
                         ));
                     }
                     InferenceError::MismatchedTypeInitStructRecord {
                         expected_ty,
                         found_ty,
-                        init_struct,
+                        found_struct: init_struct,
                         found_name,
                         found_expr,
                     } => {

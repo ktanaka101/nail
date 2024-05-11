@@ -280,6 +280,7 @@ impl<'a> InferBody<'a> {
                         hir::Item::Function(_) | hir::Item::Module(_) => {
                             self.unifier.add_error(InferenceError::NotAllowedType {
                                 found_symbol: symbol.clone(),
+                                found_expr: source_expr,
                             });
                             Monotype::Unknown
                         }
@@ -425,6 +426,7 @@ impl<'a> InferBody<'a> {
                                             init_struct: struct_,
                                             found_arg_expr: *call_arg,
                                             arg_pos,
+                                            found_expr: expr_id,
                                         },
                                     );
                                 }
@@ -731,6 +733,7 @@ impl<'a> InferBody<'a> {
                                     .add_error(InferenceError::MissingStructRecordField {
                                         missing_fields,
                                         found_struct: struct_,
+                                        found_expr: expr_id,
                                     });
                             }
 
@@ -749,6 +752,7 @@ impl<'a> InferBody<'a> {
                                     .add_error(InferenceError::NoSuchStructRecordField {
                                         no_such_fields,
                                         found_struct: struct_,
+                                        found_expr: expr_id,
                                     });
                             }
 

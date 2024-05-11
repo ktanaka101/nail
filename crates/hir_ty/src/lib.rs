@@ -1811,10 +1811,41 @@ mod tests {
             "#,
             expect![[r#"
                 //- /main.nail
-                struct Point ;
+                struct Point;
                 fn entry:main() -> () {
-                    let point = struct:Point
+                    let point = struct:Point; //: Point
                 }
+
+                ---
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_struct_unit_other_init() {
+        check_in_root_file(
+            r#"
+                struct Point;
+                fn main() {
+                    Point();
+                    Point { x: 10 };
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point;
+                fn entry:main() -> () {
+                    struct:Point(); //: <unknown>
+                    struct:Point { x: 10 }; //: <unknown>
+                }
+
+                ---
+                error NotCallable: found_callee_ty: Point, found_callee_symbol: struct:Point
+                error NotRecord: found_struct_ty: Point, found_struct_symbol: struct:Point, found_expr: `struct:Point { x: 10 }`
+                ---
+                error Type is unknown: expr: struct:Point()
+                error Type is unknown: expr: struct:Point { x: 10 }
             "#]],
         );
     }
@@ -1830,10 +1861,90 @@ mod tests {
             "#,
             expect![[r#"
                 //- /main.nail
-                struct Point (int, int);
+                struct Point(int, int);
                 fn entry:main() -> () {
-                    let point = struct:Point(10, 20)
+                    let point = struct:Point(10, 20); //: Point
                 }
+
+                ---
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_struct_tuple_fileds_diff_arg_count() {
+        check_in_root_file(
+            r#"
+                struct Point(int, int);
+                fn main() {
+                    Point(10);
+                    Point(10, 20, 30);
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point(int, int);
+                fn entry:main() -> () {
+                    struct:Point(10); //: Point
+                    struct:Point(10, 20, 30); //: Point
+                }
+
+                ---
+                error MismatchedCallArgCount: expected_arg_count: 2, found_arg_count: 1
+                error MismatchedCallArgCount: expected_arg_count: 2, found_arg_count: 3
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_struct_tuple_fileds_other_init() {
+        check_in_root_file(
+            r#"
+                struct Point(int, int);
+                fn main() {
+                    Point;
+                    Point { x: 10, y: 20 };
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point(int, int);
+                fn entry:main() -> () {
+                    struct:Point; //: <unknown>
+                    struct:Point { x: 10, y: 20 }; //: <unknown>
+                }
+
+                ---
+                error NeededInitTupleOrRecord: found_ty: Point, found_expr: `struct:Point`, found_struct: Point
+                error NotRecord: found_struct_ty: Point, found_struct_symbol: struct:Point, found_expr: `struct:Point { x: 10, y: 20 }`
+                ---
+                error Type is unknown: expr: struct:Point
+                error Type is unknown: expr: struct:Point { x: 10, y: 20 }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_struct_tuple_fileds_type_check() {
+        check_in_root_file(
+            r#"
+                struct Point(int, int);
+                fn main() {
+                    Point(10, "aaa");
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point(int, int);
+                fn entry:main() -> () {
+                    struct:Point(10, "aaa"); //: Point
+                }
+
+                ---
+                error MismatchedTypeInitStructTuple: expected_ty: int, found_ty: string, init_struct: Point, found_arg_expr: `"aaa"`, arg_pos: 1
+                ---
             "#]],
         );
     }
@@ -1842,26 +1953,102 @@ mod tests {
     fn init_struct_record_fileds() {
         check_in_root_file(
             r#"
-                struct Point { x: int, y: int }
+                struct Point { x: int, y: string }
                 fn main() {
-                    let point = Point { x: 10, y: 20 };
+                    Point { x: 10, y: "aaa" };
+                    Point { y: "aaa", x: 10 };
                 }
             "#,
             expect![[r#"
                 //- /main.nail
-                struct Point { x: int, y: int }
+                struct Point{ x: int, y: string }
                 fn entry:main() -> () {
-                    let point = struct:Point
-                    {
-                        <missing>
-                        <missing>
-                        10
-                        <missing>
-                        <missing>
-                        <missing>
-                        expr:20
-                    };
+                    struct:Point { x: 10, y: "aaa" }; //: Point
+                    struct:Point { y: "aaa", x: 10 }; //: Point
                 }
+
+                ---
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_struct_record_fileds_missing_field_and_no_such_field() {
+        check_in_root_file(
+            r#"
+                struct Point { x: int, y: int }
+                fn main() {
+                    Point { x: 10 };
+                    Point { x: 10, y: 20, z: 30 };
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point{ x: int, y: int }
+                fn entry:main() -> () {
+                    struct:Point { x: 10 }; //: Point
+                    struct:Point { x: 10, y: 20, z: 30 }; //: Point
+                }
+
+                ---
+                error MissingStructRecordField: missing_fields: ["y"], found_struct: Point
+                error NoSuchStructRecordField: no_such_fields: ["z"], found_struct: Point
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_struct_record_fileds_other_init() {
+        check_in_root_file(
+            r#"
+                struct Point { x: int, y: int }
+                fn main() {
+                    Point;
+                    Point(10, 20);
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point{ x: int, y: int }
+                fn entry:main() -> () {
+                    struct:Point; //: <unknown>
+                    struct:Point(10, 20); //: <unknown>
+                }
+
+                ---
+                error NeededInitTupleOrRecord: found_ty: Point, found_expr: `struct:Point`, found_struct: Point
+                error NotCallable: found_callee_ty: Point, found_callee_symbol: struct:Point
+                ---
+                error Type is unknown: expr: struct:Point
+                error Type is unknown: expr: struct:Point(10, 20)
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_struct_record_fileds_type_check() {
+        check_in_root_file(
+            r#"
+                struct Point { x: int, y: string }
+                fn main() {
+                    Point { x: 10, y: "aaa" };
+                    Point { x: "aaa", y: 10 };
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point{ x: int, y: string }
+                fn entry:main() -> () {
+                    struct:Point { x: 10, y: "aaa" }; //: Point
+                    struct:Point { x: "aaa", y: 10 }; //: Point
+                }
+
+                ---
+                error MismatchedTypeInitStructRecord: expected_ty: int, found_ty: string, init_struct: Point, found_name: x, found_expr: `"aaa"`
+                error MismatchedTypeInitStructRecord: expected_ty: string, found_ty: int, init_struct: Point, found_name: y, found_expr: `10`
+                ---
             "#]],
         );
     }

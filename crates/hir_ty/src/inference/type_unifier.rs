@@ -85,6 +85,22 @@ pub(crate) enum UnifyPurpose {
         /// 実際の式
         found_expr: hir::ExprId,
     },
+    InitStructTuple {
+        /// 初期化対象の構造体
+        init_struct: hir::Struct,
+        /// 引数の式
+        found_arg_expr: hir::ExprId,
+        /// 引数の位置
+        arg_pos: usize,
+    },
+    InitStructRecord {
+        /// 初期化対象の構造体
+        init_struct: hir::Struct,
+        /// 名前
+        found_name: hir::Name,
+        /// 式
+        found_expr: hir::ExprId,
+    },
 }
 
 /// 型の不一致を表すエラーを生成します。
@@ -180,6 +196,28 @@ fn build_unify_error_from_unify_purpose(
             expected_ty: expected_ty.clone(),
             expected_expr: *expected_expr,
             found_ty: found_ty.clone(),
+            found_expr: *found_expr,
+        },
+        UnifyPurpose::InitStructTuple {
+            init_struct,
+            found_arg_expr,
+            arg_pos,
+        } => InferenceError::MismatchedTypeInitStructTuple {
+            expected_ty,
+            found_ty,
+            init_struct: *init_struct,
+            found_arg_expr: *found_arg_expr,
+            arg_pos: *arg_pos,
+        },
+        UnifyPurpose::InitStructRecord {
+            init_struct,
+            found_name,
+            found_expr,
+        } => InferenceError::MismatchedTypeInitStructRecord {
+            expected_ty,
+            found_ty,
+            init_struct: *init_struct,
+            found_name: *found_name,
             found_expr: *found_expr,
         },
     }

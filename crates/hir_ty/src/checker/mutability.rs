@@ -181,6 +181,11 @@ impl<'a> FunctionMutabilityChecker<'a> {
                     self.check_expr(*value);
                 }
             }
+            hir::Expr::Record { fields, .. } => {
+                for field in fields {
+                    self.check_expr(field.value);
+                }
+            }
             hir::Expr::Missing => (),
         }
     }

@@ -302,6 +302,94 @@ impl<'a> Pretty<'a> {
                             self.format_simplify_expr(hir_file, *found_expr),
                         ));
                     }
+                    InferenceError::NotRecord {
+                        found_struct_ty,
+                        found_struct_symbol,
+                        found_expr,
+                    } => {
+                        msg.push_str(&format!(
+                            "error NotRecord: found_struct_ty: {}, found_struct_symbol: {}, found_expr: `{}`",
+                            self.format_monotype(found_struct_ty),
+                            self.format_symbol(found_struct_symbol),
+                            self.format_simplify_expr(hir_file, *found_expr),
+                        ));
+                    }
+                    InferenceError::NotAllowedType { found_symbol } => {
+                        msg.push_str(&format!(
+                            "error NotAllowedType: found_symbol: {}",
+                            self.format_symbol(found_symbol),
+                        ));
+                    }
+                    InferenceError::MismatchedTypeInitStructTuple {
+                        expected_ty,
+                        found_ty,
+                        init_struct,
+                        found_arg_expr,
+                        arg_pos,
+                    } => {
+                        msg.push_str(&format!(
+                            "error MismatchedTypeInitStructTuple: expected_ty: {}, found_ty: {}, init_struct: {}, found_arg_expr: `{}`, arg_pos: {}",
+                            self.format_monotype(expected_ty),
+                            self.format_monotype(found_ty),
+                            init_struct.name(self.db).text(self.db),
+                            self.format_simplify_expr(hir_file, *found_arg_expr),
+                            arg_pos,
+                        ));
+                    }
+                    InferenceError::MissingStructRecordField {
+                        missing_fields,
+                        found_struct,
+                    } => {
+                        msg.push_str(&format!(
+                            "error MissingStructRecordField: missing_fields: {:?}, found_struct: {}",
+                            missing_fields
+                                .iter()
+                                .map(|field| field.text(self.db))
+                                .collect::<Vec<_>>(),
+                            found_struct.name(self.db).text(self.db)
+                        ));
+                    }
+                    InferenceError::NoSuchStructRecordField {
+                        no_such_fields,
+                        found_struct,
+                    } => {
+                        msg.push_str(&format!(
+                            "error NoSuchStructRecordField: no_such_fields: {:?}, found_struct: {}",
+                            no_such_fields
+                                .iter()
+                                .map(|field| field.name.text(self.db))
+                                .collect::<Vec<_>>(),
+                            found_struct.name(self.db).text(self.db)
+                        ));
+                    }
+                    InferenceError::MismatchedTypeInitStructRecord {
+                        expected_ty,
+                        found_ty,
+                        init_struct,
+                        found_name,
+                        found_expr,
+                    } => {
+                        msg.push_str(&format!(
+                            "error MismatchedTypeInitStructRecord: expected_ty: {}, found_ty: {}, init_struct: {}, found_name: {}, found_expr: `{}`",
+                            self.format_monotype(expected_ty),
+                            self.format_monotype(found_ty),
+                            init_struct.name(self.db).text(self.db),
+                            found_name.text(self.db),
+                            self.format_simplify_expr(hir_file, *found_expr),
+                        ));
+                    }
+                    InferenceError::NeededInitTupleOrRecord {
+                        found_ty,
+                        found_expr,
+                        found_struct,
+                    } => {
+                        msg.push_str(&format!(
+                            "error NeededInitTupleOrRecord: found_ty: {}, found_expr: `{}`, found_struct: {}",
+                            self.format_monotype(found_ty),
+                            self.format_simplify_expr(hir_file, *found_expr),
+                            found_struct.name(self.db).text(self.db),
+                        ));
+                    }
                 }
                 msg.push('\n');
             }
@@ -681,6 +769,20 @@ impl<'a> Pretty<'a> {
 
                 msg
             }
+            hir::Expr::Record { symbol, fields } => {
+                let symbol = self.format_symbol(symbol);
+                let fields = fields
+                    .iter()
+                    .map(|field| {
+                        let name = field.name.text(self.db);
+                        let value = self.format_expr(hir_file, function, field.value, nesting);
+                        format!("{name}: {value}")
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+
+                format!("{symbol} {{ {fields} }}")
+            }
             hir::Expr::Missing => "<missing>".to_string(),
         }
     }
@@ -777,6 +879,20 @@ impl<'a> Pretty<'a> {
                 }
 
                 msg
+            }
+            hir::Expr::Record { symbol, fields } => {
+                let symbol = self.format_symbol(symbol);
+                let fields = fields
+                    .iter()
+                    .map(|field| {
+                        let name = field.name.text(self.db);
+                        let value = self.format_simplify_expr(hir_file, field.value);
+                        format!("{name}: {value}")
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+
+                format!("{symbol} {{ {fields} }}")
             }
             hir::Expr::Missing => "<missing>".to_string(),
         }

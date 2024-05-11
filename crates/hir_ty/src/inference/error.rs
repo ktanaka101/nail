@@ -1,7 +1,7 @@
 use super::{Monotype, Signature};
 
 /// 型チェックのエラー
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InferenceError {
     /// Ifの条件式の型が一致しない
     MismatchedTypeIfCondition {
@@ -144,6 +144,48 @@ pub enum InferenceError {
         kind: BreakKind,
         /// 実際の式
         found_expr: hir::ExprId,
+    },
+    NotRecord {
+        found_struct_ty: Monotype,
+        found_struct_symbol: hir::Symbol,
+        found_expr: hir::ExprId,
+    },
+    NotAllowedType {
+        found_symbol: hir::Symbol,
+    },
+    MismatchedTypeInitStructTuple {
+        /// 期待される型
+        expected_ty: Monotype,
+        found_ty: Monotype,
+        found_arg_expr: hir::ExprId,
+        arg_pos: usize,
+        init_struct: hir::Struct,
+    },
+    /// 構造体の初期化でフィールド名が足りない
+    MissingStructRecordField {
+        /// 足りないフィールド一覧
+        missing_fields: Vec<hir::Name>,
+        /// 実際の構造体
+        found_struct: hir::Struct,
+    },
+    NoSuchStructRecordField {
+        /// 余計なフィールド一覧
+        no_such_fields: Vec<hir::RecordFieldExpr>,
+        /// 実際の構造体
+        found_struct: hir::Struct,
+    },
+    MismatchedTypeInitStructRecord {
+        /// 期待される型
+        expected_ty: Monotype,
+        found_ty: Monotype,
+        found_name: hir::Name,
+        found_expr: hir::ExprId,
+        init_struct: hir::Struct,
+    },
+    NeededInitTupleOrRecord {
+        found_ty: Monotype,
+        found_expr: hir::ExprId,
+        found_struct: hir::Struct,
     },
 }
 

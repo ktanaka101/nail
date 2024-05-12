@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use la_arena::{Arena, Idx};
 
 use crate::{
-    AllocatedSwitchBB, BasicBlock, BinaryOp, Body, Constant, FunctionId, Local, LoweredExpr,
-    LoweredStmt, Operand, Param, Place, Statement, Termination, UnaryOp, Value,
+    AggregateKind, AllocatedSwitchBB, BasicBlock, BinaryOp, Body, Constant, FunctionId, Local,
+    LoweredExpr, LoweredStmt, Operand, Param, Place, Statement, Termination, UnaryOp, Value,
 };
 
 struct BreakContext {
@@ -196,6 +196,7 @@ impl<'a> FunctionLower<'a> {
                     LoweredExpr::Operand(Operand::Place(Place::Local(self.get_local_by_expr(expr))))
                 }
                 hir::Symbol::MissingExpr { .. } => todo!(),
+                hir::Symbol::MissingType { .. } => unreachable!(),
             },
             hir::Expr::Literal(literal) => match literal {
                 hir::Literal::Integer(value) => {
@@ -485,6 +486,7 @@ impl<'a> FunctionLower<'a> {
                 match callee {
                     hir::Symbol::Param { .. } => unimplemented!(),
                     hir::Symbol::Local { .. } => unimplemented!(),
+                    hir::Symbol::MissingType { .. } => unreachable!(),
                     hir::Symbol::MissingExpr { path } => {
                         let resolution_status = self.resolution_map.item_by_symbol(path).unwrap();
                         let item = match resolution_status {
@@ -514,6 +516,30 @@ impl<'a> FunctionLower<'a> {
                                 self.current_bb = Some(target_bb);
 
                                 LoweredExpr::Operand(Operand::Place(dest_place))
+                            }
+                            hir::Item::Struct(struct_) => {
+                                let mut field_operands = vec![];
+                                for field in args {
+                                    let field_operand = match self.lower_expr(*field) {
+                                        LoweredExpr::Return => return LoweredExpr::Return,
+                                        LoweredExpr::Break => return LoweredExpr::Break,
+                                        LoweredExpr::Operand(operand) => operand,
+                                    };
+                                    field_operands.push(field_operand);
+                                }
+
+                                let local = self.alloc_local(expr_id);
+                                let value = Value::Aggregate {
+                                    kind: AggregateKind::Struct(struct_),
+                                    operands: field_operands,
+                                };
+                                let place = Place::Local(local);
+                                self.add_statement_to_current_bb(Statement::Assign {
+                                    place,
+                                    value,
+                                });
+
+                                LoweredExpr::Operand(Operand::Place(place))
                             }
                             hir::Item::Module(_) | hir::Item::UseItem(_) => unimplemented!(),
                         }
@@ -587,6 +613,61 @@ impl<'a> FunctionLower<'a> {
 
                 LoweredExpr::Break
             }
+            hir::Expr::Record { symbol, fields } => {
+                let struct_ = match symbol {
+                    hir::Symbol::MissingExpr { path } => {
+                        let resolution_status = self.resolution_map.item_by_symbol(path).unwrap();
+                        let item = match resolution_status {
+                            hir::ResolutionStatus::Unresolved | hir::ResolutionStatus::Error => {
+                                unreachable!();
+                            }
+                            hir::ResolutionStatus::Resolved { path: _, item } => item,
+                        };
+                        match item {
+                            hir::Item::Struct(struct_) => struct_,
+                            hir::Item::Function(_)
+                            | hir::Item::Module(_)
+                            | hir::Item::UseItem(_) => unreachable!(),
+                        }
+                    }
+                    hir::Symbol::Param { .. }
+                    | hir::Symbol::Local { .. }
+                    | hir::Symbol::MissingType { .. } => unreachable!(),
+                };
+
+                match struct_.kind(self.db) {
+                    hir::StructKind::Unit | hir::StructKind::Tuple(_) => unreachable!(),
+                    hir::StructKind::Record(defined_fields) => {
+                        // コード上の順番を維持する
+                        let mut operand_by_name = HashMap::new();
+                        for field in fields {
+                            let lowerd_expr = self.lower_expr(field.value);
+                            let operand = match lowerd_expr {
+                                LoweredExpr::Operand(operand) => operand,
+                                LoweredExpr::Return | LoweredExpr::Break => return lowerd_expr,
+                            };
+
+                            operand_by_name.insert(field.name, operand);
+                        }
+
+                        let mut operands = vec![];
+                        for defined_field in defined_fields {
+                            let operand = operand_by_name.remove(&defined_field.name).unwrap();
+                            operands.push(operand);
+                        }
+
+                        let local = self.alloc_local(expr_id);
+                        let value = Value::Aggregate {
+                            kind: AggregateKind::Struct(struct_),
+                            operands,
+                        };
+                        let place = Place::Local(local);
+                        self.add_statement_to_current_bb(Statement::Assign { place, value });
+
+                        LoweredExpr::Operand(Operand::Place(place))
+                    }
+                }
+            }
             hir::Expr::Missing => unreachable!(),
         }
     }
@@ -618,7 +699,7 @@ impl<'a> FunctionLower<'a> {
             }
             hir::Stmt::Item { item } => match item {
                 hir::Item::Function(_) => unreachable!(),
-                hir::Item::Module(_) | hir::Item::UseItem(_) => {
+                hir::Item::Struct(_) | hir::Item::Module(_) | hir::Item::UseItem(_) => {
                     return LoweredStmt::Unit;
                 }
             },

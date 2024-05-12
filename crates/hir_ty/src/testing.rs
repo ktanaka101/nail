@@ -316,12 +316,12 @@ impl<'a> Pretty<'a> {
                     }
                     InferenceError::NotAllowedType {
                         found_symbol,
-                        found_expr,
+                        found_function,
                     } => {
                         msg.push_str(&format!(
-                            "error NotAllowedType: found_symbol: {}, found_expr: `{}`",
+                            "error NotAllowedType: found_symbol: {}, found_function: {}",
                             self.format_symbol(found_symbol),
-                            self.format_simplify_expr(hir_file, *found_expr),
+                            found_function.name(self.db).text(self.db),
                         ));
                     }
                     InferenceError::MismatchedTypeInitStructTuple {
@@ -671,7 +671,6 @@ impl<'a> Pretty<'a> {
             Monotype::Function(signature) => self.format_signature(signature),
             Monotype::Never => "!".to_string(),
             Monotype::Unknown => "<unknown>".to_string(),
-            Monotype::UnknownCustom(_) => "<unknown>".to_string(),
         }
     }
 

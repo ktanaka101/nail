@@ -1,10 +1,8 @@
-use crate::inference;
-
 /// HIR-tyの全体のデータベースです。
 ///
 /// ここに`salsa`データを定義します。
 #[salsa::jar(db = HirTyMasterDatabase)]
-pub struct Jar(crate::Signature, inference::lower_signature);
+pub struct Jar(crate::Signature);
 
 /// [Jar]用のDBトレイトです。
 pub trait HirTyMasterDatabase: salsa::DbWithJar<Jar> + hir::HirMasterDatabase {}

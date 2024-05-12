@@ -2728,4 +2728,35 @@ mod tests {
             "#]],
         );
     }
+
+    #[test]
+    fn arg_struct() {
+        check_in_root_file(
+            r#"
+                struct Point {
+                    x: int,
+                    y: string,
+                }
+                fn foo(point: Point) -> Point {
+                    point
+                }
+
+                fn main() -> Point {
+                    let point = Point { x: 10, y: "aaa" };
+                    foo(point)
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point { x: int, y: string }
+                fn foo(point: struct:Point) -> struct:Point {
+                    expr:param:point
+                }
+                fn entry:main() -> struct:Point {
+                    let point = struct:Point { x: 10, y: "aaa" }
+                    expr:fn:foo($point:struct:Point { x: 10, y: "aaa" })
+                }
+            "#]],
+        );
+    }
 }

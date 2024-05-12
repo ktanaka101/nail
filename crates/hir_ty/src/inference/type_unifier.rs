@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use super::{error::InferenceError, types::Monotype, Signature};
 
 /// 型の統一を行うための構造体
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub(crate) struct TypeUnifier {
     pub(crate) nodes: HashMap<Monotype, Node>,
     pub(crate) errors: Vec<InferenceError>,
@@ -228,7 +228,10 @@ fn build_unify_error_from_unify_purpose(
 
 impl TypeUnifier {
     pub(crate) fn new() -> Self {
-        Default::default()
+        Self {
+            nodes: HashMap::new(),
+            errors: vec![],
+        }
     }
 
     pub(crate) fn find(&mut self, ty: &Monotype) -> Monotype {

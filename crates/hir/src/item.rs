@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use la_arena::Idx;
 
-use crate::{Expr, HirFile, HirFileDatabase, HirMasterDatabase, Name, Path, Symbol};
+use crate::{
+    Expr, HirFile, HirFileDatabase, HirFileSourceMap, HirMasterDatabase, Name, Path, Symbol,
+};
 
 /// 関数のパラメータのIDを表す
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -77,6 +79,23 @@ pub enum Type {
     Unknown,
     /// 構造体など組み込み以外の型
     Custom(Symbol),
+}
+impl Type {
+    /// この式IDに対応するテキストの範囲を取得する
+    pub fn text_range(
+        &self,
+        db: &dyn HirMasterDatabase,
+        source_map: &HirFileSourceMap,
+    ) -> ast::TextRange {
+        source_map
+            .source_by_type(db)
+            .get(self)
+            .expect("BUG: There should always be an expression in the source map.")
+            .clone()
+            .value
+            .node
+            .text_range()
+    }
 }
 
 /// 関数定義を表す

@@ -320,6 +320,9 @@ pub struct HirFileSourceMap {
 
     /// 式とソースコードのマッピング
     pub source_by_function: HashMap<Function, FunctionSource>,
+
+    /// 型とソースコードのマッピング
+    pub source_by_type: HashMap<Type, TypeSource>,
 }
 
 /// パーサのエラー情報
@@ -384,6 +387,8 @@ impl<T: AstNode> AstPtr<T> {
 pub type ExprSource = InFile<AstPtr<ast::Expr>>;
 /// 関数定義のAST位置です。
 pub type FunctionSource = InFile<AstPtr<ast::FunctionDef>>;
+/// パス型のAST位置です。
+pub type TypeSource = InFile<AstPtr<ast::PathType>>;
 
 /// 型引数をファイル内で一意として表現します。
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -462,6 +467,7 @@ fn build_hir_file(
 
     let source_by_expr = root_file_body.source_by_expr;
     let source_by_function = root_file_body.source_by_function;
+    let source_by_type = root_file_body.source_by_type;
     let hir_file = HirFile::new(
         db,
         nail_file,
@@ -477,6 +483,7 @@ fn build_hir_file(
         nail_green_node,
         source_by_expr,
         source_by_function,
+        source_by_type,
     );
 
     (hir_file, source_map)

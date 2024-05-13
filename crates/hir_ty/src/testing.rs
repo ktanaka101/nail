@@ -317,11 +317,13 @@ impl<'a> Pretty<'a> {
                     InferenceError::NotAllowedType {
                         found_symbol,
                         found_function,
+                        found_ty,
                     } => {
                         msg.push_str(&format!(
-                            "error NotAllowedType: found_symbol: {}, found_function: {}",
+                            "error NotAllowedType: found_symbol: {}, found_function: {}, found_ty: {}",
                             self.format_symbol(found_symbol),
                             found_function.name(self.db).text(self.db),
+                            self.format_type(found_ty),
                         ));
                     }
                     InferenceError::MismatchedTypeInitStructTuple {

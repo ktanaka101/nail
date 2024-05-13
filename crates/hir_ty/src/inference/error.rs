@@ -153,6 +153,7 @@ pub enum InferenceError {
     NotAllowedType {
         found_symbol: hir::Symbol,
         found_function: hir::Function,
+        found_ty: hir::Type,
     },
     MismatchedTypeInitStructTuple {
         /// 期待される型

@@ -10,7 +10,8 @@ use crate::{
     item::{ParamData, RecordField, StructKind},
     AstPtr, BinaryOp, Binding, Block, Expr, ExprSource, Function, FunctionSource, HirFileSourceMap,
     HirMasterDatabase, InFile, Item, Literal, Module, ModuleKind, NailFile, NailGreenNode, Name,
-    NameSolutionPath, Param, Path, RecordFieldExpr, Stmt, Struct, Symbol, Type, UnaryOp, UseItem,
+    NameSolutionPath, Param, Path, RecordFieldExpr, Stmt, Struct, Symbol, Type, TypeSource,
+    UnaryOp, UseItem,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -203,6 +204,8 @@ pub struct BodyLower<'a> {
     pub source_by_expr: HashMap<ExprId, ExprSource>,
     /// 関数ソースを元にASTノードを取得するためのマップ
     pub source_by_function: HashMap<Function, FunctionSource>,
+    /// 型ソースを元にASTノードを取得するためのマップ
+    pub source_by_type: HashMap<Type, TypeSource>,
 }
 
 impl<'a> BodyLower<'a> {
@@ -221,6 +224,7 @@ impl<'a> BodyLower<'a> {
             hir_file_db,
             source_by_expr: HashMap::new(),
             source_by_function: HashMap::new(),
+            source_by_type: HashMap::new(),
         }
     }
 
@@ -396,9 +400,9 @@ impl<'a> BodyLower<'a> {
         path_type: Option<ast::PathType>,
     ) -> Type {
         match path_type {
-            Some(ty) => {
-                let path = ty.path();
-                match path {
+            Some(path_type) => {
+                let path = path_type.path();
+                let ty = match path {
                     Some(path) => {
                         let segments: Vec<ast::PathSegment> = path.segments().collect();
                         match segments.len() {
@@ -445,7 +449,17 @@ impl<'a> BodyLower<'a> {
                         }
                     }
                     None => Type::Unknown,
-                }
+                };
+
+                self.source_by_type.insert(
+                    ty.clone(),
+                    TypeSource {
+                        file: self.file,
+                        value: AstPtr::new(&path_type),
+                    },
+                );
+
+                ty
             }
             None => Type::Unknown,
         }

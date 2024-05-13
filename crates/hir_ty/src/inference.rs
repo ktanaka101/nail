@@ -81,11 +81,11 @@ impl<'a> InferenceSignature<'a> {
             hir::Type::Boolean => Monotype::Bool,
             hir::Type::Unit => Monotype::Unit,
             hir::Type::Unknown => Monotype::Unknown,
-            hir::Type::Custom(symbol) => self.infer_symbol(symbol),
+            hir::Type::Custom(symbol) => self.infer_symbol(symbol, ty),
         }
     }
 
-    fn infer_symbol(&mut self, symbol: &hir::Symbol) -> Monotype {
+    fn infer_symbol(&mut self, symbol: &hir::Symbol, source_ty: &hir::Type) -> Monotype {
         match symbol {
             hir::Symbol::Param { .. }
             | hir::Symbol::Local { .. }
@@ -99,6 +99,7 @@ impl<'a> InferenceSignature<'a> {
                             self.errors.push(InferenceError::NotAllowedType {
                                 found_symbol: symbol.clone(),
                                 found_function: self.function,
+                                found_ty: source_ty.clone(),
                             });
                             Monotype::Unknown
                         }
@@ -277,6 +278,7 @@ impl<'a> InferBody<'a> {
                                 self.unifier.add_error(InferenceError::NotAllowedType {
                                     found_symbol: symbol.clone(),
                                     found_function: self.function,
+                                    found_ty: ty.clone(),
                                 });
                                 Monotype::Unknown
                             }

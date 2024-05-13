@@ -10,11 +10,11 @@ impl<'a> Pretty<'a> {
     }
 
     /// MIRのテスト用フォーマットを返します。
-    pub fn debug(&self) -> String {
+    pub fn format(&self) -> String {
         let mut msg = "".to_string();
 
         for (_body_idx, body) in self.mir_result.bodies.iter() {
-            let path = self.debug_path(&body.path);
+            let path = self.format_path(&body.path);
             let name = body.name.text(self.db);
             if path.is_empty() {
                 msg.push_str(&format!("fn {name}("));
@@ -23,7 +23,7 @@ impl<'a> Pretty<'a> {
             }
 
             msg.push_str(
-                &self.debug_params(
+                &self.format_params(
                     body.params
                         .iter()
                         .map(|(_idx, param)| param)
@@ -49,14 +49,14 @@ impl<'a> Pretty<'a> {
                 msg.push_str(&format!(
                     "{}{}: {{\n",
                     hir::testing::Pretty::format_indent(1),
-                    self.debug_bb_name(basic_block)
+                    self.format_bb_name(basic_block)
                 ));
 
                 for statement in &basic_block.statements {
                     msg.push_str(&format!(
                         "{}{}\n",
                         hir::testing::Pretty::format_indent(2),
-                        self.debug_statement(statement, body)
+                        self.format_statement(statement, body)
                     ));
                 }
 
@@ -64,7 +64,7 @@ impl<'a> Pretty<'a> {
                     msg.push_str(&format!(
                         "{}{}\n",
                         hir::testing::Pretty::format_indent(2),
-                        self.debug_termination(termination, body)
+                        self.format_termination(termination, body)
                     ));
                 }
 
@@ -77,7 +77,7 @@ impl<'a> Pretty<'a> {
         msg
     }
 
-    fn debug_path(&self, path: &hir::Path) -> String {
+    fn format_path(&self, path: &hir::Path) -> String {
         let mut msg = "".to_string();
         for (idx, segment) in path.segments(self.db).iter().enumerate() {
             if idx > 0 {
@@ -88,30 +88,30 @@ impl<'a> Pretty<'a> {
         msg
     }
 
-    fn debug_params(&self, params: Vec<&crate::Param>) -> String {
+    fn format_params(&self, params: Vec<&crate::Param>) -> String {
         params
             .iter()
-            .map(|param| self.debug_param(param))
+            .map(|param| self.format_param(param))
             .collect::<Vec<String>>()
             .join(", ")
     }
 
-    fn debug_param(&self, param: &crate::Param) -> String {
+    fn format_param(&self, param: &crate::Param) -> String {
         format!("_{}: {}", param.idx, self.debug_ty(&param.ty))
     }
 
-    fn debug_statement(&self, statement: &crate::Statement, body: &crate::Body) -> String {
+    fn format_statement(&self, statement: &crate::Statement, body: &crate::Body) -> String {
         match statement {
             crate::Statement::Assign { place, value } => {
-                let place_msg = self.debug_place(place, body);
-                let value_msg = self.debug_value(value, body);
+                let place_msg = self.format_place(place, body);
+                let value_msg = self.format_value(value, body);
 
                 format!("{place_msg} = {value_msg}")
             }
         }
     }
 
-    fn debug_place(&self, place: &crate::Place, body: &crate::Body) -> String {
+    fn format_place(&self, place: &crate::Place, body: &crate::Body) -> String {
         match place {
             crate::Place::Param(param_idx) => {
                 let param = &body.params[*param_idx];
@@ -124,9 +124,9 @@ impl<'a> Pretty<'a> {
         }
     }
 
-    fn debug_value(&self, value: &crate::Value, body: &crate::Body) -> String {
+    fn format_value(&self, value: &crate::Value, body: &crate::Body) -> String {
         match value {
-            crate::Value::Operand(operand) => self.debug_operand(operand, body),
+            crate::Value::Operand(operand) => self.format_operand(operand, body),
             crate::Value::BinaryOp { op, left, right } => {
                 let function_name = match op {
                     crate::BinaryOp::Add => "add",
@@ -141,8 +141,8 @@ impl<'a> Pretty<'a> {
                     crate::BinaryOp::LtEq => "lteq",
                 }
                 .to_string();
-                let left = self.debug_operand(left, body);
-                let right = self.debug_operand(right, body);
+                let left = self.format_operand(left, body);
+                let right = self.format_operand(right, body);
 
                 format!("{function_name}({left}, {right})")
             }
@@ -152,7 +152,7 @@ impl<'a> Pretty<'a> {
                     crate::UnaryOp::Not => "not",
                 }
                 .to_string();
-                let expr = self.debug_operand(expr, body);
+                let expr = self.format_operand(expr, body);
 
                 format!("{function_name}({expr})")
             }
@@ -164,7 +164,7 @@ impl<'a> Pretty<'a> {
                         hir::StructKind::Tuple(_) => {
                             let operands = operands
                                 .iter()
-                                .map(|operand| self.debug_operand(operand, body))
+                                .map(|operand| self.format_operand(operand, body))
                                 .collect::<Vec<String>>()
                                 .join(", ");
                             format!("{struct_name}({operands})")
@@ -177,7 +177,7 @@ impl<'a> Pretty<'a> {
                                     format!(
                                         "{}: {}",
                                         field.name.text(self.db),
-                                        self.debug_operand(operand, body)
+                                        self.format_operand(operand, body)
                                     )
                                 })
                                 .collect::<Vec<String>>()
@@ -194,7 +194,7 @@ impl<'a> Pretty<'a> {
         }
     }
 
-    fn debug_constant(&self, constant: &crate::Constant) -> String {
+    fn format_constant(&self, constant: &crate::Constant) -> String {
         let const_value = match constant {
             crate::Constant::Integer(integer) => integer.to_string(),
             crate::Constant::Boolean(boolean) => boolean.to_string(),
@@ -204,14 +204,14 @@ impl<'a> Pretty<'a> {
         format!("const {const_value}")
     }
 
-    fn debug_operand(&self, operand: &crate::Operand, body: &crate::Body) -> String {
+    fn format_operand(&self, operand: &crate::Operand, body: &crate::Body) -> String {
         match operand {
-            crate::Operand::Place(place) => self.debug_place(place, body),
-            crate::Operand::Constant(constant) => self.debug_constant(constant),
+            crate::Operand::Place(place) => self.format_place(place, body),
+            crate::Operand::Constant(constant) => self.format_constant(constant),
         }
     }
 
-    fn debug_termination(&self, termination: &crate::Termination, body: &crate::Body) -> String {
+    fn format_termination(&self, termination: &crate::Termination, body: &crate::Body) -> String {
         match termination {
             crate::Termination::Return(return_local_idx) => {
                 let return_local = &body.locals[*return_local_idx];
@@ -219,16 +219,16 @@ impl<'a> Pretty<'a> {
             }
             crate::Termination::Goto(to_bb_idx) => {
                 let to_bb = &body.blocks[*to_bb_idx];
-                format!("goto -> {}", self.debug_bb_name(to_bb))
+                format!("goto -> {}", self.format_bb_name(to_bb))
             }
             crate::Termination::Switch {
                 condition,
                 then_bb,
                 else_bb,
             } => {
-                let condition = self.debug_place(condition, body);
-                let then_bb_name = self.debug_bb_name_by_idx(*then_bb, body);
-                let else_bb_name = self.debug_bb_name_by_idx(*else_bb, body);
+                let condition = self.format_place(condition, body);
+                let then_bb_name = self.format_bb_name_by_idx(*then_bb, body);
+                let else_bb_name = self.format_bb_name_by_idx(*else_bb, body);
                 format!("switch({condition}) -> [true: {then_bb_name}, false: {else_bb_name}]")
             }
             crate::Termination::Call {
@@ -240,18 +240,18 @@ impl<'a> Pretty<'a> {
                 let function = self.mir_result.body_by_function[function];
                 let function_name = self.mir_result.bodies[function].name;
                 let function_name = function_name.text(self.db);
-                let args = self.debug_args(args, body);
-                let dest = self.debug_place(destination, body);
-                let target_bb_name = self.debug_bb_name_by_idx(*target, body);
+                let args = self.format_args(args, body);
+                let dest = self.format_place(destination, body);
+                let target_bb_name = self.format_bb_name_by_idx(*target, body);
 
                 format!("{dest} = {function_name}({args}) -> [return: {target_bb_name}]")
             }
         }
     }
 
-    fn debug_args(&self, args: &[crate::Operand], body: &crate::Body) -> String {
+    fn format_args(&self, args: &[crate::Operand], body: &crate::Body) -> String {
         args.iter()
-            .map(|arg| self.debug_operand(arg, body))
+            .map(|arg| self.format_operand(arg, body))
             .collect::<Vec<String>>()
             .join(", ")
     }
@@ -275,16 +275,16 @@ impl<'a> Pretty<'a> {
         .to_string()
     }
 
-    fn debug_bb_name_by_idx(
+    fn format_bb_name_by_idx(
         &self,
         basic_block_idx: crate::Idx<crate::BasicBlock>,
         body: &crate::Body,
     ) -> String {
         let basic_block = &body.blocks[basic_block_idx];
-        self.debug_bb_name(basic_block)
+        self.format_bb_name(basic_block)
     }
 
-    fn debug_bb_name(&self, basic_block: &crate::BasicBlock) -> String {
+    fn format_bb_name(&self, basic_block: &crate::BasicBlock) -> String {
         basic_block.name()
     }
 }

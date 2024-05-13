@@ -500,7 +500,7 @@ mod tests {
 
         let mir_result = lower_pods(&db, &pods, &ty_hir_result);
 
-        expect.assert_eq(&crate::testing::Pretty::new(&db, &mir_result).debug());
+        expect.assert_eq(&crate::testing::Pretty::new(&db, &mir_result).format());
     }
 
     fn check_in_root_file(fixture: &str, expect: Expect) {

@@ -1615,6 +1615,143 @@ mod tests {
     }
 
     #[test]
+    fn parse_if_expr_condition_struct_record_init_is_error() {
+        check_debug_tree_in_block(
+            r#"
+                struct A { x: bool }
+                if A { x: true } { 10 }
+            "#,
+            expect![[r#"
+                SourceFile@0..90
+                  Whitespace@0..17 "\n                "
+                  StructDef@17..37
+                    StructKw@17..23 "struct"
+                    Whitespace@23..24 " "
+                    Ident@24..25 "A"
+                    Whitespace@25..26 " "
+                    RecordFieldList@26..37
+                      LCurly@26..27 "{"
+                      Whitespace@27..28 " "
+                      RecordField@28..35
+                        Ident@28..29 "x"
+                        Colon@29..30 ":"
+                        Whitespace@30..31 " "
+                        PathType@31..35
+                          Path@31..35
+                            PathSegment@31..35
+                              Ident@31..35 "bool"
+                      Whitespace@35..36 " "
+                      RCurly@36..37 "}"
+                  Whitespace@37..54 "\n                "
+                  ExprStmt@54..70
+                    IfExpr@54..70
+                      IfKw@54..56 "if"
+                      Whitespace@56..57 " "
+                      PathExpr@57..58
+                        Path@57..58
+                          PathSegment@57..58
+                            Ident@57..58 "A"
+                      Whitespace@58..59 " "
+                      BlockExpr@59..70
+                        LCurly@59..60 "{"
+                        Whitespace@60..61 " "
+                        ExprStmt@61..62
+                          PathExpr@61..62
+                            Path@61..62
+                              PathSegment@61..62
+                                Ident@61..62 "x"
+                        ExprStmt@62..63
+                          Error@62..63
+                            Colon@62..63 ":"
+                        Whitespace@63..64 " "
+                        ExprStmt@64..68
+                          Literal@64..68
+                            TrueKw@64..68 "true"
+                        Whitespace@68..69 " "
+                        RCurly@69..70 "}"
+                  Whitespace@70..71 " "
+                  ExprStmt@71..77
+                    BlockExpr@71..77
+                      LCurly@71..72 "{"
+                      Whitespace@72..73 " "
+                      ExprStmt@73..75
+                        Literal@73..75
+                          Integer@73..75 "10"
+                      Whitespace@75..76 " "
+                      RCurly@76..77 "}"
+                  Whitespace@77..90 "\n            "
+                error at 62..63: expected '::', '{', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ';', '}', 'let', 'fn', 'struct', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found ':'
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_if_expr_condition_struct_record_init_around_paren_is_ok() {
+        check_debug_tree_in_block(
+            r#"
+                struct A { x: bool }
+                if (A { x: true }) { 10 }
+            "#,
+            expect![[r#"
+                SourceFile@0..92
+                  Whitespace@0..17 "\n                "
+                  StructDef@17..37
+                    StructKw@17..23 "struct"
+                    Whitespace@23..24 " "
+                    Ident@24..25 "A"
+                    Whitespace@25..26 " "
+                    RecordFieldList@26..37
+                      LCurly@26..27 "{"
+                      Whitespace@27..28 " "
+                      RecordField@28..35
+                        Ident@28..29 "x"
+                        Colon@29..30 ":"
+                        Whitespace@30..31 " "
+                        PathType@31..35
+                          Path@31..35
+                            PathSegment@31..35
+                              Ident@31..35 "bool"
+                      Whitespace@35..36 " "
+                      RCurly@36..37 "}"
+                  Whitespace@37..54 "\n                "
+                  ExprStmt@54..79
+                    IfExpr@54..79
+                      IfKw@54..56 "if"
+                      Whitespace@56..57 " "
+                      ParenExpr@57..72
+                        LParen@57..58 "("
+                        RecordExpr@58..71
+                          Path@58..59
+                            PathSegment@58..59
+                              Ident@58..59 "A"
+                          Whitespace@59..60 " "
+                          RecordFieldListExpr@60..71
+                            LCurly@60..61 "{"
+                            Whitespace@61..62 " "
+                            RecordFieldExpr@62..69
+                              Ident@62..63 "x"
+                              Colon@63..64 ":"
+                              Whitespace@64..65 " "
+                              Literal@65..69
+                                TrueKw@65..69 "true"
+                            Whitespace@69..70 " "
+                            RCurly@70..71 "}"
+                        RParen@71..72 ")"
+                      Whitespace@72..73 " "
+                      BlockExpr@73..79
+                        LCurly@73..74 "{"
+                        Whitespace@74..75 " "
+                        ExprStmt@75..77
+                          Literal@75..77
+                            Integer@75..77 "10"
+                        Whitespace@77..78 " "
+                        RCurly@78..79 "}"
+                  Whitespace@79..92 "\n            "
+            "#]],
+        );
+    }
+
+    #[test]
     fn parse_if_is_expr() {
         check_debug_tree_in_block(
             "let a = if true { 10 } else { 20 }",

@@ -439,7 +439,6 @@ fn parse_loop(parser: &mut Parser) -> CompletedNodeMarker {
 
     let marker = parser.start();
     parser.bump();
-    parse_expr(parser);
 
     if parser.at(TokenKind::LCurly) {
         parse_block(parser);

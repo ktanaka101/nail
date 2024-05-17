@@ -32,7 +32,41 @@ pub(super) const ITEM_FIRST: &[TokenKind] = &[TokenKind::FnKw, TokenKind::ModKw]
 
 /// 式のパース
 pub(super) fn parse_expr(parser: &mut Parser) -> Option<CompletedNodeMarker> {
-    parse_expr_binding_power(parser, 0)
+    parse_expr_binding_power(parser, 0, false)
+}
+
+/// 次の要素がブロックであっても、安全に式としてパースするための関数
+///
+/// ```ignore
+/// let x = true;
+/// if x {
+///   10
+/// }
+/// ```
+///
+/// 以下のように、if式やwhile式では条件部分に構造体の初期化式を書くとボディブロックと構造体初期化ブロックが曖昧になるため、
+/// 回避するために`parse_expr`ではなく`parse_expr_block_safe`を使用する。
+/// ```ignore
+/// struct A { x: bool }
+/// if A { x: true }.x {
+///   10
+/// }
+/// ```
+///
+/// 仕様としては、以下のように次の要素がブロックの場合は`()`で囲む必要がある。
+/// ```ignore
+/// struct A { x: bool }
+/// if A { x: true }.x { // エラー
+///   10
+/// }
+///
+/// if (A { x: true }.x) { // OK
+///   10
+/// }
+/// ```
+///
+fn parse_expr_block_safe(parser: &mut Parser) -> Option<CompletedNodeMarker> {
+    parse_expr_binding_power(parser, 0, true)
 }
 
 /// 優先順位を考慮した式のパース
@@ -50,8 +84,9 @@ pub(super) fn parse_expr(parser: &mut Parser) -> Option<CompletedNodeMarker> {
 fn parse_expr_binding_power(
     parser: &mut Parser,
     minimum_binding_power: u8,
+    block_safe: bool,
 ) -> Option<CompletedNodeMarker> {
-    let mut lhs = parse_lhs(parser)?;
+    let mut lhs = parse_lhs(parser, block_safe)?;
 
     loop {
         let op = if parser.at(TokenKind::Plus) {
@@ -89,7 +124,7 @@ fn parse_expr_binding_power(
         parser.bump();
 
         let marker = lhs.precede(parser);
-        let parsed_rhs = parse_expr_binding_power(parser, right_binding_power);
+        let parsed_rhs = parse_expr_binding_power(parser, right_binding_power, false);
         lhs = marker.complete(parser, SyntaxKind::BinaryExpr);
 
         if parsed_rhs.is_none() {
@@ -162,7 +197,7 @@ impl PrefixOp {
 }
 
 /// 左辺のパース
-fn parse_lhs(parser: &mut Parser) -> Option<CompletedNodeMarker> {
+fn parse_lhs(parser: &mut Parser, block_safe: bool) -> Option<CompletedNodeMarker> {
     // 関数呼び出しの場合はCallノードとしたいが、そうでない場合はラップしたくないので、destroyを呼ぶ可能性がある
     // 以下のようなイメージ。
     // 関数呼び出しの場合: ExprStmt -> CallExpr   -> PathExpr -> ArgListExpr
@@ -176,8 +211,10 @@ fn parse_lhs(parser: &mut Parser) -> Option<CompletedNodeMarker> {
         || parser.at(TokenKind::FalseKw)
     {
         parse_literal(parser)
-    } else if parser.at(TokenKind::Ident) {
+    } else if !block_safe && parser.at(TokenKind::Ident) {
         parse_path_expr_or_record_expr(parser)
+    } else if block_safe && parser.at(TokenKind::Ident) {
+        parse_path_expr(parser)
     } else if parser.at_set(&[TokenKind::Minus, TokenKind::Bang]) {
         parse_prefix_expr(parser)
     } else if parser.at(TokenKind::LParen) {
@@ -274,6 +311,15 @@ fn parse_path_expr_or_record_expr(parser: &mut Parser) -> CompletedNodeMarker {
     }
 }
 
+/// パス式のパース
+fn parse_path_expr(parser: &mut Parser) -> CompletedNodeMarker {
+    assert!(parser.at(TokenKind::Ident));
+
+    let marker = parser.start();
+    parse_path(parser, &BLOCK_RECOVERY_SET);
+    marker.complete(parser, SyntaxKind::PathExpr)
+}
+
 /// 関数呼び出しの引数のパース
 /// `(arg1, arg2, ...)`
 fn parse_args(parser: &mut Parser) -> CompletedNodeMarker {
@@ -315,7 +361,7 @@ fn parse_prefix_expr(parser: &mut Parser) -> CompletedNodeMarker {
 
     parser.bump();
 
-    parse_expr_binding_power(parser, right_binding_power);
+    parse_expr_binding_power(parser, right_binding_power, false);
 
     marker.complete(parser, SyntaxKind::UnaryExpr)
 }
@@ -328,7 +374,7 @@ fn parse_paren_expr(parser: &mut Parser) -> CompletedNodeMarker {
 
     let marker = parser.start();
     parser.bump();
-    parse_expr_binding_power(parser, 0);
+    parse_expr_binding_power(parser, 0, false);
     parser.expect_on_block(TokenKind::RParen);
 
     marker.complete(parser, SyntaxKind::ParenExpr)
@@ -357,7 +403,7 @@ fn parse_if(parser: &mut Parser) -> CompletedNodeMarker {
 
     let marker = parser.start();
     parser.bump();
-    parse_expr(parser);
+    parse_expr_block_safe(parser);
 
     if parser.at(TokenKind::LCurly) {
         parse_block(parser);
@@ -432,7 +478,7 @@ fn parse_while(parser: &mut Parser) -> CompletedNodeMarker {
 
     let marker = parser.start();
     parser.bump();
-    parse_expr(parser);
+    parse_expr_block_safe(parser);
 
     if parser.at(TokenKind::LCurly) {
         parse_block(parser);
@@ -1532,6 +1578,44 @@ mod tests {
     }
 
     #[test]
+    fn parse_if_expr_condition_variable() {
+        check_debug_tree_in_block(
+            "let a = true; if a { 10 }",
+            expect![[r#"
+                SourceFile@0..25
+                  Let@0..13
+                    LetKw@0..3 "let"
+                    Whitespace@3..4 " "
+                    Ident@4..5 "a"
+                    Whitespace@5..6 " "
+                    Eq@6..7 "="
+                    Whitespace@7..8 " "
+                    Literal@8..12
+                      TrueKw@8..12 "true"
+                    Semicolon@12..13 ";"
+                  Whitespace@13..14 " "
+                  ExprStmt@14..25
+                    IfExpr@14..25
+                      IfKw@14..16 "if"
+                      Whitespace@16..17 " "
+                      PathExpr@17..18
+                        Path@17..18
+                          PathSegment@17..18
+                            Ident@17..18 "a"
+                      Whitespace@18..19 " "
+                      BlockExpr@19..25
+                        LCurly@19..20 "{"
+                        Whitespace@20..21 " "
+                        ExprStmt@21..23
+                          Literal@21..23
+                            Integer@21..23 "10"
+                        Whitespace@23..24 " "
+                        RCurly@24..25 "}"
+            "#]],
+        );
+    }
+
+    #[test]
     fn parse_if_is_expr() {
         check_debug_tree_in_block(
             "let a = if true { 10 } else { 20 }",
@@ -2222,6 +2306,44 @@ mod tests {
                       Whitespace@5..6 " "
                       Literal@6..10
                         TrueKw@6..10 "true"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_while_condition_variable() {
+        check_debug_tree_in_block(
+            "let a = true; while a { 10 }",
+            expect![[r#"
+                SourceFile@0..28
+                  Let@0..13
+                    LetKw@0..3 "let"
+                    Whitespace@3..4 " "
+                    Ident@4..5 "a"
+                    Whitespace@5..6 " "
+                    Eq@6..7 "="
+                    Whitespace@7..8 " "
+                    Literal@8..12
+                      TrueKw@8..12 "true"
+                    Semicolon@12..13 ";"
+                  Whitespace@13..14 " "
+                  ExprStmt@14..28
+                    WhileExpr@14..28
+                      WhileKw@14..19 "while"
+                      Whitespace@19..20 " "
+                      PathExpr@20..21
+                        Path@20..21
+                          PathSegment@20..21
+                            Ident@20..21 "a"
+                      Whitespace@21..22 " "
+                      BlockExpr@22..28
+                        LCurly@22..23 "{"
+                        Whitespace@23..24 " "
+                        ExprStmt@24..26
+                          Literal@24..26
+                            Integer@24..26 "10"
+                        Whitespace@26..27 " "
+                        RCurly@27..28 "}"
             "#]],
         );
     }

@@ -233,6 +233,10 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                     let ty = self.context.bool_type();
                     ty.fn_type(&params, false)
                 }
+                hir_ty::Monotype::Struct(struct_) => {
+                    let ty = self.declaration_structs.get(&struct_).unwrap();
+                    ty.fn_type(&params, false)
+                }
                 _ => unimplemented!(),
             };
 
@@ -906,33 +910,40 @@ mod tests {
 
                 declare ptr @ptr_to_string(i64, ptr, i64)
 
-                define i64 @main() {
+                define %Point @main() {
                 start:
-                  %"0" = alloca i64, align 8
+                  %"0" = alloca %Point, align 8
                   %"1" = alloca %Point, align 8
-                  %"2" = alloca %Point, align 8
+                  %"2" = alloca i64, align 8
+                  %"3" = alloca i64, align 8
+                  %"4" = alloca %Point, align 8
                   br label %entry
 
                 entry:                                            ; preds = %start
+                  store i64 30, ptr %"2", align 8
+                  store i64 70, ptr %"3", align 8
+                  %load = load i64, ptr %"3", align 8
+                  %load1 = load i64, ptr %"2", align 8
                   %struct_val = alloca %Point, align 8
                   %struct_val_field = getelementptr inbounds %Point, ptr %struct_val, i32 0, i32 0
-                  store i64 10, ptr %struct_val_field, align 8
-                  %struct_val_field1 = getelementptr inbounds %Point, ptr %struct_val, i32 0, i32 1
-                  store i64 20, ptr %struct_val_field1, align 8
-                  store ptr %struct_val, ptr %"2", align 8
-                  %load = load %Point, ptr %"2", align 8
-                  store %Point %load, ptr %"1", align 8
-                  store i64 10, ptr %"0", align 8
+                  store i64 %load, ptr %struct_val_field, align 8
+                  %struct_val_field2 = getelementptr inbounds %Point, ptr %struct_val, i32 0, i32 1
+                  store i64 %load1, ptr %struct_val_field2, align 8
+                  store ptr %struct_val, ptr %"4", align 8
+                  %load3 = load %Point, ptr %"4", align 8
+                  store %Point %load3, ptr %"1", align 8
+                  %load4 = load %Point, ptr %"4", align 8
+                  store %Point %load4, ptr %"0", align 8
                   br label %exit
 
                 exit:                                             ; preds = %entry
-                  %load2 = load i64, ptr %"0", align 8
-                  ret i64 %load2
+                  %load5 = load %Point, ptr %"0", align 8
+                  ret %Point %load5
                 }
 
                 define ptr @__main__() {
                 start:
-                  %call_entry_point = call i64 @main()
+                  %call_entry_point = call %Point @main()
                   ret void
                 }
             "#]],

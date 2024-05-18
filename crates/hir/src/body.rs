@@ -79,6 +79,7 @@ pub struct HirFileDatabase {
     green_node: NailGreenNode,
 
     functions: Vec<Function>,
+    structs: Vec<Struct>,
     modules: Vec<Module>,
 
     params: Arena<ParamData>,
@@ -99,6 +100,7 @@ impl HirFileDatabase {
         Self {
             green_node: nail_green_node,
             functions: vec![],
+            structs: vec![],
             modules: vec![],
             params: Arena::new(),
             exprs: Arena::new(),
@@ -112,6 +114,11 @@ impl HirFileDatabase {
     /// 1ファイル中のHIR化で現れた関数一覧を返します。
     pub fn functions(&self) -> &[Function] {
         &self.functions
+    }
+
+    /// 1ファイル中のHIR化で現れた構造体一覧を返します。
+    pub fn structs(&self) -> &[Struct] {
+        &self.structs
     }
 
     /// 1ファイル中のHIR化で現れたモジュール一覧を返します。
@@ -337,7 +344,10 @@ impl<'a> BodyLower<'a> {
             ast::StructKind::Unit => StructKind::Unit,
         };
 
-        Some(Struct::new(db, name, kind))
+        let struct_ = Struct::new(db, name, kind);
+        self.hir_file_db.structs.push(struct_);
+
+        Some(struct_)
     }
 
     /// モジュールのHIRを構築します。

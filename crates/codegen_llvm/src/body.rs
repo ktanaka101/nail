@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use inkwell::{
     basic_block::BasicBlock,
-    types::BasicTypeEnum,
-    values::{BasicMetadataValueEnum, BasicValueEnum, FunctionValue, PointerValue},
+    types::{BasicType, BasicTypeEnum},
+    values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, PointerValue},
 };
 
 use crate::Codegen;
@@ -46,6 +46,10 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                 hir_ty::Monotype::String => self.codegen.string_type().into(),
                 hir_ty::Monotype::Bool => self.codegen.bool_type().into(),
                 hir_ty::Monotype::Char => todo!(),
+                hir_ty::Monotype::Struct(struct_) => {
+                    let struct_ty = self.codegen.declaration_structs.get(&struct_).unwrap();
+                    struct_ty.as_basic_type_enum()
+                }
                 // Never用にUnitを確保した方がいいかも？
                 hir_ty::Monotype::Never => continue,
                 hir_ty::Monotype::Function(_) => todo!(),
@@ -229,6 +233,42 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                                     .into(),
                             }
                         }
+                        mir::Value::Aggregate { kind, operands } => match kind {
+                            mir::AggregateKind::Struct(struct_) => {
+                                let mut values = vec![];
+                                for operand in operands {
+                                    let operand = self.gen_operand(operand);
+                                    values.push(operand);
+                                }
+
+                                let struct_ty = self.codegen.declaration_structs[struct_];
+
+                                let struct_ptr = self
+                                    .codegen
+                                    .builder
+                                    .build_alloca(struct_ty, "struct_val")
+                                    .unwrap();
+
+                                for (i, value) in values.iter().enumerate() {
+                                    let field_ptr = self
+                                        .codegen
+                                        .builder
+                                        .build_struct_gep(
+                                            struct_ty,
+                                            struct_ptr,
+                                            i.try_into().unwrap(),
+                                            "struct_val_field",
+                                        )
+                                        .unwrap();
+                                    self.codegen
+                                        .builder
+                                        .build_store(field_ptr, value.as_basic_value_enum())
+                                        .unwrap();
+                                }
+
+                                struct_ptr.into()
+                            }
+                        },
                     };
 
                     match place {

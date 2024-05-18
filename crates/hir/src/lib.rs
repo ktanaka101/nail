@@ -154,6 +154,33 @@ impl Pod {
         functions
     }
 
+    /// Pod内の構造体を全て返します。
+    pub fn all_structs(&self, db: &dyn HirMasterDatabase) -> Vec<(HirFile, Struct)> {
+        let mut structs = vec![];
+
+        structs.append(
+            &mut self
+                .root_hir_file
+                .structs(db)
+                .iter()
+                .map(|struct_| (self.root_hir_file, *struct_))
+                .collect::<Vec<_>>(),
+        );
+
+        for nail_file in &self.registration_order {
+            let hir_file = self.get_hir_file_by_file(*nail_file).unwrap();
+            structs.append(
+                &mut hir_file
+                    .structs(db)
+                    .iter()
+                    .map(|struct_| (*hir_file, *struct_))
+                    .collect::<Vec<_>>(),
+            );
+        }
+
+        structs
+    }
+
     /// Nailファイルを元にソースマップを返します。
     pub fn source_map_by_function(
         &self,
@@ -427,6 +454,11 @@ impl HirFile {
     /// ファイル内の関数一覧を返します。
     pub fn functions<'a>(&self, db: &'a dyn HirMasterDatabase) -> &'a [Function] {
         self.db(db).functions()
+    }
+
+    /// ファイル内の構造体一覧を返します。
+    pub fn structs<'a>(&self, db: &'a dyn HirMasterDatabase) -> &'a [Struct] {
+        self.db(db).structs()
     }
 
     /// ファイル内のモジュール一覧を返します。

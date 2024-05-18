@@ -13,7 +13,7 @@ use inkwell::{
     context::Context,
     execution_engine::{ExecutionEngine, JitFunction},
     module::Module,
-    types::{BasicMetadataTypeEnum, FunctionType, IntType, PointerType, StructType},
+    types::{BasicMetadataTypeEnum, BasicTypeEnum, FunctionType, IntType, PointerType, StructType},
     values::{FunctionValue, PointerValue},
     AddressSpace,
 };
@@ -36,12 +36,14 @@ pub struct CodegenContext<'a, 'ctx> {
 /// LLVM IRを生成します。
 pub fn codegen<'a, 'ctx>(
     db: &'a dyn hir::HirMasterDatabase,
+    pods: &'a hir::Pods,
     mir_result: &'a mir::LowerResult,
     codegen_context: &'a CodegenContext<'a, 'ctx>,
     should_return_string: bool,
 ) -> CodegenResult<'ctx> {
     let codegen = Codegen::new(
         db,
+        pods,
         mir_result,
         codegen_context.context,
         codegen_context.module,
@@ -62,6 +64,7 @@ pub struct CodegenResult<'ctx> {
 
 struct Codegen<'a, 'ctx> {
     db: &'a dyn hir::HirMasterDatabase,
+    pods: &'a hir::Pods,
     mir_result: &'a mir::LowerResult,
 
     context: &'ctx Context,
@@ -73,11 +76,14 @@ struct Codegen<'a, 'ctx> {
 
     defined_functions: HashMap<mir::FunctionId, FunctionValue<'ctx>>,
     entry_blocks: HashMap<mir::FunctionId, BasicBlock<'ctx>>,
+
+    declaration_structs: HashMap<hir::Struct, StructType<'ctx>>,
 }
 
 impl<'a, 'ctx> Codegen<'a, 'ctx> {
     fn new(
         db: &'a dyn hir::HirMasterDatabase,
+        pods: &'a hir::Pods,
         mir_result: &'a mir::LowerResult,
         context: &'ctx Context,
         module: &'a Module<'ctx>,
@@ -87,6 +93,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         let mut codegen = Self {
             db,
             mir_result,
+            pods,
             context,
             module,
             builder,
@@ -94,6 +101,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             builtin_functions: HashMap::new(),
             defined_functions: HashMap::new(),
             entry_blocks: HashMap::new(),
+            declaration_structs: HashMap::new(),
         };
         codegen.add_builtin_function();
 
@@ -110,7 +118,12 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             unimplemented!();
         }
 
+        self.emit_structs_declaration();
+
         self.gen_function_signatures(self.db);
+
+        self.emit_structs_body();
+
         self.gen_functions();
 
         let result = {
@@ -245,6 +258,68 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             body_codegen.gen();
         }
     }
+
+    fn emit_structs_declaration(&mut self) {
+        for (_, struct_) in self.pods.root_pod.all_structs(self.db) {
+            self.declaration_structs.insert(
+                struct_,
+                self.context
+                    .opaque_struct_type(struct_.name(self.db).text(self.db)),
+            );
+        }
+    }
+
+    fn emit_structs_body(&mut self) {
+        for (_, struct_) in self.pods.root_pod.all_structs(self.db) {
+            let declaration_struct = self.declaration_structs.get(&struct_).unwrap();
+
+            match struct_.kind(self.db) {
+                hir::StructKind::Tuple(fields) => {
+                    let field_types = fields
+                        .iter()
+                        .map(|field| self.hir_type_to_llvm_type(field))
+                        .collect::<Vec<_>>();
+
+                    declaration_struct.set_body(&field_types, false);
+                }
+                hir::StructKind::Record(fields) => {
+                    let field_types = fields
+                        .iter()
+                        .map(|field| self.hir_type_to_llvm_type(&field.ty))
+                        .collect::<Vec<_>>();
+
+                    declaration_struct.set_body(&field_types, false);
+                }
+                hir::StructKind::Unit => (),
+            }
+        }
+    }
+
+    fn hir_type_to_llvm_type(&self, ty: &hir::Type) -> BasicTypeEnum<'ctx> {
+        match ty {
+            hir::Type::Integer => self.integer_type().into(),
+            hir::Type::String => self.string_type().into(),
+            hir::Type::Boolean => self.bool_type().into(),
+            hir::Type::Unit => self.unit_type().into(),
+            hir::Type::Custom(symbol) => match symbol {
+                hir::Symbol::MissingType { path } => {
+                    match self.pods.resolution_map.item_by_symbol(path).unwrap() {
+                        hir::ResolutionStatus::Resolved { item, .. } => match item {
+                            hir::Item::Struct(struct_) => {
+                                (*self.declaration_structs.get(&struct_).unwrap()).into()
+                            }
+                            _ => unimplemented!(),
+                        },
+                        _ => unimplemented!(),
+                    }
+                }
+                hir::Symbol::Param { .. }
+                | hir::Symbol::Local { .. }
+                | hir::Symbol::MissingExpr { .. } => unimplemented!(),
+            },
+            _ => unimplemented!(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -279,7 +354,7 @@ mod tests {
         let mut fixture = fixture.to_string();
         fixture.insert_str(0, "//- /main.nail\n");
 
-        let (db, _pods, _ty_result, mir_result) = lower(&fixture);
+        let (db, pods, _ty_result, mir_result) = lower(&fixture);
 
         let context = Context::create();
         let module = context.create_module("top");
@@ -289,6 +364,7 @@ mod tests {
             .unwrap();
         let result = codegen(
             &db,
+            &pods,
             &mir_result,
             &CodegenContext {
                 context: &context,
@@ -316,7 +392,7 @@ mod tests {
     }
 
     fn check_pod_result_start_with_root_file(fixture: &str, expect: Expect) {
-        let (db, _pods, _ty_result, mir_result) = lower(fixture);
+        let (db, pods, _ty_result, mir_result) = lower(fixture);
 
         let context = Context::create();
         let module = context.create_module("top");
@@ -326,6 +402,7 @@ mod tests {
             .unwrap();
         codegen(
             &db,
+            &pods,
             &mir_result,
             &CodegenContext {
                 context: &context,
@@ -749,6 +826,108 @@ mod tests {
                 exit:                                             ; preds = %entry
                   %load1 = load i64, ptr %"0", align 8
                   ret i64 %load1
+                }
+
+                define ptr @__main__() {
+                start:
+                  %call_entry_point = call i64 @main()
+                  ret void
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_ir_structs() {
+        check_ir_in_root_file(
+            r#"
+                struct Point { x: int, y: int }
+                fn main() -> int {
+                    let point = Point { x: 10, y: 20 };
+                    10
+                }
+            "#,
+            expect![[r#"
+                ; ModuleID = 'top'
+                source_filename = "top"
+
+                %Point = type { i64, i64 }
+
+                declare ptr @ptr_to_string(i64, ptr, i64)
+
+                define i64 @main() {
+                start:
+                  %"0" = alloca i64, align 8
+                  %"1" = alloca %Point, align 8
+                  %"2" = alloca %Point, align 8
+                  br label %entry
+
+                entry:                                            ; preds = %start
+                  %struct_val = alloca %Point, align 8
+                  %struct_val_field = getelementptr inbounds %Point, ptr %struct_val, i32 0, i32 0
+                  store i64 10, ptr %struct_val_field, align 8
+                  %struct_val_field1 = getelementptr inbounds %Point, ptr %struct_val, i32 0, i32 1
+                  store i64 20, ptr %struct_val_field1, align 8
+                  store ptr %struct_val, ptr %"2", align 8
+                  %load = load %Point, ptr %"2", align 8
+                  store %Point %load, ptr %"1", align 8
+                  store i64 10, ptr %"0", align 8
+                  br label %exit
+
+                exit:                                             ; preds = %entry
+                  %load2 = load i64, ptr %"0", align 8
+                  ret i64 %load2
+                }
+
+                define ptr @__main__() {
+                start:
+                  %call_entry_point = call i64 @main()
+                  ret void
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_ir_structs_order() {
+        check_ir_in_root_file(
+            r#"
+                struct Point { x: int, y: int }
+                fn main() -> Point {
+                    let point = Point { y: 10 + 20, x: 30 + 40 };
+                    point
+                }
+        "#,
+            expect![[r#"
+                ; ModuleID = 'top'
+                source_filename = "top"
+
+                %Point = type { i64, i64 }
+
+                declare ptr @ptr_to_string(i64, ptr, i64)
+
+                define i64 @main() {
+                start:
+                  %"0" = alloca i64, align 8
+                  %"1" = alloca %Point, align 8
+                  %"2" = alloca %Point, align 8
+                  br label %entry
+
+                entry:                                            ; preds = %start
+                  %struct_val = alloca %Point, align 8
+                  %struct_val_field = getelementptr inbounds %Point, ptr %struct_val, i32 0, i32 0
+                  store i64 10, ptr %struct_val_field, align 8
+                  %struct_val_field1 = getelementptr inbounds %Point, ptr %struct_val, i32 0, i32 1
+                  store i64 20, ptr %struct_val_field1, align 8
+                  store ptr %struct_val, ptr %"2", align 8
+                  %load = load %Point, ptr %"2", align 8
+                  store %Point %load, ptr %"1", align 8
+                  store i64 10, ptr %"0", align 8
+                  br label %exit
+
+                exit:                                             ; preds = %entry
+                  %load2 = load i64, ptr %"0", align 8
+                  ret i64 %load2
                 }
 
                 define ptr @__main__() {

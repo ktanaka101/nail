@@ -2177,6 +2177,37 @@ mod tests {
     }
 
     #[test]
+    fn if_expr_with_variable() {
+        check_in_root_file(
+            r#"
+                fn main() -> int {
+                    let a = true;
+                    let b = 10;
+                    let c = 20;
+                    if a {
+                        b
+                    } else {
+                        c
+                    }
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                fn entry:main() -> int {
+                    let a = true
+                    let b = 10
+                    let c = 20
+                    expr:if $a:true {
+                        expr:$b:10
+                    } else {
+                        expr:$c:20
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
     fn if_expr_block_condition() {
         check_in_root_file(
             r#"

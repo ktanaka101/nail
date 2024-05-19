@@ -1039,7 +1039,7 @@ mod tests {
         "#,
             expect![[r#"
                 {
-                  "nail_type": "Unit",
+                  "nail_type": "UnitOrStruct",
                   "value": null
                 }
             "#]],
@@ -1110,7 +1110,7 @@ mod tests {
         "#,
             expect![[r#"
                 {
-                  "nail_type": "Unit",
+                  "nail_type": "UnitOrStruct",
                   "value": null
                 }
             "#]],
@@ -1128,7 +1128,7 @@ mod tests {
         "#,
             expect![[r#"
                 {
-                  "nail_type": "Unit",
+                  "nail_type": "UnitOrStruct",
                   "value": null
                 }
             "#]],

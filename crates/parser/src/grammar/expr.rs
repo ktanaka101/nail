@@ -202,7 +202,7 @@ fn parse_lhs(parser: &mut Parser, block_safe: bool) -> Option<CompletedNodeMarke
     // 以下のようなイメージ。
     // 関数呼び出しの場合: ExprStmt -> CallExpr   -> PathExpr -> ArgListExpr
     // 式の場合:         ExprStmt -> destroy対象 -> PathExpr
-    let maybe_call_marker = parser.start();
+    let maybe_call_or_field_expr_marker = parser.start();
 
     let cm = if parser.at(TokenKind::IntegerLiteral)
         || parser.at(TokenKind::CharLiteral(false))
@@ -235,16 +235,24 @@ fn parse_lhs(parser: &mut Parser, block_safe: bool) -> Option<CompletedNodeMarke
         parse_while(parser)
     } else {
         parser.error_with_recovery_set_only_default_on_block();
-        maybe_call_marker.destroy(parser);
+        maybe_call_or_field_expr_marker.destroy(parser);
         return None;
     };
 
-    if parser.peek() == Some(TokenKind::LParen) {
-        parse_args(parser);
-        Some(maybe_call_marker.complete(parser, SyntaxKind::CallExpr))
-    } else {
-        maybe_call_marker.destroy(parser);
-        Some(cm)
+    match parser.peek() {
+        Some(TokenKind::LParen) => {
+            parse_args(parser);
+            Some(maybe_call_or_field_expr_marker.complete(parser, SyntaxKind::CallExpr))
+        }
+        Some(TokenKind::Dot) => {
+            parser.bump();
+            parser.expect_on_block(TokenKind::Ident);
+            Some(maybe_call_or_field_expr_marker.complete(parser, SyntaxKind::FieldExpr))
+        }
+        _ => {
+            maybe_call_or_field_expr_marker.destroy(parser);
+            Some(cm)
+        }
     }
 }
 
@@ -2684,6 +2692,113 @@ mod tests {
                         Whitespace@33..34 " "
                         RCurly@34..35 "}"
                     Semicolon@35..36 ";"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_field_expr() {
+        check_debug_tree_in_block(
+            "value.foo_bar;",
+            expect![[r#"
+                SourceFile@0..14
+                  ExprStmt@0..14
+                    FieldExpr@0..13
+                      PathExpr@0..5
+                        Path@0..5
+                          PathSegment@0..5
+                            Ident@0..5 "value"
+                      Dot@5..6 "."
+                      Ident@6..13 "foo_bar"
+                    Semicolon@13..14 ";"
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            "scope::value.foo_bar;",
+            expect![[r#"
+                SourceFile@0..21
+                  ExprStmt@0..21
+                    FieldExpr@0..20
+                      PathExpr@0..12
+                        Path@0..12
+                          PathSegment@0..5
+                            Ident@0..5 "scope"
+                          Colon2@5..7 "::"
+                          PathSegment@7..12
+                            Ident@7..12 "value"
+                      Dot@12..13 "."
+                      Ident@13..20 "foo_bar"
+                    Semicolon@20..21 ";"
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            "let f = value.foo_bar;",
+            expect![[r#"
+                SourceFile@0..22
+                  Let@0..22
+                    LetKw@0..3 "let"
+                    Whitespace@3..4 " "
+                    Ident@4..5 "f"
+                    Whitespace@5..6 " "
+                    Eq@6..7 "="
+                    Whitespace@7..8 " "
+                    FieldExpr@8..21
+                      PathExpr@8..13
+                        Path@8..13
+                          PathSegment@8..13
+                            Ident@8..13 "value"
+                      Dot@13..14 "."
+                      Ident@14..21 "foo_bar"
+                    Semicolon@21..22 ";"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn field_expr_in_semicolon_is_error() {
+        check_debug_tree_in_block(
+            "value;.foo_bar",
+            expect![[r#"
+                SourceFile@0..14
+                  ExprStmt@0..6
+                    PathExpr@0..5
+                      Path@0..5
+                        PathSegment@0..5
+                          Ident@0..5 "value"
+                    Semicolon@5..6 ";"
+                  ExprStmt@6..7
+                    Error@6..7
+                      Dot@6..7 "."
+                  ExprStmt@7..14
+                    PathExpr@7..14
+                      Path@7..14
+                        PathSegment@7..14
+                          Ident@7..14 "foo_bar"
+                error at 6..7: expected 'let', 'fn', 'struct', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found '.'
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            "value.;foo_bar",
+            expect![[r#"
+                SourceFile@0..14
+                  ExprStmt@0..7
+                    FieldExpr@0..7
+                      PathExpr@0..5
+                        Path@0..5
+                          PathSegment@0..5
+                            Ident@0..5 "value"
+                      Dot@5..6 "."
+                      Error@6..7
+                        Semicolon@6..7 ";"
+                  ExprStmt@7..14
+                    PathExpr@7..14
+                      Path@7..14
+                        PathSegment@7..14
+                          Ident@7..14 "foo_bar"
+                error at 6..7: expected identifier, but found ';'
             "#]],
         );
     }

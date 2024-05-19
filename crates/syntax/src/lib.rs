@@ -58,6 +58,8 @@ pub enum SyntaxKind {
     WhileExpr,
     /// `IDENT RecordFieldListExpr`
     RecordExpr,
+    /// `Path.IDENT`
+    FieldExpr,
 
     // ---statement nodes---
     /// `let IDENT: PathType = EXPR`
@@ -193,6 +195,8 @@ pub enum SyntaxKind {
     // ---delimiters---
     /// `,`
     Comma,
+    /// ``
+    Dot,
     /// `:`
     Colon,
     /// `::`
@@ -267,6 +271,7 @@ impl From<TokenKind> for SyntaxKind {
             TokenKind::ThinArrow => Self::ThinArrow,
 
             TokenKind::Comma => Self::Comma,
+            TokenKind::Dot => Self::Dot,
             TokenKind::Colon => Self::Colon,
             TokenKind::Colon2 => Self::Colon2,
             TokenKind::Semicolon => Self::Semicolon,

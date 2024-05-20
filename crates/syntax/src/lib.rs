@@ -44,7 +44,7 @@ pub enum SyntaxKind {
     IfExpr,
     /// `return EXPR`
     ReturnExpr,
-    /// `let IDENT: PathType = EXPR`
+    /// `EXPR;`
     ExprStmt,
     /// `Path`
     PathExpr,
@@ -56,25 +56,25 @@ pub enum SyntaxKind {
     BreakExpr,
     /// `while EXPR BlockExpr`
     WhileExpr,
-    /// `IDENT RecordFieldListExpr`
+    /// `Ident RecordFieldListExpr`
     RecordExpr,
-    /// `Path.IDENT`
+    /// `Path.NameRef`
     FieldExpr,
 
     // ---statement nodes---
-    /// `let IDENT: PathType = EXPR`
+    /// `let Ident: PathType = EXPR`
     Let,
 
     // ---item nodes---
-    /// `fn IDENT(ParamList) -> ReturnType BlockExpr`
+    /// `fn Ident(ParamList) -> ReturnType BlockExpr`
     FunctionDef,
-    /// `struct IDENT { TupleFieldList | RecordFieldList }`
+    /// `struct Ident { TupleFieldList | RecordFieldList }`
     ///
     /// Represents a structure definition,
-    /// which can either be a tuple-like struct (e.g., `struct IDENT(TupleFieldList);`) or
-    /// a classic C-like struct (e.g., `struct IDENT { RecordFieldList }`).
+    /// which can either be a tuple-like struct (e.g., `struct Ident(TupleFieldList);`) or
+    /// a classic C-like struct (e.g., `struct Ident { RecordFieldList }`).
     StructDef,
-    /// `mod IDENT { ItemList }`
+    /// `mod Ident { ItemList }`
     Module,
     /// `use Path;`
     Use,
@@ -109,10 +109,12 @@ pub enum SyntaxKind {
     ItemList,
     /// `PathSegment::PathSegment::...`
     Path,
-    /// `IDENT::IDENT::...`
+    /// `Ident::Ident::...`
     PathSegment,
     /// `Path`
     PathType,
+    /// `Ident | Integer`
+    NameRef,
 
     // ---item keywords---
     /// `fn`

@@ -1,3 +1,5 @@
+use std::vec;
+
 use lexer::TokenKind;
 use syntax::SyntaxKind;
 
@@ -246,7 +248,13 @@ fn parse_lhs(parser: &mut Parser, block_safe: bool) -> Option<CompletedNodeMarke
         }
         Some(TokenKind::Dot) => {
             parser.bump();
-            parser.expect_on_block(TokenKind::Ident);
+            if parser.at(TokenKind::Ident) || parser.at(TokenKind::IntegerLiteral) {
+                let marker = parser.start();
+                parser.bump();
+                marker.complete(parser, SyntaxKind::NameRef);
+            } else {
+                parser.consume_error();
+            }
             Some(maybe_call_or_field_expr_marker.complete(parser, SyntaxKind::FieldExpr))
         }
         _ => {
@@ -2709,7 +2717,8 @@ mod tests {
                           PathSegment@0..5
                             Ident@0..5 "value"
                       Dot@5..6 "."
-                      Ident@6..13 "foo_bar"
+                      NameRef@6..13
+                        Ident@6..13 "foo_bar"
                     Semicolon@13..14 ";"
             "#]],
         );
@@ -2728,7 +2737,8 @@ mod tests {
                           PathSegment@7..12
                             Ident@7..12 "value"
                       Dot@12..13 "."
-                      Ident@13..20 "foo_bar"
+                      NameRef@13..20
+                        Ident@13..20 "foo_bar"
                     Semicolon@20..21 ";"
             "#]],
         );
@@ -2750,7 +2760,8 @@ mod tests {
                           PathSegment@8..13
                             Ident@8..13 "value"
                       Dot@13..14 "."
-                      Ident@14..21 "foo_bar"
+                      NameRef@14..21
+                        Ident@14..21 "foo_bar"
                     Semicolon@21..22 ";"
             "#]],
         );
@@ -2785,20 +2796,56 @@ mod tests {
             expect![[r#"
                 SourceFile@0..14
                   ExprStmt@0..7
+                    FieldExpr@0..6
+                      PathExpr@0..5
+                        Path@0..5
+                          PathSegment@0..5
+                            Ident@0..5 "value"
+                      Dot@5..6 "."
+                    Semicolon@6..7 ";"
+                  ExprStmt@7..14
+                    PathExpr@7..14
+                      Path@7..14
+                        PathSegment@7..14
+                          Ident@7..14 "foo_bar"
+                error at 6..7: expected identifier or integerLiteral, in ';'
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_tuple_field_expr() {
+        check_debug_tree_in_block(
+            "value.0;",
+            expect![[r#"
+                SourceFile@0..8
+                  ExprStmt@0..8
                     FieldExpr@0..7
                       PathExpr@0..5
                         Path@0..5
                           PathSegment@0..5
                             Ident@0..5 "value"
                       Dot@5..6 "."
-                      Error@6..7
-                        Semicolon@6..7 ";"
-                  ExprStmt@7..14
-                    PathExpr@7..14
-                      Path@7..14
-                        PathSegment@7..14
-                          Ident@7..14 "foo_bar"
-                error at 6..7: expected identifier, but found ';'
+                      NameRef@6..7
+                        Integer@6..7 "0"
+                    Semicolon@7..8 ";"
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            "value.10;",
+            expect![[r#"
+                SourceFile@0..9
+                  ExprStmt@0..9
+                    FieldExpr@0..8
+                      PathExpr@0..5
+                        Path@0..5
+                          PathSegment@0..5
+                            Ident@0..5 "value"
+                      Dot@5..6 "."
+                      NameRef@6..8
+                        Integer@6..8 "10"
+                    Semicolon@8..9 ";"
             "#]],
         );
     }

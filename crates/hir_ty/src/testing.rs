@@ -402,6 +402,30 @@ impl<'a> Pretty<'a> {
                             found_struct.name(self.db).text(self.db),
                         ));
                     }
+                    InferenceError::NoSuchFieldAccess {
+                        no_such_field,
+                        found_struct,
+                        found_expr,
+                    } => {
+                        msg.push_str(&format!(
+                            "error NoSuchFieldAccess: no_such_field: {}, found_struct: {}, found_expr: `{}`",
+                            no_such_field.text(self.db),
+                            found_struct.name(self.db).text(self.db),
+                            self.format_simplify_expr(hir_file, *found_expr),
+                        ));
+                    }
+                    InferenceError::CanNotFieldAccess {
+                        no_such_field,
+                        found_ty,
+                        found_expr,
+                    } => {
+                        msg.push_str(&format!(
+                            "error CanNotFieldAccess: no_such_field: {}, found_ty: {}, found_expr: `{}`",
+                            no_such_field.text(self.db),
+                            self.format_monotype(found_ty),
+                            self.format_simplify_expr(hir_file, *found_expr),
+                        ));
+                    }
                 }
                 msg.push('\n');
             }
@@ -794,6 +818,12 @@ impl<'a> Pretty<'a> {
 
                 format!("{symbol} {{ {fields} }}")
             }
+            hir::Expr::Field { base, name } => {
+                let base_str = self.format_expr(hir_file, function, *base, nesting);
+                let name_str = name.text(self.db);
+
+                format!("{base_str}.{name_str}")
+            }
             hir::Expr::Missing => "<missing>".to_string(),
         }
     }
@@ -904,6 +934,12 @@ impl<'a> Pretty<'a> {
                     .join(", ");
 
                 format!("{symbol} {{ {fields} }}")
+            }
+            hir::Expr::Field { base, name } => {
+                let base_str = self.format_simplify_expr(hir_file, *base);
+                let name_str = name.text(self.db);
+
+                format!("{base_str}.{name_str}")
             }
             hir::Expr::Missing => "<missing>".to_string(),
         }

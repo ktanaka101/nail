@@ -2115,4 +2115,149 @@ mod tests {
             "#]],
         );
     }
+
+    #[test]
+    fn record_field_expr() {
+        check_in_root_file(
+            r#"
+                struct Point {
+                    x: int,
+                    y: string,
+                }
+                fn main() -> string {
+                    let point = Point { x: 10, y: "aaa" };
+                    let a = point.x;
+                    let b = point.y;
+
+                    b
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point{ x: int, y: string }
+                fn entry:main() -> string {
+                    let point = struct:Point { x: 10, y: "aaa" }; //: Point
+                    let a = point.x; //: int
+                    let b = point.y; //: string
+                    expr:b //: string
+                }
+
+                ---
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn record_field_expr_no_such() {
+        check_in_root_file(
+            r#"
+                struct Point {
+                    x: int,
+                    y: string,
+                }
+                fn main() -> int {
+                    let point = Point { x: 10, y: "aaa" };
+                    point.z
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point{ x: int, y: string }
+                fn entry:main() -> int {
+                    let point = struct:Point { x: 10, y: "aaa" }; //: Point
+                    expr:point.z //: <unknown>
+                }
+
+                ---
+                error NoSuchFieldAccess: no_such_field: z, found_struct: Point, found_expr: `point.z`
+                error MismatchedTypeReturnValue: expected_ty: int, found_ty: <unknown>, found_expr: `point.z`
+                ---
+                error Type is unknown: expr: point.z
+            "#]],
+        );
+    }
+
+    #[test]
+    fn tuple_field_expr() {
+        check_in_root_file(
+            r#"
+                struct Point(int, string);
+                fn main() -> string {
+                    let point = Point(10, "aaa");
+                    let a = point.0;
+                    let b = point.1;
+
+                    b
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point(int, string);
+                fn entry:main() -> string {
+                    let point = struct:Point(10, "aaa"); //: Point
+                    let a = point.0; //: int
+                    let b = point.1; //: string
+                    expr:b //: string
+                }
+
+                ---
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn tuple_field_expr_out_of_index() {
+        check_in_root_file(
+            r#"
+                struct Point(int, string);
+                fn main() -> string {
+                    let point = Point(10, "aaa");
+                    point.2
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point(int, string);
+                fn entry:main() -> string {
+                    let point = struct:Point(10, "aaa"); //: Point
+                    expr:point.2 //: <unknown>
+                }
+
+                ---
+                error NoSuchFieldAccess: no_such_field: 2, found_struct: Point, found_expr: `point.2`
+                error MismatchedTypeReturnValue: expected_ty: string, found_ty: <unknown>, found_expr: `point.2`
+                ---
+                error Type is unknown: expr: point.2
+            "#]],
+        );
+    }
+
+    #[test]
+    fn unit_field_expr_is_error() {
+        check_in_root_file(
+            r#"
+                struct Point;
+                fn main() {
+                    let point = Point;
+                    point.0
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point;
+                fn entry:main() -> () {
+                    let point = struct:Point; //: Point
+                    expr:point.0 //: <unknown>
+                }
+
+                ---
+                error NoSuchFieldAccess: no_such_field: 0, found_struct: Point, found_expr: `point.0`
+                error MismatchedTypeReturnValue: expected_ty: (), found_ty: <unknown>, found_expr: `point.0`
+                ---
+                error Type is unknown: expr: point.0
+            "#]],
+        );
+    }
 }

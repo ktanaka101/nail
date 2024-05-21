@@ -180,6 +180,9 @@ impl<'a> FunctionTypeChecker<'a> {
                     self.check_expr(field.value);
                 }
             }
+            hir::Expr::Field { base, .. } => {
+                self.check_expr(*base);
+            }
             hir::Expr::Missing => (),
         };
     }

@@ -133,6 +133,8 @@ pub enum Expr {
     WhileExpr(WhileExpr),
     /// レコード式
     RecordExpr(RecordExpr),
+    /// フィールド式
+    FieldExpr(FieldExpr),
 }
 impl Ast for Expr {}
 impl AstNode for Expr {
@@ -153,6 +155,7 @@ impl AstNode for Expr {
                 | SyntaxKind::BreakExpr
                 | SyntaxKind::WhileExpr
                 | SyntaxKind::RecordExpr
+                | SyntaxKind::FieldExpr
         )
     }
 
@@ -172,6 +175,7 @@ impl AstNode for Expr {
             SyntaxKind::BreakExpr => Self::BreakExpr(BreakExpr { syntax }),
             SyntaxKind::WhileExpr => Self::WhileExpr(WhileExpr { syntax }),
             SyntaxKind::RecordExpr => Self::RecordExpr(RecordExpr { syntax }),
+            SyntaxKind::FieldExpr => Self::FieldExpr(FieldExpr { syntax }),
             _ => return None,
         };
 
@@ -194,6 +198,7 @@ impl AstNode for Expr {
             Expr::BreakExpr(it) => it.syntax(),
             Expr::WhileExpr(it) => it.syntax(),
             Expr::RecordExpr(it) => it.syntax(),
+            Expr::FieldExpr(it) => it.syntax(),
         }
     }
 }
@@ -749,6 +754,57 @@ impl RecordFieldExpr {
     pub fn value(&self) -> Option<Expr> {
         ast_node::child_node(self)
     }
+}
+
+def_ast_node!(
+    /// フィールド式のASTノード
+    FieldExpr
+);
+impl FieldExpr {
+    /// フィールドの元の構造体に位置する式ノードを返します。
+    pub fn base(&self) -> Option<Expr> {
+        ast_node::child_node(self)
+    }
+
+    /// フィールドの名前に位置するトークンを返します。
+    pub fn field_name(&self) -> Option<NameRef> {
+        ast_node::child_node(self)
+    }
+}
+
+def_ast_node!(NameRef);
+impl NameRef {
+    /// 名前に位置するトークンを返します。
+    pub fn name(&self) -> Option<NameRefKind> {
+        let ident: Option<tokens::Ident> = ast_node::child_token(self);
+        if let Some(ident) = ident {
+            return Some(NameRefKind::Name(ident));
+        }
+
+        let index: Option<tokens::Integer> = ast_node::child_token(self);
+        if let Some(index) = index {
+            return Some(NameRefKind::Index(index));
+        }
+
+        None
+    }
+
+    /// 名前を文字列として返します。
+    pub fn name_as_string(&self) -> Option<String> {
+        let name_ref = self.name()?;
+        match name_ref {
+            NameRefKind::Name(ident) => Some(ident.text().to_string()),
+            NameRefKind::Index(index) => Some(index.text().to_string()),
+        }
+    }
+}
+
+/// 名前参照の種類
+pub enum NameRefKind {
+    /// 名前(識別子)
+    Name(tokens::Ident),
+    /// インデックス
+    Index(tokens::Integer),
 }
 
 def_ast_node!(

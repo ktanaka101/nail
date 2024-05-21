@@ -736,6 +736,14 @@ pub enum Expr {
         /// フィールド
         fields: Vec<RecordFieldExpr>,
     },
+    Field {
+        /// フィールド式のベースです。
+        ///
+        /// ex. `foo.bar`
+        base: ExprId,
+        /// フィールド名
+        name: Name,
+    },
     /// 解釈できない不明な式です。
     Missing,
 }

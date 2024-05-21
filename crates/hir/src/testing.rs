@@ -382,6 +382,12 @@ impl<'a> PrettyFile<'a> {
 
                 format!("{symbol} {{ {fields} }}")
             }
+            Expr::Field { base, name } => {
+                let base = self.format_expr(*base, nesting);
+                let name = name.text(self.db);
+
+                format!("{base}.{name}")
+            }
             Expr::Missing => "<missing>".to_string(),
         }
     }
@@ -402,7 +408,8 @@ impl<'a> PrettyFile<'a> {
                     | Expr::Loop { .. }
                     | Expr::Continue
                     | Expr::Record { .. }
-                    | Expr::Break { .. } => {
+                    | Expr::Break { .. }
+                    | Expr::Field { .. } => {
                         let expr_text = self.format_expr(expr, nesting);
                         format!("${}:{}", name.text(self.db), expr_text)
                     }

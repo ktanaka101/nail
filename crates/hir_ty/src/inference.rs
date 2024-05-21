@@ -789,6 +789,7 @@ impl<'a> InferBody<'a> {
                             found_struct_symbol: symbol.clone(),
                             found_expr: expr_id,
                         });
+                        // TODO: fix not use return
                         return Monotype::Unknown;
                     }
                     hir::Symbol::MissingExpr { path } => {
@@ -804,6 +805,7 @@ impl<'a> InferBody<'a> {
                                         found_struct_symbol: symbol.clone(),
                                         found_expr: expr_id,
                                     });
+                                    // TODO: fix not use return
                                     return Monotype::Unknown;
                                 }
                                 hir::Item::UseItem(_) => {
@@ -898,6 +900,72 @@ impl<'a> InferBody<'a> {
                         self.unifier.add_error(InferenceError::NotRecord {
                             found_struct_ty: struct_ty,
                             found_struct_symbol: symbol.clone(),
+                            found_expr: expr_id,
+                        });
+                        Monotype::Unknown
+                    }
+                }
+            }
+            hir::Expr::Field { base, name } => {
+                let base_ty = self.infer_expr(*base);
+                match base_ty {
+                    Monotype::Struct(struct_) => match struct_.kind(self.db) {
+                        hir::StructKind::Record(defined_fields) => {
+                            if let Some(access_field) =
+                                defined_fields.iter().find(|field| field.name == *name)
+                            {
+                                self.infer_type(&access_field.ty)
+                            } else {
+                                self.unifier.add_error(InferenceError::NoSuchFieldAccess {
+                                    no_such_field: *name,
+                                    found_struct: struct_,
+                                    found_expr: expr_id,
+                                });
+                                Monotype::Unknown
+                            }
+                        }
+                        hir::StructKind::Tuple(fields) => {
+                            if let Ok(tuple_index) = name.text(self.db).parse::<usize>() {
+                                if tuple_index < fields.len() {
+                                    self.infer_type(&fields[tuple_index])
+                                } else {
+                                    self.unifier.add_error(InferenceError::NoSuchFieldAccess {
+                                        no_such_field: *name,
+                                        found_struct: struct_,
+                                        found_expr: expr_id,
+                                    });
+                                    Monotype::Unknown
+                                }
+                            } else {
+                                self.unifier.add_error(InferenceError::NoSuchFieldAccess {
+                                    no_such_field: *name,
+                                    found_struct: struct_,
+                                    found_expr: expr_id,
+                                });
+                                Monotype::Unknown
+                            }
+                        }
+                        hir::StructKind::Unit => {
+                            self.unifier.add_error(InferenceError::NoSuchFieldAccess {
+                                no_such_field: *name,
+                                found_struct: struct_,
+                                found_expr: expr_id,
+                            });
+                            Monotype::Unknown
+                        }
+                    },
+                    Monotype::Integer
+                    | Monotype::Bool
+                    | Monotype::Unit
+                    | Monotype::Char
+                    | Monotype::String
+                    | Monotype::Never
+                    | Monotype::Unknown
+                    | Monotype::Variable(_)
+                    | Monotype::Function(_) => {
+                        self.unifier.add_error(InferenceError::CanNotFieldAccess {
+                            no_such_field: *name,
+                            found_ty: base_ty,
                             found_expr: expr_id,
                         });
                         Monotype::Unknown

@@ -192,6 +192,22 @@ pub enum InferenceError {
         found_expr: hir::ExprId,
         found_struct: hir::Struct,
     },
+    NoSuchFieldAccess {
+        /// 存在しないフィールド名
+        no_such_field: hir::Name,
+        /// フィールド元の構造体
+        found_struct: hir::Struct,
+        /// 実際の式
+        found_expr: hir::ExprId,
+    },
+    CanNotFieldAccess {
+        /// 存在しないフィールド名
+        no_such_field: hir::Name,
+        /// フィールドアクセス対象の型
+        found_ty: Monotype,
+        /// フィールドアクセス対象の式
+        found_expr: hir::ExprId,
+    },
 }
 
 /// ループ中断の種類

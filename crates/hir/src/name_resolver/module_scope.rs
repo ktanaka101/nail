@@ -547,6 +547,9 @@ impl<'a> ModuleScopesBuilder<'a> {
                     self.build_expr(hir_file, current_scope_idx, field.value);
                 }
             }
+            Expr::Field { base, name: _ } => {
+                self.build_expr(hir_file, current_scope_idx, *base);
+            }
         }
     }
 

@@ -538,6 +538,7 @@ impl<'a> BodyLower<'a> {
                 ast::Expr::BreakExpr(ast) => self.lower_break(db, ast),
                 ast::Expr::WhileExpr(ast) => self.lower_while(db, ast),
                 ast::Expr::RecordExpr(ast) => self.lower_record_expr(db, ast),
+                ast::Expr::FieldExpr(ast) => self.lower_field_expr(db, ast),
             };
             self.alloc_expr(&ast, expr)
         } else {
@@ -719,6 +720,7 @@ impl<'a> BodyLower<'a> {
             Expr::Break { .. } => todo!(),
             Expr::Missing => todo!(),
             Expr::Record { .. } => todo!(),
+            Expr::Field { .. } => todo!(),
         };
 
         Expr::Call {
@@ -915,6 +917,24 @@ impl<'a> BodyLower<'a> {
             .collect();
 
         Expr::Record { symbol, fields }
+    }
+
+    fn lower_field_expr(
+        &mut self,
+        db: &dyn HirMasterDatabase,
+        ast_field_expr: &ast::FieldExpr,
+    ) -> Expr {
+        let base = self.lower_expr(db, ast_field_expr.base());
+        let name = Name::new(
+            db,
+            ast_field_expr
+                .field_name()
+                .unwrap()
+                .name_as_string()
+                .unwrap(),
+        );
+
+        Expr::Field { base, name }
     }
 }
 
@@ -2810,6 +2830,32 @@ mod tests {
                 fn entry:main() -> struct:Point {
                     let point = struct:Point { x: 10, y: "aaa" }
                     expr:fn:foo($point:struct:Point { x: 10, y: "aaa" })
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn field_expr() {
+        check_in_root_file(
+            r#"
+                struct Point {
+                    x: int,
+                    y: string,
+                }
+                fn main() {
+                    let point = Point { x: 10, y: "aaa" };
+                    point.0
+                    point.x
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point { x: int, y: string }
+                fn entry:main() -> () {
+                    let point = struct:Point { x: 10, y: "aaa" }
+                    $point:struct:Point { x: 10, y: "aaa" }.0
+                    expr:$point:struct:Point { x: 10, y: "aaa" }.x
                 }
             "#]],
         );

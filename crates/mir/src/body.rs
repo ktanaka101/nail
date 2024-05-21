@@ -757,7 +757,7 @@ impl<'a> FunctionLower<'a> {
                 match struct_.kind(self.db) {
                     hir::StructKind::Unit => unimplemented!(),
                     hir::StructKind::Tuple(_) => {
-                        let idx = name.text(self.db).parse::<usize>().unwrap();
+                        let idx = name.text(self.db).parse::<u32>().unwrap();
                         let projection = Projection::Field { idx, name: *name };
                         let place = Place {
                             local: PlaceKind::Local(local_base),
@@ -768,6 +768,7 @@ impl<'a> FunctionLower<'a> {
                     }
                     hir::StructKind::Record(fields) => {
                         let idx = fields.iter().position(|field| field.name == *name).unwrap();
+                        let idx = u32::try_from(idx).unwrap();
                         let projection = Projection::Field { idx, name: *name };
                         let place = Place {
                             local: PlaceKind::Local(local_base),

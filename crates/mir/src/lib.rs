@@ -309,8 +309,10 @@ struct AllocatedSwitchBB {
 /// 参照のようなもの
 #[derive(Debug, Clone, Copy)]
 pub struct Place {
-    local: PlaceKind,
-    projection: Option<Projection>,
+    /// 値の位置の種類
+    pub local: PlaceKind,
+    /// 値の位置からの相対的な位置
+    pub projection: Option<Projection>,
 }
 
 /// 値の位置の種類
@@ -328,7 +330,7 @@ pub enum Projection {
     /// フィールド
     Field {
         /// フィールドのインデックス
-        idx: usize,
+        idx: u32,
         /// フィールド名
         name: hir::Name,
     },

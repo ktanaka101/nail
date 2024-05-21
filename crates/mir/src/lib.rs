@@ -308,11 +308,30 @@ struct AllocatedSwitchBB {
 /// 値の位置を指す
 /// 参照のようなもの
 #[derive(Debug, Clone, Copy)]
-pub enum Place {
+pub struct Place {
+    local: PlaceKind,
+    projection: Option<Projection>,
+}
+
+/// 値の位置の種類
+#[derive(Debug, Clone, Copy)]
+pub enum PlaceKind {
     /// 関数パラメータ
     Param(Idx<Param>),
     /// ローカル変数
     Local(Idx<Local>),
+}
+
+/// 相対的に表される位置
+#[derive(Debug, Clone, Copy)]
+pub enum Projection {
+    /// フィールド
+    Field {
+        /// フィールドのインデックス
+        idx: usize,
+        /// フィールド名
+        name: hir::Name,
+    },
 }
 
 /// 値
@@ -2941,6 +2960,90 @@ mod tests {
 
                     entry: {
                         _0 = const 10
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_record_field_expr() {
+        check_in_root_file(
+            r#"
+                struct Point { x: int, y: string }
+                fn main() -> int {
+                    let point = Point { x: 10, y: "aaa" };
+                    let a = point.x;
+                    let b = point.y;
+
+                    a
+                }
+            "#,
+            expect![[r#"
+                fn t_pod::main() -> int {
+                    let _0: int
+                    let _1: struct Point
+                    let _2: struct Point
+                    let _3: int
+                    let _4: struct Point
+                    let _5: string
+                    let _6: struct Point
+
+                    entry: {
+                        _2 = Point { x: const 10, y: const "aaa" }
+                        _1 = _2
+                        _4 = _2
+                        _3 = _4.x
+                        _6 = _2
+                        _5 = _6.y
+                        _0 = _3
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_tuple_field_expr() {
+        check_in_root_file(
+            r#"
+                struct Point(int, string)
+                fn main() -> int {
+                    let point = Point(10, "aaa");
+                    let a = point.0;
+                    let b = point.1;
+
+                    a
+                }
+            "#,
+            expect![[r#"
+                fn t_pod::main() -> int {
+                    let _0: int
+                    let _1: struct Point
+                    let _2: struct Point
+                    let _3: int
+                    let _4: struct Point
+                    let _5: string
+                    let _6: struct Point
+
+                    entry: {
+                        _2 = Point(const 10, const "aaa")
+                        _1 = _2
+                        _4 = _2
+                        _3 = _4.0
+                        _6 = _2
+                        _5 = _6.1
+                        _0 = _3
                         goto -> exit
                     }
 

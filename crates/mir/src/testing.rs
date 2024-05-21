@@ -112,15 +112,28 @@ impl<'a> Pretty<'a> {
     }
 
     fn format_place(&self, place: &crate::Place, body: &crate::Body) -> String {
-        match place {
-            crate::Place::Param(param_idx) => {
-                let param = &body.params[*param_idx];
+        let local_msg = match place.local {
+            crate::PlaceKind::Param(param_idx) => {
+                let param = &body.params[param_idx];
                 format!("_{}", param.idx)
             }
-            crate::Place::Local(local_idx) => {
-                let local = &body.locals[*local_idx];
+            crate::PlaceKind::Local(local_idx) => {
+                let local = &body.locals[local_idx];
                 format!("_{}", local.idx)
             }
+        };
+
+        if let Some(projection) = place.projection {
+            let projection_msg = self.format_projection(&projection);
+            format!("{local_msg}.{projection_msg}")
+        } else {
+            local_msg
+        }
+    }
+
+    fn format_projection(&self, projection: &crate::Projection) -> String {
+        match projection {
+            crate::Projection::Field { name, .. } => name.text(self.db).to_string(),
         }
     }
 

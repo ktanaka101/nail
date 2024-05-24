@@ -4,6 +4,7 @@ use inkwell::{
     basic_block::BasicBlock,
     types::{BasicType, BasicTypeEnum},
     values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, PointerValue},
+    AddressSpace,
 };
 
 use crate::Codegen;
@@ -101,17 +102,96 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
         self.codegen.builder.build_store(ptr.1, value).unwrap();
     }
 
+    fn store_local_struct_gep(
+        &self,
+        local_idx: mir::LocalIdx,
+        idx: u32,
+        value: BasicValueEnum<'ctx>,
+    ) {
+        let ptr = self.locals[&local_idx];
+
+        let ptr = self
+            .codegen
+            .builder
+            .build_struct_gep(ptr.0.into_struct_type(), ptr.1, idx, "field")
+            .unwrap();
+
+        self.codegen.builder.build_store(ptr, value).unwrap();
+    }
+
     fn load_local(&self, local_idx: mir::LocalIdx) -> BasicValueEnum<'ctx> {
         let local = self.locals[&local_idx];
+        match local.0 {
+            BasicTypeEnum::StructType(_) => {
+                // 構造体型をPointerにしてからloadする
+                let ptr = self
+                    .codegen
+                    .builder
+                    .build_load(
+                        self.codegen.context.ptr_type(AddressSpace::default()),
+                        local.1,
+                        "load",
+                    )
+                    .unwrap()
+                    .into_pointer_value();
+                self.codegen
+                    .builder
+                    .build_load(local.0, ptr, "load")
+                    .unwrap()
+            }
+
+            _ => self
+                .codegen
+                .builder
+                .build_load(local.0, local.1, "load")
+                .unwrap(),
+        }
+    }
+
+    fn load_local_struct_gep(&self, local_idx: mir::LocalIdx, idx: u32) -> BasicValueEnum<'ctx> {
+        let local = self.locals[&local_idx];
+
+        let ptr = self
+            .codegen
+            .builder
+            .build_struct_gep(local.0, local.1, idx, "gep_field")
+            .unwrap();
+
         self.codegen
             .builder
-            .build_load(local.0, local.1, "load")
+            .build_load(ptr.get_type(), ptr, "load_field")
             .unwrap()
     }
 
     fn load_param(&self, param_idx: mir::ParamIdx) -> BasicValueEnum<'ctx> {
         let param = &self.body.params[param_idx];
         self.function.get_nth_param(param.pos).unwrap()
+    }
+
+    fn load_param_struct_gep(&self, param_idx: mir::ParamIdx, idx: u32) -> BasicValueEnum<'ctx> {
+        let param = &self.body.params[param_idx];
+        let ptr = self
+            .codegen
+            .builder
+            .build_struct_gep(
+                self.function
+                    .get_nth_param(param.pos)
+                    .unwrap()
+                    .get_type()
+                    .into_struct_type(),
+                self.function
+                    .get_nth_param(param.pos)
+                    .unwrap()
+                    .into_pointer_value(),
+                idx,
+                "field",
+            )
+            .unwrap();
+
+        self.codegen
+            .builder
+            .build_load(ptr.get_type(), ptr, "load")
+            .unwrap()
     }
 
     fn gen_bb(&self, bb: &mir::BasicBlock) {
@@ -271,9 +351,19 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                         },
                     };
 
-                    match place {
-                        mir::Place::Param(_param) => unreachable!(),
-                        mir::Place::Local(local) => self.store_local(*local, val),
+                    match place.local {
+                        mir::PlaceKind::Param(_param) => unreachable!(),
+                        mir::PlaceKind::Local(local) => {
+                            if let Some(projection) = place.projection {
+                                match projection {
+                                    mir::Projection::Field { idx, .. } => {
+                                        self.store_local_struct_gep(local, idx, val);
+                                    }
+                                }
+                            } else {
+                                self.store_local(local, val);
+                            }
+                        }
                     }
                 }
             }
@@ -302,9 +392,29 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                     then_bb,
                     else_bb,
                 } => {
-                    let cond = match condition {
-                        mir::Place::Param(param) => self.load_param(*param),
-                        mir::Place::Local(local) => self.load_local(*local),
+                    let cond = match condition.local {
+                        mir::PlaceKind::Param(param) => {
+                            if let Some(projection) = condition.projection {
+                                match projection {
+                                    mir::Projection::Field { idx, .. } => {
+                                        self.load_param_struct_gep(param, idx)
+                                    }
+                                }
+                            } else {
+                                self.load_param(param)
+                            }
+                        }
+                        mir::PlaceKind::Local(local) => {
+                            if let Some(projection) = condition.projection {
+                                match projection {
+                                    mir::Projection::Field { idx, .. } => {
+                                        self.load_local_struct_gep(local, idx)
+                                    }
+                                }
+                            } else {
+                                self.load_local(local)
+                            }
+                        }
                     };
                     let cond = cond.into_int_value();
                     let then_bb = self.basic_blocks[then_bb];
@@ -336,12 +446,26 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                         .build_call(callee_function, &args, "call")
                         .unwrap();
 
-                    match destination {
-                        mir::Place::Param(_) => unreachable!(),
-                        mir::Place::Local(local) => self.store_local(
-                            *local,
-                            call_site_value.try_as_basic_value().left().unwrap(),
-                        ),
+                    match destination.local {
+                        mir::PlaceKind::Param(_) => unreachable!(),
+                        mir::PlaceKind::Local(local) => {
+                            if let Some(projection) = destination.projection {
+                                match projection {
+                                    mir::Projection::Field { idx, .. } => {
+                                        self.store_local_struct_gep(
+                                            local,
+                                            idx,
+                                            call_site_value.try_as_basic_value().left().unwrap(),
+                                        );
+                                    }
+                                }
+                            } else {
+                                self.store_local(
+                                    local,
+                                    call_site_value.try_as_basic_value().left().unwrap(),
+                                );
+                            }
+                        }
                     };
 
                     let target_bb = self.basic_blocks[target];
@@ -356,9 +480,29 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
 
     fn gen_operand(&self, operand: &mir::Operand) -> BasicValueEnum<'ctx> {
         match operand {
-            mir::Operand::Place(place) => match place {
-                mir::Place::Param(param) => self.load_param(*param),
-                mir::Place::Local(local) => self.load_local(*local),
+            mir::Operand::Place(place) => match place.local {
+                mir::PlaceKind::Param(param) => {
+                    if let Some(projection) = place.projection {
+                        match projection {
+                            mir::Projection::Field { idx, .. } => {
+                                self.load_param_struct_gep(param, idx)
+                            }
+                        }
+                    } else {
+                        self.load_param(param)
+                    }
+                }
+                mir::PlaceKind::Local(local) => {
+                    if let Some(projection) = place.projection {
+                        match projection {
+                            mir::Projection::Field { idx, .. } => {
+                                self.load_local_struct_gep(local, idx)
+                            }
+                        }
+                    } else {
+                        self.load_local(local)
+                    }
+                }
             },
             mir::Operand::Constant(constant) => match constant {
                 mir::Constant::Integer(integer) => self

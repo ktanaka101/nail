@@ -13,7 +13,10 @@ use inkwell::{
     context::Context,
     execution_engine::{ExecutionEngine, JitFunction},
     module::Module,
-    types::{BasicMetadataTypeEnum, BasicTypeEnum, FunctionType, IntType, PointerType, StructType},
+    types::{
+        BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType, IntType, PointerType,
+        StructType,
+    },
     values::{FunctionValue, PointerValue},
     AddressSpace,
 };
@@ -179,6 +182,12 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 }
                 hir_ty::Monotype::String => self.context.ptr_type(AddressSpace::default()).into(),
                 hir_ty::Monotype::Bool => self.context.bool_type().into(),
+                hir_ty::Monotype::Struct(struct_) => self
+                    .declaration_structs
+                    .get(&struct_)
+                    .unwrap()
+                    .as_basic_type_enum()
+                    .into(),
                 _ => unimplemented!(),
             })
             .collect::<Vec<_>>()
@@ -2404,6 +2413,28 @@ mod tests {
                 {
                   "nail_type": "String",
                   "value": "aaa"
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn param_record_field_expr() {
+        check_result_in_root_file(
+            r#"
+                struct Point { x: int, y: string }
+                fn main() -> int {
+                    let point = Point { x: 10, y: "aaa" };
+                    foo(point)
+                }
+                fn foo(point: Point) -> int {
+                    point.x
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 10
                 }
             "#]],
         );

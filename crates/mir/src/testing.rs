@@ -213,6 +213,10 @@ impl<'a> Pretty<'a> {
             crate::Constant::Boolean(boolean) => boolean.to_string(),
             crate::Constant::String(string) => format!("\"{string}\""),
             crate::Constant::Unit => "()".to_string(),
+            crate::Constant::StructUnit(struct_) => {
+                let struct_name = struct_.name(self.db).text(self.db);
+                struct_name.to_string()
+            }
         };
         format!("const {const_value}")
     }

@@ -202,7 +202,23 @@ impl<'a> FunctionLower<'a> {
                         projection: None,
                     }))
                 }
-                hir::Symbol::MissingExpr { .. } => todo!(),
+                hir::Symbol::MissingExpr { path } => {
+                    let resolution_status = self.resolution_map.item_by_symbol(path).unwrap();
+                    let item = match resolution_status {
+                        hir::ResolutionStatus::Unresolved | hir::ResolutionStatus::Error => {
+                            unreachable!();
+                        }
+                        hir::ResolutionStatus::Resolved { path: _, item } => item,
+                    };
+                    match item {
+                        hir::Item::Struct(struct_) => {
+                            LoweredExpr::Operand(Operand::Constant(Constant::StructUnit(struct_)))
+                        }
+                        hir::Item::Function(_) | hir::Item::Module(_) | hir::Item::UseItem(_) => {
+                            unimplemented!()
+                        }
+                    }
+                }
                 hir::Symbol::MissingType { .. } => unreachable!(),
             },
             hir::Expr::Literal(literal) => match literal {

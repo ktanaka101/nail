@@ -446,6 +446,8 @@ pub enum Constant {
     String(String),
     /// 単値
     Unit,
+    /// 空構造体
+    StructUnit(hir::Struct),
 }
 
 /// ステートメント
@@ -3046,6 +3048,45 @@ mod tests {
                         _6 = _2
                         _5 = _6.1
                         _0 = _3
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_struct() {
+        check_in_root_file(
+            r#"
+                struct PointRecord { x: string, y: int }
+                struct PointTuple(string, int);
+                struct PointUnit;
+                fn main() {
+                    let point_record = PointRecord { x: "aaa", y: 10 };
+                    let point_tuple = PointTuple("bbb", 20);
+                    let u = PointUnit;
+                }
+            "#,
+            expect![[r#"
+                fn t_pod::main() -> () {
+                    let _0: ()
+                    let _1: struct PointRecord
+                    let _2: struct PointRecord
+                    let _3: struct PointTuple
+                    let _4: struct PointTuple
+                    let _5: struct PointUnit
+
+                    entry: {
+                        _2 = PointRecord { x: const "aaa", y: const 10 }
+                        _1 = _2
+                        _4 = PointTuple(const "bbb", const 20)
+                        _3 = _4
+                        _5 = const PointUnit
                         goto -> exit
                     }
 

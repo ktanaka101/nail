@@ -175,4 +175,9 @@ mod tests {
     fn missing_struct_record_field() {
         check("missing_struct_record_field");
     }
+
+    #[test]
+    fn no_such_struct_record_field() {
+        check("no_such_struct_record_field");
+    }
 }

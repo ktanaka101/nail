@@ -1,0 +1,15 @@
+struct Point { x: int, y: int };
+fn main() {
+    let point = Point { x: 10, y: 20, z: 30 };
+}
+
+//---stdout
+//---stderr
+
+// Error: No such struct record field
+//    ╭─[/{nail}/crates/dock/tests/type_check/no_such_struct_record_field/main.nail:3:17]
+//    │
+//  3 │     let point = Point { x: 10, y: 20, z: 30 };
+//    │                 ──────────────┬──────────────  
+//    │                               ╰──────────────── no such fields: z
+// ───╯

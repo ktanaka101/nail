@@ -2439,4 +2439,42 @@ mod tests {
             "#]],
         );
     }
+
+    #[test]
+    fn init_tuple_struct() {
+        check_result_in_root_file(
+            r#"
+                struct Point(int, string);
+                fn main() -> string {
+                    let point = Point(10, "aaa");
+                    point.1
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "String",
+                  "value": "aaa"
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_unit_struct() {
+        check_result_in_root_file(
+            r#"
+                struct Point;
+                fn main() -> Point {
+                    let point = Point;
+                    point
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "UnitOrStruct",
+                  "value": null
+                }
+            "#]],
+        );
+    }
 }

@@ -517,6 +517,10 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                     .into(),
                 mir::Constant::String(string) => self.codegen.build_string_value(string).into(),
                 mir::Constant::Unit => self.codegen.unit_type().const_zero().into(),
+                mir::Constant::StructUnit(struct_) => {
+                    let struct_ty = self.codegen.declaration_structs[struct_];
+                    struct_ty.const_zero().into()
+                }
             },
         }
     }

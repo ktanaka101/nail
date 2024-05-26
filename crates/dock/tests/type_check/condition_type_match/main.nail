@@ -15,7 +15,7 @@ fn f() {
 //---stdout
 
 // {
-//   "nail_type": "Unit",
+//   "nail_type": "UnitOrStruct",
 //   "value": null
 // }
 

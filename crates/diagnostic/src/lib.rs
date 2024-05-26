@@ -664,6 +664,25 @@ impl Diagnostic {
                     }],
                 }
             }
+            InferenceError::NoSuchFieldAccess {
+                no_such_field,
+                found_struct,
+                found_expr,
+            } => {
+                let text_range = found_expr.text_range(db, source_map);
+                let no_such_field = no_such_field.text(db);
+                let found_struct_name = found_struct.name(db).text(db);
+
+                Diagnostic {
+                    file,
+                    title: "No such field access".to_string(),
+                    head_offset: text_range.start().into(),
+                    messages: vec![Message {
+                        message: format!("no such field: {no_such_field} in {found_struct_name}"),
+                        range: text_range,
+                    }],
+                }
+            }
         }
     }
 

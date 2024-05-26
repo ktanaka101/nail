@@ -1,0 +1,16 @@
+struct PointRecord { x: int, y: int };
+fn main() {
+    let point = PointRecord { x: 10, y: 20 };
+    let field_z = point.z;
+}
+
+//---stdout
+//---stderr
+
+// Error: No such field access
+//    ╭─[/{nail}/crates/dock/tests/type_check/no_such_field_access/main.nail:4:19]
+//    │
+//  4 │     let field_z = point.z;
+//    │                   ───┬───  
+//    │                      ╰───── no such field: z in PointRecord
+// ───╯

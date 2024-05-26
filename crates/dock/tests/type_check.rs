@@ -190,4 +190,9 @@ mod tests {
     fn needed_init_tuple_or_record() {
         check("needed_init_tuple_or_record");
     }
+
+    #[test]
+    fn no_such_field_access() {
+        check("no_such_field_access");
+    }
 }

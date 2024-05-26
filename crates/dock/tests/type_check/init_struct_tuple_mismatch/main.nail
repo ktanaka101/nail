@@ -3,9 +3,6 @@ fn main() {
     let point = Point(10, 20);
 }
 
-fn foo() {
-}
-
 //---stdout
 //---stderr
 

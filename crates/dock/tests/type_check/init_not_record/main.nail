@@ -1,0 +1,24 @@
+struct Point(int, int);
+struct Unit;
+fn main() {
+  let point = Point { x: 10, y: 20 };
+  let unit = Unit { x: 10, y: 20 };
+}
+
+//---stdout
+//---stderr
+
+// Error: Not record
+//    ╭─[/{nail}/crates/dock/tests/type_check/init_not_record/main.nail:4:15]
+//    │
+//  4 │   let point = Point { x: 10, y: 20 };
+//    │               ───────────┬──────────  
+//    │                          ╰──────────── expected(defined): tuple style, found: record style in struct Point
+// ───╯
+// Error: Not record
+//    ╭─[/{nail}/crates/dock/tests/type_check/init_not_record/main.nail:5:14]
+//    │
+//  5 │   let unit = Unit { x: 10, y: 20 };
+//    │              ──────────┬──────────  
+//    │                        ╰──────────── expected(defined): unit style, found: record style in struct Unit
+// ───╯

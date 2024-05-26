@@ -515,14 +515,23 @@ impl Diagnostic {
                 found_expr,
             } => {
                 let text_range = found_expr.text_range(db, source_map);
-                let found_struct_ty = monotype_to_string(db, found_struct_ty);
+                let found_struct_style = match found_struct_ty {
+                    hir_ty::Monotype::Struct(struct_) => match struct_.kind(db) {
+                        hir::StructKind::Record(_) => unreachable!(),
+                        hir::StructKind::Tuple(_) => "tuple style",
+                        hir::StructKind::Unit => "unit style",
+                    },
+                    _ => unreachable!(),
+                };
 
                 Diagnostic {
                     file,
                     title: "Not record".to_string(),
                     head_offset: text_range.start().into(),
                     messages: vec![Message {
-                        message: format!("expected <record>, found: {found_struct_ty}"),
+                        message: format!(
+                            "expected(defined): {found_struct_style}, found: record style"
+                        ),
                         range: text_range,
                     }],
                 }

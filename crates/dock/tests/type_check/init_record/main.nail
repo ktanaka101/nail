@@ -1,0 +1,17 @@
+struct PointRecord { x: string, y: int }
+struct PointTuple(string, int);
+struct Unit;
+fn main() {
+  let point_record = PointRecord { x: "aaa", y: 10 };
+  let point_tuple = PointTuple("bbb", 20);
+  let u = Unit;
+}
+
+//---stdout
+
+// {
+//   "nail_type": "UnitOrStruct",
+//   "value": null
+// }
+
+//---stderr

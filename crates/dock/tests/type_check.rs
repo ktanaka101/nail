@@ -155,4 +155,14 @@ mod tests {
     fn while_desugared_error() {
         check("while_desugared_error");
     }
+
+    #[test]
+    fn init_not_record() {
+        check("init_not_record");
+    }
+
+    #[test]
+    fn init_record() {
+        check("init_record");
+    }
 }

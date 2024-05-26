@@ -683,6 +683,25 @@ impl Diagnostic {
                     }],
                 }
             }
+            InferenceError::CanNotFieldAccess {
+                no_such_field,
+                found_ty,
+                found_expr,
+            } => {
+                let text_range = found_expr.text_range(db, source_map);
+                let no_such_field = no_such_field.text(db);
+                let found_ty = monotype_to_string(db, found_ty);
+
+                Diagnostic {
+                    file,
+                    title: "Can not field access".to_string(),
+                    head_offset: text_range.start().into(),
+                    messages: vec![Message {
+                        message: format!("can not field access to {no_such_field} in {found_ty}"),
+                        range: text_range,
+                    }],
+                }
+            }
         }
     }
 

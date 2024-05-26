@@ -195,4 +195,9 @@ mod tests {
     fn no_such_field_access() {
         check("no_such_field_access");
     }
+
+    #[test]
+    fn can_not_field_access() {
+        check("can_not_field_access");
+    }
 }

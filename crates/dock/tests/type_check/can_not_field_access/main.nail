@@ -1,0 +1,15 @@
+fn main() {
+    let num = 10;
+    let field_z = num.z;
+}
+
+//---stdout
+//---stderr
+
+// Error: Can not field access
+//    ╭─[/{nail}/crates/dock/tests/type_check/can_not_field_access/main.nail:3:19]
+//    │
+//  3 │     let field_z = num.z;
+//    │                   ──┬──  
+//    │                     ╰──── can not field access to z in int
+// ───╯

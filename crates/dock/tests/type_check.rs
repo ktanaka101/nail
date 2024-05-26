@@ -170,4 +170,9 @@ mod tests {
     fn init_struct_tuple_mismatch() {
         check("init_struct_tuple_mismatch");
     }
+
+    #[test]
+    fn missing_struct_record_field() {
+        check("missing_struct_record_field");
+    }
 }

@@ -642,17 +642,24 @@ impl Diagnostic {
             InferenceError::NeededInitTupleOrRecord {
                 found_ty,
                 found_expr,
-                found_struct: _,
+                found_struct,
             } => {
                 let text_range = found_expr.text_range(db, source_map);
                 let found_ty = monotype_to_string(db, found_ty);
+                let found_struct_style = match found_struct.kind(db) {
+                    hir::StructKind::Record(_) => "record style",
+                    hir::StructKind::Tuple(_) => "tuple style",
+                    hir::StructKind::Unit => unreachable!(),
+                };
 
                 Diagnostic {
                     file,
                     title: "Needed initialization tuple or record".to_string(),
                     head_offset: text_range.start().into(),
                     messages: vec![Message {
-                        message: format!("expected <tuple> or <record>, found: {found_ty}"),
+                        message: format!(
+                            "expected {found_struct_style} initialization, found: {found_ty}"
+                        ),
                         range: text_range,
                     }],
                 }

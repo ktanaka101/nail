@@ -1,0 +1,24 @@
+struct PointRecord { x: int, y: string };
+struct PointTuple(int, int);
+fn main() {
+    let point = PointRecord;
+    let point = PointTuple;
+}
+
+//---stdout
+//---stderr
+
+// Error: Needed initialization tuple or record
+//    ╭─[/{nail}/crates/dock/tests/type_check/needed_init_tuple_or_record/main.nail:4:17]
+//    │
+//  4 │     let point = PointRecord;
+//    │                 ─────┬─────  
+//    │                      ╰─────── expected record style initialization, found: struct PointRecord
+// ───╯
+// Error: Needed initialization tuple or record
+//    ╭─[/{nail}/crates/dock/tests/type_check/needed_init_tuple_or_record/main.nail:5:17]
+//    │
+//  5 │     let point = PointTuple;
+//    │                 ─────┬────  
+//    │                      ╰────── expected tuple style initialization, found: struct PointTuple
+// ───╯

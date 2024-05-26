@@ -185,4 +185,9 @@ mod tests {
     fn init_struct_record_mismatch() {
         check("init_struct_record_mismatch");
     }
+
+    #[test]
+    fn needed_init_tuple_or_record() {
+        check("needed_init_tuple_or_record");
+    }
 }

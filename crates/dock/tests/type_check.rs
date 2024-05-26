@@ -180,4 +180,9 @@ mod tests {
     fn no_such_struct_record_field() {
         check("no_such_struct_record_field");
     }
+
+    #[test]
+    fn init_struct_record_mismatch() {
+        check("init_struct_record_mismatch");
+    }
 }

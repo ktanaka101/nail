@@ -165,4 +165,9 @@ mod tests {
     fn init_record() {
         check("init_record");
     }
+
+    #[test]
+    fn init_struct_tuple_mismatch() {
+        check("init_struct_tuple_mismatch");
+    }
 }

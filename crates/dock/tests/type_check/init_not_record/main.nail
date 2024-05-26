@@ -13,12 +13,12 @@ fn main() {
 //    │
 //  4 │   let point = Point { x: 10, y: 20 };
 //    │               ───────────┬──────────  
-//    │                          ╰──────────── expected(defined): tuple style, found: record style in struct Point
+//    │                          ╰──────────── expected(defined): tuple style, found: record style
 // ───╯
 // Error: Not record
 //    ╭─[/{nail}/crates/dock/tests/type_check/init_not_record/main.nail:5:14]
 //    │
 //  5 │   let unit = Unit { x: 10, y: 20 };
 //    │              ──────────┬──────────  
-//    │                        ╰──────────── expected(defined): unit style, found: record style in struct Unit
+//    │                        ╰──────────── expected(defined): unit style, found: record style
 // ───╯

@@ -32,9 +32,19 @@ pub(super) const EXPR_FIRST: [TokenKind; 17] = [
 /// アイテムの最初に現れる可能性があるトークンの集合
 pub(super) const ITEM_FIRST: &[TokenKind] = &[TokenKind::FnKw, TokenKind::ModKw];
 
+/// パースモードです。
+///
+/// ブロックセーフモードについては[parse_expr_block_safe]を参照してください。
+enum ParseMode {
+    /// 通常のパースを行います。
+    Normal,
+    /// ブロックセーフなパースを行います。
+    BlockSafe,
+}
+
 /// 式のパース
 pub(super) fn parse_expr(parser: &mut Parser) -> Option<CompletedNodeMarker> {
-    parse_expr_binding_power(parser, 0, false)
+    parse_expr_binding_power(parser, 0, ParseMode::Normal)
 }
 
 /// 次の要素がブロックであっても、安全に式としてパースするための関数
@@ -68,7 +78,7 @@ pub(super) fn parse_expr(parser: &mut Parser) -> Option<CompletedNodeMarker> {
 /// ```
 ///
 fn parse_expr_block_safe(parser: &mut Parser) -> Option<CompletedNodeMarker> {
-    parse_expr_binding_power(parser, 0, true)
+    parse_expr_binding_power(parser, 0, ParseMode::BlockSafe)
 }
 
 /// 優先順位を考慮した式のパース
@@ -86,9 +96,9 @@ fn parse_expr_block_safe(parser: &mut Parser) -> Option<CompletedNodeMarker> {
 fn parse_expr_binding_power(
     parser: &mut Parser,
     minimum_binding_power: u8,
-    block_safe: bool,
+    parse_mode: ParseMode,
 ) -> Option<CompletedNodeMarker> {
-    let mut lhs = parse_lhs(parser, block_safe)?;
+    let mut lhs = parse_lhs(parser, parse_mode)?;
 
     loop {
         let op = if parser.at(TokenKind::Plus) {
@@ -126,7 +136,7 @@ fn parse_expr_binding_power(
         parser.bump();
 
         let marker = lhs.precede(parser);
-        let parsed_rhs = parse_expr_binding_power(parser, right_binding_power, false);
+        let parsed_rhs = parse_expr_binding_power(parser, right_binding_power, ParseMode::Normal);
         lhs = marker.complete(parser, SyntaxKind::BinaryExpr);
 
         if parsed_rhs.is_none() {
@@ -199,7 +209,7 @@ impl PrefixOp {
 }
 
 /// 左辺のパース
-fn parse_lhs(parser: &mut Parser, block_safe: bool) -> Option<CompletedNodeMarker> {
+fn parse_lhs(parser: &mut Parser, parse_mode: ParseMode) -> Option<CompletedNodeMarker> {
     // 関数呼び出しの場合はCallノードとしたいが、そうでない場合はラップしたくないので、destroyを呼ぶ可能性がある
     // 以下のようなイメージ。
     // 関数呼び出しの場合: ExprStmt -> CallExpr   -> PathExpr -> ArgListExpr
@@ -213,10 +223,11 @@ fn parse_lhs(parser: &mut Parser, block_safe: bool) -> Option<CompletedNodeMarke
         || parser.at(TokenKind::FalseKw)
     {
         parse_literal(parser)
-    } else if !block_safe && parser.at(TokenKind::Ident) {
-        parse_path_expr_or_record_expr(parser)
-    } else if block_safe && parser.at(TokenKind::Ident) {
-        parse_path_expr(parser)
+    } else if parser.at(TokenKind::Ident) {
+        match parse_mode {
+            ParseMode::Normal => parse_path_expr_or_record_expr(parser),
+            ParseMode::BlockSafe => parse_path_expr(parser),
+        }
     } else if parser.at_set(&[TokenKind::Minus, TokenKind::Bang]) {
         parse_prefix_expr(parser)
     } else if parser.at(TokenKind::LParen) {
@@ -377,7 +388,7 @@ fn parse_prefix_expr(parser: &mut Parser) -> CompletedNodeMarker {
 
     parser.bump();
 
-    parse_expr_binding_power(parser, right_binding_power, false);
+    parse_expr_binding_power(parser, right_binding_power, ParseMode::Normal);
 
     marker.complete(parser, SyntaxKind::UnaryExpr)
 }
@@ -390,7 +401,7 @@ fn parse_paren_expr(parser: &mut Parser) -> CompletedNodeMarker {
 
     let marker = parser.start();
     parser.bump();
-    parse_expr_binding_power(parser, 0, false);
+    parse_expr_binding_power(parser, 0, ParseMode::Normal);
     parser.expect_on_block(TokenKind::RParen);
 
     marker.complete(parser, SyntaxKind::ParenExpr)

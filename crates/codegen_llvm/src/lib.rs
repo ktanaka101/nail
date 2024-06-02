@@ -188,7 +188,12 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                     .unwrap()
                     .as_basic_type_enum()
                     .into(),
-                _ => unimplemented!(),
+                hir_ty::Monotype::Unit => todo!(),
+                hir_ty::Monotype::Char => todo!(),
+                hir_ty::Monotype::Function(_) => todo!(),
+                hir_ty::Monotype::Variable(_)
+                | hir_ty::Monotype::Never
+                | hir_ty::Monotype::Unknown => unreachable!(),
             })
             .collect::<Vec<_>>()
     }

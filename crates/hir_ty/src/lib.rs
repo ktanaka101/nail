@@ -2260,4 +2260,78 @@ mod tests {
             "#]],
         );
     }
+
+    #[test]
+    fn check_mutable_in_tuple_field() {
+        check_in_root_file(
+            r#"
+                struct Point(int, string);
+                fn main() -> int {
+                    let point = Point(
+                        {
+                            let a = 10;
+                            a = 20;
+                            a
+                        },
+                        "aaa"
+                    );
+                    point.0
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point(int, string);
+                fn entry:main() -> int {
+                    let point = struct:Point({
+                        let a = 10; //: int
+                        a = 20; //: ()
+                        expr:a //: int
+                    }, "aaa"); //: Point
+                    expr:point.0 //: int
+                }
+
+                ---
+                ---
+                error ImmutableReassignment: expr: a = 20
+            "#]],
+        );
+    }
+
+    #[test]
+    fn check_mutable_in_record_field() {
+        check_in_root_file(
+            r#"
+                struct Point {
+                    x: int,
+                    y: string,
+                }
+                fn main() -> int {
+                    let point = Point { x: {
+                            let a = 10;
+                            a = 20;
+                            a
+                        },
+                        y: "aaa"
+                    };
+                    point.x
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point{ x: int, y: string }
+                fn entry:main() -> int {
+                    let point = struct:Point { x: {
+                        let a = 10; //: int
+                        a = 20; //: ()
+                        expr:a //: int
+                    }, y: "aaa" }; //: Point
+                    expr:point.x //: int
+                }
+
+                ---
+                ---
+                error ImmutableReassignment: expr: a = 20
+            "#]],
+        );
+    }
 }

@@ -138,7 +138,8 @@ impl<'a> PrettyFile<'a> {
     }
 
     fn format_function(&self, function: Function, nesting: usize) -> String {
-        let body_expr = function.body(self.db, *self.hir_file).unwrap();
+        let is_entry_point = self.hir_file.entry_point(self.db) == Some(function);
+        let tag_entry_point = if is_entry_point { "entry:" } else { "" };
 
         let name = function.name(self.db).text(self.db);
         let params = function
@@ -151,6 +152,16 @@ impl<'a> PrettyFile<'a> {
             .collect::<Vec<_>>()
             .join(", ");
         let return_type = self.format_type(&function.return_type(self.db), nesting);
+
+        let body_expr = match function.body(self.db, *self.hir_file) {
+            Some(expr) => expr,
+            None => {
+                return format!(
+                    "{}fn {tag_entry_point}{name}({params}) -> {return_type} {{ /* body missing */ }}\n",
+                    Pretty::format_indent(nesting),
+                )
+            }
+        };
 
         let Expr::Block(block) = body_expr else {
             panic!("Should be Block")
@@ -169,11 +180,9 @@ impl<'a> PrettyFile<'a> {
         }
         body.push_str(&format!("{}}}", Pretty::format_indent(nesting)));
 
-        let is_entry_point = self.hir_file.entry_point(self.db) == Some(function);
         format!(
-            "{}fn {}{name}({params}) -> {return_type} {body}\n",
+            "{}fn {tag_entry_point}{name}({params}) -> {return_type} {body}\n",
             Pretty::format_indent(nesting),
-            if is_entry_point { "entry:" } else { "" }
         )
     }
 

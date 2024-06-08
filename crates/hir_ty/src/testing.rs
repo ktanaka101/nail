@@ -676,10 +676,13 @@ impl<'a> Pretty<'a> {
                 .inference_body_by_function(function)
                 .unwrap()
                 .type_by_expr
-                .get(&expr_id)
-                .unwrap();
+                .get(&expr_id);
 
-            format!("//: {}", self.format_monotype(ty))
+            if let Some(ty) = ty {
+                format!("//: {}", self.format_monotype(ty))
+            } else {
+                "//: no result by expr".to_string()
+            }
         } else {
             "//: no result".to_string()
         }

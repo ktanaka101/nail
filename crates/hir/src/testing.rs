@@ -249,7 +249,7 @@ impl<'a> PrettyFile<'a> {
         let path_name = self.format_path(use_item.path(self.db));
         let item_name = use_item.name(self.db).text(self.db);
 
-        format!("{path_name}::{item_name}")
+        format!("use {path_name}::{item_name};\n")
     }
 
     fn format_item(&self, item: &Item, nesting: usize) -> String {
@@ -456,8 +456,9 @@ impl<'a> PrettyFile<'a> {
                     Item::Module(_) => {
                         format!("mod:{path}")
                     }
-                    Item::UseItem(_) => {
-                        unreachable!()
+                    Item::UseItem(use_item) => {
+                        let item = self.resolution_map.item_by_use_item(&use_item).unwrap();
+                        format!("use:{}", self.format_resolution_status(item))
                     }
                 }
             }

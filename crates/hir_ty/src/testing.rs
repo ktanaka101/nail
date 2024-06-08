@@ -80,14 +80,12 @@ impl<'a> Pretty<'a> {
 
         msg.push_str("---\n");
         for (hir_file, function) in self.pods.root_pod.all_functions(self.db) {
-            let inference_body_result = self
+            let errors = self
                 .ty_lower_result
                 .inference_result
-                .inference_body_result_by_function
-                .get(&function)
-                .unwrap();
+                .errors_by_function(function);
 
-            for error in &inference_body_result.errors {
+            for error in errors {
                 match error {
                     InferenceError::MismatchedTypeIfCondition {
                         expected_condition_bool_ty,

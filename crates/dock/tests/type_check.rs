@@ -200,4 +200,9 @@ mod tests {
     fn can_not_field_access() {
         check("can_not_field_access");
     }
+
+    #[test]
+    fn not_allowed_type() {
+        check("not_allowed_type");
+    }
 }

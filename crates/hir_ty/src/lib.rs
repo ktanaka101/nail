@@ -49,9 +49,9 @@ impl TyLowerResult {
     /// 指定した関数の型を取得します。
     pub fn signature_by_function(&self, function_id: hir::Function) -> Option<Signature> {
         self.inference_result
-            .signature_by_function
+            .inference_signature_result_by_function
             .get(&function_id)
-            .copied()
+            .map(|infer_sig_result| infer_sig_result.signature)
     }
 
     /// 指定した関数の型推論結果を取得します。
@@ -75,14 +75,25 @@ impl TyLowerResult {
     /// 型推論エラーを取得します。
     pub fn type_inference_errors_with_function(&self) -> Vec<(hir::Function, &InferenceError)> {
         self.inference_result
-            .inference_body_result_by_function
+            .inference_signature_result_by_function
             .iter()
-            .flat_map(|(function, inference_body_result)| {
-                inference_body_result
+            .flat_map(|(function, inference_signature_result)| {
+                inference_signature_result
                     .errors
                     .iter()
                     .map(|error| (*function, error))
             })
+            .chain(
+                self.inference_result
+                    .inference_body_result_by_function
+                    .iter()
+                    .flat_map(|(function, inference_body_result)| {
+                        inference_body_result
+                            .errors
+                            .iter()
+                            .map(|error| (*function, error))
+                    }),
+            )
             .collect()
     }
 
@@ -2405,6 +2416,43 @@ mod tests {
                 struct Point{ x: int, y: int }
 
                 ---
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn check_path_type_not_allowed_type_error() {
+        check_pod_start_with_root_file(
+            r#"
+                //- /main.nail
+                mod aaa;
+                fn main() { }
+                fn foo(x: aaa, y: foo) -> aaa::bbb { }
+
+                //- /aaa.nail
+                fn foo() { }
+                mod bbb { }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                mod aaa;
+                fn entry:main() -> () {
+                }
+                fn foo(x: mod:aaa, y: fn:foo) -> mod:aaa::bbb {
+                }
+
+                //- /aaa.nail
+                fn foo() -> () {
+                }
+                mod bbb {
+                }
+
+                ---
+                error NotAllowedType: found_symbol: mod:aaa, found_function: foo, found_ty: mod:aaa
+                error NotAllowedType: found_symbol: fn:foo, found_function: foo, found_ty: fn:foo
+                error NotAllowedType: found_symbol: mod:aaa::bbb, found_function: foo, found_ty: mod:aaa::bbb
+                error MismatchedTypeReturnValue: expected_ty: <unknown>, found_ty: ()
                 ---
             "#]],
         );

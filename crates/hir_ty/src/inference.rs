@@ -20,9 +20,10 @@ use crate::HirTyMasterDatabase;
 
 /// Pod全体の型推論を行う
 pub fn infer_pods(db: &dyn HirTyMasterDatabase, pods: &hir::Pods) -> InferenceResult {
-    let mut signature_by_function = HashMap::<hir::Function, Signature>::new();
+    let mut inference_signature_result_by_function =
+        HashMap::<hir::Function, InferenceSignatureResult>::new();
     for (hir_file, function) in pods.root_pod.all_functions(db) {
-        let signature = InferenceSignature {
+        let infer_signature_result = InferenceSignature {
             db,
             hir_file,
             function,
@@ -30,21 +31,29 @@ pub fn infer_pods(db: &dyn HirTyMasterDatabase, pods: &hir::Pods) -> InferenceRe
             errors: vec![],
         }
         .infer_signature();
-        signature_by_function.insert(function, signature);
+        inference_signature_result_by_function.insert(function, infer_signature_result);
     }
 
-    let mut body_result_by_function = IndexMap::<hir::Function, InferenceBodyResult>::new();
+    let mut inference_body_result_by_function =
+        IndexMap::<hir::Function, InferenceBodyResult>::new();
     for (hir_file, function) in pods.root_pod.all_functions(db) {
         let env = Environment::new();
-        let infer_body = InferBody::new(db, pods, hir_file, function, &signature_by_function, env);
+        let infer_body = InferBody::new(
+            db,
+            pods,
+            hir_file,
+            function,
+            &inference_signature_result_by_function,
+            env,
+        );
         let infer_body_result = infer_body.infer_body();
 
-        body_result_by_function.insert(function, infer_body_result);
+        inference_body_result_by_function.insert(function, infer_body_result);
     }
 
     InferenceResult {
-        signature_by_function,
-        inference_body_result_by_function: body_result_by_function,
+        inference_signature_result_by_function,
+        inference_body_result_by_function,
     }
 }
 
@@ -57,7 +66,7 @@ struct InferenceSignature<'a> {
     errors: Vec<InferenceError>,
 }
 impl<'a> InferenceSignature<'a> {
-    fn infer_signature(mut self) -> Signature {
+    fn infer_signature(mut self) -> InferenceSignatureResult {
         let params = self
             .function
             .params(self.db)
@@ -70,7 +79,10 @@ impl<'a> InferenceSignature<'a> {
 
         let return_type = self.infer_type(&self.function.return_type(self.db));
 
-        Signature::new(self.db, params, return_type)
+        InferenceSignatureResult {
+            signature: Signature::new(self.db, params, return_type),
+            errors: self.errors,
+        }
     }
 
     fn infer_type(&mut self, ty: &hir::Type) -> Monotype {
@@ -173,7 +185,7 @@ pub(crate) struct InferBody<'a> {
     /// スコープを入れ子にするために使用しています。
     /// スコープに入る時にpushし、スコープから抜ける時はpopします。
     env_stack: Vec<Environment>,
-    signature_by_function: &'a HashMap<hir::Function, Signature>,
+    inference_signature_by_function: &'a HashMap<hir::Function, InferenceSignatureResult>,
 
     /// 推論結果の式の型を記録するためのマップ
     type_by_expr: HashMap<hir::ExprId, Monotype>,
@@ -190,7 +202,7 @@ impl<'a> InferBody<'a> {
         pods: &'a hir::Pods,
         hir_file: hir::HirFile,
         function: hir::Function,
-        signature_by_function: &'a HashMap<hir::Function, Signature>,
+        inference_signature_by_function: &'a HashMap<hir::Function, InferenceSignatureResult>,
         env: Environment,
     ) -> Self {
         InferBody {
@@ -198,12 +210,15 @@ impl<'a> InferBody<'a> {
             pods,
             hir_file,
             function,
-            signature: *signature_by_function.get(&function).unwrap(),
+            signature: inference_signature_by_function
+                .get(&function)
+                .unwrap()
+                .signature,
 
             unifier: TypeUnifier::new(),
             cxt: Context::default(),
             env_stack: vec![env],
-            signature_by_function,
+            inference_signature_by_function,
             type_by_expr: HashMap::new(),
 
             breakable_stack: vec![],
@@ -335,8 +350,12 @@ impl<'a> InferBody<'a> {
                 match self.resolve_resolution_status(resolution_status) {
                     Some(item) => match item {
                         hir::Item::Function(function) => {
-                            let signature = self.signature_by_function.get(&function).unwrap();
-                            Monotype::Function(*signature)
+                            let signature = self
+                                .inference_signature_by_function
+                                .get(&function)
+                                .unwrap()
+                                .signature;
+                            Monotype::Function(signature)
                         }
                         hir::Item::Struct(struct_) => Monotype::Struct(struct_),
                         hir::Item::Module(module) => {
@@ -1024,8 +1043,39 @@ impl<'a> InferBody<'a> {
 /// Pod全体の型推論結果
 #[derive(Debug)]
 pub struct InferenceResult {
-    pub(crate) signature_by_function: HashMap<hir::Function, Signature>,
+    pub(crate) inference_signature_result_by_function:
+        HashMap<hir::Function, InferenceSignatureResult>,
     pub(crate) inference_body_result_by_function: IndexMap<hir::Function, InferenceBodyResult>,
+}
+impl InferenceResult {
+    pub fn errors_by_function(
+        &self,
+        function: hir::Function,
+    ) -> impl Iterator<Item = &InferenceError> {
+        self.inference_signature_result_by_function
+            .get(&function)
+            .unwrap()
+            .errors()
+            .iter()
+            .chain(
+                self.inference_body_result_by_function
+                    .get(&function)
+                    .unwrap()
+                    .errors(),
+            )
+    }
+}
+
+/// 関数シグネチャの型推論結果
+#[derive(Debug)]
+pub struct InferenceSignatureResult {
+    pub(crate) signature: Signature,
+    pub(crate) errors: Vec<InferenceError>,
+}
+impl InferenceSignatureResult {
+    pub fn errors(&self) -> &Vec<InferenceError> {
+        &self.errors
+    }
 }
 
 /// 関数内の型推論結果

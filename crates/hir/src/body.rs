@@ -393,8 +393,13 @@ impl<'a> BodyLower<'a> {
                     .iter()
                     .map(|segment| Name::new(db, segment.name().unwrap().name().to_string()))
                     .collect::<Vec<_>>();
-                let path = Path::new(db, segments);
-                let use_item = UseItem::new(db, name, path);
+                let path = Path::new(db, segments.clone());
+                let full_path = Path::new(db, {
+                    let mut full_path = segments.clone();
+                    full_path.push(name);
+                    full_path
+                });
+                let use_item = UseItem::new(db, name, path, full_path);
 
                 Some(use_item)
             }
@@ -2661,7 +2666,43 @@ mod tests {
                 struct Point { x: int, y: int }
             "#]],
         );
+    }
 
+    #[test]
+    fn use_function() {
+        check_pod_start_with_root_file(
+            r#"
+                //- /main.nail
+                mod aaa;
+                use aaa::foo;
+                fn main() -> int {
+                    let x = foo();
+                    x
+                }
+
+                //- /aaa.nail
+                fn foo() -> int {
+                    10
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                mod aaa;
+                use aaa::foo;
+                fn entry:main() -> int {
+                    let x = use:fn:aaa::foo()
+                    expr:$x:use:fn:aaa::foo()
+                }
+                //- /aaa.nail
+                fn foo() -> int {
+                    expr:10
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn use_struct() {
         check_pod_start_with_root_file(
             r#"
                 //- /main.nail
@@ -2681,9 +2722,9 @@ mod tests {
                 mod aaa;
                 use aaa::Point;
                 fn entry:main() -> int {
-                    use:mod:aaa { x: 10, y: 20 };
-                    let point = use:mod:aaa { x: 10, y: 20 }
-                    expr:$point:use:mod:aaa { x: 10, y: 20 }.x
+                    use:struct:aaa::Point { x: 10, y: 20 };
+                    let point = use:struct:aaa::Point { x: 10, y: 20 }
+                    expr:$point:use:struct:aaa::Point { x: 10, y: 20 }.x
                 }
                 //- /aaa.nail
                 struct Point { x: int, y: int }

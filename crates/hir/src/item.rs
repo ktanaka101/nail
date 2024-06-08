@@ -255,8 +255,12 @@ pub struct UseItem {
     /// 使用宣言対象のパス
     ///
     /// 例: `use std::io::println;` であれば `std::io`
-    #[return_ref]
     pub path: Path,
+
+    /// フルパス
+    ///
+    /// 例: `use std::io::println;` であれば `std::io::println`
+    pub full_path: Path,
 }
 
 /// ファイルルート及びモジュール内のアイテムを表す

@@ -246,10 +246,8 @@ impl<'a> PrettyFile<'a> {
     }
 
     fn format_use_item(&self, use_item: UseItem) -> String {
-        let path_name = self.format_path(use_item.path(self.db));
-        let item_name = use_item.name(self.db).text(self.db);
-
-        format!("use {path_name}::{item_name};\n")
+        let full_path_name = self.format_path(use_item.full_path(self.db));
+        format!("use {full_path_name};\n")
     }
 
     fn format_item(&self, item: &Item, nesting: usize) -> String {
@@ -445,7 +443,7 @@ impl<'a> PrettyFile<'a> {
             ResolutionStatus::Unresolved => "<unknown>".to_string(),
             ResolutionStatus::Error => "<missing>".to_string(),
             ResolutionStatus::Resolved { path, item } => {
-                let path = self.format_path(&path);
+                let path = self.format_path(path);
                 match item {
                     Item::Function(_) => {
                         format!("fn:{path}")
@@ -465,7 +463,7 @@ impl<'a> PrettyFile<'a> {
         }
     }
 
-    fn format_path(&self, path: &Path) -> String {
+    fn format_path(&self, path: Path) -> String {
         path.segments(self.db)
             .iter()
             .map(|segment| segment.text(self.db).to_string())

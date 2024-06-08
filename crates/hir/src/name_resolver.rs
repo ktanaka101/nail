@@ -122,6 +122,15 @@ pub enum ResolutionStatus {
     /// 解決済みの状態です。
     Resolved {
         /// 解決したパス
+        /// フルパスで表現されます。
+        /// 以下のPointを参照するパスの場合、`foo::bar::Point`です。
+        /// ```ignore
+        /// mod foo {
+        ///   mod bar {
+        ///     struct Point;
+        ///   }
+        /// }
+        /// ``````
         path: Path,
         /// 解決したアイテム
         item: Item,
@@ -161,20 +170,20 @@ impl<'a> NameResolver<'a> {
         }
 
         for use_item in self.name_resolution_collection.use_items() {
-            let path = use_item.path(self.db);
-            let segments = self.resolve_path(path);
+            let item_full_path = use_item.full_path(self.db);
+            let item_full_path_segments = self.resolve_path(item_full_path);
 
             let module_scope = self
                 .module_scopes
                 .module_scope_by_use_item(*use_item)
                 .unwrap();
 
-            let resolved_item = self.resolve_relative_item(module_scope, &segments);
+            let resolved_item = self.resolve_relative_item(module_scope, &item_full_path_segments);
             if let Some(resolved_item) = resolved_item {
                 self.symbol_table.insert_use_item(
                     *use_item,
                     ResolutionStatus::Resolved {
-                        path: *path,
+                        path: item_full_path,
                         item: resolved_item,
                     },
                 );
@@ -193,7 +202,7 @@ impl<'a> NameResolver<'a> {
                         .module_scope_by_origin(symbol_in_scope.scope_origin)
                         .unwrap();
 
-                    let segments = self.resolve_path(&path.path(self.db));
+                    let segments = self.resolve_path(path.path(self.db));
 
                     let resolved_item = self.resolve_relative_item(module_scope, &segments);
                     if let Some(resolved_item) = resolved_item {
@@ -300,7 +309,7 @@ impl<'a> NameResolver<'a> {
         }
     }
 
-    fn resolve_path(&self, path: &Path) -> Vec<PathSegmentKind> {
+    fn resolve_path(&self, path: Path) -> Vec<PathSegmentKind> {
         path.segments(self.db)
             .iter()
             .map(|segment| {

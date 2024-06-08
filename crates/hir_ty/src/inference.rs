@@ -789,7 +789,7 @@ impl<'a> InferBody<'a> {
                             found_struct_symbol: symbol.clone(),
                             found_expr: expr_id,
                         });
-                        // TODO: fix not use return
+                        self.type_by_expr.insert(expr_id, Monotype::Unknown);
                         return Monotype::Unknown;
                     }
                     hir::Symbol::MissingExpr { path } => {
@@ -805,7 +805,7 @@ impl<'a> InferBody<'a> {
                                         found_struct_symbol: symbol.clone(),
                                         found_expr: expr_id,
                                     });
-                                    // TODO: fix not use return
+                                    self.type_by_expr.insert(expr_id, Monotype::Unknown);
                                     return Monotype::Unknown;
                                 }
                                 hir::Item::UseItem(_) => {

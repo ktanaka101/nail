@@ -976,7 +976,7 @@ impl<'a> Pretty<'a> {
             hir::ResolutionStatus::Unresolved => "<unknown>".to_string(),
             hir::ResolutionStatus::Error => "<missing>".to_string(),
             hir::ResolutionStatus::Resolved { path, item } => {
-                let path = self.format_path(&path);
+                let path = self.format_path(path);
                 match item {
                     hir::Item::Function(_) => {
                         format!("fn:{path}")
@@ -993,18 +993,14 @@ impl<'a> Pretty<'a> {
                             .resolution_map
                             .item_by_use_item(&use_item)
                             .unwrap();
-                        format!(
-                            "{}::{}",
-                            self.format_resolution_status(item),
-                            use_item.name(self.db).text(self.db)
-                        )
+                        format!("use:{}", self.format_resolution_status(item))
                     }
                 }
             }
         }
     }
 
-    fn format_path(&self, path: &hir::Path) -> String {
+    fn format_path(&self, path: hir::Path) -> String {
         path.segments(self.db)
             .iter()
             .map(|segment| segment.text(self.db).to_string())

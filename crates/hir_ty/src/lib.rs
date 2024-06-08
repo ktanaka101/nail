@@ -2334,4 +2334,37 @@ mod tests {
             "#]],
         );
     }
+
+    #[test]
+    fn check_type_from_mod() {
+        check_pod_start_with_root_file(
+            r#"
+                //- /main.nail
+                mod aaa;
+                use aaa::Point;
+                fn main() -> int {
+                    let point = Point { x: 10, y: 20 };
+                    point.x
+                }
+
+                //- /aaa.nail
+                struct Point { x: int, y: int }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                mod aaa;
+                use aaa::Point;
+                fn entry:main() -> int {
+                    let point = use:struct:aaa::Point { x: 10, y: 20 }; //: Point
+                    expr:point.x //: int
+                }
+
+                //- /aaa.nail
+                struct Point{ x: int, y: int }
+
+                ---
+                ---
+            "#]],
+        );
+    }
 }

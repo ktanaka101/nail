@@ -282,7 +282,9 @@ impl<'a> InferBody<'a> {
                                 });
                                 Monotype::Unknown
                             }
-                            hir::Item::UseItem(_) => unreachable!("UseItem should be resolved."),
+                            hir::Item::UseItem(_) => unreachable!(
+                                "UseItem should be resolved in #resolve_resolution_status."
+                            ),
                         },
                         None => Monotype::Unknown,
                     }
@@ -344,7 +346,9 @@ impl<'a> InferBody<'a> {
                             });
                             Monotype::Unknown
                         }
-                        hir::Item::UseItem(_) => unreachable!("UseItem should be resolved."),
+                        hir::Item::UseItem(_) => unreachable!(
+                            "UseItem should be resolved in #resolve_resolution_status."
+                        ),
                     },
                     None => Monotype::Unknown,
                 }
@@ -796,22 +800,24 @@ impl<'a> InferBody<'a> {
                         let resolution_status =
                             self.pods.resolution_map.item_by_symbol(path).unwrap();
                         match self.resolve_resolution_status(resolution_status) {
-                            Some(item) => match item {
-                                hir::Item::Struct(struct_) => Monotype::Struct(struct_),
-                                hir::Item::Function(_) | hir::Item::Module(_) => {
-                                    self.unifier.add_error(InferenceError::NotRecord {
-                                        // FIXME: found_struct_tyを変えるか適切な型を使用する
-                                        found_struct_ty: Monotype::Unknown,
-                                        found_struct_symbol: symbol.clone(),
-                                        found_expr: expr_id,
-                                    });
-                                    self.type_by_expr.insert(expr_id, Monotype::Unknown);
-                                    return Monotype::Unknown;
+                            Some(item) => {
+                                match item {
+                                    hir::Item::Struct(struct_) => Monotype::Struct(struct_),
+                                    hir::Item::Function(_) | hir::Item::Module(_) => {
+                                        self.unifier.add_error(InferenceError::NotRecord {
+                                            // FIXME: found_struct_tyを変えるか適切な型を使用する
+                                            found_struct_ty: Monotype::Unknown,
+                                            found_struct_symbol: symbol.clone(),
+                                            found_expr: expr_id,
+                                        });
+                                        self.type_by_expr.insert(expr_id, Monotype::Unknown);
+                                        return Monotype::Unknown;
+                                    }
+                                    hir::Item::UseItem(_) => {
+                                        unreachable!("UseItem should be resolved in #resolve_resolution_status.")
+                                    }
                                 }
-                                hir::Item::UseItem(_) => {
-                                    unreachable!("UseItem should be resolved.")
-                                }
-                            },
+                            }
                             None => Monotype::Unknown,
                         }
                     }

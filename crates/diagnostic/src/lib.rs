@@ -104,8 +104,8 @@ impl Diagnostic {
                 found_condition_expr,
             } => {
                 let text_range = found_condition_expr.text_range(db, source_map);
-                let cond_type = type_to_string(db, expected_condition_bool_ty);
-                let found_cond_ty = type_to_string(db, found_condition_ty);
+                let cond_type = monotype_to_string(db, expected_condition_bool_ty);
+                let found_cond_ty = monotype_to_string(db, found_condition_ty);
 
                 Diagnostic {
                     file,
@@ -142,8 +142,8 @@ impl Diagnostic {
                     ast::TextRange::new(else_branch_range.end(), else_branch_range.end())
                 };
 
-                let then_branch_ty = type_to_string(db, then_branch_ty);
-                let else_branch_ty = type_to_string(db, else_branch_ty);
+                let then_branch_ty = monotype_to_string(db, then_branch_ty);
+                let else_branch_ty = monotype_to_string(db, else_branch_ty);
 
                 Diagnostic {
                     file,
@@ -183,8 +183,8 @@ impl Diagnostic {
                     unreachable!("末尾の式がない場合は必ずUnitなのでエラーとならないはずです。");
                 };
 
-                let then_branch_ty = type_to_string(db, then_branch_ty);
-                let else_branch_ty = type_to_string(db, else_branch_unit_ty);
+                let then_branch_ty = monotype_to_string(db, then_branch_ty);
+                let else_branch_ty = monotype_to_string(db, else_branch_unit_ty);
 
                 Diagnostic {
                     file,
@@ -210,8 +210,8 @@ impl Diagnostic {
                 arg_pos: _,
             } => {
                 let text_range = found_expr.text_range(db, source_map);
-                let expected_ty = type_to_string(db, expected_ty);
-                let found_ty = type_to_string(db, found_ty);
+                let expected_ty = monotype_to_string(db, expected_ty);
+                let found_ty = monotype_to_string(db, found_ty);
 
                 Diagnostic {
                     file,
@@ -230,8 +230,8 @@ impl Diagnostic {
                 op,
             } => {
                 let text_range = found_expr.text_range(db, source_map);
-                let expected_ty = type_to_string(db, expected_int_ty);
-                let found_ty = type_to_string(db, found_ty);
+                let expected_ty = monotype_to_string(db, expected_int_ty);
+                let found_ty = monotype_to_string(db, found_ty);
 
                 let op = match op {
                     hir::BinaryOp::Add => "+",
@@ -266,8 +266,8 @@ impl Diagnostic {
             } => {
                 let compare_from_range = compare_from_expr.text_range(db, source_map);
                 let compare_to_range = compare_to_expr.text_range(db, source_map);
-                let compare_from_ty = type_to_string(db, compare_from_ty);
-                let compare_to_ty = type_to_string(db, compare_to_ty);
+                let compare_from_ty = monotype_to_string(db, compare_from_ty);
+                let compare_to_ty = monotype_to_string(db, compare_to_ty);
 
                 let op = match op {
                     hir::BinaryOp::Equal => "==",
@@ -306,8 +306,8 @@ impl Diagnostic {
                 op,
             } => {
                 let text_range = found_expr.text_range(db, source_map);
-                let expected_ty = type_to_string(db, expected_ty);
-                let found_ty = type_to_string(db, found_ty);
+                let expected_ty = monotype_to_string(db, expected_ty);
+                let found_ty = monotype_to_string(db, found_ty);
 
                 let op = match op {
                     hir::UnaryOp::Not => "!",
@@ -332,8 +332,8 @@ impl Diagnostic {
             } => {
                 let text_range = found_return.text_range(db, source_map);
                 let return_type = expected_signature.return_type(db);
-                let return_type = type_to_string(db, &return_type);
-                let found_ty = type_to_string(db, found_ty);
+                let return_type = monotype_to_string(db, &return_type);
+                let found_ty = monotype_to_string(db, found_ty);
 
                 Diagnostic {
                     file,
@@ -354,8 +354,8 @@ impl Diagnostic {
                 if let Some(found_last_expr) = found_last_expr {
                     let text_range = found_last_expr.text_range(db, source_map);
                     let return_type = expected_signature.return_type(db);
-                    let return_type = type_to_string(db, &return_type);
-                    let found_ty = type_to_string(db, found_ty);
+                    let return_type = monotype_to_string(db, &return_type);
+                    let found_ty = monotype_to_string(db, found_ty);
 
                     Diagnostic {
                         file,
@@ -376,8 +376,8 @@ impl Diagnostic {
                         .text_range();
 
                     let return_type = expected_signature.return_type(db);
-                    let return_type = type_to_string(db, &return_type);
-                    let found_ty = type_to_string(db, found_ty);
+                    let return_type = monotype_to_string(db, &return_type);
+                    let found_ty = monotype_to_string(db, found_ty);
 
                     Diagnostic {
                         file,
@@ -425,7 +425,7 @@ impl Diagnostic {
                 found_callee_expr,
             } => {
                 let text_range = found_callee_expr.text_range(db, source_map);
-                let found_callee_ty = type_to_string(db, found_callee_ty);
+                let found_callee_ty = monotype_to_string(db, found_callee_ty);
 
                 Diagnostic {
                     file,
@@ -460,8 +460,8 @@ impl Diagnostic {
                 found_expr,
             } => {
                 let found_expr_text_range = found_expr.text_range(db, source_map);
-                let expected_ty = type_to_string(db, expected_ty);
-                let found_ty = type_to_string(db, found_ty);
+                let expected_ty = monotype_to_string(db, expected_ty);
+                let found_ty = monotype_to_string(db, found_ty);
 
                 if let Some(expected_expr) = expected_expr {
                     let expected_expr_text_range = expected_expr.text_range(db, source_map);
@@ -505,6 +505,199 @@ impl Diagnostic {
                     head_offset: text_range.start().into(),
                     messages: vec![Message {
                         message: "expected in <loop>".to_string(),
+                        range: text_range,
+                    }],
+                }
+            }
+            InferenceError::NotRecord {
+                found_struct_ty,
+                found_struct_symbol: _,
+                found_expr,
+            } => {
+                let text_range = found_expr.text_range(db, source_map);
+                let found_struct_style = match found_struct_ty {
+                    hir_ty::Monotype::Struct(struct_) => match struct_.kind(db) {
+                        hir::StructKind::Record(_) => unreachable!(),
+                        hir::StructKind::Tuple(_) => "tuple style",
+                        hir::StructKind::Unit => "unit style",
+                    },
+                    _ => unreachable!(),
+                };
+
+                Diagnostic {
+                    file,
+                    title: "Not record".to_string(),
+                    head_offset: text_range.start().into(),
+                    messages: vec![Message {
+                        message: format!(
+                            "expected(defined): {found_struct_style}, found: record style"
+                        ),
+                        range: text_range,
+                    }],
+                }
+            }
+            InferenceError::NotAllowedType {
+                found_symbol: _,
+                found_function: _,
+                found_ty,
+            } => {
+                let text_range = found_ty.text_range(db, source_map);
+                Diagnostic {
+                    file,
+                    title: "Not allowed type".to_string(),
+                    head_offset: text_range.start().into(),
+                    messages: vec![Message {
+                        message: "not allowed type".to_string(),
+                        range: text_range,
+                    }],
+                }
+            }
+            InferenceError::MismatchedTypeInitStructTuple {
+                expected_ty,
+                found_ty,
+                found_arg_expr,
+                arg_pos: _,
+                init_struct: _,
+                found_expr: _,
+            } => {
+                let text_range = found_arg_expr.text_range(db, source_map);
+                let expected_ty = monotype_to_string(db, expected_ty);
+                let found_ty = monotype_to_string(db, found_ty);
+
+                Diagnostic {
+                    file,
+                    title: "Mismatched type in struct tuple initialization".to_string(),
+                    head_offset: text_range.start().into(),
+                    messages: vec![Message {
+                        message: format!("expected {expected_ty}, actual: {found_ty}"),
+                        range: text_range,
+                    }],
+                }
+            }
+            InferenceError::MissingStructRecordField {
+                missing_fields,
+                found_struct: _,
+                found_expr,
+            } => {
+                let text_range = found_expr.text_range(db, source_map);
+                let missing_fields = missing_fields
+                    .iter()
+                    .map(|field| field.text(db).to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ");
+
+                Diagnostic {
+                    file,
+                    title: "Missing struct record field".to_string(),
+                    head_offset: text_range.start().into(),
+                    messages: vec![Message {
+                        message: format!("missing fields: {missing_fields}"),
+                        range: text_range,
+                    }],
+                }
+            }
+            InferenceError::NoSuchStructRecordField {
+                no_such_fields,
+                found_struct: _,
+                found_expr,
+            } => {
+                let text_range = found_expr.text_range(db, source_map);
+                let no_such_fields = no_such_fields
+                    .iter()
+                    .map(|field| field.name.text(db).to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ");
+
+                Diagnostic {
+                    file,
+                    title: "No such struct record field".to_string(),
+                    head_offset: text_range.start().into(),
+                    messages: vec![Message {
+                        message: format!("no such fields: {no_such_fields}"),
+                        range: text_range,
+                    }],
+                }
+            }
+            InferenceError::MismatchedTypeInitStructRecord {
+                expected_ty,
+                found_ty,
+                found_name: _,
+                found_expr,
+                found_struct: _,
+            } => {
+                let text_range = found_expr.text_range(db, source_map);
+                let expected_ty = monotype_to_string(db, expected_ty);
+                let found_ty = monotype_to_string(db, found_ty);
+
+                Diagnostic {
+                    file,
+                    title: "Mismatched type in struct record initialization".to_string(),
+                    head_offset: text_range.start().into(),
+                    messages: vec![Message {
+                        message: format!("expected {expected_ty}, actual: {found_ty}"),
+                        range: text_range,
+                    }],
+                }
+            }
+            InferenceError::NeededInitTupleOrRecord {
+                found_ty,
+                found_expr,
+                found_struct,
+            } => {
+                let text_range = found_expr.text_range(db, source_map);
+                let found_ty = monotype_to_string(db, found_ty);
+                let found_struct_style = match found_struct.kind(db) {
+                    hir::StructKind::Record(_) => "record style",
+                    hir::StructKind::Tuple(_) => "tuple style",
+                    hir::StructKind::Unit => unreachable!(),
+                };
+
+                Diagnostic {
+                    file,
+                    title: "Needed initialization tuple or record".to_string(),
+                    head_offset: text_range.start().into(),
+                    messages: vec![Message {
+                        message: format!(
+                            "expected {found_struct_style} initialization, found: {found_ty}"
+                        ),
+                        range: text_range,
+                    }],
+                }
+            }
+            InferenceError::NoSuchFieldAccess {
+                no_such_field,
+                found_struct,
+                found_expr,
+            } => {
+                let text_range = found_expr.text_range(db, source_map);
+                let no_such_field = no_such_field.text(db);
+                let found_struct_name = found_struct.name(db).text(db);
+
+                Diagnostic {
+                    file,
+                    title: "No such field access".to_string(),
+                    head_offset: text_range.start().into(),
+                    messages: vec![Message {
+                        message: format!("no such field: {no_such_field} in {found_struct_name}"),
+                        range: text_range,
+                    }],
+                }
+            }
+            InferenceError::CanNotFieldAccess {
+                no_such_field,
+                found_ty,
+                found_expr,
+            } => {
+                let text_range = found_expr.text_range(db, source_map);
+                let no_such_field = no_such_field.text(db);
+                let found_ty = monotype_to_string(db, found_ty);
+
+                Diagnostic {
+                    file,
+                    title: "Can not field access".to_string(),
+                    head_offset: text_range.start().into(),
+                    messages: vec![Message {
+                        message: format!("can not field access to {no_such_field} in {found_ty}"),
                         range: text_range,
                     }],
                 }
@@ -558,7 +751,7 @@ pub struct Message {
     pub message: String,
 }
 
-fn type_to_string(db: &base_db::SalsaDatabase, ty: &hir_ty::Monotype) -> String {
+fn monotype_to_string(db: &base_db::SalsaDatabase, ty: &hir_ty::Monotype) -> String {
     match ty {
         hir_ty::Monotype::Integer => "int".to_string(),
         hir_ty::Monotype::Bool => "bool".to_string(),
@@ -569,11 +762,15 @@ fn type_to_string(db: &base_db::SalsaDatabase, ty: &hir_ty::Monotype) -> String 
                 signature
                     .params(db)
                     .iter()
-                    .map(|param| type_to_string(db, param))
+                    .map(|param| monotype_to_string(db, param))
                     .collect::<Vec<String>>()
                     .join(", "),
-                type_to_string(db, &signature.return_type(db))
+                monotype_to_string(db, &signature.return_type(db))
             )
+        }
+        hir_ty::Monotype::Struct(struct_) => {
+            let struct_name = struct_.name(db).text(db);
+            format!("struct {}", struct_name)
         }
         hir_ty::Monotype::Char => "char".to_string(),
         hir_ty::Monotype::String => "string".to_string(),

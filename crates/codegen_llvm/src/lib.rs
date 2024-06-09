@@ -13,7 +13,10 @@ use inkwell::{
     context::Context,
     execution_engine::{ExecutionEngine, JitFunction},
     module::Module,
-    types::{BasicMetadataTypeEnum, FunctionType, IntType, PointerType, StructType},
+    types::{
+        BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType, IntType, PointerType,
+        StructType,
+    },
     values::{FunctionValue, PointerValue},
     AddressSpace,
 };
@@ -36,12 +39,14 @@ pub struct CodegenContext<'a, 'ctx> {
 /// LLVM IRを生成します。
 pub fn codegen<'a, 'ctx>(
     db: &'a dyn hir::HirMasterDatabase,
+    pods: &'a hir::Pods,
     mir_result: &'a mir::LowerResult,
     codegen_context: &'a CodegenContext<'a, 'ctx>,
     should_return_string: bool,
 ) -> CodegenResult<'ctx> {
     let codegen = Codegen::new(
         db,
+        pods,
         mir_result,
         codegen_context.context,
         codegen_context.module,
@@ -62,6 +67,7 @@ pub struct CodegenResult<'ctx> {
 
 struct Codegen<'a, 'ctx> {
     db: &'a dyn hir::HirMasterDatabase,
+    pods: &'a hir::Pods,
     mir_result: &'a mir::LowerResult,
 
     context: &'ctx Context,
@@ -73,11 +79,14 @@ struct Codegen<'a, 'ctx> {
 
     defined_functions: HashMap<mir::FunctionId, FunctionValue<'ctx>>,
     entry_blocks: HashMap<mir::FunctionId, BasicBlock<'ctx>>,
+
+    declaration_structs: HashMap<hir::Struct, StructType<'ctx>>,
 }
 
 impl<'a, 'ctx> Codegen<'a, 'ctx> {
     fn new(
         db: &'a dyn hir::HirMasterDatabase,
+        pods: &'a hir::Pods,
         mir_result: &'a mir::LowerResult,
         context: &'ctx Context,
         module: &'a Module<'ctx>,
@@ -87,6 +96,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         let mut codegen = Self {
             db,
             mir_result,
+            pods,
             context,
             module,
             builder,
@@ -94,6 +104,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             builtin_functions: HashMap::new(),
             defined_functions: HashMap::new(),
             entry_blocks: HashMap::new(),
+            declaration_structs: HashMap::new(),
         };
         codegen.add_builtin_function();
 
@@ -110,7 +121,12 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             unimplemented!();
         }
 
+        self.emit_structs_declaration();
+
         self.gen_function_signatures(self.db);
+
+        self.emit_structs_body();
+
         self.gen_functions();
 
         let result = {
@@ -166,7 +182,18 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 }
                 hir_ty::Monotype::String => self.context.ptr_type(AddressSpace::default()).into(),
                 hir_ty::Monotype::Bool => self.context.bool_type().into(),
-                _ => unimplemented!(),
+                hir_ty::Monotype::Struct(struct_) => self
+                    .declaration_structs
+                    .get(&struct_)
+                    .unwrap()
+                    .as_basic_type_enum()
+                    .into(),
+                hir_ty::Monotype::Unit => todo!(),
+                hir_ty::Monotype::Char => todo!(),
+                hir_ty::Monotype::Function(_) => todo!(),
+                hir_ty::Monotype::Variable(_)
+                | hir_ty::Monotype::Never
+                | hir_ty::Monotype::Unknown => unreachable!(),
             })
             .collect::<Vec<_>>()
     }
@@ -220,6 +247,10 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                     let ty = self.context.bool_type();
                     ty.fn_type(&params, false)
                 }
+                hir_ty::Monotype::Struct(struct_) => {
+                    let ty = self.declaration_structs.get(&struct_).unwrap();
+                    ty.fn_type(&params, false)
+                }
                 _ => unimplemented!(),
             };
 
@@ -243,6 +274,68 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
 
             let body_codegen = BodyCodegen::new(self, function_id, *function_value, body);
             body_codegen.gen();
+        }
+    }
+
+    fn emit_structs_declaration(&mut self) {
+        for (_, struct_) in self.pods.root_pod.all_structs(self.db) {
+            self.declaration_structs.insert(
+                struct_,
+                self.context
+                    .opaque_struct_type(struct_.name(self.db).text(self.db)),
+            );
+        }
+    }
+
+    fn emit_structs_body(&mut self) {
+        for (_, struct_) in self.pods.root_pod.all_structs(self.db) {
+            let declaration_struct = self.declaration_structs.get(&struct_).unwrap();
+
+            match struct_.kind(self.db) {
+                hir::StructKind::Tuple(fields) => {
+                    let field_types = fields
+                        .iter()
+                        .map(|field| self.hir_type_to_llvm_type(field))
+                        .collect::<Vec<_>>();
+
+                    declaration_struct.set_body(&field_types, false);
+                }
+                hir::StructKind::Record(fields) => {
+                    let field_types = fields
+                        .iter()
+                        .map(|field| self.hir_type_to_llvm_type(&field.ty))
+                        .collect::<Vec<_>>();
+
+                    declaration_struct.set_body(&field_types, false);
+                }
+                hir::StructKind::Unit => (),
+            }
+        }
+    }
+
+    fn hir_type_to_llvm_type(&self, ty: &hir::Type) -> BasicTypeEnum<'ctx> {
+        match ty {
+            hir::Type::Integer => self.integer_type().into(),
+            hir::Type::String => self.string_type().into(),
+            hir::Type::Boolean => self.bool_type().into(),
+            hir::Type::Unit => self.unit_type().into(),
+            hir::Type::Custom(symbol) => match symbol {
+                hir::Symbol::MissingType { path } => {
+                    match self.pods.resolution_map.item_by_symbol(path).unwrap() {
+                        hir::ResolutionStatus::Resolved { item, .. } => match item {
+                            hir::Item::Struct(struct_) => {
+                                (*self.declaration_structs.get(&struct_).unwrap()).into()
+                            }
+                            _ => unimplemented!(),
+                        },
+                        _ => unimplemented!(),
+                    }
+                }
+                hir::Symbol::Param { .. }
+                | hir::Symbol::Local { .. }
+                | hir::Symbol::MissingExpr { .. } => unimplemented!(),
+            },
+            _ => unimplemented!(),
         }
     }
 }
@@ -275,48 +368,15 @@ mod tests {
         (db, pods, ty_result, mir_result)
     }
 
-    fn execute_in_root_file(fixture: &str) -> String {
-        let mut fixture = fixture.to_string();
-        fixture.insert_str(0, "//- /main.nail\n");
-
-        let (db, _pods, _ty_result, mir_result) = lower(&fixture);
-
-        let context = Context::create();
-        let module = context.create_module("top");
-        let builder = context.create_builder();
-        let execution_engine = module
-            .create_jit_execution_engine(OptimizationLevel::None)
-            .unwrap();
-        let result = codegen(
-            &db,
-            &mir_result,
-            &CodegenContext {
-                context: &context,
-                module: &module,
-                builder: &builder,
-                execution_engine: &execution_engine,
-            },
-            true,
-        );
-        module.print_to_stderr();
-
-        {
-            let c_string_ptr = unsafe { result.function.call() };
-            unsafe { CString::from_raw(c_string_ptr as *mut c_char) }
-                .into_string()
-                .unwrap()
-        }
-    }
-
     fn check_ir_in_root_file(fixture: &str, expect: Expect) {
         let mut fixture = fixture.to_string();
         fixture.insert_str(0, "//- /main.nail\n");
 
-        check_pod_result_start_with_root_file(&fixture, expect);
+        check_ir_pod_result_start_with_root_file(&fixture, expect);
     }
 
-    fn check_pod_result_start_with_root_file(fixture: &str, expect: Expect) {
-        let (db, _pods, _ty_result, mir_result) = lower(fixture);
+    fn check_ir_pod_result_start_with_root_file(fixture: &str, expect: Expect) {
+        let (db, pods, _ty_result, mir_result) = lower(fixture);
 
         let context = Context::create();
         let module = context.create_module("top");
@@ -326,6 +386,7 @@ mod tests {
             .unwrap();
         codegen(
             &db,
+            &pods,
             &mir_result,
             &CodegenContext {
                 context: &context,
@@ -351,8 +412,54 @@ mod tests {
     }
 
     fn check_result_in_root_file(fixture: &str, expect: Expect) {
-        let result_string = execute_in_root_file(fixture);
+        let mut fixture = fixture.to_string();
+        fixture.insert_str(0, "//- /main.nail\n");
+
+        let result_string = execute_pod_result_start_with_root_file(&fixture);
         expect.assert_eq(&result_string);
+    }
+
+    fn check_result_pod_result_start_with_root_file(fixture: &str, expect: Expect) {
+        let result_string = execute_pod_result_start_with_root_file(fixture);
+        expect.assert_eq(&result_string);
+    }
+
+    fn execute_in_root_file(fixture: &str) -> String {
+        let mut fixture = fixture.to_string();
+        fixture.insert_str(0, "//- /main.nail\n");
+
+        execute_pod_result_start_with_root_file(&fixture)
+    }
+
+    fn execute_pod_result_start_with_root_file(fixture: &str) -> String {
+        let (db, pods, _ty_result, mir_result) = lower(fixture);
+
+        let context = Context::create();
+        let module = context.create_module("top");
+        let builder = context.create_builder();
+        let execution_engine = module
+            .create_jit_execution_engine(OptimizationLevel::None)
+            .unwrap();
+        let result = codegen(
+            &db,
+            &pods,
+            &mir_result,
+            &CodegenContext {
+                context: &context,
+                module: &module,
+                builder: &builder,
+                execution_engine: &execution_engine,
+            },
+            true,
+        );
+        module.print_to_stderr();
+
+        {
+            let c_string_ptr = unsafe { result.function.call() };
+            unsafe { CString::from_raw(c_string_ptr as *mut c_char) }
+                .into_string()
+                .unwrap()
+        }
     }
 
     fn check_integer(input: &str, expect: i64) {
@@ -761,6 +868,118 @@ mod tests {
     }
 
     #[test]
+    fn test_ir_structs() {
+        check_ir_in_root_file(
+            r#"
+                struct Point { x: int, y: int }
+                fn main() -> int {
+                    let point = Point { x: 10, y: 20 };
+                    10
+                }
+            "#,
+            expect![[r#"
+                ; ModuleID = 'top'
+                source_filename = "top"
+
+                %Point = type { i64, i64 }
+
+                declare ptr @ptr_to_string(i64, ptr, i64)
+
+                define i64 @main() {
+                start:
+                  %"0" = alloca i64, align 8
+                  %"1" = alloca %Point, align 8
+                  %"2" = alloca %Point, align 8
+                  br label %entry
+
+                entry:                                            ; preds = %start
+                  %struct_val = alloca %Point, align 8
+                  %struct_val_field = getelementptr inbounds %Point, ptr %struct_val, i32 0, i32 0
+                  store i64 10, ptr %struct_val_field, align 8
+                  %struct_val_field1 = getelementptr inbounds %Point, ptr %struct_val, i32 0, i32 1
+                  store i64 20, ptr %struct_val_field1, align 8
+                  store ptr %struct_val, ptr %"2", align 8
+                  %load = load ptr, ptr %"2", align 8
+                  %load2 = load %Point, ptr %load, align 8
+                  store %Point %load2, ptr %"1", align 8
+                  store i64 10, ptr %"0", align 8
+                  br label %exit
+
+                exit:                                             ; preds = %entry
+                  %load3 = load i64, ptr %"0", align 8
+                  ret i64 %load3
+                }
+
+                define ptr @__main__() {
+                start:
+                  %call_entry_point = call i64 @main()
+                  ret void
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_ir_structs_order() {
+        check_ir_in_root_file(
+            r#"
+                struct Point { x: int, y: int }
+                fn main() -> Point {
+                    let point = Point { y: 10 + 20, x: 30 + 40 };
+                    point
+                }
+        "#,
+            expect![[r#"
+                ; ModuleID = 'top'
+                source_filename = "top"
+
+                %Point = type { i64, i64 }
+
+                declare ptr @ptr_to_string(i64, ptr, i64)
+
+                define %Point @main() {
+                start:
+                  %"0" = alloca %Point, align 8
+                  %"1" = alloca %Point, align 8
+                  %"2" = alloca i64, align 8
+                  %"3" = alloca i64, align 8
+                  %"4" = alloca %Point, align 8
+                  br label %entry
+
+                entry:                                            ; preds = %start
+                  store i64 30, ptr %"2", align 8
+                  store i64 70, ptr %"3", align 8
+                  %load = load i64, ptr %"3", align 8
+                  %load1 = load i64, ptr %"2", align 8
+                  %struct_val = alloca %Point, align 8
+                  %struct_val_field = getelementptr inbounds %Point, ptr %struct_val, i32 0, i32 0
+                  store i64 %load, ptr %struct_val_field, align 8
+                  %struct_val_field2 = getelementptr inbounds %Point, ptr %struct_val, i32 0, i32 1
+                  store i64 %load1, ptr %struct_val_field2, align 8
+                  store ptr %struct_val, ptr %"4", align 8
+                  %load3 = load ptr, ptr %"4", align 8
+                  %load4 = load %Point, ptr %load3, align 8
+                  store %Point %load4, ptr %"1", align 8
+                  %load5 = load ptr, ptr %"4", align 8
+                  %load6 = load %Point, ptr %load5, align 8
+                  store %Point %load6, ptr %"0", align 8
+                  br label %exit
+
+                exit:                                             ; preds = %entry
+                  %load7 = load %Point, ptr %"0", align 8
+                  ret %Point %load7
+                }
+
+                define ptr @__main__() {
+                start:
+                  %call_entry_point = call %Point @main()
+                  ret void
+                }
+            "#]],
+        );
+    }
+
+    #[test]
     fn test_fibonacci() {
         check_result_in_root_file(
             r#"
@@ -849,7 +1068,7 @@ mod tests {
         "#,
             expect![[r#"
                 {
-                  "nail_type": "Unit",
+                  "nail_type": "UnitOrStruct",
                   "value": null
                 }
             "#]],
@@ -920,7 +1139,7 @@ mod tests {
         "#,
             expect![[r#"
                 {
-                  "nail_type": "Unit",
+                  "nail_type": "UnitOrStruct",
                   "value": null
                 }
             "#]],
@@ -938,7 +1157,7 @@ mod tests {
         "#,
             expect![[r#"
                 {
-                  "nail_type": "Unit",
+                  "nail_type": "UnitOrStruct",
                   "value": null
                 }
             "#]],
@@ -1964,26 +2183,125 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
-    fn nested_outline_module() {
-        check_pod_result_start_with_root_file(
+    fn test_ir_nested_outline_module() {
+        check_ir_pod_result_start_with_root_file(
             r#"
                 //- /main.nail
                 mod mod_aaa;
 
-                fn main() -> integer {
+                fn main() -> int {
                     mod_aaa::fn_aaa();
                     mod_aaa::mod_bbb::fn_bbb()
                 }
 
                 //- /mod_aaa.nail
                 mod mod_bbb;
-                fn fn_aaa() -> integer {
+                fn fn_aaa() -> int {
                     mod_bbb::fn_bbb()
                 }
 
                 //- /mod_aaa/mod_bbb.nail
-                fn fn_bbb() -> integer {
+                fn fn_bbb() -> int {
+                    10
+                }
+            "#,
+            expect![[r#"
+                ; ModuleID = 'top'
+                source_filename = "top"
+
+                declare ptr @ptr_to_string(i64, ptr, i64)
+
+                define i64 @main() {
+                start:
+                  %"0" = alloca i64, align 8
+                  %"1" = alloca i64, align 8
+                  %"2" = alloca i64, align 8
+                  br label %entry
+
+                entry:                                            ; preds = %start
+                  %call = call i64 @fn_aaa()
+                  store i64 %call, ptr %"1", align 8
+                  br label %bb0
+
+                exit:                                             ; preds = %bb1
+                  %load = load i64, ptr %"0", align 8
+                  ret i64 %load
+
+                bb0:                                              ; preds = %entry
+                  %call1 = call i64 @fn_bbb()
+                  store i64 %call1, ptr %"2", align 8
+                  br label %bb1
+
+                bb1:                                              ; preds = %bb0
+                  %load2 = load i64, ptr %"2", align 8
+                  store i64 %load2, ptr %"0", align 8
+                  br label %exit
+                }
+
+                define i64 @fn_aaa() {
+                start:
+                  %"0" = alloca i64, align 8
+                  %"1" = alloca i64, align 8
+                  br label %entry
+
+                entry:                                            ; preds = %start
+                  %call = call i64 @fn_bbb()
+                  store i64 %call, ptr %"1", align 8
+                  br label %bb0
+
+                exit:                                             ; preds = %bb0
+                  %load = load i64, ptr %"0", align 8
+                  ret i64 %load
+
+                bb0:                                              ; preds = %entry
+                  %load1 = load i64, ptr %"1", align 8
+                  store i64 %load1, ptr %"0", align 8
+                  br label %exit
+                }
+
+                define i64 @fn_bbb() {
+                start:
+                  %"0" = alloca i64, align 8
+                  br label %entry
+
+                entry:                                            ; preds = %start
+                  store i64 10, ptr %"0", align 8
+                  br label %exit
+
+                exit:                                             ; preds = %entry
+                  %load = load i64, ptr %"0", align 8
+                  ret i64 %load
+                }
+
+                define ptr @__main__() {
+                start:
+                  %call_entry_point = call i64 @main()
+                  ret void
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_nested_outline_module() {
+        check_result_pod_result_start_with_root_file(
+            r#"
+                //- /main.nail
+                mod mod_aaa;
+
+                fn main() -> int {
+                    mod_aaa::fn_aaa();
+                    mod_aaa::mod_bbb::fn_bbb()
+                }
+
+                //- /mod_aaa.nail
+                mod mod_bbb;
+                fn fn_aaa() -> int {
+                    mod_bbb::fn_bbb()
+                }
+
+                //- /mod_aaa/mod_bbb.nail
+                fn fn_bbb() -> int {
                     10
                 }
             "#,
@@ -1991,6 +2309,175 @@ mod tests {
                 {
                   "nail_type": "Int",
                   "value": 10
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn ir_record_field_expr() {
+        check_ir_in_root_file(
+            r#"
+                struct Point { x: int, y: int }
+                fn main() -> int {
+                    let point = Point { x: 10, y: 20 };
+                    point.x
+                }
+            "#,
+            expect![[r#"
+                ; ModuleID = 'top'
+                source_filename = "top"
+
+                %Point = type { i64, i64 }
+
+                declare ptr @ptr_to_string(i64, ptr, i64)
+
+                define i64 @main() {
+                start:
+                  %"0" = alloca i64, align 8
+                  %"1" = alloca %Point, align 8
+                  %"2" = alloca %Point, align 8
+                  %"3" = alloca %Point, align 8
+                  br label %entry
+
+                entry:                                            ; preds = %start
+                  %struct_val = alloca %Point, align 8
+                  %struct_val_field = getelementptr inbounds %Point, ptr %struct_val, i32 0, i32 0
+                  store i64 10, ptr %struct_val_field, align 8
+                  %struct_val_field1 = getelementptr inbounds %Point, ptr %struct_val, i32 0, i32 1
+                  store i64 20, ptr %struct_val_field1, align 8
+                  store ptr %struct_val, ptr %"2", align 8
+                  %load = load ptr, ptr %"2", align 8
+                  %load2 = load %Point, ptr %load, align 8
+                  store %Point %load2, ptr %"1", align 8
+                  %load3 = load ptr, ptr %"2", align 8
+                  %load4 = load %Point, ptr %load3, align 8
+                  store %Point %load4, ptr %"3", align 8
+                  %gep_field = getelementptr inbounds %Point, ptr %"3", i32 0, i32 0
+                  %load_field = load ptr, ptr %gep_field, align 8
+                  store ptr %load_field, ptr %"0", align 8
+                  br label %exit
+
+                exit:                                             ; preds = %entry
+                  %load5 = load i64, ptr %"0", align 8
+                  ret i64 %load5
+                }
+
+                define ptr @__main__() {
+                start:
+                  %call_entry_point = call i64 @main()
+                  ret void
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn record_field_expr() {
+        check_result_in_root_file(
+            r#"
+                struct Point { x: int, y: int }
+                fn main() -> int {
+                    let point = Point { x: 10, y: 20 };
+                    point.x
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 10
+                }
+            "#]],
+        );
+
+        check_result_in_root_file(
+            r#"
+                struct Point { x: int, y: string }
+                fn main() -> int {
+                    let point = Point { x: 10, y: "aaa" };
+                    point.x
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 10
+                }
+            "#]],
+        );
+
+        check_result_in_root_file(
+            r#"
+                struct Point { x: int, y: string }
+                fn main() -> string {
+                    let point = Point { x: 10, y: "aaa" };
+                    point.y
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "String",
+                  "value": "aaa"
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn param_record_field_expr() {
+        check_result_in_root_file(
+            r#"
+                struct Point { x: int, y: string }
+                fn main() -> int {
+                    let point = Point { x: 10, y: "aaa" };
+                    foo(point)
+                }
+                fn foo(point: Point) -> int {
+                    point.x
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "Int",
+                  "value": 10
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_tuple_struct() {
+        check_result_in_root_file(
+            r#"
+                struct Point(int, string);
+                fn main() -> string {
+                    let point = Point(10, "aaa");
+                    point.1
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "String",
+                  "value": "aaa"
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_unit_struct() {
+        check_result_in_root_file(
+            r#"
+                struct Point;
+                fn main() -> Point {
+                    let point = Point;
+                    point
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "UnitOrStruct",
+                  "value": null
                 }
             "#]],
         );

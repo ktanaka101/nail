@@ -1,0 +1,40 @@
+mod aaa;
+
+fn main() {
+  aaa::foo();
+}
+
+fn foo(x: aaa, y: foo) -> aaa::bbb {
+}
+
+//---stdout
+//---stderr
+
+// Error: Not allowed type
+//    ╭─[/{nail}/crates/dock/tests/type_check/not_allowed_type/main.nail:7:11]
+//    │
+//  7 │ fn foo(x: aaa, y: foo) -> aaa::bbb {
+//    │           ─┬─  
+//    │            ╰─── not allowed type
+// ───╯
+// Error: Not allowed type
+//    ╭─[/{nail}/crates/dock/tests/type_check/not_allowed_type/main.nail:7:19]
+//    │
+//  7 │ fn foo(x: aaa, y: foo) -> aaa::bbb {
+//    │                   ─┬─  
+//    │                    ╰─── not allowed type
+// ───╯
+// Error: Not allowed type
+//    ╭─[/{nail}/crates/dock/tests/type_check/not_allowed_type/main.nail:7:27]
+//    │
+//  7 │ fn foo(x: aaa, y: foo) -> aaa::bbb {
+//    │                           ────┬───  
+//    │                               ╰───── not allowed type
+// ───╯
+// Error: Mismatched type in return value
+//    ╭─[/{nail}/crates/dock/tests/type_check/not_allowed_type/main.nail:7:24]
+//    │
+//  7 │ fn foo(x: aaa, y: foo) -> aaa::bbb {
+//    │                        ─────┬─────  
+//    │                             ╰─────── expected <unknown>, actual: () as its body has tail
+// ───╯

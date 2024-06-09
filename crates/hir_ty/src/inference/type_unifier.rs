@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use super::{error::InferenceError, types::Monotype, Signature};
 
 /// 型の統一を行うための構造体
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub(crate) struct TypeUnifier {
     pub(crate) nodes: HashMap<Monotype, Node>,
     pub(crate) errors: Vec<InferenceError>,
@@ -83,6 +83,23 @@ pub(crate) enum UnifyPurpose {
         /// 実際の型
         found_ty: Monotype,
         /// 実際の式
+        found_expr: hir::ExprId,
+    },
+    InitStructTuple {
+        /// 初期化対象の構造体
+        init_struct: hir::Struct,
+        /// 引数の式
+        found_arg_expr: hir::ExprId,
+        /// 引数の位置
+        arg_pos: usize,
+        found_expr: hir::ExprId,
+    },
+    InitStructRecord {
+        /// 初期化対象の構造体
+        init_struct: hir::Struct,
+        /// 名前
+        found_name: hir::Name,
+        /// 式
         found_expr: hir::ExprId,
     },
 }
@@ -182,12 +199,39 @@ fn build_unify_error_from_unify_purpose(
             found_ty: found_ty.clone(),
             found_expr: *found_expr,
         },
+        UnifyPurpose::InitStructTuple {
+            init_struct,
+            found_arg_expr,
+            arg_pos,
+            found_expr,
+        } => InferenceError::MismatchedTypeInitStructTuple {
+            expected_ty,
+            found_ty,
+            init_struct: *init_struct,
+            found_arg_expr: *found_arg_expr,
+            arg_pos: *arg_pos,
+            found_expr: *found_expr,
+        },
+        UnifyPurpose::InitStructRecord {
+            init_struct,
+            found_name,
+            found_expr,
+        } => InferenceError::MismatchedTypeInitStructRecord {
+            expected_ty,
+            found_ty,
+            found_struct: *init_struct,
+            found_name: *found_name,
+            found_expr: *found_expr,
+        },
     }
 }
 
 impl TypeUnifier {
     pub(crate) fn new() -> Self {
-        Default::default()
+        Self {
+            nodes: HashMap::new(),
+            errors: vec![],
+        }
     }
 
     pub(crate) fn find(&mut self, ty: &Monotype) -> Monotype {

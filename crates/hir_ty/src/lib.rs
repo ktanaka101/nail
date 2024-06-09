@@ -17,7 +17,7 @@
 mod checker;
 mod db;
 mod inference;
-mod testing;
+pub mod testing;
 
 pub use checker::{TypeCheckError, TypeCheckResult};
 pub use db::{HirTyMasterDatabase, Jar};
@@ -49,9 +49,9 @@ impl TyLowerResult {
     /// 指定した関数の型を取得します。
     pub fn signature_by_function(&self, function_id: hir::Function) -> Option<Signature> {
         self.inference_result
-            .signature_by_function
+            .inference_signature_result_by_function
             .get(&function_id)
-            .copied()
+            .map(|infer_sig_result| infer_sig_result.signature)
     }
 
     /// 指定した関数の型推論結果を取得します。
@@ -75,14 +75,25 @@ impl TyLowerResult {
     /// 型推論エラーを取得します。
     pub fn type_inference_errors_with_function(&self) -> Vec<(hir::Function, &InferenceError)> {
         self.inference_result
-            .inference_body_result_by_function
+            .inference_signature_result_by_function
             .iter()
-            .flat_map(|(function, inference_body_result)| {
-                inference_body_result
+            .flat_map(|(function, inference_signature_result)| {
+                inference_signature_result
                     .errors
                     .iter()
                     .map(|error| (*function, error))
             })
+            .chain(
+                self.inference_result
+                    .inference_body_result_by_function
+                    .iter()
+                    .flat_map(|(function, inference_body_result)| {
+                        inference_body_result
+                            .errors
+                            .iter()
+                            .map(|error| (*function, error))
+                    }),
+            )
             .collect()
     }
 
@@ -102,12 +113,7 @@ impl TyLowerResult {
 mod tests {
     use expect_test::{expect, Expect};
 
-    use crate::{
-        inference::{InferenceError, Monotype, Signature},
-        lower_pods,
-        testing::TestingDatabase,
-        BreakKind, HirTyMasterDatabase, TyLowerResult, TypeCheckError,
-    };
+    use crate::{lower_pods, testing::TestingDatabase};
 
     fn check_pod_start_with_root_file(fixture: &str, expect: Expect) {
         let db = TestingDatabase::default();
@@ -116,7 +122,7 @@ mod tests {
         let pods = hir::parse_pods(&db, &source_db);
         let ty_lower_result = lower_pods(&db, &pods);
 
-        expect.assert_eq(&TestingDebug::new(&db, &pods, &ty_lower_result).debug());
+        expect.assert_eq(&crate::testing::Pretty::new(&db, &pods, &ty_lower_result).format());
     }
 
     fn check_in_root_file(fixture: &str, expect: Expect) {
@@ -124,755 +130,6 @@ mod tests {
         fixture.insert_str(0, "//- /main.nail\n");
 
         check_pod_start_with_root_file(&fixture, expect);
-    }
-
-    fn indent(nesting: usize) -> String {
-        "    ".repeat(nesting)
-    }
-
-    struct TestingDebug<'a> {
-        db: &'a dyn HirTyMasterDatabase,
-        pods: &'a hir::Pods,
-        ty_lower_result: &'a TyLowerResult,
-    }
-    impl<'a> TestingDebug<'a> {
-        fn new(
-            db: &'a dyn HirTyMasterDatabase,
-            pods: &'a hir::Pods,
-            ty_lower_result: &'a TyLowerResult,
-        ) -> Self {
-            Self {
-                db,
-                pods,
-                ty_lower_result,
-            }
-        }
-
-        fn debug(&self) -> String {
-            let mut msg = "".to_string();
-
-            msg.push_str(&self.debug_hir_file(self.pods.root_pod.root_hir_file));
-            msg.push('\n');
-
-            for (_nail_file, hir_file) in self.pods.root_pod.get_hir_files_order_registration_asc()
-            {
-                msg.push_str(&self.debug_hir_file(*hir_file));
-                msg.push('\n');
-            }
-
-            msg.push_str("---\n");
-            for (hir_file, function) in self.pods.root_pod.all_functions(self.db) {
-                let inference_body_result = self
-                    .ty_lower_result
-                    .inference_result
-                    .inference_body_result_by_function
-                    .get(&function)
-                    .unwrap();
-
-                for error in &inference_body_result.errors {
-                    match error {
-                        InferenceError::MismatchedTypeIfCondition {
-                            expected_condition_bool_ty,
-                            found_condition_expr,
-                            found_condition_ty,
-                        } => {
-                            msg.push_str(
-                            &format!(
-                                "error MismatchedTypeIfCondition: expected_ty: {}, found_ty: {}, found_expr: `{}`",
-                                self.debug_monotype(expected_condition_bool_ty),
-                                self.debug_monotype(found_condition_ty),
-                                self.debug_simplify_expr(hir_file, *found_condition_expr),
-                            ));
-                        }
-                        InferenceError::MismatchedTypeElseBranch {
-                            then_branch_ty,
-                            then_branch,
-                            else_branch_ty,
-                            else_branch,
-                        } => {
-                            msg.push_str(
-                            &format!(
-                                "error MismatchedTypeElseBranch: then_branch_ty: {}, else_branch_ty: {}, then_branch: `{}`, else_branch: `{}`",
-                                self.debug_monotype(then_branch_ty),
-                                self.debug_monotype(else_branch_ty),
-                                self.debug_simplify_expr(hir_file, *then_branch),
-                                self.debug_simplify_expr(hir_file, *else_branch),
-                            ));
-                        }
-                        InferenceError::MismatchedTypeOnlyIfBranch {
-                            then_branch_ty,
-                            then_branch,
-                            else_branch_unit_ty,
-                        } => {
-                            msg.push_str(
-                            &format!(
-                                "error MismatchedTypeOnlyIfBranch: then_branch_ty: {}, else_branch_ty: {}, then_branch: `{}`",
-                                self.debug_monotype(then_branch_ty),
-                                self.debug_monotype(else_branch_unit_ty),
-                                self.debug_simplify_expr(hir_file, *then_branch),
-                            ));
-                        }
-                        InferenceError::MismaatchedTypeCallArg {
-                            expected_ty,
-                            found_ty,
-                            expected_signature,
-                            found_expr,
-                            arg_pos,
-                        } => {
-                            msg.push_str(
-                            &format!(
-                                "error MismaatchedSignature: expected_ty: {}, found_ty: {}, found_expr: `{}`, signature: {}, arg_pos: {}",
-                                self.debug_monotype(expected_ty),
-                                self.debug_monotype(found_ty),
-                                self.debug_simplify_expr(hir_file, *found_expr),
-                                self.debug_signature(expected_signature),
-                                arg_pos
-                            ));
-                        }
-                        InferenceError::MismatchedBinaryInteger {
-                            expected_int_ty,
-                            found_expr,
-                            found_ty,
-                            op,
-                        } => {
-                            msg.push_str(
-                            &format!(
-                                "error MismatchedBinaryInteger: op: {op}, expected_ty: {}, found_ty: {}, found_expr: `{}`",
-                                self.debug_monotype(expected_int_ty),
-                                self.debug_monotype(found_ty),
-                                self.debug_simplify_expr(hir_file, *found_expr),
-                            ));
-                        }
-                        InferenceError::MismatchedBinaryCompare {
-                            compare_from_ty,
-                            compare_from_expr,
-                            compare_to_expr,
-                            compare_to_ty,
-                            op,
-                        } => {
-                            msg.push_str(
-                            &format!(
-                                "error MismatchedBinaryCompare: op: {op}, expected_ty: {}, found_ty: {}, expected_expr: `{}`, found_expr: `{}`",
-                                self.debug_monotype(compare_from_ty),
-                                self.debug_monotype(compare_to_ty),
-                                self.debug_simplify_expr(hir_file, *compare_from_expr),
-                                self.debug_simplify_expr(hir_file, *compare_to_expr),
-                            ));
-                        }
-                        InferenceError::MismatchedUnary {
-                            expected_ty,
-                            found_expr,
-                            found_ty,
-                            op,
-                        } => {
-                            msg.push_str(
-                            &format!(
-                                "error MismatchedUnary: op: {}, expected_ty: {}, found_ty: {}, found_expr: `{}`",
-                                self.debug_unary_op(*op),
-                                self.debug_monotype(expected_ty),
-                                self.debug_monotype(found_ty),
-                                self.debug_simplify_expr(hir_file, *found_expr),
-                            ));
-                        }
-                        InferenceError::MismatchedTypeReturnExpr {
-                            expected_signature,
-                            found_ty,
-                            found_return_expr,
-                            found_return: _,
-                        } => {
-                            if let Some(found_return_expr) = found_return_expr {
-                                msg.push_str(
-                            &format!(
-                                "error MismatchedReturnType: expected_ty: {}, found_ty: {}, found_expr: `{}`",
-                                self.debug_monotype(&expected_signature.return_type(self.db)),
-                                self.debug_monotype(found_ty),
-                                self.debug_simplify_expr(hir_file, *found_return_expr),
-                            ));
-                            } else {
-                                msg.push_str(&format!(
-                                    "error MismatchedReturnType: expected_ty: {}, found_ty: {}",
-                                    self.debug_monotype(&expected_signature.return_type(self.db)),
-                                    self.debug_monotype(found_ty),
-                                ));
-                            }
-                        }
-                        InferenceError::MismatchedTypeReturnValue {
-                            expected_signature,
-                            expected_function: _,
-                            found_ty,
-                            found_last_expr,
-                        } => {
-                            if let Some(found_last_expr) = found_last_expr {
-                                msg.push_str(
-                            &format!(
-                                "error MismatchedTypeReturnValue: expected_ty: {}, found_ty: {}, found_expr: `{}`",
-                                self.debug_monotype(&expected_signature.return_type(self.db)),
-                                self.debug_monotype(found_ty),
-                                self.debug_simplify_expr(hir_file, *found_last_expr),
-                            ));
-                            } else {
-                                msg.push_str(&format!(
-                                    "error MismatchedTypeReturnValue: expected_ty: {}, found_ty: {}",
-                                    self.debug_monotype(&expected_signature.return_type(self.db)),
-                                    self.debug_monotype(found_ty),
-                                ));
-                            }
-                        }
-                        InferenceError::MismatchedCallArgCount {
-                            expected_callee_arg_count,
-                            found_arg_count,
-                            found_expr: _,
-                        } => {
-                            msg.push_str(&format!(
-                                "error MismatchedCallArgCount: expected_arg_count: {}, found_arg_count: {}",
-                                expected_callee_arg_count,
-                                found_arg_count,
-                            ));
-                        }
-                        InferenceError::NotCallable {
-                            found_callee_ty,
-                            found_callee_symbol,
-                            found_callee_expr: _,
-                        } => {
-                            msg.push_str(&format!(
-                                "error NotCallable: found_callee_ty: {}, found_callee_symbol: {}",
-                                self.debug_monotype(found_callee_ty),
-                                self.debug_symbol(found_callee_symbol),
-                            ));
-                        }
-                        InferenceError::ModuleAsExpr {
-                            found_module,
-                            found_expr: _,
-                        } => {
-                            msg.push_str(&format!(
-                                "error ModuleAsExpr: found_module: {}",
-                                found_module.name(self.db).text(self.db)
-                            ));
-                        }
-                        InferenceError::MismatchedType {
-                            expected_ty,
-                            expected_expr,
-                            found_ty,
-                            found_expr,
-                        } => {
-                            if let Some(expected_expr) = expected_expr {
-                                msg.push_str(
-                                &format!(
-                                    "error MismatchedType: expected_ty: {}, found_ty: {}, expected_expr: {}, found_expr: `{}`",
-                                    self.debug_monotype(expected_ty),
-                                    self.debug_monotype(found_ty),
-                                    self.debug_simplify_expr(hir_file, *expected_expr),
-                                    self.debug_simplify_expr(hir_file, *found_expr),
-                                ));
-                            } else {
-                                msg.push_str(
-                                &format!(
-                                "error MismatchedType: expected_ty: {}, found_ty: {}, found_expr: `{}`",
-                                self.debug_monotype(expected_ty),
-                                self.debug_monotype(found_ty),
-                                self.debug_simplify_expr(hir_file, *found_expr),
-                            ));
-                            }
-                        }
-                        InferenceError::BreakOutsideOfLoop { kind, found_expr } => {
-                            let kind_text = match kind {
-                                BreakKind::Break => "break",
-                                BreakKind::Continue => "continue",
-                            };
-                            msg.push_str(&format!(
-                                "error BreakOutsideOfLoop({kind_text}): found_expr: `{}`",
-                                self.debug_simplify_expr(hir_file, *found_expr),
-                            ));
-                        }
-                    }
-                    msg.push('\n');
-                }
-            }
-
-            msg.push_str("---\n");
-            for (hir_file, function) in self.pods.root_pod.all_functions(self.db) {
-                let type_check_errors = self
-                    .ty_lower_result
-                    .type_check_errors_by_function(function)
-                    .unwrap();
-                for error in type_check_errors {
-                    match error {
-                        TypeCheckError::UnresolvedType { expr } => {
-                            msg.push_str(&format!(
-                                "error Type is unknown: expr: {}",
-                                self.debug_simplify_expr(hir_file, *expr),
-                            ));
-                        }
-                        TypeCheckError::ImmutableReassignment { expr } => {
-                            msg.push_str(&format!(
-                                "error ImmutableReassignment: expr: {}",
-                                self.debug_simplify_expr(hir_file, *expr),
-                            ));
-                        }
-                    }
-                    msg.push('\n');
-                }
-            }
-
-            msg
-        }
-
-        fn debug_signature(&self, signature: &Signature) -> String {
-            let params = signature
-                .params(self.db)
-                .iter()
-                .map(|param| self.debug_monotype(param))
-                .collect::<Vec<_>>()
-                .join(", ");
-            let return_type = self.debug_monotype(&signature.return_type(self.db));
-
-            format!("({params}) -> {return_type}")
-        }
-
-        fn debug_hir_file(&self, hir_file: hir::HirFile) -> String {
-            let mut msg = format!(
-                "//- {}\n",
-                hir_file.file(self.db).file_path(self.db).to_str().unwrap()
-            );
-
-            for item in hir_file.top_level_items(self.db) {
-                msg.push_str(&self.debug_item(hir_file, *item, 0));
-            }
-
-            msg
-        }
-
-        fn debug_function(
-            &self,
-            hir_file: hir::HirFile,
-            function: hir::Function,
-            nesting: usize,
-        ) -> String {
-            let body_expr = function.body(self.db, hir_file).unwrap();
-
-            let name = function.name(self.db).text(self.db);
-            let params = function
-                .params(self.db)
-                .iter()
-                .map(|param| {
-                    let param_data = param.data(hir_file.db(self.db));
-                    hir::testing::format_parameter(self.db, param_data)
-                })
-                .collect::<Vec<_>>()
-                .join(", ");
-            let return_type = match &function.return_type(self.db) {
-                hir::Type::Integer => "int",
-                hir::Type::String => "string",
-                hir::Type::Char => "char",
-                hir::Type::Boolean => "bool",
-                hir::Type::Unit => "()",
-                hir::Type::Unknown => "<unknown>",
-            };
-
-            let hir::Expr::Block(block) = body_expr else {
-                panic!("Should be Block")
-            };
-
-            let mut body = "{\n".to_string();
-            for stmt in &block.stmts {
-                body.push_str(&self.debug_stmt(hir_file, function, stmt, nesting + 1));
-            }
-            if let Some(tail) = block.tail {
-                let indent = indent(nesting + 1);
-                body.push_str(&format!(
-                    "{indent}expr:{}",
-                    self.debug_expr(hir_file, function, tail, nesting + 1)
-                ));
-                body.push_str(&format!(" {}\n", self.debug_type_line(function, tail)));
-            }
-            body.push_str(&format!("{}}}", indent(nesting)));
-
-            let is_entry_point = hir_file.entry_point(self.db) == Some(function);
-            format!(
-                "{}fn {}{name}({params}) -> {return_type} {body}\n",
-                indent(nesting),
-                if is_entry_point { "entry:" } else { "" }
-            )
-        }
-
-        fn debug_module(
-            &self,
-            hir_file: hir::HirFile,
-            module: hir::Module,
-            nesting: usize,
-        ) -> String {
-            let _scope_origin = hir::ModuleScopeOrigin::Module { origin: module };
-
-            let curr_indent = indent(nesting);
-
-            let module_name = module.name(self.db).text(self.db);
-
-            match module.kind(self.db) {
-                hir::ModuleKind::Inline { items } => {
-                    let mut module_str = "".to_string();
-                    module_str.push_str(&format!("{curr_indent}mod {module_name} {{\n"));
-                    for (i, item) in items.iter().enumerate() {
-                        module_str.push_str(&self.debug_item(hir_file, *item, nesting + 1));
-                        if i == items.len() - 1 {
-                            continue;
-                        }
-
-                        module_str.push('\n');
-                    }
-                    module_str.push_str(&format!("{curr_indent}}}\n"));
-                    module_str
-                }
-                hir::ModuleKind::Outline => {
-                    format!("{curr_indent}mod {module_name};\n")
-                }
-            }
-        }
-
-        fn debug_use_item(&self, use_item: hir::UseItem) -> String {
-            let path_name = self.debug_path(use_item.path(self.db));
-            let item_name = use_item.name(self.db).text(self.db);
-
-            if path_name.is_empty() {
-                format!("use {item_name};\n")
-            } else {
-                format!("use {path_name}::{item_name};\n")
-            }
-        }
-
-        fn debug_item(&self, hir_file: hir::HirFile, item: hir::Item, nesting: usize) -> String {
-            match item {
-                hir::Item::Function(function) => self.debug_function(hir_file, function, nesting),
-                hir::Item::Module(module) => self.debug_module(hir_file, module, nesting),
-                hir::Item::UseItem(use_item) => self.debug_use_item(use_item),
-            }
-        }
-
-        fn debug_stmt(
-            &self,
-            hir_file: hir::HirFile,
-            function: hir::Function,
-            stmt: &hir::Stmt,
-            nesting: usize,
-        ) -> String {
-            match stmt {
-                hir::Stmt::Let {
-                    name,
-                    binding,
-                    value,
-                } => {
-                    let indent = indent(nesting);
-                    let name = name.text(self.db);
-                    let expr_str = self.debug_expr(hir_file, function, *value, nesting);
-                    let binding = binding.lookup(hir_file.db(self.db));
-                    let mut_text = hir::testing::format_mutable(binding.mutable);
-                    let mut stmt_str = format!("{indent}let {mut_text}{name} = {expr_str};");
-
-                    let type_line = self.debug_type_line(function, *value);
-                    stmt_str.push_str(&format!(" {type_line}\n"));
-
-                    stmt_str
-                }
-                hir::Stmt::Expr {
-                    expr,
-                    has_semicolon,
-                } => {
-                    let indent = indent(nesting);
-                    let expr_str = self.debug_expr(hir_file, function, *expr, nesting);
-                    let type_line = self.debug_type_line(function, *expr);
-                    let maybe_semicolon = if *has_semicolon { ";" } else { "" };
-                    format!("{indent}{expr_str}{maybe_semicolon} {type_line}\n")
-                }
-                hir::Stmt::Item { item } => self.debug_item(hir_file, *item, nesting),
-            }
-        }
-
-        fn debug_type_line(&self, function: hir::Function, expr_id: hir::ExprId) -> String {
-            let ty = self
-                .ty_lower_result
-                .inference_body_by_function(function)
-                .unwrap()
-                .type_by_expr
-                .get(&expr_id)
-                .unwrap();
-
-            format!("//: {}", self.debug_monotype(ty))
-        }
-
-        fn debug_monotype(&self, monotype: &Monotype) -> String {
-            match monotype {
-                Monotype::Integer => "int".to_string(),
-                Monotype::Bool => "bool".to_string(),
-                Monotype::Unit => "()".to_string(),
-                Monotype::Char => "char".to_string(),
-                Monotype::String => "string".to_string(),
-                Monotype::Variable(id) => format!("${}", id),
-                Monotype::Function(signature) => self.debug_signature(signature),
-                Monotype::Never => "!".to_string(),
-                Monotype::Unknown => "<unknown>".to_string(),
-            }
-        }
-
-        fn debug_expr(
-            &self,
-            hir_file: hir::HirFile,
-            function: hir::Function,
-            expr_id: hir::ExprId,
-            nesting: usize,
-        ) -> String {
-            match expr_id.lookup(hir_file.db(self.db)) {
-                hir::Expr::Symbol(symbol) => self.debug_symbol(symbol),
-                hir::Expr::Literal(literal) => match literal {
-                    hir::Literal::Bool(b) => b.to_string(),
-                    hir::Literal::Char(c) => format!("'{c}'"),
-                    hir::Literal::String(s) => format!("\"{s}\""),
-                    hir::Literal::Integer(i) => i.to_string(),
-                },
-                hir::Expr::Binary { op, lhs, rhs } => {
-                    let lhs_str = self.debug_expr(hir_file, function, *lhs, nesting);
-                    let rhs_str = self.debug_expr(hir_file, function, *rhs, nesting);
-                    format!("{lhs_str} {op} {rhs_str}")
-                }
-                hir::Expr::Unary { op, expr } => {
-                    let op = match op {
-                        hir::UnaryOp::Neg => "-",
-                        hir::UnaryOp::Not => "!",
-                    };
-                    let expr_str = self.debug_expr(hir_file, function, *expr, nesting);
-                    format!("{op}{expr_str}")
-                }
-                hir::Expr::Call { callee, args } => {
-                    let callee = self.debug_symbol(callee);
-                    let args = args
-                        .iter()
-                        .map(|arg| self.debug_expr(hir_file, function, *arg, nesting))
-                        .collect::<Vec<_>>()
-                        .join(", ");
-
-                    format!("{callee}({args})")
-                }
-                hir::Expr::Block(block) => {
-                    let mut msg = "{\n".to_string();
-                    for stmt in &block.stmts {
-                        msg.push_str(&self.debug_stmt(hir_file, function, stmt, nesting + 1));
-                    }
-                    if let Some(tail) = block.tail {
-                        let indent = indent(nesting + 1);
-                        msg.push_str(&format!(
-                            "{indent}expr:{}",
-                            self.debug_expr(hir_file, function, tail, nesting + 1)
-                        ));
-                        msg.push_str(&format!(" {}\n", self.debug_type_line(function, tail)));
-                    }
-                    msg.push_str(&format!("{}}}", indent(nesting)));
-
-                    msg
-                }
-                hir::Expr::If {
-                    condition,
-                    then_branch,
-                    else_branch,
-                } => {
-                    let mut msg = "if ".to_string();
-                    msg.push_str(&self.debug_expr(hir_file, function, *condition, nesting));
-                    msg.push(' ');
-                    msg.push_str(&self.debug_expr(hir_file, function, *then_branch, nesting));
-
-                    if let Some(else_branch) = else_branch {
-                        msg.push_str(" else ");
-                        msg.push_str(&self.debug_expr(hir_file, function, *else_branch, nesting));
-                    }
-
-                    msg
-                }
-                hir::Expr::Return { value } => {
-                    let mut msg = "return".to_string();
-                    if let Some(value) = value {
-                        msg.push_str(&format!(
-                            " {}",
-                            &self.debug_expr(hir_file, function, *value, nesting,)
-                        ));
-                    }
-
-                    msg
-                }
-                hir::Expr::Loop { block } => {
-                    let mut msg = "loop ".to_string();
-                    msg.push_str(&self.debug_expr(hir_file, function, *block, nesting));
-
-                    msg
-                }
-                hir::Expr::Continue => "continue".to_string(),
-                hir::Expr::Break { value } => {
-                    let mut msg = "break".to_string();
-                    if let Some(value) = value {
-                        msg.push_str(&format!(
-                            " {}",
-                            &self.debug_expr(hir_file, function, *value, nesting,)
-                        ));
-                    }
-
-                    msg
-                }
-                hir::Expr::Missing => "<missing>".to_string(),
-            }
-        }
-
-        fn debug_simplify_expr(&self, hir_file: hir::HirFile, expr_id: hir::ExprId) -> String {
-            match expr_id.lookup(hir_file.db(self.db)) {
-                hir::Expr::Symbol(symbol) => self.debug_symbol(symbol),
-                hir::Expr::Literal(literal) => match literal {
-                    hir::Literal::Bool(b) => b.to_string(),
-                    hir::Literal::Char(c) => format!("'{c}'"),
-                    hir::Literal::String(s) => format!("\"{s}\""),
-                    hir::Literal::Integer(i) => i.to_string(),
-                },
-                hir::Expr::Binary { op, lhs, rhs } => {
-                    let op = op.to_string();
-                    let lhs_str = self.debug_simplify_expr(hir_file, *lhs);
-                    let rhs_str = self.debug_simplify_expr(hir_file, *rhs);
-                    format!("{lhs_str} {op} {rhs_str}")
-                }
-                hir::Expr::Unary { op, expr } => {
-                    let op = match op {
-                        hir::UnaryOp::Neg => "-",
-                        hir::UnaryOp::Not => "!",
-                    };
-                    let expr_str = self.debug_simplify_expr(hir_file, *expr);
-                    format!("{op}{expr_str}")
-                }
-                hir::Expr::Call { callee, args } => {
-                    let callee = self.debug_symbol(callee);
-                    let args = args
-                        .iter()
-                        .map(|arg| self.debug_simplify_expr(hir_file, *arg))
-                        .collect::<Vec<_>>()
-                        .join(", ");
-
-                    format!("{callee}({args})")
-                }
-                hir::Expr::Block(block) => {
-                    let mut msg = "{ tail:".to_string();
-                    if let Some(tail) = block.tail {
-                        msg.push_str(&self.debug_simplify_expr(hir_file, tail));
-                    } else {
-                        msg.push_str("none");
-                    }
-                    msg.push_str(" }");
-
-                    msg
-                }
-                hir::Expr::If {
-                    condition,
-                    then_branch,
-                    else_branch,
-                } => {
-                    let cond_str = self.debug_simplify_expr(hir_file, *condition);
-                    let mut msg = format!(
-                        "if {cond_str} {}",
-                        self.debug_simplify_expr(hir_file, *then_branch)
-                    );
-
-                    if let Some(else_branch) = else_branch {
-                        msg.push_str(&format!(
-                            " else {}",
-                            self.debug_simplify_expr(hir_file, *else_branch)
-                        ));
-                    }
-
-                    msg
-                }
-                hir::Expr::Return { value } => {
-                    let mut msg = "return".to_string();
-                    if let Some(value) = value {
-                        msg.push_str(&format!(
-                            " {}",
-                            &self.debug_simplify_expr(hir_file, *value,)
-                        ));
-                    }
-
-                    msg
-                }
-                hir::Expr::Loop { block } => {
-                    let mut msg = "loop ".to_string();
-                    msg.push_str(&self.debug_simplify_expr(hir_file, *block));
-
-                    msg
-                }
-                hir::Expr::Continue => "continue".to_string(),
-                hir::Expr::Break { value } => {
-                    let mut msg = "break".to_string();
-                    if let Some(value) = value {
-                        msg.push_str(&format!(
-                            " {}",
-                            &self.debug_simplify_expr(hir_file, *value,)
-                        ));
-                    }
-
-                    msg
-                }
-                hir::Expr::Missing => "<missing>".to_string(),
-            }
-        }
-
-        fn debug_symbol(&self, symbol: &hir::Symbol) -> String {
-            match &symbol {
-                hir::Symbol::Local { name, binding: _ } => name.text(self.db).to_string(),
-                hir::Symbol::Param { name, .. } => {
-                    let name = name.text(self.db);
-                    format!("param:{name}")
-                }
-                hir::Symbol::Missing { path } => {
-                    let resolving_status = self.pods.resolution_map.item_by_symbol(path).unwrap();
-                    self.debug_resolution_status(resolving_status)
-                }
-            }
-        }
-
-        fn debug_unary_op(&self, op: hir::UnaryOp) -> String {
-            match op {
-                hir::UnaryOp::Neg => "-",
-                hir::UnaryOp::Not => "!",
-            }
-            .to_string()
-        }
-
-        fn debug_resolution_status(&self, resolution_status: hir::ResolutionStatus) -> String {
-            match resolution_status {
-                hir::ResolutionStatus::Unresolved => "<unknown>".to_string(),
-                hir::ResolutionStatus::Error => "<missing>".to_string(),
-                hir::ResolutionStatus::Resolved { path, item } => {
-                    let path = self.debug_path(&path);
-                    match item {
-                        hir::Item::Function(_) => {
-                            format!("fn:{path}")
-                        }
-                        hir::Item::Module(_) => {
-                            format!("mod:{path}")
-                        }
-                        hir::Item::UseItem(use_item) => {
-                            let item = self
-                                .pods
-                                .resolution_map
-                                .item_by_use_item(&use_item)
-                                .unwrap();
-                            format!(
-                                "{}::{}",
-                                self.debug_resolution_status(item),
-                                use_item.name(self.db).text(self.db)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        fn debug_path(&self, path: &hir::Path) -> String {
-            path.segments(self.db)
-                .iter()
-                .map(|segment| segment.text(self.db).to_string())
-                .collect::<Vec<_>>()
-                .join("::")
-        }
     }
 
     #[test]
@@ -2550,6 +1807,653 @@ mod tests {
                 ---
                 error ImmutableReassignment: expr: a = 20
                 error ImmutableReassignment: expr: a = 80
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_struct_unit() {
+        check_in_root_file(
+            r#"
+                struct Point;
+                fn main() {
+                    let point = Point;
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point;
+                fn entry:main() -> () {
+                    let point = struct:Point; //: Point
+                }
+
+                ---
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_struct_unit_other_init() {
+        check_in_root_file(
+            r#"
+                struct Point;
+                fn main() {
+                    Point();
+                    Point { x: 10 };
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point;
+                fn entry:main() -> () {
+                    struct:Point(); //: <unknown>
+                    struct:Point { x: 10 }; //: <unknown>
+                }
+
+                ---
+                error NotCallable: found_callee_ty: Point, found_callee_symbol: struct:Point
+                error NotRecord: found_struct_ty: Point, found_struct_symbol: struct:Point, found_expr: `struct:Point { x: 10 }`
+                ---
+                error Type is unknown: expr: struct:Point()
+                error Type is unknown: expr: struct:Point { x: 10 }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_struct_tuple_fileds() {
+        check_in_root_file(
+            r#"
+                struct Point(int, int);
+                fn main() {
+                    let point = Point(10, 20);
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point(int, int);
+                fn entry:main() -> () {
+                    let point = struct:Point(10, 20); //: Point
+                }
+
+                ---
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_struct_tuple_fileds_diff_arg_count() {
+        check_in_root_file(
+            r#"
+                struct Point(int, int);
+                fn main() {
+                    Point(10);
+                    Point(10, 20, 30);
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point(int, int);
+                fn entry:main() -> () {
+                    struct:Point(10); //: Point
+                    struct:Point(10, 20, 30); //: Point
+                }
+
+                ---
+                error MismatchedCallArgCount: expected_arg_count: 2, found_arg_count: 1
+                error MismatchedCallArgCount: expected_arg_count: 2, found_arg_count: 3
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_struct_tuple_fileds_other_init() {
+        check_in_root_file(
+            r#"
+                struct Point(int, int);
+                fn main() {
+                    Point;
+                    Point { x: 10, y: 20 };
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point(int, int);
+                fn entry:main() -> () {
+                    struct:Point; //: <unknown>
+                    struct:Point { x: 10, y: 20 }; //: <unknown>
+                }
+
+                ---
+                error NeededInitTupleOrRecord: found_ty: Point, found_expr: `struct:Point`, found_struct: Point
+                error NotRecord: found_struct_ty: Point, found_struct_symbol: struct:Point, found_expr: `struct:Point { x: 10, y: 20 }`
+                ---
+                error Type is unknown: expr: struct:Point
+                error Type is unknown: expr: struct:Point { x: 10, y: 20 }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_struct_tuple_fileds_type_check() {
+        check_in_root_file(
+            r#"
+                struct Point(int, int);
+                fn main() {
+                    Point(10, "aaa");
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point(int, int);
+                fn entry:main() -> () {
+                    struct:Point(10, "aaa"); //: Point
+                }
+
+                ---
+                error MismatchedTypeInitStructTuple: expected_ty: int, found_ty: string, init_struct: Point, found_arg_expr: `"aaa"`, arg_pos: 1, found_expr: `struct:Point(10, "aaa")`
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_struct_record_fileds() {
+        check_in_root_file(
+            r#"
+                struct Point { x: int, y: string }
+                fn main() {
+                    Point { x: 10, y: "aaa" };
+                    Point { y: "aaa", x: 10 };
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point{ x: int, y: string }
+                fn entry:main() -> () {
+                    struct:Point { x: 10, y: "aaa" }; //: Point
+                    struct:Point { y: "aaa", x: 10 }; //: Point
+                }
+
+                ---
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_struct_record_fileds_missing_field_and_no_such_field() {
+        check_in_root_file(
+            r#"
+                struct Point { x: int, y: int }
+                fn main() {
+                    Point { x: 10 };
+                    Point { x: 10, y: 20, z: 30 };
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point{ x: int, y: int }
+                fn entry:main() -> () {
+                    struct:Point { x: 10 }; //: Point
+                    struct:Point { x: 10, y: 20, z: 30 }; //: Point
+                }
+
+                ---
+                error MissingStructRecordField: missing_fields: ["y"], found_struct: Point, found_expr: `struct:Point { x: 10 }`
+                error NoSuchStructRecordField: no_such_fields: ["z"], found_struct: Point, found_expr: `struct:Point { x: 10, y: 20, z: 30 }`
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_struct_record_fileds_other_init() {
+        check_in_root_file(
+            r#"
+                struct Point { x: int, y: int }
+                fn main() {
+                    Point;
+                    Point(10, 20);
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point{ x: int, y: int }
+                fn entry:main() -> () {
+                    struct:Point; //: <unknown>
+                    struct:Point(10, 20); //: <unknown>
+                }
+
+                ---
+                error NeededInitTupleOrRecord: found_ty: Point, found_expr: `struct:Point`, found_struct: Point
+                error NotCallable: found_callee_ty: Point, found_callee_symbol: struct:Point
+                ---
+                error Type is unknown: expr: struct:Point
+                error Type is unknown: expr: struct:Point(10, 20)
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_struct_record_fileds_type_check() {
+        check_in_root_file(
+            r#"
+                struct Point { x: int, y: string }
+                fn main() {
+                    Point { x: 10, y: "aaa" };
+                    Point { x: "aaa", y: 10 };
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point{ x: int, y: string }
+                fn entry:main() -> () {
+                    struct:Point { x: 10, y: "aaa" }; //: Point
+                    struct:Point { x: "aaa", y: 10 }; //: Point
+                }
+
+                ---
+                error MismatchedTypeInitStructRecord: expected_ty: int, found_ty: string, init_struct: Point, found_name: x, found_expr: `"aaa"`
+                error MismatchedTypeInitStructRecord: expected_ty: string, found_ty: int, init_struct: Point, found_name: y, found_expr: `10`
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn arg_struct() {
+        check_in_root_file(
+            r#"
+                struct Point {
+                    x: int,
+                    y: string,
+                }
+                fn foo(point: Point) -> Point {
+                    point
+                }
+
+                fn main() -> Point {
+                    let point = Point { x: 10, y: "aaa" };
+                    foo(point)
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point{ x: int, y: string }
+                fn foo(point: struct:Point) -> struct:Point {
+                    expr:param:point //: Point
+                }
+                fn entry:main() -> struct:Point {
+                    let point = struct:Point { x: 10, y: "aaa" }; //: Point
+                    expr:fn:foo(point) //: Point
+                }
+
+                ---
+                ---
+            "#]],
+        );
+
+        check_in_root_file(
+            r#"
+                struct Point {
+                    x: int,
+                    y: string,
+                }
+                fn foo(point: Point) -> Point {
+                    point
+                }
+
+                fn main() -> Point {
+                    foo(Point { x: 10, y: "aaa" })
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point{ x: int, y: string }
+                fn foo(point: struct:Point) -> struct:Point {
+                    expr:param:point //: Point
+                }
+                fn entry:main() -> struct:Point {
+                    expr:fn:foo(struct:Point { x: 10, y: "aaa" }) //: Point
+                }
+
+                ---
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn record_field_expr() {
+        check_in_root_file(
+            r#"
+                struct Point {
+                    x: int,
+                    y: string,
+                }
+                fn main() -> string {
+                    let point = Point { x: 10, y: "aaa" };
+                    let a = point.x;
+                    let b = point.y;
+
+                    b
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point{ x: int, y: string }
+                fn entry:main() -> string {
+                    let point = struct:Point { x: 10, y: "aaa" }; //: Point
+                    let a = point.x; //: int
+                    let b = point.y; //: string
+                    expr:b //: string
+                }
+
+                ---
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn record_field_expr_no_such() {
+        check_in_root_file(
+            r#"
+                struct Point {
+                    x: int,
+                    y: string,
+                }
+                fn main() -> int {
+                    let point = Point { x: 10, y: "aaa" };
+                    point.z
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point{ x: int, y: string }
+                fn entry:main() -> int {
+                    let point = struct:Point { x: 10, y: "aaa" }; //: Point
+                    expr:point.z //: <unknown>
+                }
+
+                ---
+                error NoSuchFieldAccess: no_such_field: z, found_struct: Point, found_expr: `point.z`
+                error MismatchedTypeReturnValue: expected_ty: int, found_ty: <unknown>, found_expr: `point.z`
+                ---
+                error Type is unknown: expr: point.z
+            "#]],
+        );
+    }
+
+    #[test]
+    fn tuple_field_expr() {
+        check_in_root_file(
+            r#"
+                struct Point(int, string);
+                fn main() -> string {
+                    let point = Point(10, "aaa");
+                    let a = point.0;
+                    let b = point.1;
+
+                    b
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point(int, string);
+                fn entry:main() -> string {
+                    let point = struct:Point(10, "aaa"); //: Point
+                    let a = point.0; //: int
+                    let b = point.1; //: string
+                    expr:b //: string
+                }
+
+                ---
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn tuple_field_expr_out_of_index() {
+        check_in_root_file(
+            r#"
+                struct Point(int, string);
+                fn main() -> string {
+                    let point = Point(10, "aaa");
+                    point.2
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point(int, string);
+                fn entry:main() -> string {
+                    let point = struct:Point(10, "aaa"); //: Point
+                    expr:point.2 //: <unknown>
+                }
+
+                ---
+                error NoSuchFieldAccess: no_such_field: 2, found_struct: Point, found_expr: `point.2`
+                error MismatchedTypeReturnValue: expected_ty: string, found_ty: <unknown>, found_expr: `point.2`
+                ---
+                error Type is unknown: expr: point.2
+            "#]],
+        );
+    }
+
+    #[test]
+    fn unit_field_expr_is_error() {
+        check_in_root_file(
+            r#"
+                struct Point;
+                fn main() {
+                    let point = Point;
+                    point.0
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point;
+                fn entry:main() -> () {
+                    let point = struct:Point; //: Point
+                    expr:point.0 //: <unknown>
+                }
+
+                ---
+                error NoSuchFieldAccess: no_such_field: 0, found_struct: Point, found_expr: `point.0`
+                error MismatchedTypeReturnValue: expected_ty: (), found_ty: <unknown>, found_expr: `point.0`
+                ---
+                error Type is unknown: expr: point.0
+            "#]],
+        );
+    }
+
+    #[test]
+    fn check_mutable_in_tuple_field() {
+        check_in_root_file(
+            r#"
+                struct Point(int, string);
+                fn main() -> int {
+                    let point = Point(
+                        {
+                            let a = 10;
+                            a = 20;
+                            a
+                        },
+                        "aaa"
+                    );
+                    point.0
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point(int, string);
+                fn entry:main() -> int {
+                    let point = struct:Point({
+                        let a = 10; //: int
+                        a = 20; //: ()
+                        expr:a //: int
+                    }, "aaa"); //: Point
+                    expr:point.0 //: int
+                }
+
+                ---
+                ---
+                error ImmutableReassignment: expr: a = 20
+            "#]],
+        );
+    }
+
+    #[test]
+    fn check_mutable_in_record_field() {
+        check_in_root_file(
+            r#"
+                struct Point {
+                    x: int,
+                    y: string,
+                }
+                fn main() -> int {
+                    let point = Point { x: {
+                            let a = 10;
+                            a = 20;
+                            a
+                        },
+                        y: "aaa"
+                    };
+                    point.x
+                }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                struct Point{ x: int, y: string }
+                fn entry:main() -> int {
+                    let point = struct:Point { x: {
+                        let a = 10; //: int
+                        a = 20; //: ()
+                        expr:a //: int
+                    }, y: "aaa" }; //: Point
+                    expr:point.x //: int
+                }
+
+                ---
+                ---
+                error ImmutableReassignment: expr: a = 20
+            "#]],
+        );
+    }
+
+    #[test]
+    fn check_type_from_mod() {
+        check_pod_start_with_root_file(
+            r#"
+                //- /main.nail
+                mod aaa;
+                use aaa::Point;
+                fn main() -> int {
+                    let point = Point { x: 10, y: 20 };
+                    point.x
+                }
+
+                //- /aaa.nail
+                struct Point { x: int, y: int }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                mod aaa;
+                use aaa::Point;
+                fn entry:main() -> int {
+                    let point = use:struct:aaa::Point { x: 10, y: 20 }; //: Point
+                    expr:point.x //: int
+                }
+
+                //- /aaa.nail
+                struct Point{ x: int, y: int }
+
+                ---
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn check_path_type_from_mod() {
+        check_pod_start_with_root_file(
+            r#"
+                //- /main.nail
+                mod aaa;
+                use aaa::Point;
+                fn main() -> int {
+                    let point = foo();
+                    point.x
+                }
+
+                fn foo() -> Point {
+                    let point = Point { x: 10, y: 20 };
+                    point
+                }
+
+                //- /aaa.nail
+                struct Point { x: int, y: int }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                mod aaa;
+                use aaa::Point;
+                fn entry:main() -> int {
+                    let point = fn:foo(); //: Point
+                    expr:point.x //: int
+                }
+                fn foo() -> use:struct:aaa::Point {
+                    let point = use:struct:aaa::Point { x: 10, y: 20 }; //: Point
+                    expr:point //: Point
+                }
+
+                //- /aaa.nail
+                struct Point{ x: int, y: int }
+
+                ---
+                ---
+            "#]],
+        );
+    }
+
+    #[test]
+    fn check_path_type_not_allowed_type_error() {
+        check_pod_start_with_root_file(
+            r#"
+                //- /main.nail
+                mod aaa;
+                fn main() { }
+                fn foo(x: aaa, y: foo) -> aaa::bbb { }
+
+                //- /aaa.nail
+                fn foo() { }
+                mod bbb { }
+            "#,
+            expect![[r#"
+                //- /main.nail
+                mod aaa;
+                fn entry:main() -> () {
+                }
+                fn foo(x: mod:aaa, y: fn:foo) -> mod:aaa::bbb {
+                }
+
+                //- /aaa.nail
+                fn foo() -> () {
+                }
+                mod bbb {
+                }
+
+                ---
+                error NotAllowedType: found_symbol: mod:aaa, found_function: foo, found_ty: mod:aaa
+                error NotAllowedType: found_symbol: fn:foo, found_function: foo, found_ty: fn:foo
+                error NotAllowedType: found_symbol: mod:aaa::bbb, found_function: foo, found_ty: mod:aaa::bbb
+                error MismatchedTypeReturnValue: expected_ty: <unknown>, found_ty: ()
+                ---
             "#]],
         );
     }

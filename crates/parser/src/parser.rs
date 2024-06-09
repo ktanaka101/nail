@@ -176,6 +176,23 @@ impl<'l, 'input> Parser<'l, 'input> {
             })));
     }
 
+    /// 現在のトークン位置で、期待されるトークン情報を消費して、エラーを追加します。
+    pub(crate) fn consume_error(&mut self) {
+        let current_token = self.source.peek_token();
+        let (found, range) = if let Some(Token { kind, range, .. }) = current_token {
+            (*kind, *range)
+        } else {
+            panic!("Bug: called latest token.");
+        };
+
+        self.events
+            .push(Event::Error(ParserError::TokenError(TokenError {
+                expected: self.expected_kinds.drain(..).collect(),
+                actual: found,
+                range,
+            })));
+    }
+
     /// トップレベルコンテキストの復旧トークンで、現在のトークンでエラーイベントを追加し、[SyntaxKind::Error]にトークンを消費します。
     ///
     /// この関数はトークンを消費します。

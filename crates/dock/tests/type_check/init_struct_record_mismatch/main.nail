@@ -1,0 +1,15 @@
+struct Point { x: int, y: string };
+fn main() {
+    let point = Point { x: 10, y: 20 };
+}
+
+//---stdout
+//---stderr
+
+// Error: Mismatched type in struct record initialization
+//    ╭─[/{nail}/crates/dock/tests/type_check/init_struct_record_mismatch/main.nail:3:35]
+//    │
+//  3 │     let point = Point { x: 10, y: 20 };
+//    │                                   ─┬  
+//    │                                    ╰── expected string, actual: int
+// ───╯

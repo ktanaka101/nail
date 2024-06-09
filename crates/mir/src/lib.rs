@@ -15,6 +15,8 @@
 #![feature(trait_upcasting)]
 
 mod body;
+/// MIRの構築結果をテストするためのモジュール
+pub mod testing;
 
 use std::collections::HashMap;
 
@@ -29,7 +31,7 @@ pub fn lower_pods(
     hir_ty_result: &hir_ty::TyLowerResult,
 ) -> LowerResult {
     // TODO: 全てのPodをMIRに変換する
-    let pod = &pods.root_pod;
+    let pod: &hir::Pod = &pods.root_pod;
 
     let mut entry_point: Option<Idx<Body>> = None;
     let mut bodies = Arena::new();
@@ -306,11 +308,32 @@ struct AllocatedSwitchBB {
 /// 値の位置を指す
 /// 参照のようなもの
 #[derive(Debug, Clone, Copy)]
-pub enum Place {
+pub struct Place {
+    /// 値の位置の種類
+    pub local: PlaceKind,
+    /// 値の位置からの相対的な位置
+    pub projection: Option<Projection>,
+}
+
+/// 値の位置の種類
+#[derive(Debug, Clone, Copy)]
+pub enum PlaceKind {
     /// 関数パラメータ
     Param(Idx<Param>),
     /// ローカル変数
     Local(Idx<Local>),
+}
+
+/// 相対的に表される位置
+#[derive(Debug, Clone, Copy)]
+pub enum Projection {
+    /// フィールド
+    Field {
+        /// フィールドのインデックス
+        idx: u32,
+        /// フィールド名
+        name: hir::Name,
+    },
 }
 
 /// 値
@@ -334,6 +357,20 @@ pub enum Value {
         /// 式
         expr: Operand,
     },
+    /// 構造体などの集合体の作成(今後タプルや配列も)
+    Aggregate {
+        /// 集合体の種類
+        kind: AggregateKind,
+        /// 集合のオペランド一覧
+        operands: Vec<Operand>,
+    },
+}
+
+/// 集合体の種類
+#[derive(Debug)]
+pub enum AggregateKind {
+    /// 構造体
+    Struct(hir::Struct),
 }
 
 /// 二項演算子
@@ -409,6 +446,8 @@ pub enum Constant {
     String(String),
     /// 単値
     Unit,
+    /// 空構造体
+    StructUnit(hir::Struct),
 }
 
 /// ステートメント
@@ -476,7 +515,7 @@ mod tests {
     use crate::lower_pods;
 
     fn check_pod_start_with_root_file(fixture: &str, expect: Expect) {
-        let db = hir_ty::TestingDatabase::default();
+        let db: hir_ty::TestingDatabase = hir_ty::TestingDatabase::default();
         let source_db = hir::FixtureDatabase::new(&db, fixture);
 
         let pods = hir::parse_pods(&db, &source_db);
@@ -484,7 +523,7 @@ mod tests {
 
         let mir_result = lower_pods(&db, &pods, &ty_hir_result);
 
-        expect.assert_eq(&debug(&db, &mir_result));
+        expect.assert_eq(&crate::testing::Pretty::new(&db, &mir_result).format());
     }
 
     fn check_in_root_file(fixture: &str, expect: Expect) {
@@ -492,251 +531,6 @@ mod tests {
         fixture.insert_str(0, "//- /main.nail\n");
 
         check_pod_start_with_root_file(&fixture, expect);
-    }
-
-    fn indent(nesting: usize) -> String {
-        "    ".repeat(nesting)
-    }
-
-    fn debug_path(db: &dyn hir::HirMasterDatabase, path: &hir::Path) -> String {
-        let mut msg = "".to_string();
-        for (idx, segment) in path.segments(db).iter().enumerate() {
-            if idx > 0 {
-                msg.push_str("::");
-            }
-            msg.push_str(segment.text(db));
-        }
-        msg
-    }
-
-    fn debug(db: &dyn hir::HirMasterDatabase, mir_result: &crate::LowerResult) -> String {
-        let mut msg = "".to_string();
-
-        for (_body_idx, body) in mir_result.bodies.iter() {
-            let path = debug_path(db, &body.path);
-            let name = body.name.text(db);
-            if path.is_empty() {
-                msg.push_str(&format!("fn {name}("));
-            } else {
-                msg.push_str(&format!("fn {path}::{name}("));
-            }
-
-            msg.push_str(&debug_params(
-                body.params
-                    .iter()
-                    .map(|(_idx, param)| param)
-                    .collect::<Vec<_>>(),
-            ));
-
-            let return_local = &body.locals[body.return_local];
-            msg.push_str(&format!(") -> {} {{\n", debug_ty(&return_local.ty)));
-
-            for (_variable_idx, variable) in body.locals.iter() {
-                msg.push_str(&format!(
-                    "{}let _{}: {}\n",
-                    indent(1),
-                    variable.idx,
-                    debug_ty(&variable.ty)
-                ));
-            }
-
-            for (_basic_block_idx, basic_block) in body.blocks.iter() {
-                msg.push('\n');
-
-                msg.push_str(&format!(
-                    "{}{}: {{\n",
-                    indent(1),
-                    debug_bb_name(basic_block)
-                ));
-
-                for statement in &basic_block.statements {
-                    msg.push_str(&format!(
-                        "{}{}\n",
-                        indent(2),
-                        debug_statement(statement, body)
-                    ));
-                }
-
-                if let Some(termination) = &basic_block.termination {
-                    msg.push_str(&format!(
-                        "{}{}\n",
-                        indent(2),
-                        debug_termination(db, termination, body, mir_result)
-                    ));
-                }
-
-                msg.push_str(&format!("{}}}\n", indent(1)));
-            }
-
-            msg.push_str("}\n");
-        }
-
-        msg
-    }
-
-    fn debug_params(params: Vec<&crate::Param>) -> String {
-        params
-            .iter()
-            .map(|param| debug_param(param))
-            .collect::<Vec<String>>()
-            .join(", ")
-    }
-
-    fn debug_param(param: &crate::Param) -> String {
-        format!("_{}: {}", param.idx, debug_ty(&param.ty))
-    }
-
-    fn debug_statement(statement: &crate::Statement, body: &crate::Body) -> String {
-        match statement {
-            crate::Statement::Assign { place, value } => {
-                let place_msg = debug_place(place, body);
-                let value_msg = debug_value(value, body);
-
-                format!("{place_msg} = {value_msg}")
-            }
-        }
-    }
-
-    fn debug_place(place: &crate::Place, body: &crate::Body) -> String {
-        match place {
-            crate::Place::Param(param_idx) => {
-                let param = &body.params[*param_idx];
-                format!("_{}", param.idx)
-            }
-            crate::Place::Local(local_idx) => {
-                let local = &body.locals[*local_idx];
-                format!("_{}", local.idx)
-            }
-        }
-    }
-
-    fn debug_value(value: &crate::Value, body: &crate::Body) -> String {
-        match value {
-            crate::Value::Operand(operand) => debug_operand(operand, body),
-            crate::Value::BinaryOp { op, left, right } => {
-                let function_name = match op {
-                    crate::BinaryOp::Add => "add",
-                    crate::BinaryOp::Sub => "sub",
-                    crate::BinaryOp::Mul => "mul",
-                    crate::BinaryOp::Div => "div",
-                    crate::BinaryOp::Equal => "equal",
-                    crate::BinaryOp::NotEq => "not_equal",
-                    crate::BinaryOp::GreaterThan => "greater_than",
-                    crate::BinaryOp::LessThan => "less_than",
-                    crate::BinaryOp::GtEq => "gteq",
-                    crate::BinaryOp::LtEq => "lteq",
-                }
-                .to_string();
-                let left = debug_operand(left, body);
-                let right = debug_operand(right, body);
-
-                format!("{function_name}({left}, {right})")
-            }
-            crate::Value::UnaryOp { op, expr } => {
-                let function_name = match op {
-                    crate::UnaryOp::Neg => "negative",
-                    crate::UnaryOp::Not => "not",
-                }
-                .to_string();
-                let expr = debug_operand(expr, body);
-
-                format!("{function_name}({expr})")
-            }
-        }
-    }
-
-    fn debug_constant(constant: &crate::Constant) -> String {
-        let const_value = match constant {
-            crate::Constant::Integer(integer) => integer.to_string(),
-            crate::Constant::Boolean(boolean) => boolean.to_string(),
-            crate::Constant::String(string) => format!("\"{string}\""),
-            crate::Constant::Unit => "()".to_string(),
-        };
-        format!("const {const_value}")
-    }
-
-    fn debug_operand(operand: &crate::Operand, body: &crate::Body) -> String {
-        match operand {
-            crate::Operand::Place(place) => debug_place(place, body),
-            crate::Operand::Constant(constant) => debug_constant(constant),
-        }
-    }
-
-    fn debug_termination(
-        db: &dyn hir::HirMasterDatabase,
-        termination: &crate::Termination,
-        body: &crate::Body,
-        mir_result: &crate::LowerResult,
-    ) -> String {
-        match termination {
-            crate::Termination::Return(return_local_idx) => {
-                let return_local = &body.locals[*return_local_idx];
-                format!("return _{}", return_local.idx)
-            }
-            crate::Termination::Goto(to_bb_idx) => {
-                let to_bb = &body.blocks[*to_bb_idx];
-                format!("goto -> {}", debug_bb_name(to_bb))
-            }
-            crate::Termination::Switch {
-                condition,
-                then_bb,
-                else_bb,
-            } => {
-                let condition = debug_place(condition, body);
-                let then_bb_name = debug_bb_name_by_idx(*then_bb, body);
-                let else_bb_name = debug_bb_name_by_idx(*else_bb, body);
-                format!("switch({condition}) -> [true: {then_bb_name}, false: {else_bb_name}]")
-            }
-            crate::Termination::Call {
-                function,
-                args,
-                destination,
-                target,
-            } => {
-                let function = mir_result.body_by_function[function];
-                let function_name = mir_result.bodies[function].name;
-                let function_name = function_name.text(db);
-                let args = debug_args(args, body);
-                let dest = debug_place(destination, body);
-                let target_bb_name = debug_bb_name_by_idx(*target, body);
-
-                format!("{dest} = {function_name}({args}) -> [return: {target_bb_name}]")
-            }
-        }
-    }
-
-    fn debug_args(args: &[crate::Operand], body: &crate::Body) -> String {
-        args.iter()
-            .map(|arg| debug_operand(arg, body))
-            .collect::<Vec<String>>()
-            .join(", ")
-    }
-
-    fn debug_ty(ty: &hir_ty::Monotype) -> String {
-        match ty {
-            hir_ty::Monotype::Unit => "()",
-            hir_ty::Monotype::Integer => "int",
-            hir_ty::Monotype::Bool => "bool",
-            hir_ty::Monotype::Char => "char",
-            hir_ty::Monotype::String => "string",
-            hir_ty::Monotype::Never => "!",
-            hir_ty::Monotype::Unknown => "unknown",
-            hir_ty::Monotype::Variable(_) => unreachable!(),
-            hir_ty::Monotype::Function(_) => todo!(),
-        }
-        .to_string()
-    }
-
-    fn debug_bb_name_by_idx(
-        basic_block_idx: crate::Idx<crate::BasicBlock>,
-        body: &crate::Body,
-    ) -> String {
-        let basic_block = &body.blocks[basic_block_idx];
-        debug_bb_name(basic_block)
-    }
-
-    fn debug_bb_name(basic_block: &crate::BasicBlock) -> String {
-        basic_block.name()
     }
 
     #[test]
@@ -2857,6 +2651,118 @@ mod tests {
     }
 
     #[test]
+    fn test_struct_arg() {
+        check_in_root_file(
+            r#"
+                struct Point { x: int, y: string }
+                fn foo(point: Point) -> Point {
+                    point
+                }
+
+                fn main() -> Point {
+                    foo(Point { x: 10, y: "aaa"))
+                }
+            "#,
+            expect![[r#"
+                fn t_pod::foo(_1: struct Point) -> struct Point {
+                    let _0: struct Point
+
+                    entry: {
+                        _0 = _1
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+                fn t_pod::main() -> struct Point {
+                    let _0: struct Point
+                    let _1: struct Point
+                    let _2: struct Point
+
+                    entry: {
+                        _1 = Point { x: const 10, y: const "aaa" }
+                        _2 = foo(_1) -> [return: bb0]
+                    }
+
+                    exit: {
+                        return _0
+                    }
+
+                    bb0: {
+                        _0 = _2
+                        goto -> exit
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_struct_record_fields_order() {
+        check_in_root_file(
+            r#"
+                struct Point { x: int, y: string }
+                fn main() -> Point {
+                    let point = Point { y: "aaa", x: 10 };
+                    point
+                }
+            "#,
+            expect![[r#"
+                fn t_pod::main() -> struct Point {
+                    let _0: struct Point
+                    let _1: struct Point
+                    let _2: struct Point
+
+                    entry: {
+                        _2 = Point { x: const 10, y: const "aaa" }
+                        _1 = _2
+                        _0 = _2
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+
+        check_in_root_file(
+            r#"
+                struct Point { x: int, y: int }
+                fn main() -> Point {
+                    let point = Point { y: 10 + 20, x: 30 + 40 };
+                    point
+                }
+            "#,
+            expect![[r#"
+                fn t_pod::main() -> struct Point {
+                    let _0: struct Point
+                    let _1: struct Point
+                    let _2: int
+                    let _3: int
+                    let _4: struct Point
+
+                    entry: {
+                        _2 = add(const 10, const 20)
+                        _3 = add(const 30, const 40)
+                        _4 = Point { x: _3, y: _2 }
+                        _1 = _4
+                        _0 = _4
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
     fn test_call_binding() {
         check_in_root_file(
             r#"
@@ -3058,6 +2964,129 @@ mod tests {
 
                     entry: {
                         _0 = const 10
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_record_field_expr() {
+        check_in_root_file(
+            r#"
+                struct Point { x: int, y: string }
+                fn main() -> int {
+                    let point = Point { x: 10, y: "aaa" };
+                    let a = point.x;
+                    let b = point.y;
+
+                    a
+                }
+            "#,
+            expect![[r#"
+                fn t_pod::main() -> int {
+                    let _0: int
+                    let _1: struct Point
+                    let _2: struct Point
+                    let _3: int
+                    let _4: struct Point
+                    let _5: string
+                    let _6: struct Point
+
+                    entry: {
+                        _2 = Point { x: const 10, y: const "aaa" }
+                        _1 = _2
+                        _4 = _2
+                        _3 = _4.x
+                        _6 = _2
+                        _5 = _6.y
+                        _0 = _3
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn test_tuple_field_expr() {
+        check_in_root_file(
+            r#"
+                struct Point(int, string)
+                fn main() -> int {
+                    let point = Point(10, "aaa");
+                    let a = point.0;
+                    let b = point.1;
+
+                    a
+                }
+            "#,
+            expect![[r#"
+                fn t_pod::main() -> int {
+                    let _0: int
+                    let _1: struct Point
+                    let _2: struct Point
+                    let _3: int
+                    let _4: struct Point
+                    let _5: string
+                    let _6: struct Point
+
+                    entry: {
+                        _2 = Point(const 10, const "aaa")
+                        _1 = _2
+                        _4 = _2
+                        _3 = _4.0
+                        _6 = _2
+                        _5 = _6.1
+                        _0 = _3
+                        goto -> exit
+                    }
+
+                    exit: {
+                        return _0
+                    }
+                }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn init_struct() {
+        check_in_root_file(
+            r#"
+                struct PointRecord { x: string, y: int }
+                struct PointTuple(string, int);
+                struct PointUnit;
+                fn main() {
+                    let point_record = PointRecord { x: "aaa", y: 10 };
+                    let point_tuple = PointTuple("bbb", 20);
+                    let u = PointUnit;
+                }
+            "#,
+            expect![[r#"
+                fn t_pod::main() -> () {
+                    let _0: ()
+                    let _1: struct PointRecord
+                    let _2: struct PointRecord
+                    let _3: struct PointTuple
+                    let _4: struct PointTuple
+                    let _5: struct PointUnit
+
+                    entry: {
+                        _2 = PointRecord { x: const "aaa", y: const 10 }
+                        _1 = _2
+                        _4 = PointTuple(const "bbb", const 20)
+                        _3 = _4
+                        _5 = const PointUnit
                         goto -> exit
                     }
 

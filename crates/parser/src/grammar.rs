@@ -30,26 +30,43 @@ pub(crate) fn parse_in_block(parser: &mut Parser) -> CompletedNodeMarker {
     marker.complete(parser, SyntaxKind::SourceFile)
 }
 
-/// パスをパースします。
-pub(crate) fn parse_path(parser: &mut Parser) -> CompletedNodeMarker {
+/// パス型のパース
+pub(crate) fn parse_path_type(
+    parser: &mut Parser,
+    recovery_set: &[TokenKind],
+) -> CompletedNodeMarker {
     assert!(parser.at(TokenKind::Ident));
 
     let marker = parser.start();
 
-    parse_path_segment(parser);
+    parse_path(parser, recovery_set);
+
+    marker.complete(parser, SyntaxKind::PathType)
+}
+
+/// パスをパースします。
+pub(crate) fn parse_path(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedNodeMarker {
+    assert!(parser.at(TokenKind::Ident));
+
+    let marker = parser.start();
+
+    parse_path_segment(parser, recovery_set);
     while parser.at(TokenKind::Colon2) {
         parser.bump();
-        parse_path_segment(parser);
+        parse_path_segment(parser, recovery_set);
     }
 
     marker.complete(parser, SyntaxKind::Path)
 }
 
 /// パスのセグメントをパースします。
-pub(crate) fn parse_path_segment(parser: &mut Parser) -> CompletedNodeMarker {
+pub(crate) fn parse_path_segment(
+    parser: &mut Parser,
+    recovery_set: &[TokenKind],
+) -> CompletedNodeMarker {
     let marker = parser.start();
 
-    parser.expect_on_block(TokenKind::Ident);
+    parser.expect_with_recovery_set_no_default(TokenKind::Ident, recovery_set);
 
     marker.complete(parser, SyntaxKind::PathSegment)
 }

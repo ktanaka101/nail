@@ -12,6 +12,7 @@ pub struct Jar(
     crate::HirFile,
     crate::HirFileSourceMap,
     crate::Function,
+    crate::Struct,
     crate::Module,
     crate::UseItem,
     crate::NameSolutionPath,

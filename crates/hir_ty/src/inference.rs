@@ -20,60 +20,128 @@ use crate::HirTyMasterDatabase;
 
 /// Pod全体の型推論を行う
 pub fn infer_pods(db: &dyn HirTyMasterDatabase, pods: &hir::Pods) -> InferenceResult {
-    let mut signature_by_function = HashMap::<hir::Function, Signature>::new();
+    let mut inference_signature_result_by_function =
+        HashMap::<hir::Function, InferenceSignatureResult>::new();
     for (hir_file, function) in pods.root_pod.all_functions(db) {
-        let signature = lower_signature(db, hir_file, function);
-        signature_by_function.insert(function, signature);
+        let infer_signature_result = InferenceSignature {
+            db,
+            hir_file,
+            function,
+            resolution_map: &pods.resolution_map,
+            errors: vec![],
+        }
+        .infer_signature();
+        inference_signature_result_by_function.insert(function, infer_signature_result);
     }
 
-    let mut body_result_by_function = IndexMap::<hir::Function, InferenceBodyResult>::new();
+    let mut inference_body_result_by_function =
+        IndexMap::<hir::Function, InferenceBodyResult>::new();
     for (hir_file, function) in pods.root_pod.all_functions(db) {
         let env = Environment::new();
-        let infer_body = InferBody::new(db, pods, hir_file, function, &signature_by_function, env);
+        let infer_body = InferBody::new(
+            db,
+            pods,
+            hir_file,
+            function,
+            &inference_signature_result_by_function,
+            env,
+        );
         let infer_body_result = infer_body.infer_body();
 
-        body_result_by_function.insert(function, infer_body_result);
+        inference_body_result_by_function.insert(function, infer_body_result);
     }
 
     InferenceResult {
-        signature_by_function,
-        inference_body_result_by_function: body_result_by_function,
+        inference_signature_result_by_function,
+        inference_body_result_by_function,
     }
 }
 
-#[salsa::tracked]
-pub(crate) fn lower_signature(
-    db: &dyn HirTyMasterDatabase,
+struct InferenceSignature<'a> {
+    db: &'a dyn HirTyMasterDatabase,
     hir_file: hir::HirFile,
     function: hir::Function,
-) -> Signature {
-    let params = function
-        .params(db)
-        .iter()
-        .map(|param| {
-            let param_data = param.data(hir_file.db(db));
-            lower_type(&param_data.ty)
-        })
-        .collect::<Vec<_>>();
+    resolution_map: &'a hir::ResolutionMap,
 
-    let return_type = lower_type(&function.return_type(db));
-
-    Signature::new(db, params, return_type)
+    errors: Vec<InferenceError>,
 }
+impl<'a> InferenceSignature<'a> {
+    fn infer_signature(mut self) -> InferenceSignatureResult {
+        let params = self
+            .function
+            .params(self.db)
+            .iter()
+            .map(|param| {
+                let param_data = param.data(self.hir_file.db(self.db));
+                self.infer_type(&param_data.ty)
+            })
+            .collect::<Vec<_>>();
 
-fn lower_type(ty: &hir::Type) -> Monotype {
-    match ty {
-        hir::Type::Integer => Monotype::Integer,
-        hir::Type::String => Monotype::String,
-        hir::Type::Char => Monotype::Char,
-        hir::Type::Boolean => Monotype::Bool,
-        hir::Type::Unit => Monotype::Unit,
-        hir::Type::Unknown => Monotype::Unknown,
+        let return_type = self.infer_type(&self.function.return_type(self.db));
+
+        InferenceSignatureResult {
+            signature: Signature::new(self.db, params, return_type),
+            errors: self.errors,
+        }
+    }
+
+    fn infer_type(&mut self, ty: &hir::Type) -> Monotype {
+        match ty {
+            hir::Type::Integer => Monotype::Integer,
+            hir::Type::String => Monotype::String,
+            hir::Type::Char => Monotype::Char,
+            hir::Type::Boolean => Monotype::Bool,
+            hir::Type::Unit => Monotype::Unit,
+            hir::Type::Unknown => Monotype::Unknown,
+            hir::Type::Custom(symbol) => self.infer_symbol(symbol, ty),
+        }
+    }
+
+    fn infer_symbol(&mut self, symbol: &hir::Symbol, source_ty: &hir::Type) -> Monotype {
+        match symbol {
+            hir::Symbol::Param { .. }
+            | hir::Symbol::Local { .. }
+            | hir::Symbol::MissingExpr { .. } => unreachable!(),
+            hir::Symbol::MissingType { path } => {
+                let resolution_status = self.resolution_map.item_by_symbol(path).unwrap();
+                match self.resolve_resolution_status(resolution_status) {
+                    Some(item) => match item {
+                        hir::Item::Struct(struct_) => Monotype::Struct(struct_),
+                        hir::Item::Function(_) | hir::Item::Module(_) => {
+                            self.errors.push(InferenceError::NotAllowedType {
+                                found_symbol: symbol.clone(),
+                                found_function: self.function,
+                                found_ty: source_ty.clone(),
+                            });
+                            Monotype::Unknown
+                        }
+                        hir::Item::UseItem(_) => unreachable!("UseItem should be resolved."),
+                    },
+                    None => Monotype::Unknown,
+                }
+            }
+        }
+    }
+
+    fn resolve_resolution_status(
+        &self,
+        resolution_status: hir::ResolutionStatus,
+    ) -> Option<hir::Item> {
+        match resolution_status {
+            hir::ResolutionStatus::Unresolved | hir::ResolutionStatus::Error => None,
+            hir::ResolutionStatus::Resolved { path: _, item } => match item {
+                hir::Item::Function(_) | hir::Item::Struct(_) | hir::Item::Module(_) => Some(item),
+                hir::Item::UseItem(use_item) => {
+                    let resolution_status = self.resolution_map.item_by_use_item(&use_item)?;
+                    self.resolve_resolution_status(resolution_status)
+                }
+            },
+        }
     }
 }
 
 /// 関数シグネチャ
-#[salsa::tracked]
+#[salsa::interned]
 pub struct Signature {
     /// 関数のパラメータ
     #[return_ref]
@@ -117,7 +185,7 @@ pub(crate) struct InferBody<'a> {
     /// スコープを入れ子にするために使用しています。
     /// スコープに入る時にpushし、スコープから抜ける時はpopします。
     env_stack: Vec<Environment>,
-    signature_by_function: &'a HashMap<hir::Function, Signature>,
+    inference_signature_by_function: &'a HashMap<hir::Function, InferenceSignatureResult>,
 
     /// 推論結果の式の型を記録するためのマップ
     type_by_expr: HashMap<hir::ExprId, Monotype>,
@@ -134,7 +202,7 @@ impl<'a> InferBody<'a> {
         pods: &'a hir::Pods,
         hir_file: hir::HirFile,
         function: hir::Function,
-        signature_by_function: &'a HashMap<hir::Function, Signature>,
+        inference_signature_by_function: &'a HashMap<hir::Function, InferenceSignatureResult>,
         env: Environment,
     ) -> Self {
         InferBody {
@@ -142,12 +210,15 @@ impl<'a> InferBody<'a> {
             pods,
             hir_file,
             function,
-            signature: *signature_by_function.get(&function).unwrap(),
+            signature: inference_signature_by_function
+                .get(&function)
+                .unwrap()
+                .signature,
 
             unifier: TypeUnifier::new(),
             cxt: Context::default(),
             env_stack: vec![env],
-            signature_by_function,
+            inference_signature_by_function,
             type_by_expr: HashMap::new(),
 
             breakable_stack: vec![],
@@ -209,6 +280,31 @@ impl<'a> InferBody<'a> {
             hir::Type::Boolean => Monotype::Bool,
             hir::Type::Unit => Monotype::Unit,
             hir::Type::Unknown => Monotype::Unknown,
+            hir::Type::Custom(symbol) => match symbol {
+                hir::Symbol::Param { .. }
+                | hir::Symbol::Local { .. }
+                | hir::Symbol::MissingExpr { .. } => unreachable!(),
+                hir::Symbol::MissingType { path } => {
+                    let resolution_status = self.pods.resolution_map.item_by_symbol(path).unwrap();
+                    match self.resolve_resolution_status(resolution_status) {
+                        Some(item) => match item {
+                            hir::Item::Struct(struct_) => Monotype::Struct(struct_),
+                            hir::Item::Function(_) | hir::Item::Module(_) => {
+                                self.unifier.add_error(InferenceError::NotAllowedType {
+                                    found_symbol: symbol.clone(),
+                                    found_function: self.function,
+                                    found_ty: ty.clone(),
+                                });
+                                Monotype::Unknown
+                            }
+                            hir::Item::UseItem(_) => unreachable!(
+                                "UseItem should be resolved in #resolve_resolution_status."
+                            ),
+                        },
+                        None => Monotype::Unknown,
+                    }
+                }
+            },
         }
     }
 
@@ -249,14 +345,19 @@ impl<'a> InferBody<'a> {
                     panic!("Unbound variable {symbol:?}");
                 }
             }
-            hir::Symbol::Missing { path } => {
+            hir::Symbol::MissingExpr { path } => {
                 let resolution_status = self.pods.resolution_map.item_by_symbol(path).unwrap();
                 match self.resolve_resolution_status(resolution_status) {
                     Some(item) => match item {
                         hir::Item::Function(function) => {
-                            let signature = self.signature_by_function.get(&function).unwrap();
-                            Monotype::Function(*signature)
+                            let signature = self
+                                .inference_signature_by_function
+                                .get(&function)
+                                .unwrap()
+                                .signature;
+                            Monotype::Function(signature)
                         }
+                        hir::Item::Struct(struct_) => Monotype::Struct(struct_),
                         hir::Item::Module(module) => {
                             self.unifier.add_error(InferenceError::ModuleAsExpr {
                                 found_module: module,
@@ -264,10 +365,15 @@ impl<'a> InferBody<'a> {
                             });
                             Monotype::Unknown
                         }
-                        hir::Item::UseItem(_) => unreachable!("UseItem should be resolved."),
+                        hir::Item::UseItem(_) => unreachable!(
+                            "UseItem should be resolved in #resolve_resolution_status."
+                        ),
                     },
                     None => Monotype::Unknown,
                 }
+            }
+            hir::Symbol::MissingType { .. } => {
+                unreachable!("MissingType should be resolved in InferenceSignature. It does not appear within the Body.")
             }
         }
     }
@@ -279,7 +385,7 @@ impl<'a> InferBody<'a> {
         match resolution_status {
             hir::ResolutionStatus::Unresolved | hir::ResolutionStatus::Error => None,
             hir::ResolutionStatus::Resolved { path: _, item } => match item {
-                hir::Item::Function(_) | hir::Item::Module(_) => Some(item),
+                hir::Item::Function(_) | hir::Item::Struct(_) | hir::Item::Module(_) => Some(item),
                 hir::Item::UseItem(use_item) => {
                     let resolution_status = self.pods.resolution_map.item_by_use_item(&use_item)?;
                     self.resolve_resolution_status(resolution_status)
@@ -298,7 +404,37 @@ impl<'a> InferBody<'a> {
                 hir::Literal::Bool(_) => Monotype::Bool,
             },
             hir::Expr::Missing => Monotype::Unknown,
-            hir::Expr::Symbol(symbol) => self.infer_symbol(symbol, expr_id),
+            hir::Expr::Symbol(symbol) => {
+                let ty = self.infer_symbol(symbol, expr_id);
+                // FIXME: Tupleの場合に関数として推論する, 一般化したい
+                match ty {
+                    Monotype::Struct(struct_) => match symbol {
+                        hir::Symbol::Param { .. } | hir::Symbol::Local { .. } => ty,
+                        hir::Symbol::MissingExpr { .. } => match struct_.kind(self.db) {
+                            hir::StructKind::Record(_) | hir::StructKind::Tuple(_) => {
+                                self.unifier
+                                    .add_error(InferenceError::NeededInitTupleOrRecord {
+                                        found_ty: ty,
+                                        found_expr: expr_id,
+                                        found_struct: struct_,
+                                    });
+                                Monotype::Unknown
+                            }
+                            hir::StructKind::Unit => ty,
+                        },
+                        hir::Symbol::MissingType { .. } => unreachable!(),
+                    },
+                    Monotype::Function(_)
+                    | Monotype::Variable(_)
+                    | Monotype::Integer
+                    | Monotype::Bool
+                    | Monotype::Unit
+                    | Monotype::Char
+                    | Monotype::String
+                    | Monotype::Never
+                    | Monotype::Unknown => ty,
+                }
+            }
             hir::Expr::Call {
                 callee,
                 args: call_args,
@@ -355,6 +491,46 @@ impl<'a> InferBody<'a> {
                         // 引数の数が異なったとしても、関数の戻り値は返す。
                         signature.return_type(self.db)
                     }
+                    Monotype::Struct(struct_) => match struct_.kind(self.db) {
+                        hir::StructKind::Tuple(fields) => {
+                            if call_args.len() != fields.len() {
+                                self.unifier
+                                    .add_error(InferenceError::MismatchedCallArgCount {
+                                        expected_callee_arg_count: fields.len(),
+                                        found_arg_count: call_args.len(),
+                                        found_expr: expr_id,
+                                    });
+                            } else {
+                                let field_types: Vec<Monotype> =
+                                    fields.iter().map(|field| self.infer_type(field)).collect();
+                                for ((arg_pos, call_arg), field_ty) in
+                                    call_args.iter().enumerate().zip(field_types.clone())
+                                {
+                                    let call_arg_ty = self.infer_expr(*call_arg);
+                                    self.unifier.unify(
+                                        &field_ty,
+                                        &call_arg_ty,
+                                        &UnifyPurpose::InitStructTuple {
+                                            init_struct: struct_,
+                                            found_arg_expr: *call_arg,
+                                            arg_pos,
+                                            found_expr: expr_id,
+                                        },
+                                    );
+                                }
+                            }
+
+                            Monotype::Struct(struct_)
+                        }
+                        hir::StructKind::Record(_) | hir::StructKind::Unit => {
+                            self.unifier.add_error(InferenceError::NotCallable {
+                                found_callee_ty: callee_ty,
+                                found_callee_symbol: callee.clone(),
+                                found_callee_expr: expr_id,
+                            });
+                            Monotype::Unknown
+                        }
+                    },
                 }
             }
             hir::Expr::Binary { op, lhs, rhs } => match op {
@@ -627,6 +803,202 @@ impl<'a> InferBody<'a> {
 
                 Monotype::Never
             }
+            hir::Expr::Record { symbol, fields } => {
+                let struct_ty = match symbol {
+                    hir::Symbol::Param { .. }
+                    | hir::Symbol::Local { .. }
+                    | hir::Symbol::MissingType { .. } => {
+                        self.unifier.add_error(InferenceError::NotRecord {
+                            // FIXME: found_struct_tyを変えるか適切な型を使用する
+                            found_struct_ty: Monotype::Unknown,
+                            found_struct_symbol: symbol.clone(),
+                            found_expr: expr_id,
+                        });
+                        self.type_by_expr.insert(expr_id, Monotype::Unknown);
+                        return Monotype::Unknown;
+                    }
+                    hir::Symbol::MissingExpr { path } => {
+                        let resolution_status =
+                            self.pods.resolution_map.item_by_symbol(path).unwrap();
+                        match self.resolve_resolution_status(resolution_status) {
+                            Some(item) => {
+                                match item {
+                                    hir::Item::Struct(struct_) => Monotype::Struct(struct_),
+                                    hir::Item::Function(_) | hir::Item::Module(_) => {
+                                        self.unifier.add_error(InferenceError::NotRecord {
+                                            // FIXME: found_struct_tyを変えるか適切な型を使用する
+                                            found_struct_ty: Monotype::Unknown,
+                                            found_struct_symbol: symbol.clone(),
+                                            found_expr: expr_id,
+                                        });
+                                        self.type_by_expr.insert(expr_id, Monotype::Unknown);
+                                        return Monotype::Unknown;
+                                    }
+                                    hir::Item::UseItem(_) => {
+                                        unreachable!("UseItem should be resolved in #resolve_resolution_status.")
+                                    }
+                                }
+                            }
+                            None => Monotype::Unknown,
+                        }
+                    }
+                };
+
+                match struct_ty {
+                    Monotype::Struct(struct_) => match struct_.kind(self.db) {
+                        hir::StructKind::Record(defined_fields) => {
+                            // 足りない名前のフィールドを検出
+                            let missing_fields = defined_fields
+                                .iter()
+                                .map(|field| field.name)
+                                .filter(|field_name| {
+                                    !fields.iter().any(|field| field.name == *field_name)
+                                })
+                                .collect::<Vec<_>>();
+                            if !missing_fields.is_empty() {
+                                self.unifier
+                                    .add_error(InferenceError::MissingStructRecordField {
+                                        missing_fields,
+                                        found_struct: struct_,
+                                        found_expr: expr_id,
+                                    });
+                            }
+
+                            // 余計なフィールドを検出
+                            let no_such_fields = fields
+                                .iter()
+                                .filter(|field| {
+                                    !defined_fields
+                                        .iter()
+                                        .any(|defined_field| defined_field.name == field.name)
+                                })
+                                .cloned()
+                                .collect::<Vec<_>>();
+                            if !no_such_fields.is_empty() {
+                                self.unifier
+                                    .add_error(InferenceError::NoSuchStructRecordField {
+                                        no_such_fields,
+                                        found_struct: struct_,
+                                        found_expr: expr_id,
+                                    });
+                            }
+
+                            for field in fields {
+                                let field_ty = self.infer_expr(field.value);
+                                let Some(defined_field) = defined_fields
+                                    .iter()
+                                    .find(|defined_field| defined_field.name == field.name)
+                                else {
+                                    // 余計なフィールドはエラー追加済みのためスキップ
+                                    continue;
+                                };
+                                let defined_field_ty = self.infer_type(&defined_field.ty);
+                                self.unifier.unify(
+                                    &defined_field_ty,
+                                    &field_ty,
+                                    &UnifyPurpose::InitStructRecord {
+                                        found_name: field.name,
+                                        found_expr: field.value,
+                                        init_struct: struct_,
+                                    },
+                                );
+                            }
+
+                            Monotype::Struct(struct_)
+                        }
+                        hir::StructKind::Tuple(_) | hir::StructKind::Unit => {
+                            self.unifier.add_error(InferenceError::NotRecord {
+                                found_struct_ty: struct_ty,
+                                found_struct_symbol: symbol.clone(),
+                                found_expr: expr_id,
+                            });
+                            Monotype::Unknown
+                        }
+                    },
+                    Monotype::Integer
+                    | Monotype::Bool
+                    | Monotype::Unit
+                    | Monotype::Char
+                    | Monotype::String
+                    | Monotype::Never
+                    | Monotype::Unknown
+                    | Monotype::Variable(_)
+                    | Monotype::Function(_) => {
+                        self.unifier.add_error(InferenceError::NotRecord {
+                            found_struct_ty: struct_ty,
+                            found_struct_symbol: symbol.clone(),
+                            found_expr: expr_id,
+                        });
+                        Monotype::Unknown
+                    }
+                }
+            }
+            hir::Expr::Field { base, name } => {
+                let base_ty = self.infer_expr(*base);
+                match base_ty {
+                    Monotype::Struct(struct_) => match struct_.kind(self.db) {
+                        hir::StructKind::Record(defined_fields) => {
+                            if let Some(access_field) =
+                                defined_fields.iter().find(|field| field.name == *name)
+                            {
+                                self.infer_type(&access_field.ty)
+                            } else {
+                                self.unifier.add_error(InferenceError::NoSuchFieldAccess {
+                                    no_such_field: *name,
+                                    found_struct: struct_,
+                                    found_expr: expr_id,
+                                });
+                                Monotype::Unknown
+                            }
+                        }
+                        hir::StructKind::Tuple(fields) => {
+                            if let Ok(tuple_index) = name.text(self.db).parse::<usize>() {
+                                if tuple_index < fields.len() {
+                                    self.infer_type(&fields[tuple_index])
+                                } else {
+                                    self.unifier.add_error(InferenceError::NoSuchFieldAccess {
+                                        no_such_field: *name,
+                                        found_struct: struct_,
+                                        found_expr: expr_id,
+                                    });
+                                    Monotype::Unknown
+                                }
+                            } else {
+                                self.unifier.add_error(InferenceError::NoSuchFieldAccess {
+                                    no_such_field: *name,
+                                    found_struct: struct_,
+                                    found_expr: expr_id,
+                                });
+                                Monotype::Unknown
+                            }
+                        }
+                        hir::StructKind::Unit => {
+                            self.unifier.add_error(InferenceError::NoSuchFieldAccess {
+                                no_such_field: *name,
+                                found_struct: struct_,
+                                found_expr: expr_id,
+                            });
+                            Monotype::Unknown
+                        }
+                    },
+                    Monotype::Integer
+                    | Monotype::Bool
+                    | Monotype::Unit
+                    | Monotype::Char
+                    | Monotype::String
+                    | Monotype::Never
+                    | Monotype::Unknown
+                    | Monotype::Variable(_)
+                    | Monotype::Function(_) => {
+                        self.unifier.add_error(InferenceError::CanNotFieldAccess {
+                            no_such_field: *name,
+                            found_ty: base_ty,
+                            found_expr: expr_id,
+                        });
+                        Monotype::Unknown
+                    }
+                }
+            }
         };
 
         self.type_by_expr.insert(expr_id, ty.clone());
@@ -673,8 +1045,39 @@ impl<'a> InferBody<'a> {
 /// Pod全体の型推論結果
 #[derive(Debug)]
 pub struct InferenceResult {
-    pub(crate) signature_by_function: HashMap<hir::Function, Signature>,
+    pub(crate) inference_signature_result_by_function:
+        HashMap<hir::Function, InferenceSignatureResult>,
     pub(crate) inference_body_result_by_function: IndexMap<hir::Function, InferenceBodyResult>,
+}
+impl InferenceResult {
+    pub fn errors_by_function(
+        &self,
+        function: hir::Function,
+    ) -> impl Iterator<Item = &InferenceError> {
+        self.inference_signature_result_by_function
+            .get(&function)
+            .unwrap()
+            .errors()
+            .iter()
+            .chain(
+                self.inference_body_result_by_function
+                    .get(&function)
+                    .unwrap()
+                    .errors(),
+            )
+    }
+}
+
+/// 関数シグネチャの型推論結果
+#[derive(Debug)]
+pub struct InferenceSignatureResult {
+    pub(crate) signature: Signature,
+    pub(crate) errors: Vec<InferenceError>,
+}
+impl InferenceSignatureResult {
+    pub fn errors(&self) -> &Vec<InferenceError> {
+        &self.errors
+    }
 }
 
 /// 関数内の型推論結果

@@ -197,6 +197,7 @@ pub fn execute(
         .unwrap();
     let codegen_result = codegen_llvm::codegen(
         &db,
+        &pods,
         &mir_result,
         &CodegenContext {
             context: &context,

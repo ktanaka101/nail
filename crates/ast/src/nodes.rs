@@ -131,6 +131,10 @@ pub enum Expr {
     BreakExpr(BreakExpr),
     /// `while`式
     WhileExpr(WhileExpr),
+    /// レコード式
+    RecordExpr(RecordExpr),
+    /// フィールド式
+    FieldExpr(FieldExpr),
 }
 impl Ast for Expr {}
 impl AstNode for Expr {
@@ -150,6 +154,8 @@ impl AstNode for Expr {
                 | SyntaxKind::ContinueExpr
                 | SyntaxKind::BreakExpr
                 | SyntaxKind::WhileExpr
+                | SyntaxKind::RecordExpr
+                | SyntaxKind::FieldExpr
         )
     }
 
@@ -168,6 +174,8 @@ impl AstNode for Expr {
             SyntaxKind::ContinueExpr => Self::ContinueExpr(ContinueExpr { syntax }),
             SyntaxKind::BreakExpr => Self::BreakExpr(BreakExpr { syntax }),
             SyntaxKind::WhileExpr => Self::WhileExpr(WhileExpr { syntax }),
+            SyntaxKind::RecordExpr => Self::RecordExpr(RecordExpr { syntax }),
+            SyntaxKind::FieldExpr => Self::FieldExpr(FieldExpr { syntax }),
             _ => return None,
         };
 
@@ -189,6 +197,8 @@ impl AstNode for Expr {
             Expr::ContinueExpr(it) => it.syntax(),
             Expr::BreakExpr(it) => it.syntax(),
             Expr::WhileExpr(it) => it.syntax(),
+            Expr::RecordExpr(it) => it.syntax(),
+            Expr::FieldExpr(it) => it.syntax(),
         }
     }
 }
@@ -238,6 +248,8 @@ impl AstNode for Stmt {
 pub enum Item {
     /// 関数定義
     FunctionDef(FunctionDef),
+    /// 構造体定義
+    StructDef(StructDef),
     /// モジュール
     Module(Module),
     /// `use`アイテム
@@ -248,13 +260,14 @@ impl AstNode for Item {
     fn can_cast(kind: SyntaxKind) -> bool {
         matches!(
             kind,
-            SyntaxKind::FunctionDef | SyntaxKind::Module | SyntaxKind::Use
+            SyntaxKind::FunctionDef | SyntaxKind::StructDef | SyntaxKind::Module | SyntaxKind::Use
         )
     }
 
     fn cast(syntax: SyntaxNode) -> Option<Self> {
         let result = match syntax.kind() {
             SyntaxKind::FunctionDef => Self::FunctionDef(FunctionDef { syntax }),
+            SyntaxKind::StructDef => Self::StructDef(StructDef { syntax }),
             SyntaxKind::Module => Self::Module(Module { syntax }),
             SyntaxKind::Use => Self::Use(Use { syntax }),
             _ => return None,
@@ -266,6 +279,7 @@ impl AstNode for Item {
     fn syntax(&self) -> &SyntaxNode {
         match self {
             Item::FunctionDef(it) => it.syntax(),
+            Item::StructDef(it) => it.syntax(),
             Item::Module(it) => it.syntax(),
             Item::Use(it) => it.syntax(),
         }
@@ -533,7 +547,7 @@ impl Param {
     }
 
     /// パラメータの型に位置する型ノードを返します。
-    pub fn ty(&self) -> Option<Type> {
+    pub fn ty(&self) -> Option<PathType> {
         ast_node::child_node(self)
     }
 }
@@ -544,19 +558,263 @@ def_ast_node!(
 );
 impl ReturnType {
     /// 関数の戻り値の型に位置する型ノードを返します。
-    pub fn ty(&self) -> Option<Type> {
+    pub fn ty(&self) -> Option<PathType> {
         ast_node::child_node(self)
     }
 }
 
 def_ast_node!(
-    /// 型のASTノード
-    Type
+    /// 構造体のASTノード
+    StructDef
 );
-impl Type {
-    /// 型の名前に位置するトークンを返します。
-    pub fn ty(&self) -> Option<tokens::Ident> {
+impl StructDef {
+    /// 構造体の種類を返します。
+    pub fn to_kind(&self) -> StructKind {
+        if self.is_tuple() {
+            StructKind::Tuple(self.tuple_fields().unwrap())
+        } else if self.is_record() {
+            StructKind::Record(self.record_fields().unwrap())
+        } else {
+            StructKind::Unit
+        }
+    }
+
+    /// 構造体の名前に位置するトークンを返します。
+    pub fn name(&self) -> Option<tokens::Ident> {
         ast_node::child_token(self)
+    }
+
+    /// 構造体のフィールドのリストに位置するフィールドリストノードを返します。
+    pub fn fields(&self) -> Option<FieldList> {
+        if let Some(tuple_fields) = self.tuple_fields() {
+            Some(FieldList::Tuple(tuple_fields))
+        } else {
+            Some(FieldList::Record(self.record_fields()?))
+        }
+    }
+
+    /// セミコロンに位置するASTトークンを返します。
+    pub fn semicolon(&self) -> Option<tokens::Semicolon> {
+        ast_node::child_token(self)
+    }
+
+    /// タプルフィールドで定義された構造体かどうかを返します。
+    pub fn is_tuple(&self) -> bool {
+        self.tuple_fields().is_some()
+    }
+
+    /// レコードフィールドで定義された構造体かどうかを返します。
+    pub fn is_record(&self) -> bool {
+        self.record_fields().is_some()
+    }
+
+    /// タプルフィールドのリストに位置するタプルフィールドリストノードを返します。
+    fn tuple_fields(&self) -> Option<TupleFieldList> {
+        ast_node::child_node(self)
+    }
+
+    /// レコードフィールドのリストに位置するレコードフィールドリストノードを返します。
+    fn record_fields(&self) -> Option<RecordFieldList> {
+        ast_node::child_node(self)
+    }
+}
+
+/// 構造体の種類
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StructKind {
+    /// タプル構造体
+    Tuple(TupleFieldList),
+    /// レコード構造体
+    Record(RecordFieldList),
+    /// 空構造体
+    Unit,
+}
+
+/// 構造体のフィールドのリスト
+pub enum FieldList {
+    /// タプルフィールドのリスト
+    Tuple(TupleFieldList),
+    /// レコードフィールドのリスト
+    Record(RecordFieldList),
+}
+impl Ast for FieldList {}
+impl AstNode for FieldList {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::TupleFieldList | SyntaxKind::RecordFieldList
+        )
+    }
+
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let result = match syntax.kind() {
+            SyntaxKind::TupleFieldList => Self::Tuple(TupleFieldList { syntax }),
+            SyntaxKind::RecordFieldList => Self::Record(RecordFieldList { syntax }),
+            _ => return None,
+        };
+
+        Some(result)
+    }
+
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            FieldList::Tuple(it) => it.syntax(),
+            FieldList::Record(it) => it.syntax(),
+        }
+    }
+}
+
+def_ast_node!(
+    /// タプルフィールドのリストのASTノード
+    TupleFieldList
+);
+impl TupleFieldList {
+    /// フィールドの一覧を返します。
+    pub fn fields(&self) -> impl Iterator<Item = TupleField> {
+        ast_node::children_nodes(self)
+    }
+}
+
+def_ast_node!(
+    /// タプルフィールドのASTノード
+    TupleField
+);
+impl TupleField {
+    /// フィールドの型に位置する型ノードを返します。
+    pub fn ty(&self) -> Option<PathType> {
+        ast_node::child_node(self)
+    }
+}
+
+def_ast_node!(
+    /// レコードフィールドのリストのASTノード
+    RecordFieldList
+);
+impl RecordFieldList {
+    /// フィールドの一覧を返します。
+    pub fn fields(&self) -> impl Iterator<Item = RecordField> {
+        ast_node::children_nodes(self)
+    }
+}
+
+def_ast_node!(
+    /// レコードフィールドのASTノード
+    RecordField
+);
+impl RecordField {
+    /// フィールドの名前に位置するトークンを返します。
+    pub fn name(&self) -> Option<tokens::Ident> {
+        ast_node::child_token(self)
+    }
+
+    /// フィールドの型に位置する型ノードを返します。
+    pub fn ty(&self) -> Option<PathType> {
+        ast_node::child_node(self)
+    }
+}
+
+def_ast_node!(
+    /// レコード式のASTノード
+    RecordExpr
+);
+impl RecordExpr {
+    /// レコードの名前に位置するトークンを返します。
+    pub fn path(&self) -> Option<Path> {
+        ast_node::child_node(self)
+    }
+
+    /// レコードフィールドの一覧を返します。
+    pub fn fields(&self) -> Option<RecordFieldListExpr> {
+        ast_node::child_node(self)
+    }
+}
+
+def_ast_node!(
+    /// レコード式のフィールドリストのASTノード
+    RecordFieldListExpr
+);
+impl RecordFieldListExpr {
+    /// フィールドの一覧を返します。
+    pub fn fields(&self) -> impl Iterator<Item = RecordFieldExpr> {
+        ast_node::children_nodes(self)
+    }
+}
+
+def_ast_node!(
+    /// レコード式のフィールドリストのフィールドのASTノード
+    RecordFieldExpr
+);
+impl RecordFieldExpr {
+    /// フィールドの名前に位置するトークンを返します。
+    pub fn name(&self) -> Option<tokens::Ident> {
+        ast_node::child_token(self)
+    }
+
+    /// フィールドの値に位置する式ノードを返します。
+    pub fn value(&self) -> Option<Expr> {
+        ast_node::child_node(self)
+    }
+}
+
+def_ast_node!(
+    /// フィールド式のASTノード
+    FieldExpr
+);
+impl FieldExpr {
+    /// フィールドの元の構造体に位置する式ノードを返します。
+    pub fn base(&self) -> Option<Expr> {
+        ast_node::child_node(self)
+    }
+
+    /// フィールドの名前に位置するトークンを返します。
+    pub fn field_name(&self) -> Option<NameRef> {
+        ast_node::child_node(self)
+    }
+}
+
+def_ast_node!(NameRef);
+impl NameRef {
+    /// 名前に位置するトークンを返します。
+    pub fn name(&self) -> Option<NameRefKind> {
+        let ident: Option<tokens::Ident> = ast_node::child_token(self);
+        if let Some(ident) = ident {
+            return Some(NameRefKind::Name(ident));
+        }
+
+        let index: Option<tokens::Integer> = ast_node::child_token(self);
+        if let Some(index) = index {
+            return Some(NameRefKind::Index(index));
+        }
+
+        None
+    }
+
+    /// 名前を文字列として返します。
+    pub fn name_as_string(&self) -> Option<String> {
+        let name_ref = self.name()?;
+        match name_ref {
+            NameRefKind::Name(ident) => Some(ident.text().to_string()),
+            NameRefKind::Index(index) => Some(index.text().to_string()),
+        }
+    }
+}
+
+/// 名前参照の種類
+pub enum NameRefKind {
+    /// 名前(識別子)
+    Name(tokens::Ident),
+    /// インデックス
+    Index(tokens::Integer),
+}
+
+def_ast_node!(
+    /// パス型のASTノード
+    PathType
+);
+impl PathType {
+    /// 型を表すパスに位置するトークンを返します。
+    pub fn path(&self) -> Option<Path> {
+        ast_node::child_node(self)
     }
 }
 

@@ -32,6 +32,9 @@ fn parse_let(parser: &mut Parser) -> CompletedNodeMarker {
     }
 
     parser.expect_with_block_recovery_set(TokenKind::Ident, &[TokenKind::Eq]);
+
+    // TODO: parse path type(ex. : foo::bar::i32)
+
     parser.expect_on_block(TokenKind::Eq);
 
     expr::parse_expr(parser);
@@ -155,11 +158,7 @@ fn parse_params(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedNod
             }
 
             if parser.at(TokenKind::Ident) {
-                {
-                    let marker = parser.start();
-                    parser.bump();
-                    marker.complete(parser, SyntaxKind::Type);
-                }
+                super::parse_path_type(parser, recovery_set);
             }
             marker.complete(parser, SyntaxKind::Param);
         }
@@ -175,11 +174,7 @@ fn parse_params(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedNod
                 }
 
                 if parser.at(TokenKind::Ident) {
-                    {
-                        let marker = parser.start();
-                        parser.bump();
-                        marker.complete(parser, SyntaxKind::Type);
-                    }
+                    super::parse_path_type(parser, recovery_set);
                 }
                 marker.complete(parser, SyntaxKind::Param);
             }
@@ -200,10 +195,10 @@ fn parse_return_type(parser: &mut Parser, recovery_set: &[TokenKind]) -> Complet
     let marker = parser.start();
     parser.bump();
 
-    {
-        let marker = parser.start();
-        parser.expect_with_recovery_set_no_default(TokenKind::Ident, recovery_set);
-        marker.complete(parser, SyntaxKind::Type);
+    if parser.at(TokenKind::Ident) {
+        super::parse_path_type(parser, recovery_set);
+    } else {
+        parser.error_with_recovery_set_no_default(recovery_set);
     }
 
     marker.complete(parser, SyntaxKind::ReturnType)
@@ -250,33 +245,25 @@ fn parse_record_fields(parser: &mut Parser, recovery_set: &[TokenKind]) -> Compl
             parser.expect_with_recovery_set_no_default(TokenKind::Colon, recovery_set);
 
             if parser.at(TokenKind::Ident) {
-                {
-                    let marker = parser.start();
-                    parser.bump();
-                    marker.complete(parser, SyntaxKind::Type);
-                }
+                super::parse_path_type(parser, recovery_set);
             }
             marker.complete(parser, SyntaxKind::RecordField);
         }
         while parser.at(TokenKind::Comma) {
             parser.bump();
-            {
-                // struct AAA { a: int, b: int, }
-                //                            ^時点で停止させる
-                if parser.at(TokenKind::RCurly) {
-                    break;
-                }
+            // struct AAA { a: int, b: int, }
+            //                            ^,時点で停止させる
+            if parser.at(TokenKind::RCurly) {
+                break;
+            }
 
+            {
                 let marker = parser.start();
                 parser.expect_with_recovery_set_no_default(TokenKind::Ident, recovery_set);
                 parser.expect_with_recovery_set_no_default(TokenKind::Colon, recovery_set);
 
                 if parser.at(TokenKind::Ident) {
-                    {
-                        let marker = parser.start();
-                        parser.bump();
-                        marker.complete(parser, SyntaxKind::Type);
-                    }
+                    super::parse_path_type(parser, recovery_set);
                 }
                 marker.complete(parser, SyntaxKind::RecordField);
             }
@@ -302,35 +289,21 @@ fn parse_tuple_fields(parser: &mut Parser, recovery_set: &[TokenKind]) -> Comple
     if parser.at(TokenKind::Ident) {
         {
             let marker = parser.start();
-            parser.bump();
-
-            if parser.at(TokenKind::Ident) {
-                {
-                    let marker = parser.start();
-                    parser.bump();
-                    marker.complete(parser, SyntaxKind::Type);
-                }
-            }
+            super::parse_path_type(parser, recovery_set);
             marker.complete(parser, SyntaxKind::TupleField);
         }
         while parser.at(TokenKind::Comma) {
             parser.bump();
+            // struct AAA(i32, i32,);
+            //                    ^,時点で停止させる(`(`は`parse_struct`側でbump)
+            if parser.at(TokenKind::RParen) {
+                break;
+            }
+
             {
-                // struct AAA(i32, i32,);
-                //                    ^時点で停止させる(`(`は`parse_struct`側でbump)
-                if parser.at(TokenKind::RParen) {
-                    break;
-                }
-
                 let marker = parser.start();
-                parser.expect_with_recovery_set_no_default(TokenKind::Ident, recovery_set);
-
                 if parser.at(TokenKind::Ident) {
-                    {
-                        let marker = parser.start();
-                        parser.bump();
-                        marker.complete(parser, SyntaxKind::Type);
-                    }
+                    super::parse_path_type(parser, recovery_set);
                 }
                 marker.complete(parser, SyntaxKind::TupleField);
             }
@@ -574,8 +547,10 @@ mod tests {
                     ReturnType@9..15
                       ThinArrow@9..11 "->"
                       Whitespace@11..12 " "
-                      Type@12..15
-                        Ident@12..15 "int"
+                      PathType@12..15
+                        Path@12..15
+                          PathSegment@12..15
+                            Ident@12..15 "int"
                     Whitespace@15..16 " "
                     BlockExpr@16..18
                       LCurly@16..17 "{"
@@ -600,23 +575,29 @@ mod tests {
                         Ident@7..8 "a"
                         Colon@8..9 ":"
                         Whitespace@9..10 " "
-                        Type@10..13
-                          Ident@10..13 "int"
+                        PathType@10..13
+                          Path@10..13
+                            PathSegment@10..13
+                              Ident@10..13 "int"
                       Comma@13..14 ","
                       Whitespace@14..15 " "
                       Param@15..21
                         Ident@15..16 "b"
                         Colon@16..17 ":"
                         Whitespace@17..18 " "
-                        Type@18..21
-                          Ident@18..21 "int"
+                        PathType@18..21
+                          Path@18..21
+                            PathSegment@18..21
+                              Ident@18..21 "int"
                       RParen@21..22 ")"
                     Whitespace@22..23 " "
                     ReturnType@23..29
                       ThinArrow@23..25 "->"
                       Whitespace@25..26 " "
-                      Type@26..29
-                        Ident@26..29 "int"
+                      PathType@26..29
+                        Path@26..29
+                          PathSegment@26..29
+                            Ident@26..29 "int"
                     Whitespace@29..30 " "
                     BlockExpr@30..32
                       LCurly@30..31 "{"
@@ -643,8 +624,10 @@ mod tests {
                         Whitespace@9..10 " "
                         MutKw@10..13 "mut"
                         Whitespace@13..14 " "
-                        Type@14..17
-                          Ident@14..17 "int"
+                        PathType@14..17
+                          Path@14..17
+                            PathSegment@14..17
+                              Ident@14..17 "int"
                       Comma@17..18 ","
                       Whitespace@18..19 " "
                       Param@19..29
@@ -653,15 +636,19 @@ mod tests {
                         Whitespace@21..22 " "
                         MutKw@22..25 "mut"
                         Whitespace@25..26 " "
-                        Type@26..29
-                          Ident@26..29 "int"
+                        PathType@26..29
+                          Path@26..29
+                            PathSegment@26..29
+                              Ident@26..29 "int"
                       RParen@29..30 ")"
                     Whitespace@30..31 " "
                     ReturnType@31..37
                       ThinArrow@31..33 "->"
                       Whitespace@33..34 " "
-                      Type@34..37
-                        Ident@34..37 "int"
+                      PathType@34..37
+                        Path@34..37
+                          PathSegment@34..37
+                            Ident@34..37 "int"
                     Whitespace@37..38 " "
                     BlockExpr@38..40
                       LCurly@38..39 "{"
@@ -687,8 +674,10 @@ mod tests {
                     ReturnType@9..15
                       ThinArrow@9..11 "->"
                       Whitespace@11..12 " "
-                      Type@12..15
-                        Ident@12..15 "int"
+                      PathType@12..15
+                        Path@12..15
+                          PathSegment@12..15
+                            Ident@12..15 "int"
                     Whitespace@15..16 " "
                     BlockExpr@16..27
                       LCurly@16..17 "{"
@@ -724,8 +713,10 @@ mod tests {
                         Ident@7..8 "x"
                         Colon@8..9 ":"
                         Whitespace@9..10 " "
-                        Type@10..13
-                          Ident@10..13 "int"
+                        PathType@10..13
+                          Path@10..13
+                            PathSegment@10..13
+                              Ident@10..13 "int"
                       Comma@13..14 ","
                       Whitespace@14..15 " "
                       Param@15..16
@@ -734,8 +725,10 @@ mod tests {
                     ReturnType@17..23
                       ThinArrow@17..19 "->"
                       Whitespace@19..20 " "
-                      Type@20..23
-                        Ident@20..23 "int"
+                      PathType@20..23
+                        Path@20..23
+                          PathSegment@20..23
+                            Ident@20..23 "int"
                     Whitespace@23..24 " "
                     BlockExpr@24..30
                       LCurly@24..25 "{"
@@ -764,16 +757,20 @@ mod tests {
                         Ident@7..8 "x"
                         Colon@8..9 ":"
                         Whitespace@9..10 " "
-                        Type@10..13
-                          Ident@10..13 "int"
+                        PathType@10..13
+                          Path@10..13
+                            PathSegment@10..13
+                              Ident@10..13 "int"
                       Comma@13..14 ","
                       Whitespace@14..15 " "
                       Param@15..15
                     ReturnType@15..21
                       ThinArrow@15..17 "->"
                       Whitespace@17..18 " "
-                      Type@18..21
-                        Ident@18..21 "int"
+                      PathType@18..21
+                        Path@18..21
+                          PathSegment@18..21
+                            Ident@18..21 "int"
                     Whitespace@21..22 " "
                     BlockExpr@22..28
                       LCurly@22..23 "{"
@@ -803,14 +800,18 @@ mod tests {
                         Ident@7..8 "x"
                         Colon@8..9 ":"
                         Whitespace@9..10 " "
-                        Type@10..13
-                          Ident@10..13 "int"
+                        PathType@10..13
+                          Path@10..13
+                            PathSegment@10..13
+                              Ident@10..13 "int"
                     Whitespace@13..14 " "
                     ReturnType@14..20
                       ThinArrow@14..16 "->"
                       Whitespace@16..17 " "
-                      Type@17..20
-                        Ident@17..20 "int"
+                      PathType@17..20
+                        Path@17..20
+                          PathSegment@17..20
+                            Ident@17..20 "int"
                     Whitespace@20..21 " "
                     BlockExpr@21..27
                       LCurly@21..22 "{"
@@ -820,7 +821,7 @@ mod tests {
                           Integer@23..25 "10"
                       Whitespace@25..26 " "
                       RCurly@26..27 "}"
-                error at 14..16: expected ',' or ')', but found ->
+                error at 14..16: expected '::', ',' or ')', but found ->
             "#]],
         );
 
@@ -841,8 +842,10 @@ mod tests {
                     ReturnType@10..16
                       ThinArrow@10..12 "->"
                       Whitespace@12..13 " "
-                      Type@13..16
-                        Ident@13..16 "int"
+                      PathType@13..16
+                        Path@13..16
+                          PathSegment@13..16
+                            Ident@13..16 "int"
                     Whitespace@16..17 " "
                     BlockExpr@17..23
                       LCurly@17..18 "{"
@@ -872,8 +875,10 @@ mod tests {
                     ReturnType@9..15
                       ThinArrow@9..11 "->"
                       Whitespace@11..12 " "
-                      Type@12..15
-                        Ident@12..15 "int"
+                      PathType@12..15
+                        Path@12..15
+                          PathSegment@12..15
+                            Ident@12..15 "int"
                     Whitespace@15..16 " "
                     BlockExpr@16..22
                       LCurly@16..17 "{"
@@ -902,8 +907,10 @@ mod tests {
                     ReturnType@8..14
                       ThinArrow@8..10 "->"
                       Whitespace@10..11 " "
-                      Type@11..14
-                        Ident@11..14 "int"
+                      PathType@11..14
+                        Path@11..14
+                          PathSegment@11..14
+                            Ident@11..14 "int"
                     Whitespace@14..15 " "
                     BlockExpr@15..21
                       LCurly@15..16 "{"
@@ -940,8 +947,10 @@ mod tests {
                     ReturnType@10..16
                       ThinArrow@10..12 "->"
                       Whitespace@12..13 " "
-                      Type@13..16
-                        Ident@13..16 "int"
+                      PathType@13..16
+                        Path@13..16
+                          PathSegment@13..16
+                            Ident@13..16 "int"
                     Whitespace@16..17 " "
                     BlockExpr@17..23
                       LCurly@17..18 "{"
@@ -995,10 +1004,9 @@ mod tests {
                       LParen@4..5 "("
                       RParen@5..6 ")"
                     Whitespace@6..7 " "
-                    ReturnType@7..10
+                    ReturnType@7..9
                       ThinArrow@7..9 "->"
-                      Whitespace@9..10 " "
-                      Type@10..10
+                    Whitespace@9..10 " "
                     BlockExpr@10..16
                       LCurly@10..11 "{"
                       Whitespace@11..12 " "
@@ -1023,21 +1031,23 @@ mod tests {
                       LParen@4..5 "("
                       RParen@5..6 ")"
                   Whitespace@6..7 " "
-                  ExprStmt@7..10
-                    PathExpr@7..10
+                  ExprStmt@7..15
+                    RecordExpr@7..15
                       Path@7..10
                         PathSegment@7..10
                           Ident@7..10 "int"
-                  Whitespace@10..11 " "
-                  ExprStmt@11..17
-                    BlockExpr@11..17
-                      LCurly@11..12 "{"
-                      Whitespace@12..13 " "
-                      ExprStmt@13..15
-                        Literal@13..15
+                      Whitespace@10..11 " "
+                      RecordFieldListExpr@11..15
+                        LCurly@11..12 "{"
+                        Whitespace@12..13 " "
+                        Error@13..15
                           Integer@13..15 "10"
-                      Whitespace@15..16 " "
+                  Whitespace@15..16 " "
+                  ExprStmt@16..17
+                    Error@16..17
                       RCurly@16..17 "}"
+                error at 13..15: expected identifier or '}', but found integerLiteral
+                error at 16..17: expected '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ';', 'let', 'fn', 'struct', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found '}'
             "#]],
         );
     }
@@ -1089,7 +1099,10 @@ struct AAA;
                     TupleFieldList@10..15
                       LParen@10..11 "("
                       TupleField@11..14
-                        Ident@11..14 "int"
+                        PathType@11..14
+                          Path@11..14
+                            PathSegment@11..14
+                              Ident@11..14 "int"
                       RParen@14..15 ")"
                     Semicolon@15..16 ";"
             "#]],
@@ -1106,7 +1119,10 @@ struct AAA;
                     TupleFieldList@10..16
                       LParen@10..11 "("
                       TupleField@11..14
-                        Ident@11..14 "int"
+                        PathType@11..14
+                          Path@11..14
+                            PathSegment@11..14
+                              Ident@11..14 "int"
                       Comma@14..15 ","
                       RParen@15..16 ")"
                     Semicolon@16..17 ";"
@@ -1124,11 +1140,17 @@ struct AAA;
                     TupleFieldList@10..20
                       LParen@10..11 "("
                       TupleField@11..14
-                        Ident@11..14 "int"
+                        PathType@11..14
+                          Path@11..14
+                            PathSegment@11..14
+                              Ident@11..14 "int"
                       Comma@14..15 ","
                       Whitespace@15..16 " "
                       TupleField@16..19
-                        Ident@16..19 "int"
+                        PathType@16..19
+                          Path@16..19
+                            PathSegment@16..19
+                              Ident@16..19 "int"
                       RParen@19..20 ")"
                     Semicolon@20..21 ";"
             "#]],
@@ -1144,11 +1166,17 @@ struct AAA;
                     TupleFieldList@10..21
                       LParen@10..11 "("
                       TupleField@11..14
-                        Ident@11..14 "int"
+                        PathType@11..14
+                          Path@11..14
+                            PathSegment@11..14
+                              Ident@11..14 "int"
                       Comma@14..15 ","
                       Whitespace@15..16 " "
                       TupleField@16..19
-                        Ident@16..19 "int"
+                        PathType@16..19
+                          Path@16..19
+                            PathSegment@16..19
+                              Ident@16..19 "int"
                       Comma@19..20 ","
                       RParen@20..21 ")"
                     Semicolon@21..22 ";"
@@ -1189,8 +1217,10 @@ struct AAA;
                         Ident@13..14 "a"
                         Colon@14..15 ":"
                         Whitespace@15..16 " "
-                        Type@16..19
-                          Ident@16..19 "int"
+                        PathType@16..19
+                          Path@16..19
+                            PathSegment@16..19
+                              Ident@16..19 "int"
                       Whitespace@19..20 " "
                       RCurly@20..21 "}"
             "#]],
@@ -1212,8 +1242,10 @@ struct AAA;
                         Ident@13..14 "a"
                         Colon@14..15 ":"
                         Whitespace@15..16 " "
-                        Type@16..19
-                          Ident@16..19 "int"
+                        PathType@16..19
+                          Path@16..19
+                            PathSegment@16..19
+                              Ident@16..19 "int"
                       Comma@19..20 ","
                       Whitespace@20..21 " "
                       RCurly@21..22 "}"
@@ -1236,16 +1268,20 @@ struct AAA;
                         Ident@13..14 "a"
                         Colon@14..15 ":"
                         Whitespace@15..16 " "
-                        Type@16..19
-                          Ident@16..19 "int"
+                        PathType@16..19
+                          Path@16..19
+                            PathSegment@16..19
+                              Ident@16..19 "int"
                       Comma@19..20 ","
                       Whitespace@20..21 " "
                       RecordField@21..27
                         Ident@21..22 "b"
                         Colon@22..23 ":"
                         Whitespace@23..24 " "
-                        Type@24..27
-                          Ident@24..27 "int"
+                        PathType@24..27
+                          Path@24..27
+                            PathSegment@24..27
+                              Ident@24..27 "int"
                       Whitespace@27..28 " "
                       RCurly@28..29 "}"
             "#]],
@@ -1267,16 +1303,20 @@ struct AAA;
                         Ident@13..14 "a"
                         Colon@14..15 ":"
                         Whitespace@15..16 " "
-                        Type@16..19
-                          Ident@16..19 "int"
+                        PathType@16..19
+                          Path@16..19
+                            PathSegment@16..19
+                              Ident@16..19 "int"
                       Comma@19..20 ","
                       Whitespace@20..21 " "
                       RecordField@21..27
                         Ident@21..22 "b"
                         Colon@22..23 ":"
                         Whitespace@23..24 " "
-                        Type@24..27
-                          Ident@24..27 "int"
+                        PathType@24..27
+                          Path@24..27
+                            PathSegment@24..27
+                              Ident@24..27 "int"
                       Comma@27..28 ","
                       Whitespace@28..29 " "
                       RCurly@29..30 "}"
@@ -1320,7 +1360,10 @@ struct AAA;
                     TupleFieldList@7..12
                       LParen@7..8 "("
                       TupleField@8..11
-                        Ident@8..11 "i32"
+                        PathType@8..11
+                          Path@8..11
+                            PathSegment@8..11
+                              Ident@8..11 "i32"
                       RParen@11..12 ")"
                     Semicolon@12..13 ";"
                 error at 7..8: expected identifier, but found '('
@@ -1341,8 +1384,10 @@ struct AAA;
                         Ident@9..10 "a"
                         Colon@10..11 ":"
                         Whitespace@11..12 " "
-                        Type@12..15
-                          Ident@12..15 "i32"
+                        PathType@12..15
+                          Path@12..15
+                            PathSegment@12..15
+                              Ident@12..15 "i32"
                       Whitespace@15..16 " "
                       RCurly@16..17 "}"
                 error at 7..8: expected identifier, but found '{'
@@ -1389,15 +1434,19 @@ struct AAA;
                       RecordField@13..18
                         Colon@13..14 ":"
                         Whitespace@14..15 " "
-                        Type@15..18
-                          Ident@15..18 "i32"
+                        PathType@15..18
+                          Path@15..18
+                            PathSegment@15..18
+                              Ident@15..18 "i32"
                       Comma@18..19 ","
                       Whitespace@19..20 " "
                       RecordField@20..26
                         Colon@20..21 ":"
                         Whitespace@21..22 " "
-                        Type@22..26
-                          Ident@22..26 "bool"
+                        PathType@22..26
+                          Path@22..26
+                            PathSegment@22..26
+                              Ident@22..26 "bool"
                       Whitespace@26..27 " "
                       RCurly@27..28 "}"
                 error at 13..14: expected identifier, but found ':'
@@ -1427,6 +1476,139 @@ struct AAA;
                         Colon@18..19 ":"
                       Whitespace@19..20 " "
                       RCurly@20..21 "}"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn path_type_in_function() {
+        check_debug_tree_in_block(
+            "fn add(x: foo::bar, y: foo::bar) -> foo::bar {}",
+            expect![[r#"
+                SourceFile@0..47
+                  FunctionDef@0..47
+                    FnKw@0..2 "fn"
+                    Whitespace@2..3 " "
+                    Ident@3..6 "add"
+                    ParamList@6..32
+                      LParen@6..7 "("
+                      Param@7..18
+                        Ident@7..8 "x"
+                        Colon@8..9 ":"
+                        Whitespace@9..10 " "
+                        PathType@10..18
+                          Path@10..18
+                            PathSegment@10..13
+                              Ident@10..13 "foo"
+                            Colon2@13..15 "::"
+                            PathSegment@15..18
+                              Ident@15..18 "bar"
+                      Comma@18..19 ","
+                      Whitespace@19..20 " "
+                      Param@20..31
+                        Ident@20..21 "y"
+                        Colon@21..22 ":"
+                        Whitespace@22..23 " "
+                        PathType@23..31
+                          Path@23..31
+                            PathSegment@23..26
+                              Ident@23..26 "foo"
+                            Colon2@26..28 "::"
+                            PathSegment@28..31
+                              Ident@28..31 "bar"
+                      RParen@31..32 ")"
+                    Whitespace@32..33 " "
+                    ReturnType@33..44
+                      ThinArrow@33..35 "->"
+                      Whitespace@35..36 " "
+                      PathType@36..44
+                        Path@36..44
+                          PathSegment@36..39
+                            Ident@36..39 "foo"
+                          Colon2@39..41 "::"
+                          PathSegment@41..44
+                            Ident@41..44 "bar"
+                    Whitespace@44..45 " "
+                    BlockExpr@45..47
+                      LCurly@45..46 "{"
+                      RCurly@46..47 "}"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn path_type_in_struct() {
+        check_debug_tree_in_block(
+            "struct AAA(foo::bar, aaa::bbb);",
+            expect![[r#"
+                SourceFile@0..31
+                  StructDef@0..31
+                    StructKw@0..6 "struct"
+                    Whitespace@6..7 " "
+                    Ident@7..10 "AAA"
+                    TupleFieldList@10..30
+                      LParen@10..11 "("
+                      TupleField@11..19
+                        PathType@11..19
+                          Path@11..19
+                            PathSegment@11..14
+                              Ident@11..14 "foo"
+                            Colon2@14..16 "::"
+                            PathSegment@16..19
+                              Ident@16..19 "bar"
+                      Comma@19..20 ","
+                      Whitespace@20..21 " "
+                      TupleField@21..29
+                        PathType@21..29
+                          Path@21..29
+                            PathSegment@21..24
+                              Ident@21..24 "aaa"
+                            Colon2@24..26 "::"
+                            PathSegment@26..29
+                              Ident@26..29 "bbb"
+                      RParen@29..30 ")"
+                    Semicolon@30..31 ";"
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            "struct AAA { x: foo::bar, y: aaa::bbb }",
+            expect![[r#"
+                SourceFile@0..39
+                  StructDef@0..39
+                    StructKw@0..6 "struct"
+                    Whitespace@6..7 " "
+                    Ident@7..10 "AAA"
+                    Whitespace@10..11 " "
+                    RecordFieldList@11..39
+                      LCurly@11..12 "{"
+                      Whitespace@12..13 " "
+                      RecordField@13..24
+                        Ident@13..14 "x"
+                        Colon@14..15 ":"
+                        Whitespace@15..16 " "
+                        PathType@16..24
+                          Path@16..24
+                            PathSegment@16..19
+                              Ident@16..19 "foo"
+                            Colon2@19..21 "::"
+                            PathSegment@21..24
+                              Ident@21..24 "bar"
+                      Comma@24..25 ","
+                      Whitespace@25..26 " "
+                      RecordField@26..37
+                        Ident@26..27 "y"
+                        Colon@27..28 ":"
+                        Whitespace@28..29 " "
+                        PathType@29..37
+                          Path@29..37
+                            PathSegment@29..32
+                              Ident@29..32 "aaa"
+                            Colon2@32..34 "::"
+                            PathSegment@34..37
+                              Ident@34..37 "bbb"
+                      Whitespace@37..38 " "
+                      RCurly@38..39 "}"
             "#]],
         );
     }

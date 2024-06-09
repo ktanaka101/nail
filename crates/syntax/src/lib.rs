@@ -44,7 +44,7 @@ pub enum SyntaxKind {
     IfExpr,
     /// `return EXPR`
     ReturnExpr,
-    /// `let IDENT: TYPE = EXPR`
+    /// `EXPR;`
     ExprStmt,
     /// `Path`
     PathExpr,
@@ -56,21 +56,25 @@ pub enum SyntaxKind {
     BreakExpr,
     /// `while EXPR BlockExpr`
     WhileExpr,
+    /// `Ident RecordFieldListExpr`
+    RecordExpr,
+    /// `Path.NameRef`
+    FieldExpr,
 
     // ---statement nodes---
-    /// `let IDENT: TYPE = EXPR`
+    /// `let Ident: PathType = EXPR`
     Let,
 
     // ---item nodes---
-    /// `fn IDENT(ParamList) -> ReturnType BlockExpr`
+    /// `fn Ident(ParamList) -> ReturnType BlockExpr`
     FunctionDef,
-    /// `struct IDENT { TupleFieldList | RecordFieldList }`
+    /// `struct Ident { TupleFieldList | RecordFieldList }`
     ///
     /// Represents a structure definition,
-    /// which can either be a tuple-like struct (e.g., `struct IDENT(TupleFieldList);`) or
-    /// a classic C-like struct (e.g., `struct IDENT { RecordFieldList }`).
+    /// which can either be a tuple-like struct (e.g., `struct Ident(TupleFieldList);`) or
+    /// a classic C-like struct (e.g., `struct Ident { RecordFieldList }`).
     StructDef,
-    /// `mod IDENT { ItemList }`
+    /// `mod Ident { ItemList }`
     Module,
     /// `use Path;`
     Use,
@@ -78,7 +82,7 @@ pub enum SyntaxKind {
     // ---part nodes---
     /// `Param, Param, ...`
     ParamList,
-    /// `IDENT: TYPE`
+    /// `IDENT: PathType`
     Param,
     /// `Arg, Arg, ...`
     ArgList,
@@ -86,25 +90,31 @@ pub enum SyntaxKind {
     Arg,
     /// `(TupleField, TupleField, ...)`
     TupleFieldList,
-    /// `TYPE`
+    /// `PathType`
     TupleField,
     /// `{ RecordField, RecordField, ... }`
     RecordFieldList,
-    /// `IDENT: TYPE`
+    /// `IDENT: PathType`
     RecordField,
-    /// `TYPE`
-    Type,
+    /// `{ RecordFieldExpr, RecordFieldExpr, ... }`
+    RecordFieldListExpr,
+    /// `IDENT: EXPR`
+    RecordFieldExpr,
     /// fn foo() -> i32 { ... }
     ///             ^^^
     ///
-    /// `TYPE`
+    /// `PathType`
     ReturnType,
     /// `Item*`
     ItemList,
     /// `PathSegment::PathSegment::...`
     Path,
-    /// `IDENT::IDENT::...`
+    /// `Ident::Ident::...`
     PathSegment,
+    /// `Path`
+    PathType,
+    /// `Ident | Integer`
+    NameRef,
 
     // ---item keywords---
     /// `fn`
@@ -187,6 +197,8 @@ pub enum SyntaxKind {
     // ---delimiters---
     /// `,`
     Comma,
+    /// ``
+    Dot,
     /// `:`
     Colon,
     /// `::`
@@ -261,6 +273,7 @@ impl From<TokenKind> for SyntaxKind {
             TokenKind::ThinArrow => Self::ThinArrow,
 
             TokenKind::Comma => Self::Comma,
+            TokenKind::Dot => Self::Dot,
             TokenKind::Colon => Self::Colon,
             TokenKind::Colon2 => Self::Colon2,
             TokenKind::Semicolon => Self::Semicolon,

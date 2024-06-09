@@ -1,9 +1,11 @@
+use std::vec;
+
 use lexer::TokenKind;
 use syntax::SyntaxKind;
 
 use crate::{
     grammar::{parse_path, stmt::parse_stmt_on_block},
-    parser::{marker::CompletedNodeMarker, Parser},
+    parser::{marker::CompletedNodeMarker, Parser, BLOCK_RECOVERY_SET},
 };
 
 /// 式の最初に現れる可能性があるトークンの集合
@@ -30,9 +32,53 @@ pub(super) const EXPR_FIRST: [TokenKind; 17] = [
 /// アイテムの最初に現れる可能性があるトークンの集合
 pub(super) const ITEM_FIRST: &[TokenKind] = &[TokenKind::FnKw, TokenKind::ModKw];
 
+/// パースモードです。
+///
+/// ブロックセーフモードについては[parse_expr_block_safe]を参照してください。
+enum ParseMode {
+    /// 通常のパースを行います。
+    Normal,
+    /// ブロックセーフなパースを行います。
+    BlockSafe,
+}
+
 /// 式のパース
 pub(super) fn parse_expr(parser: &mut Parser) -> Option<CompletedNodeMarker> {
-    parse_expr_binding_power(parser, 0)
+    parse_expr_binding_power(parser, 0, ParseMode::Normal)
+}
+
+/// 次の要素がブロックであっても、安全に式としてパースするための関数
+///
+/// ```ignore
+/// let x = true;
+/// if x {
+///   10
+/// }
+/// ```
+///
+/// 以下のように、if式やwhile式では条件部分に構造体の初期化式を書くとボディブロックと構造体初期化ブロックが曖昧になるため、
+/// 回避するために`parse_expr`ではなく`parse_expr_block_safe`を使用する。
+/// ```ignore
+/// struct A { x: bool }
+/// if A { x: true }.x {
+///   10
+/// }
+/// ```
+///
+/// 仕様としては、以下のように次の要素がブロックの場合は`()`で囲む必要がある。
+/// ```ignore
+/// struct A { x: bool }
+/// if A { x: true }.x { // エラー
+///   10
+/// }
+///
+/// if (A { x: true }.x) { // OK
+///   10
+/// }
+/// ```
+///
+fn parse_expr_block_safe(parser: &mut Parser) -> Option<CompletedNodeMarker> {
+    parse_expr_binding_power(parser, 0, ParseMode::BlockSafe)
 }
 
 /// 優先順位を考慮した式のパース
@@ -50,8 +96,9 @@ pub(super) fn parse_expr(parser: &mut Parser) -> Option<CompletedNodeMarker> {
 fn parse_expr_binding_power(
     parser: &mut Parser,
     minimum_binding_power: u8,
+    parse_mode: ParseMode,
 ) -> Option<CompletedNodeMarker> {
-    let mut lhs = parse_lhs(parser)?;
+    let mut lhs = parse_lhs(parser, parse_mode)?;
 
     loop {
         let op = if parser.at(TokenKind::Plus) {
@@ -89,7 +136,7 @@ fn parse_expr_binding_power(
         parser.bump();
 
         let marker = lhs.precede(parser);
-        let parsed_rhs = parse_expr_binding_power(parser, right_binding_power);
+        let parsed_rhs = parse_expr_binding_power(parser, right_binding_power, ParseMode::Normal);
         lhs = marker.complete(parser, SyntaxKind::BinaryExpr);
 
         if parsed_rhs.is_none() {
@@ -162,12 +209,12 @@ impl PrefixOp {
 }
 
 /// 左辺のパース
-fn parse_lhs(parser: &mut Parser) -> Option<CompletedNodeMarker> {
+fn parse_lhs(parser: &mut Parser, parse_mode: ParseMode) -> Option<CompletedNodeMarker> {
     // 関数呼び出しの場合はCallノードとしたいが、そうでない場合はラップしたくないので、destroyを呼ぶ可能性がある
     // 以下のようなイメージ。
     // 関数呼び出しの場合: ExprStmt -> CallExpr   -> PathExpr -> ArgListExpr
     // 式の場合:         ExprStmt -> destroy対象 -> PathExpr
-    let maybe_call_marker = parser.start();
+    let maybe_call_or_field_expr_marker = parser.start();
 
     let cm = if parser.at(TokenKind::IntegerLiteral)
         || parser.at(TokenKind::CharLiteral(false))
@@ -177,7 +224,10 @@ fn parse_lhs(parser: &mut Parser) -> Option<CompletedNodeMarker> {
     {
         parse_literal(parser)
     } else if parser.at(TokenKind::Ident) {
-        parse_path_expr(parser)
+        match parse_mode {
+            ParseMode::Normal => parse_path_expr_or_record_expr(parser),
+            ParseMode::BlockSafe => parse_path_expr(parser),
+        }
     } else if parser.at_set(&[TokenKind::Minus, TokenKind::Bang]) {
         parse_prefix_expr(parser)
     } else if parser.at(TokenKind::LParen) {
@@ -198,16 +248,30 @@ fn parse_lhs(parser: &mut Parser) -> Option<CompletedNodeMarker> {
         parse_while(parser)
     } else {
         parser.error_with_recovery_set_only_default_on_block();
-        maybe_call_marker.destroy(parser);
+        maybe_call_or_field_expr_marker.destroy(parser);
         return None;
     };
 
-    if parser.peek() == Some(TokenKind::LParen) {
-        parse_args(parser);
-        Some(maybe_call_marker.complete(parser, SyntaxKind::CallExpr))
-    } else {
-        maybe_call_marker.destroy(parser);
-        Some(cm)
+    match parser.peek() {
+        Some(TokenKind::LParen) => {
+            parse_args(parser);
+            Some(maybe_call_or_field_expr_marker.complete(parser, SyntaxKind::CallExpr))
+        }
+        Some(TokenKind::Dot) => {
+            parser.bump();
+            if parser.at(TokenKind::Ident) || parser.at(TokenKind::IntegerLiteral) {
+                let marker = parser.start();
+                parser.bump();
+                marker.complete(parser, SyntaxKind::NameRef);
+            } else {
+                parser.consume_error();
+            }
+            Some(maybe_call_or_field_expr_marker.complete(parser, SyntaxKind::FieldExpr))
+        }
+        _ => {
+            maybe_call_or_field_expr_marker.destroy(parser);
+            Some(cm)
+        }
     }
 }
 
@@ -252,14 +316,34 @@ fn validate_literal(parser: &mut Parser) {
     }
 }
 
-/// パスのパース
-fn parse_path_expr(parser: &mut Parser) -> CompletedNodeMarker {
+/// パス式あるいはレコード式のパース
+///
+/// 以下は両方のパースが可能です。区別をするためには、`{`が続くかどうかで判断します。
+/// - RecordExpr: `let point = Point { x: 10, y: 20 };`
+/// - PathExpr: `let point = Point`
+fn parse_path_expr_or_record_expr(parser: &mut Parser) -> CompletedNodeMarker {
     assert!(parser.at(TokenKind::Ident));
 
     let marker = parser.start();
 
-    parse_path(parser);
+    parse_path(parser, &BLOCK_RECOVERY_SET);
 
+    if parser.at(TokenKind::LCurly) {
+        // Pathの次に`{`がある場合はRecordExprとして返す
+        parse_record_field_list_expr(parser);
+        marker.complete(parser, SyntaxKind::RecordExpr)
+    } else {
+        // Pathの次にパス式の場合はPathExprとして返す
+        marker.complete(parser, SyntaxKind::PathExpr)
+    }
+}
+
+/// パス式のパース
+fn parse_path_expr(parser: &mut Parser) -> CompletedNodeMarker {
+    assert!(parser.at(TokenKind::Ident));
+
+    let marker = parser.start();
+    parse_path(parser, &BLOCK_RECOVERY_SET);
     marker.complete(parser, SyntaxKind::PathExpr)
 }
 
@@ -304,7 +388,7 @@ fn parse_prefix_expr(parser: &mut Parser) -> CompletedNodeMarker {
 
     parser.bump();
 
-    parse_expr_binding_power(parser, right_binding_power);
+    parse_expr_binding_power(parser, right_binding_power, ParseMode::Normal);
 
     marker.complete(parser, SyntaxKind::UnaryExpr)
 }
@@ -317,7 +401,7 @@ fn parse_paren_expr(parser: &mut Parser) -> CompletedNodeMarker {
 
     let marker = parser.start();
     parser.bump();
-    parse_expr_binding_power(parser, 0);
+    parse_expr_binding_power(parser, 0, ParseMode::Normal);
     parser.expect_on_block(TokenKind::RParen);
 
     marker.complete(parser, SyntaxKind::ParenExpr)
@@ -346,7 +430,7 @@ fn parse_if(parser: &mut Parser) -> CompletedNodeMarker {
 
     let marker = parser.start();
     parser.bump();
-    parse_expr(parser);
+    parse_expr_block_safe(parser);
 
     if parser.at(TokenKind::LCurly) {
         parse_block(parser);
@@ -382,7 +466,6 @@ fn parse_loop(parser: &mut Parser) -> CompletedNodeMarker {
 
     let marker = parser.start();
     parser.bump();
-    parse_expr(parser);
 
     if parser.at(TokenKind::LCurly) {
         parse_block(parser);
@@ -421,13 +504,55 @@ fn parse_while(parser: &mut Parser) -> CompletedNodeMarker {
 
     let marker = parser.start();
     parser.bump();
-    parse_expr(parser);
+    parse_expr_block_safe(parser);
 
     if parser.at(TokenKind::LCurly) {
         parse_block(parser);
     }
 
     marker.complete(parser, SyntaxKind::WhileExpr)
+}
+
+fn parse_record_field_list_expr(parser: &mut Parser) -> CompletedNodeMarker {
+    assert!(parser.at(TokenKind::LCurly));
+
+    let marker = parser.start();
+
+    parser.expect_on_block(TokenKind::LCurly);
+
+    if parser.at(TokenKind::Ident)
+        || parser.peek() == Some(TokenKind::Colon)
+        || parser.peek() == Some(TokenKind::Comma)
+    {
+        {
+            let marker = parser.start();
+            parser.expect_on_block(TokenKind::Ident);
+            parser.expect_on_block(TokenKind::Colon);
+            parse_expr(parser);
+            marker.complete(parser, SyntaxKind::RecordFieldExpr);
+        }
+
+        while parser.at(TokenKind::Comma) {
+            parser.bump();
+            // Point { x: 10, y: 20, }
+            //                     ^,時点で停止させる
+            if parser.at(TokenKind::RCurly) {
+                break;
+            }
+
+            {
+                let marker = parser.start();
+                parser.expect_on_block(TokenKind::Ident);
+                parser.expect_on_block(TokenKind::Colon);
+                parse_expr(parser);
+                marker.complete(parser, SyntaxKind::RecordFieldExpr);
+            }
+        }
+    }
+
+    parser.expect_on_block(TokenKind::RCurly);
+
+    marker.complete(parser, SyntaxKind::RecordFieldListExpr)
 }
 
 #[cfg(test)]
@@ -998,7 +1123,7 @@ mod tests {
                         Path@1..4
                           PathSegment@1..4
                             Ident@1..4 "foo"
-                error at 1..4: expected '::', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=' or ')'
+                error at 1..4: expected '::', '{', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=' or ')'
             "#]],
         );
     }
@@ -1233,7 +1358,7 @@ mod tests {
                             Path@5..6
                               PathSegment@5..6
                                 Ident@5..6 "y"
-                error at 5..6: expected '::', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ',' or ')'
+                error at 5..6: expected '::', '{', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ',' or ')'
             "#]],
         );
 
@@ -1276,7 +1401,7 @@ mod tests {
                             Path@2..3
                               PathSegment@2..3
                                 Ident@2..3 "x"
-                error at 2..3: expected '::', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ',' or ')'
+                error at 2..3: expected '::', '{', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ',' or ')'
             "#]],
         );
 
@@ -1347,7 +1472,7 @@ mod tests {
                   ExprStmt@5..6
                     Error@5..6
                       RParen@5..6 ")"
-                error at 4..5: expected '::', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ',' or ')', but found identifier
+                error at 4..5: expected '::', '{', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ',' or ')', but found identifier
                 error at 5..6: expected '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ';', 'let', 'fn', 'struct', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found ')'
             "#]],
         );
@@ -1476,6 +1601,181 @@ mod tests {
                         RCurly@25..26 "}"
             "#]],
         )
+    }
+
+    #[test]
+    fn parse_if_expr_condition_variable() {
+        check_debug_tree_in_block(
+            "let a = true; if a { 10 }",
+            expect![[r#"
+                SourceFile@0..25
+                  Let@0..13
+                    LetKw@0..3 "let"
+                    Whitespace@3..4 " "
+                    Ident@4..5 "a"
+                    Whitespace@5..6 " "
+                    Eq@6..7 "="
+                    Whitespace@7..8 " "
+                    Literal@8..12
+                      TrueKw@8..12 "true"
+                    Semicolon@12..13 ";"
+                  Whitespace@13..14 " "
+                  ExprStmt@14..25
+                    IfExpr@14..25
+                      IfKw@14..16 "if"
+                      Whitespace@16..17 " "
+                      PathExpr@17..18
+                        Path@17..18
+                          PathSegment@17..18
+                            Ident@17..18 "a"
+                      Whitespace@18..19 " "
+                      BlockExpr@19..25
+                        LCurly@19..20 "{"
+                        Whitespace@20..21 " "
+                        ExprStmt@21..23
+                          Literal@21..23
+                            Integer@21..23 "10"
+                        Whitespace@23..24 " "
+                        RCurly@24..25 "}"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_if_expr_condition_struct_record_init_is_error() {
+        check_debug_tree_in_block(
+            r#"
+                struct A { x: bool }
+                if A { x: true } { 10 }
+            "#,
+            expect![[r#"
+                SourceFile@0..90
+                  Whitespace@0..17 "\n                "
+                  StructDef@17..37
+                    StructKw@17..23 "struct"
+                    Whitespace@23..24 " "
+                    Ident@24..25 "A"
+                    Whitespace@25..26 " "
+                    RecordFieldList@26..37
+                      LCurly@26..27 "{"
+                      Whitespace@27..28 " "
+                      RecordField@28..35
+                        Ident@28..29 "x"
+                        Colon@29..30 ":"
+                        Whitespace@30..31 " "
+                        PathType@31..35
+                          Path@31..35
+                            PathSegment@31..35
+                              Ident@31..35 "bool"
+                      Whitespace@35..36 " "
+                      RCurly@36..37 "}"
+                  Whitespace@37..54 "\n                "
+                  ExprStmt@54..70
+                    IfExpr@54..70
+                      IfKw@54..56 "if"
+                      Whitespace@56..57 " "
+                      PathExpr@57..58
+                        Path@57..58
+                          PathSegment@57..58
+                            Ident@57..58 "A"
+                      Whitespace@58..59 " "
+                      BlockExpr@59..70
+                        LCurly@59..60 "{"
+                        Whitespace@60..61 " "
+                        ExprStmt@61..62
+                          PathExpr@61..62
+                            Path@61..62
+                              PathSegment@61..62
+                                Ident@61..62 "x"
+                        ExprStmt@62..63
+                          Error@62..63
+                            Colon@62..63 ":"
+                        Whitespace@63..64 " "
+                        ExprStmt@64..68
+                          Literal@64..68
+                            TrueKw@64..68 "true"
+                        Whitespace@68..69 " "
+                        RCurly@69..70 "}"
+                  Whitespace@70..71 " "
+                  ExprStmt@71..77
+                    BlockExpr@71..77
+                      LCurly@71..72 "{"
+                      Whitespace@72..73 " "
+                      ExprStmt@73..75
+                        Literal@73..75
+                          Integer@73..75 "10"
+                      Whitespace@75..76 " "
+                      RCurly@76..77 "}"
+                  Whitespace@77..90 "\n            "
+                error at 62..63: expected '::', '{', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ';', '}', 'let', 'fn', 'struct', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found ':'
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_if_expr_condition_struct_record_init_around_paren_is_ok() {
+        check_debug_tree_in_block(
+            r#"
+                struct A { x: bool }
+                if (A { x: true }) { 10 }
+            "#,
+            expect![[r#"
+                SourceFile@0..92
+                  Whitespace@0..17 "\n                "
+                  StructDef@17..37
+                    StructKw@17..23 "struct"
+                    Whitespace@23..24 " "
+                    Ident@24..25 "A"
+                    Whitespace@25..26 " "
+                    RecordFieldList@26..37
+                      LCurly@26..27 "{"
+                      Whitespace@27..28 " "
+                      RecordField@28..35
+                        Ident@28..29 "x"
+                        Colon@29..30 ":"
+                        Whitespace@30..31 " "
+                        PathType@31..35
+                          Path@31..35
+                            PathSegment@31..35
+                              Ident@31..35 "bool"
+                      Whitespace@35..36 " "
+                      RCurly@36..37 "}"
+                  Whitespace@37..54 "\n                "
+                  ExprStmt@54..79
+                    IfExpr@54..79
+                      IfKw@54..56 "if"
+                      Whitespace@56..57 " "
+                      ParenExpr@57..72
+                        LParen@57..58 "("
+                        RecordExpr@58..71
+                          Path@58..59
+                            PathSegment@58..59
+                              Ident@58..59 "A"
+                          Whitespace@59..60 " "
+                          RecordFieldListExpr@60..71
+                            LCurly@60..61 "{"
+                            Whitespace@61..62 " "
+                            RecordFieldExpr@62..69
+                              Ident@62..63 "x"
+                              Colon@63..64 ":"
+                              Whitespace@64..65 " "
+                              Literal@65..69
+                                TrueKw@65..69 "true"
+                            Whitespace@69..70 " "
+                            RCurly@70..71 "}"
+                        RParen@71..72 ")"
+                      Whitespace@72..73 " "
+                      BlockExpr@73..79
+                        LCurly@73..74 "{"
+                        Whitespace@74..75 " "
+                        ExprStmt@75..77
+                          Literal@75..77
+                            Integer@75..77 "10"
+                        Whitespace@77..78 " "
+                        RCurly@78..79 "}"
+                  Whitespace@79..92 "\n            "
+            "#]],
+        );
     }
 
     #[test]
@@ -2174,6 +2474,44 @@ mod tests {
     }
 
     #[test]
+    fn parse_while_condition_variable() {
+        check_debug_tree_in_block(
+            "let a = true; while a { 10 }",
+            expect![[r#"
+                SourceFile@0..28
+                  Let@0..13
+                    LetKw@0..3 "let"
+                    Whitespace@3..4 " "
+                    Ident@4..5 "a"
+                    Whitespace@5..6 " "
+                    Eq@6..7 "="
+                    Whitespace@7..8 " "
+                    Literal@8..12
+                      TrueKw@8..12 "true"
+                    Semicolon@12..13 ";"
+                  Whitespace@13..14 " "
+                  ExprStmt@14..28
+                    WhileExpr@14..28
+                      WhileKw@14..19 "while"
+                      Whitespace@19..20 " "
+                      PathExpr@20..21
+                        Path@20..21
+                          PathSegment@20..21
+                            Ident@20..21 "a"
+                      Whitespace@21..22 " "
+                      BlockExpr@22..28
+                        LCurly@22..23 "{"
+                        Whitespace@23..24 " "
+                        ExprStmt@24..26
+                          Literal@24..26
+                            Integer@24..26 "10"
+                        Whitespace@26..27 " "
+                        RCurly@27..28 "}"
+            "#]],
+        );
+    }
+
+    #[test]
     fn parse_while_cond_block() {
         check_debug_tree_in_block(
             "while { 10; true } { 20 }",
@@ -2205,6 +2543,320 @@ mod tests {
                             Integer@21..23 "20"
                         Whitespace@23..24 " "
                         RCurly@24..25 "}"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_record_expr() {
+        check_debug_tree_in_block(
+            "let point = Point {};",
+            expect![[r#"
+                SourceFile@0..21
+                  Let@0..21
+                    LetKw@0..3 "let"
+                    Whitespace@3..4 " "
+                    Ident@4..9 "point"
+                    Whitespace@9..10 " "
+                    Eq@10..11 "="
+                    Whitespace@11..12 " "
+                    RecordExpr@12..20
+                      Path@12..17
+                        PathSegment@12..17
+                          Ident@12..17 "Point"
+                      Whitespace@17..18 " "
+                      RecordFieldListExpr@18..20
+                        LCurly@18..19 "{"
+                        RCurly@19..20 "}"
+                    Semicolon@20..21 ";"
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            "let point = Point { x: 10 };",
+            expect![[r#"
+                SourceFile@0..28
+                  Let@0..28
+                    LetKw@0..3 "let"
+                    Whitespace@3..4 " "
+                    Ident@4..9 "point"
+                    Whitespace@9..10 " "
+                    Eq@10..11 "="
+                    Whitespace@11..12 " "
+                    RecordExpr@12..27
+                      Path@12..17
+                        PathSegment@12..17
+                          Ident@12..17 "Point"
+                      Whitespace@17..18 " "
+                      RecordFieldListExpr@18..27
+                        LCurly@18..19 "{"
+                        Whitespace@19..20 " "
+                        RecordFieldExpr@20..25
+                          Ident@20..21 "x"
+                          Colon@21..22 ":"
+                          Whitespace@22..23 " "
+                          Literal@23..25
+                            Integer@23..25 "10"
+                        Whitespace@25..26 " "
+                        RCurly@26..27 "}"
+                    Semicolon@27..28 ";"
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            "let point = Point { x: 10 ,};",
+            expect![[r#"
+                SourceFile@0..29
+                  Let@0..29
+                    LetKw@0..3 "let"
+                    Whitespace@3..4 " "
+                    Ident@4..9 "point"
+                    Whitespace@9..10 " "
+                    Eq@10..11 "="
+                    Whitespace@11..12 " "
+                    RecordExpr@12..28
+                      Path@12..17
+                        PathSegment@12..17
+                          Ident@12..17 "Point"
+                      Whitespace@17..18 " "
+                      RecordFieldListExpr@18..28
+                        LCurly@18..19 "{"
+                        Whitespace@19..20 " "
+                        RecordFieldExpr@20..25
+                          Ident@20..21 "x"
+                          Colon@21..22 ":"
+                          Whitespace@22..23 " "
+                          Literal@23..25
+                            Integer@23..25 "10"
+                        Whitespace@25..26 " "
+                        Comma@26..27 ","
+                        RCurly@27..28 "}"
+                    Semicolon@28..29 ";"
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            "let point = Point { x: 10, y: 20 };",
+            expect![[r#"
+                SourceFile@0..35
+                  Let@0..35
+                    LetKw@0..3 "let"
+                    Whitespace@3..4 " "
+                    Ident@4..9 "point"
+                    Whitespace@9..10 " "
+                    Eq@10..11 "="
+                    Whitespace@11..12 " "
+                    RecordExpr@12..34
+                      Path@12..17
+                        PathSegment@12..17
+                          Ident@12..17 "Point"
+                      Whitespace@17..18 " "
+                      RecordFieldListExpr@18..34
+                        LCurly@18..19 "{"
+                        Whitespace@19..20 " "
+                        RecordFieldExpr@20..25
+                          Ident@20..21 "x"
+                          Colon@21..22 ":"
+                          Whitespace@22..23 " "
+                          Literal@23..25
+                            Integer@23..25 "10"
+                        Comma@25..26 ","
+                        Whitespace@26..27 " "
+                        RecordFieldExpr@27..32
+                          Ident@27..28 "y"
+                          Colon@28..29 ":"
+                          Whitespace@29..30 " "
+                          Literal@30..32
+                            Integer@30..32 "20"
+                        Whitespace@32..33 " "
+                        RCurly@33..34 "}"
+                    Semicolon@34..35 ";"
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            "let point = Point { x: 10, y: 20, };",
+            expect![[r#"
+                SourceFile@0..36
+                  Let@0..36
+                    LetKw@0..3 "let"
+                    Whitespace@3..4 " "
+                    Ident@4..9 "point"
+                    Whitespace@9..10 " "
+                    Eq@10..11 "="
+                    Whitespace@11..12 " "
+                    RecordExpr@12..35
+                      Path@12..17
+                        PathSegment@12..17
+                          Ident@12..17 "Point"
+                      Whitespace@17..18 " "
+                      RecordFieldListExpr@18..35
+                        LCurly@18..19 "{"
+                        Whitespace@19..20 " "
+                        RecordFieldExpr@20..25
+                          Ident@20..21 "x"
+                          Colon@21..22 ":"
+                          Whitespace@22..23 " "
+                          Literal@23..25
+                            Integer@23..25 "10"
+                        Comma@25..26 ","
+                        Whitespace@26..27 " "
+                        RecordFieldExpr@27..32
+                          Ident@27..28 "y"
+                          Colon@28..29 ":"
+                          Whitespace@29..30 " "
+                          Literal@30..32
+                            Integer@30..32 "20"
+                        Comma@32..33 ","
+                        Whitespace@33..34 " "
+                        RCurly@34..35 "}"
+                    Semicolon@35..36 ";"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_field_expr() {
+        check_debug_tree_in_block(
+            "value.foo_bar;",
+            expect![[r#"
+                SourceFile@0..14
+                  ExprStmt@0..14
+                    FieldExpr@0..13
+                      PathExpr@0..5
+                        Path@0..5
+                          PathSegment@0..5
+                            Ident@0..5 "value"
+                      Dot@5..6 "."
+                      NameRef@6..13
+                        Ident@6..13 "foo_bar"
+                    Semicolon@13..14 ";"
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            "scope::value.foo_bar;",
+            expect![[r#"
+                SourceFile@0..21
+                  ExprStmt@0..21
+                    FieldExpr@0..20
+                      PathExpr@0..12
+                        Path@0..12
+                          PathSegment@0..5
+                            Ident@0..5 "scope"
+                          Colon2@5..7 "::"
+                          PathSegment@7..12
+                            Ident@7..12 "value"
+                      Dot@12..13 "."
+                      NameRef@13..20
+                        Ident@13..20 "foo_bar"
+                    Semicolon@20..21 ";"
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            "let f = value.foo_bar;",
+            expect![[r#"
+                SourceFile@0..22
+                  Let@0..22
+                    LetKw@0..3 "let"
+                    Whitespace@3..4 " "
+                    Ident@4..5 "f"
+                    Whitespace@5..6 " "
+                    Eq@6..7 "="
+                    Whitespace@7..8 " "
+                    FieldExpr@8..21
+                      PathExpr@8..13
+                        Path@8..13
+                          PathSegment@8..13
+                            Ident@8..13 "value"
+                      Dot@13..14 "."
+                      NameRef@14..21
+                        Ident@14..21 "foo_bar"
+                    Semicolon@21..22 ";"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn field_expr_in_semicolon_is_error() {
+        check_debug_tree_in_block(
+            "value;.foo_bar",
+            expect![[r#"
+                SourceFile@0..14
+                  ExprStmt@0..6
+                    PathExpr@0..5
+                      Path@0..5
+                        PathSegment@0..5
+                          Ident@0..5 "value"
+                    Semicolon@5..6 ";"
+                  ExprStmt@6..7
+                    Error@6..7
+                      Dot@6..7 "."
+                  ExprStmt@7..14
+                    PathExpr@7..14
+                      Path@7..14
+                        PathSegment@7..14
+                          Ident@7..14 "foo_bar"
+                error at 6..7: expected 'let', 'fn', 'struct', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found '.'
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            "value.;foo_bar",
+            expect![[r#"
+                SourceFile@0..14
+                  ExprStmt@0..7
+                    FieldExpr@0..6
+                      PathExpr@0..5
+                        Path@0..5
+                          PathSegment@0..5
+                            Ident@0..5 "value"
+                      Dot@5..6 "."
+                    Semicolon@6..7 ";"
+                  ExprStmt@7..14
+                    PathExpr@7..14
+                      Path@7..14
+                        PathSegment@7..14
+                          Ident@7..14 "foo_bar"
+                error at 6..7: expected identifier or integerLiteral, in ';'
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_tuple_field_expr() {
+        check_debug_tree_in_block(
+            "value.0;",
+            expect![[r#"
+                SourceFile@0..8
+                  ExprStmt@0..8
+                    FieldExpr@0..7
+                      PathExpr@0..5
+                        Path@0..5
+                          PathSegment@0..5
+                            Ident@0..5 "value"
+                      Dot@5..6 "."
+                      NameRef@6..7
+                        Integer@6..7 "0"
+                    Semicolon@7..8 ";"
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            "value.10;",
+            expect![[r#"
+                SourceFile@0..9
+                  ExprStmt@0..9
+                    FieldExpr@0..8
+                      PathExpr@0..5
+                        Path@0..5
+                          PathSegment@0..5
+                            Ident@0..5 "value"
+                      Dot@5..6 "."
+                      NameRef@6..8
+                        Integer@6..8 "10"
+                    Semicolon@8..9 ";"
             "#]],
         );
     }

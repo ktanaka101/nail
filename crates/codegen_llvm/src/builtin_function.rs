@@ -18,8 +18,9 @@ pub enum OutputType {
     String,
     /// 真偽値型
     Boolean,
-    /// 空の型
-    Unit,
+    /// 空あるいは構造体の型
+    /// TODO: Unitの型を追加する
+    UnitOrStruct,
 }
 
 /// 外部から見たときのNailの結果値を表す
@@ -35,7 +36,7 @@ pub(super) enum PrimitiveType {
     Int,
     String,
     Boolean,
-    Unit,
+    UnitOrStruct,
 }
 
 impl TryFrom<i64> for PrimitiveType {
@@ -46,7 +47,7 @@ impl TryFrom<i64> for PrimitiveType {
             1 => PrimitiveType::Int,
             2 => PrimitiveType::String,
             3 => PrimitiveType::Boolean,
-            4 => PrimitiveType::Unit,
+            4 => PrimitiveType::UnitOrStruct,
             other => {
                 return Err(anyhow::format_err!(
                     "Expected 1, 2, 3 or 4. Received {other}"
@@ -61,7 +62,7 @@ impl From<PrimitiveType> for u64 {
             PrimitiveType::Int => 1,
             PrimitiveType::String => 2,
             PrimitiveType::Boolean => 3,
-            PrimitiveType::Unit => 4,
+            PrimitiveType::UnitOrStruct => 4,
         }
     }
 }
@@ -106,8 +107,8 @@ extern "C" fn ptr_to_string(ty: i64, value_ptr: *const i64, _length: i64) -> *co
                     value: Value::Bool(boolean),
                 }
             }
-            PrimitiveType::Unit => Output {
-                nail_type: OutputType::Unit,
+            PrimitiveType::UnitOrStruct => Output {
+                nail_type: OutputType::UnitOrStruct,
                 value: Value::Null,
             },
         };
@@ -149,9 +150,9 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         *self.builtin_functions.get(FN_NAME_PTR_TO_STRING).unwrap()
     }
 
-    pub(super) fn build_call_unit_string(&'a self) -> CallSiteValue<'ctx> {
+    pub(super) fn build_call_unit_or_struct_string(&'a self) -> CallSiteValue<'ctx> {
         self.build_call_ptr_to_string(
-            PrimitiveType::Unit,
+            PrimitiveType::UnitOrStruct,
             self.context.ptr_type(AddressSpace::default()).const_zero(),
             self.context.i64_type().const_zero(),
         )
@@ -185,7 +186,8 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 ptr,
                 self.context.i64_type().const_zero(),
             ),
-            BasicValueEnum::StructValue(_) => self.build_call_unit_string(),
+            // TODO: Unit型を独自に処理する
+            BasicValueEnum::StructValue(_) => self.build_call_unit_or_struct_string(),
             _ => unimplemented!(),
         }
     }

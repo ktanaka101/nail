@@ -155,4 +155,54 @@ mod tests {
     fn while_desugared_error() {
         check("while_desugared_error");
     }
+
+    #[test]
+    fn init_not_record() {
+        check("init_not_record");
+    }
+
+    #[test]
+    fn init_record() {
+        check("init_record");
+    }
+
+    #[test]
+    fn init_struct_tuple_mismatch() {
+        check("init_struct_tuple_mismatch");
+    }
+
+    #[test]
+    fn missing_struct_record_field() {
+        check("missing_struct_record_field");
+    }
+
+    #[test]
+    fn no_such_struct_record_field() {
+        check("no_such_struct_record_field");
+    }
+
+    #[test]
+    fn init_struct_record_mismatch() {
+        check("init_struct_record_mismatch");
+    }
+
+    #[test]
+    fn needed_init_tuple_or_record() {
+        check("needed_init_tuple_or_record");
+    }
+
+    #[test]
+    fn no_such_field_access() {
+        check("no_such_field_access");
+    }
+
+    #[test]
+    fn can_not_field_access() {
+        check("can_not_field_access");
+    }
+
+    #[test]
+    fn not_allowed_type() {
+        check("not_allowed_type");
+    }
 }

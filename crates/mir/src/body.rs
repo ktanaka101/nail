@@ -3,8 +3,9 @@ use std::collections::HashMap;
 use la_arena::{Arena, Idx};
 
 use crate::{
-    AllocatedSwitchBB, BasicBlock, BinaryOp, Body, Constant, FunctionId, Local, LoweredExpr,
-    LoweredStmt, Operand, Param, Place, Statement, Termination, UnaryOp, Value,
+    AggregateKind, AllocatedSwitchBB, BasicBlock, BinaryOp, Body, Constant, FunctionId, Local,
+    LoweredExpr, LoweredStmt, Operand, Param, Place, PlaceKind, Projection, Statement, Termination,
+    UnaryOp, Value,
 };
 
 struct BreakContext {
@@ -188,14 +189,37 @@ impl<'a> FunctionLower<'a> {
         let expr = expr_id.lookup(self.hir_file.db(self.db));
         match expr {
             hir::Expr::Symbol(symbol) => match symbol {
-                hir::Symbol::Param { name: _, param } => LoweredExpr::Operand(Operand::Place(
-                    Place::Param(self.get_param_by_expr(*param)),
-                )),
+                hir::Symbol::Param { name: _, param } => {
+                    LoweredExpr::Operand(Operand::Place(Place {
+                        local: PlaceKind::Param(self.get_param_by_expr(*param)),
+                        projection: None,
+                    }))
+                }
                 hir::Symbol::Local { binding, .. } => {
                     let expr = binding.lookup(self.hir_file.db(self.db)).expr;
-                    LoweredExpr::Operand(Operand::Place(Place::Local(self.get_local_by_expr(expr))))
+                    LoweredExpr::Operand(Operand::Place(Place {
+                        local: PlaceKind::Local(self.get_local_by_expr(expr)),
+                        projection: None,
+                    }))
                 }
-                hir::Symbol::Missing { .. } => todo!(),
+                hir::Symbol::MissingExpr { path } => {
+                    let resolution_status = self.resolution_map.item_by_symbol(path).unwrap();
+                    let item = match resolution_status {
+                        hir::ResolutionStatus::Unresolved | hir::ResolutionStatus::Error => {
+                            unreachable!();
+                        }
+                        hir::ResolutionStatus::Resolved { path: _, item } => item,
+                    };
+                    match item {
+                        hir::Item::Struct(struct_) => {
+                            LoweredExpr::Operand(Operand::Constant(Constant::StructUnit(struct_)))
+                        }
+                        hir::Item::Function(_) | hir::Item::Module(_) | hir::Item::UseItem(_) => {
+                            unimplemented!()
+                        }
+                    }
+                }
+                hir::Symbol::MissingType { .. } => unreachable!(),
             },
             hir::Expr::Literal(literal) => match literal {
                 hir::Literal::Integer(value) => {
@@ -216,7 +240,10 @@ impl<'a> FunctionLower<'a> {
                         LoweredExpr::Break => return LoweredExpr::Break,
                         LoweredExpr::Return => return LoweredExpr::Return,
                     };
-                    let return_value_place = Place::Local(self.return_local);
+                    let return_value_place = Place {
+                        local: PlaceKind::Local(self.return_local),
+                        projection: None,
+                    };
                     self.add_statement_to_current_bb(Statement::Assign {
                         place: return_value_place,
                         value: operand.into(),
@@ -246,7 +273,10 @@ impl<'a> FunctionLower<'a> {
                         LoweredExpr::Return => return LoweredExpr::Return,
                         LoweredExpr::Break => return LoweredExpr::Break,
                     };
-                    let place = Place::Local(cond_local_idx);
+                    let place = Place {
+                        local: PlaceKind::Local(cond_local_idx),
+                        projection: None,
+                    };
                     self.add_statement_to_current_bb(Statement::Assign {
                         place,
                         value: cond_operand.into(),
@@ -259,7 +289,10 @@ impl<'a> FunctionLower<'a> {
 
                 let switch_bb = self.alloc_switch_bb();
                 self.add_termination_to_current_bb(Termination::Switch {
-                    condition: Place::Local(cond_local_idx),
+                    condition: Place {
+                        local: PlaceKind::Local(cond_local_idx),
+                        projection: None,
+                    },
                     then_bb: switch_bb.then_bb_idx,
                     else_bb: switch_bb.else_bb_idx,
                 });
@@ -291,7 +324,10 @@ impl<'a> FunctionLower<'a> {
                             match self.lower_expr(tail) {
                                 LoweredExpr::Operand(operand) => {
                                     self.add_statement_to_current_bb(Statement::Assign {
-                                        place: Place::Local(dest_bb_and_result_local_idx.1),
+                                        place: Place {
+                                            local: PlaceKind::Local(dest_bb_and_result_local_idx.1),
+                                            projection: None,
+                                        },
                                         value: operand.into(),
                                     });
                                     self.add_termination_to_current_bb(Termination::Goto(
@@ -344,7 +380,12 @@ impl<'a> FunctionLower<'a> {
                                     match self.lower_expr(tail) {
                                         LoweredExpr::Operand(operand) => {
                                             self.add_statement_to_current_bb(Statement::Assign {
-                                                place: Place::Local(dest_bb_and_result_local_idx.1),
+                                                place: Place {
+                                                    local: PlaceKind::Local(
+                                                        dest_bb_and_result_local_idx.1,
+                                                    ),
+                                                    projection: None,
+                                                },
                                                 value: operand.into(),
                                             });
                                             self.add_termination_to_current_bb(Termination::Goto(
@@ -368,7 +409,10 @@ impl<'a> FunctionLower<'a> {
                         None => {
                             let unit = Operand::Constant(Constant::Unit);
                             self.add_statement_to_current_bb(Statement::Assign {
-                                place: Place::Local(dest_bb_and_result_local_idx.1),
+                                place: Place {
+                                    local: PlaceKind::Local(dest_bb_and_result_local_idx.1),
+                                    projection: None,
+                                },
                                 value: unit.into(),
                             });
 
@@ -387,9 +431,12 @@ impl<'a> FunctionLower<'a> {
                     | (ControlKind::Return, ControlKind::Break)
                     | (ControlKind::Break, ControlKind::Return) => LoweredExpr::Break,
 
-                    (ControlKind::None, _) | (_, ControlKind::None) => LoweredExpr::Operand(
-                        Operand::Place(Place::Local(dest_bb_and_result_local_idx.1)),
-                    ),
+                    (ControlKind::None, _) | (_, ControlKind::None) => {
+                        LoweredExpr::Operand(Operand::Place(Place {
+                            local: PlaceKind::Local(dest_bb_and_result_local_idx.1),
+                            projection: None,
+                        }))
+                    }
                 }
             }
             hir::Expr::Binary { op, lhs, rhs } => {
@@ -433,7 +480,10 @@ impl<'a> FunctionLower<'a> {
                     left: lhs_operand,
                     right: rhs_operand,
                 };
-                let place = Place::Local(local);
+                let place = Place {
+                    local: PlaceKind::Local(local),
+                    projection: None,
+                };
                 self.add_statement_to_current_bb(Statement::Assign { place, value });
 
                 LoweredExpr::Operand(Operand::Place(place))
@@ -450,7 +500,10 @@ impl<'a> FunctionLower<'a> {
                 };
                 let local = self.alloc_local(expr_id);
                 let value = Value::UnaryOp { op, expr };
-                let place = Place::Local(local);
+                let place = Place {
+                    local: PlaceKind::Local(local),
+                    projection: None,
+                };
                 self.add_statement_to_current_bb(Statement::Assign { place, value });
 
                 LoweredExpr::Operand(Operand::Place(place))
@@ -485,7 +538,8 @@ impl<'a> FunctionLower<'a> {
                 match callee {
                     hir::Symbol::Param { .. } => unimplemented!(),
                     hir::Symbol::Local { .. } => unimplemented!(),
-                    hir::Symbol::Missing { path } => {
+                    hir::Symbol::MissingType { .. } => unreachable!(),
+                    hir::Symbol::MissingExpr { path } => {
                         let resolution_status = self.resolution_map.item_by_symbol(path).unwrap();
                         let item = match resolution_status {
                             hir::ResolutionStatus::Unresolved | hir::ResolutionStatus::Error => {
@@ -501,7 +555,10 @@ impl<'a> FunctionLower<'a> {
                                     self.hir_ty_result.signature_by_function(function).unwrap();
                                 let called_local =
                                     self.alloc_local_by_ty(signature.return_type(self.db));
-                                let dest_place = Place::Local(called_local);
+                                let dest_place = Place {
+                                    local: PlaceKind::Local(called_local),
+                                    projection: None,
+                                };
 
                                 let target_bb = self.alloc_standard_bb();
 
@@ -514,6 +571,33 @@ impl<'a> FunctionLower<'a> {
                                 self.current_bb = Some(target_bb);
 
                                 LoweredExpr::Operand(Operand::Place(dest_place))
+                            }
+                            hir::Item::Struct(struct_) => {
+                                let mut field_operands = vec![];
+                                for field in args {
+                                    let field_operand = match self.lower_expr(*field) {
+                                        LoweredExpr::Return => return LoweredExpr::Return,
+                                        LoweredExpr::Break => return LoweredExpr::Break,
+                                        LoweredExpr::Operand(operand) => operand,
+                                    };
+                                    field_operands.push(field_operand);
+                                }
+
+                                let local = self.alloc_local(expr_id);
+                                let value = Value::Aggregate {
+                                    kind: AggregateKind::Struct(struct_),
+                                    operands: field_operands,
+                                };
+                                let place = Place {
+                                    local: PlaceKind::Local(local),
+                                    projection: None,
+                                };
+                                self.add_statement_to_current_bb(Statement::Assign {
+                                    place,
+                                    value,
+                                });
+
+                                LoweredExpr::Operand(Operand::Place(place))
                             }
                             hir::Item::Module(_) | hir::Item::UseItem(_) => unimplemented!(),
                         }
@@ -544,13 +628,19 @@ impl<'a> FunctionLower<'a> {
                     LoweredExpr::Break => {
                         self.exit_break_context();
                         self.current_bb = Some(break_dest_block);
-                        LoweredExpr::Operand(Operand::Place(Place::Local(break_value)))
+                        LoweredExpr::Operand(Operand::Place(Place {
+                            local: PlaceKind::Local(break_value),
+                            projection: None,
+                        }))
                     }
                     LoweredExpr::Operand(_) => {
                         self.add_termination_to_current_bb(Termination::Goto(loop_block));
                         self.exit_break_context();
                         self.current_bb = Some(break_dest_block);
-                        LoweredExpr::Operand(Operand::Place(Place::Local(break_value)))
+                        LoweredExpr::Operand(Operand::Place(Place {
+                            local: PlaceKind::Local(break_value),
+                            projection: None,
+                        }))
                     }
                 }
             }
@@ -569,14 +659,22 @@ impl<'a> FunctionLower<'a> {
                         LoweredExpr::Break => return LoweredExpr::Break,
                         LoweredExpr::Operand(operand) => {
                             self.add_statement_to_current_bb(Statement::Assign {
-                                place: Place::Local(self.current_break_context().break_value),
+                                place: Place {
+                                    local: PlaceKind::Local(
+                                        self.current_break_context().break_value,
+                                    ),
+                                    projection: None,
+                                },
                                 value: Value::Operand(operand),
                             });
                         }
                     }
                 } else {
                     self.add_statement_to_current_bb(Statement::Assign {
-                        place: Place::Local(self.current_break_context().break_value),
+                        place: Place {
+                            local: PlaceKind::Local(self.current_break_context().break_value),
+                            projection: None,
+                        },
                         value: Value::Operand(Operand::Constant(Constant::Unit)),
                     });
                 }
@@ -586,6 +684,122 @@ impl<'a> FunctionLower<'a> {
                 ));
 
                 LoweredExpr::Break
+            }
+            hir::Expr::Record { symbol, fields } => {
+                let struct_ = match symbol {
+                    hir::Symbol::MissingExpr { path } => {
+                        let Some(resolution_status) = self.resolution_map.item_by_symbol(path)
+                        else {
+                            unreachable!()
+                        };
+                        let item = match resolution_status {
+                            hir::ResolutionStatus::Unresolved | hir::ResolutionStatus::Error => {
+                                unreachable!();
+                            }
+                            hir::ResolutionStatus::Resolved { path: _, item } => item,
+                        };
+                        match item {
+                            hir::Item::Struct(struct_) => struct_,
+                            hir::Item::Function(_)
+                            | hir::Item::Module(_)
+                            | hir::Item::UseItem(_) => unreachable!(),
+                        }
+                    }
+                    hir::Symbol::Param { .. }
+                    | hir::Symbol::Local { .. }
+                    | hir::Symbol::MissingType { .. } => unreachable!(),
+                };
+
+                match struct_.kind(self.db) {
+                    hir::StructKind::Unit | hir::StructKind::Tuple(_) => unreachable!(),
+                    hir::StructKind::Record(defined_fields) => {
+                        // コード上の順番を維持する
+                        let mut operand_by_name = HashMap::new();
+                        for field in fields {
+                            let lowerd_expr = self.lower_expr(field.value);
+                            let operand = match lowerd_expr {
+                                LoweredExpr::Operand(operand) => operand,
+                                LoweredExpr::Return | LoweredExpr::Break => return lowerd_expr,
+                            };
+
+                            operand_by_name.insert(field.name, operand);
+                        }
+
+                        let mut operands = vec![];
+                        for defined_field in defined_fields {
+                            let Some(operand) = operand_by_name.remove(&defined_field.name) else {
+                                unreachable!()
+                            };
+                            operands.push(operand);
+                        }
+
+                        let local = self.alloc_local(expr_id);
+                        let value = Value::Aggregate {
+                            kind: AggregateKind::Struct(struct_),
+                            operands,
+                        };
+                        let place = Place {
+                            local: PlaceKind::Local(local),
+                            projection: None,
+                        };
+                        self.add_statement_to_current_bb(Statement::Assign { place, value });
+
+                        LoweredExpr::Operand(Operand::Place(place))
+                    }
+                }
+            }
+            hir::Expr::Field {
+                base: base_expr_id,
+                name,
+            } => {
+                let base = match self.lower_expr(*base_expr_id) {
+                    LoweredExpr::Operand(operand) => operand,
+                    LoweredExpr::Return => return LoweredExpr::Return,
+                    LoweredExpr::Break => return LoweredExpr::Break,
+                };
+
+                let local_base = self.alloc_local(*base_expr_id);
+                self.add_statement_to_current_bb(Statement::Assign {
+                    place: Place {
+                        local: PlaceKind::Local(local_base),
+                        projection: None,
+                    },
+                    value: base.into(),
+                });
+
+                let Some(hir_ty::Monotype::Struct(struct_)) = self
+                    .get_inference_by_function(self.function)
+                    .type_by_expr(*base_expr_id)
+                else {
+                    unreachable!();
+                };
+
+                match struct_.kind(self.db) {
+                    hir::StructKind::Unit => unimplemented!(),
+                    hir::StructKind::Tuple(_) => {
+                        let Ok(idx) = name.text(self.db).parse::<u32>() else {
+                            unreachable!()
+                        };
+                        let projection = Projection::Field { idx, name: *name };
+                        let place = Place {
+                            local: PlaceKind::Local(local_base),
+                            projection: Some(projection),
+                        };
+
+                        LoweredExpr::Operand(Operand::Place(place))
+                    }
+                    hir::StructKind::Record(fields) => {
+                        let idx = fields.iter().position(|field| field.name == *name).unwrap();
+                        let idx = u32::try_from(idx).unwrap();
+                        let projection = Projection::Field { idx, name: *name };
+                        let place = Place {
+                            local: PlaceKind::Local(local_base),
+                            projection: Some(projection),
+                        };
+
+                        LoweredExpr::Operand(Operand::Place(place))
+                    }
+                }
             }
             hir::Expr::Missing => unreachable!(),
         }
@@ -603,7 +817,10 @@ impl<'a> FunctionLower<'a> {
                     LoweredExpr::Break => return LoweredStmt::Break,
                 };
                 self.add_statement_to_current_bb(Statement::Assign {
-                    place: Place::Local(local_idx),
+                    place: Place {
+                        local: PlaceKind::Local(local_idx),
+                        projection: None,
+                    },
                     value: operand.into(),
                 });
             }
@@ -618,7 +835,7 @@ impl<'a> FunctionLower<'a> {
             }
             hir::Stmt::Item { item } => match item {
                 hir::Item::Function(_) => unreachable!(),
-                hir::Item::Module(_) | hir::Item::UseItem(_) => {
+                hir::Item::Struct(_) | hir::Item::Module(_) | hir::Item::UseItem(_) => {
                     return LoweredStmt::Unit;
                 }
             },
@@ -680,7 +897,10 @@ impl<'a> FunctionLower<'a> {
                 match self.lower_expr(tail) {
                     LoweredExpr::Operand(operand) => {
                         self.add_statement_to_current_bb(Statement::Assign {
-                            place: Place::Local(self.return_local),
+                            place: Place {
+                                local: PlaceKind::Local(self.return_local),
+                                projection: None,
+                            },
                             value: operand.into(),
                         });
                         self.add_termination_to_current_bb(Termination::Goto(exit_bb_idx));

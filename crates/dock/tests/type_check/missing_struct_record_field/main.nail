@@ -1,0 +1,15 @@
+struct Point { x: int, y: int };
+fn main() {
+    let point = Point { x: 10 };
+}
+
+//---stdout
+//---stderr
+
+// Error: Missing struct record field
+//    ╭─[/{nail}/crates/dock/tests/type_check/missing_struct_record_field/main.nail:3:17]
+//    │
+//  3 │     let point = Point { x: 10 };
+//    │                 ───────┬───────  
+//    │                        ╰───────── missing fields: y
+// ───╯

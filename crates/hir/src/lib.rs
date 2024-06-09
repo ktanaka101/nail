@@ -38,7 +38,10 @@ use ast::AstNode;
 pub use body::{BindingId, BodyLower, ExprId, FunctionBodyId, HirFileDatabase};
 pub use db::{HirMasterDatabase, Jar};
 pub use input::{FixtureDatabase, NailFile, SourceDatabase, SourceDatabaseTrait};
-pub use item::{Function, Item, Module, ModuleKind, Param, Type, UseItem};
+pub use item::{
+    Function, Item, Module, ModuleKind, Param, ParamData, RecordField, Struct, StructKind, Type,
+    UseItem,
+};
 use name_resolver::resolve_symbols;
 pub use name_resolver::{ModuleScopeOrigin, ResolutionMap, ResolutionStatus};
 use syntax::SyntaxNode;
@@ -149,6 +152,33 @@ impl Pod {
         }
 
         functions
+    }
+
+    /// Pod内の構造体を全て返します。
+    pub fn all_structs(&self, db: &dyn HirMasterDatabase) -> Vec<(HirFile, Struct)> {
+        let mut structs = vec![];
+
+        structs.append(
+            &mut self
+                .root_hir_file
+                .structs(db)
+                .iter()
+                .map(|struct_| (self.root_hir_file, *struct_))
+                .collect::<Vec<_>>(),
+        );
+
+        for nail_file in &self.registration_order {
+            let hir_file = self.get_hir_file_by_file(*nail_file).unwrap();
+            structs.append(
+                &mut hir_file
+                    .structs(db)
+                    .iter()
+                    .map(|struct_| (*hir_file, *struct_))
+                    .collect::<Vec<_>>(),
+            );
+        }
+
+        structs
     }
 
     /// Nailファイルを元にソースマップを返します。
@@ -317,6 +347,9 @@ pub struct HirFileSourceMap {
 
     /// 式とソースコードのマッピング
     pub source_by_function: HashMap<Function, FunctionSource>,
+
+    /// 型とソースコードのマッピング
+    pub source_by_type: HashMap<Type, TypeSource>,
 }
 
 /// パーサのエラー情報
@@ -381,6 +414,8 @@ impl<T: AstNode> AstPtr<T> {
 pub type ExprSource = InFile<AstPtr<ast::Expr>>;
 /// 関数定義のAST位置です。
 pub type FunctionSource = InFile<AstPtr<ast::FunctionDef>>;
+/// パス型のAST位置です。
+pub type TypeSource = InFile<AstPtr<ast::PathType>>;
 
 /// 型引数をファイル内で一意として表現します。
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -421,6 +456,11 @@ impl HirFile {
         self.db(db).functions()
     }
 
+    /// ファイル内の構造体一覧を返します。
+    pub fn structs<'a>(&self, db: &'a dyn HirMasterDatabase) -> &'a [Struct] {
+        self.db(db).structs()
+    }
+
     /// ファイル内のモジュール一覧を返します。
     pub fn modules<'a>(&self, db: &'a dyn HirMasterDatabase) -> &'a [Module] {
         self.db(db).modules()
@@ -459,6 +499,7 @@ fn build_hir_file(
 
     let source_by_expr = root_file_body.source_by_expr;
     let source_by_function = root_file_body.source_by_function;
+    let source_by_type = root_file_body.source_by_type;
     let hir_file = HirFile::new(
         db,
         nail_file,
@@ -474,6 +515,7 @@ fn build_hir_file(
         nail_green_node,
         source_by_expr,
         source_by_function,
+        source_by_type,
     );
 
     (hir_file, source_map)
@@ -491,6 +533,7 @@ fn get_entry_point(db: &dyn HirMasterDatabase, top_level_items: &[Item]) -> Opti
                     return Some(*function);
                 }
             }
+            Item::Struct(_) => (),
             Item::Module(_) => (),
             Item::UseItem(_) => (),
         }
@@ -684,6 +727,23 @@ pub enum Expr {
         /// Breakの値
         value: Option<ExprId>,
     },
+    Record {
+        /// レコード式のシンボル
+        ///
+        /// ex. `aaa::bbb::Point { x: i32, y: i32 }`
+        ///      ^^^^^^^^^^^^^^^
+        symbol: Symbol,
+        /// フィールド
+        fields: Vec<RecordFieldExpr>,
+    },
+    Field {
+        /// フィールド式のベースです。
+        ///
+        /// ex. `foo.bar`
+        base: ExprId,
+        /// フィールド名
+        name: Name,
+    },
     /// 解釈できない不明な式です。
     Missing,
 }
@@ -724,10 +784,17 @@ pub enum Symbol {
         /// バインディング情報
         binding: BindingId,
     },
-    /// 解決できないシンボル
+    /// 解決できない式シンボル
     ///
     /// 名前解決フェーズで名前解決を試みます。
-    Missing {
+    MissingExpr {
+        /// パス
+        path: NameSolutionPath,
+    },
+    /// 解決できない型シンボル
+    ///
+    /// 型解決フェーズで名前解決を試みます。
+    MissingType {
         /// パス
         path: NameSolutionPath,
     },
@@ -787,4 +854,13 @@ pub struct Binding {
     pub name: Name,
     pub mutable: bool,
     pub expr: ExprId,
+}
+
+/// レコード式のフィールドを表す
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RecordFieldExpr {
+    /// 名前
+    pub name: Name,
+    /// 値
+    pub value: ExprId,
 }

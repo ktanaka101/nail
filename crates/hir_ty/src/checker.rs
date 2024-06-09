@@ -144,7 +144,9 @@ impl<'a> FunctionTypeChecker<'a> {
                         let expr = binding.lookup(self.hir_file_db).expr;
                         self.check_expr(expr);
                     }
-                    hir::Symbol::Param { .. } | hir::Symbol::Missing { .. } => (),
+                    hir::Symbol::Param { .. }
+                    | hir::Symbol::MissingExpr { .. }
+                    | hir::Symbol::MissingType { .. } => (),
                 };
             }
             hir::Expr::If {
@@ -172,6 +174,14 @@ impl<'a> FunctionTypeChecker<'a> {
                 if let Some(value) = value {
                     self.check_expr(*value);
                 }
+            }
+            hir::Expr::Record { fields, .. } => {
+                for field in fields {
+                    self.check_expr(field.value);
+                }
+            }
+            hir::Expr::Field { base, .. } => {
+                self.check_expr(*base);
             }
             hir::Expr::Missing => (),
         };

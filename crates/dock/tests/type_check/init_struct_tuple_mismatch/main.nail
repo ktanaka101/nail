@@ -1,0 +1,15 @@
+struct Point(int, string);
+fn main() {
+    let point = Point(10, 20);
+}
+
+//---stdout
+//---stderr
+
+// Error: Mismatched type in struct tuple initialization
+//    ╭─[/{nail}/crates/dock/tests/type_check/init_struct_tuple_mismatch/main.nail:3:27]
+//    │
+//  3 │     let point = Point(10, 20);
+//    │                           ─┬  
+//    │                            ╰── expected string, actual: int
+// ───╯

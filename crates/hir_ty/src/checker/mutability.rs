@@ -102,6 +102,7 @@ impl<'a> FunctionMutabilityChecker<'a> {
             }
             hir::Stmt::Item { item } => match item {
                 hir::Item::Function(_) => (),
+                hir::Item::Struct(_) => (),
                 hir::Item::Module(_) => (),
                 hir::Item::UseItem(_) => (),
             },
@@ -134,7 +135,8 @@ impl<'a> FunctionMutabilityChecker<'a> {
                 hir::Symbol::Param { .. } => (),
                 // `VariableDef`で処理済みのため、ここでは何もしません
                 hir::Symbol::Local { .. } => (),
-                hir::Symbol::Missing { .. } => (),
+                hir::Symbol::MissingExpr { .. } => (),
+                hir::Symbol::MissingType { .. } => (),
             },
             hir::Expr::Binary { op, lhs, rhs } => {
                 self.check_expr(*lhs);
@@ -161,7 +163,8 @@ impl<'a> FunctionMutabilityChecker<'a> {
                 match callee {
                     hir::Symbol::Local { .. } => (),
                     hir::Symbol::Param { .. } => (),
-                    hir::Symbol::Missing { .. } => (),
+                    hir::Symbol::MissingExpr { .. } => (),
+                    hir::Symbol::MissingType { .. } => (),
                 }
             }
             hir::Expr::Return { value } => {
@@ -177,6 +180,14 @@ impl<'a> FunctionMutabilityChecker<'a> {
                 if let Some(value) = value {
                     self.check_expr(*value);
                 }
+            }
+            hir::Expr::Record { fields, .. } => {
+                for field in fields {
+                    self.check_expr(field.value);
+                }
+            }
+            hir::Expr::Field { base, .. } => {
+                self.check_expr(*base);
             }
             hir::Expr::Missing => (),
         }

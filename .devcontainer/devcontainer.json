@@ -53,7 +53,9 @@
         "yzhang.markdown-all-in-one",
         "ms-azuretools.vscode-docker",
         "biomejs.biome",
-        "Codium.codium"
+        "Codium.codium",
+        "bierner.github-markdown-preview",
+        "bierner.markdown-preview-github-styles"
       ]
     }
   },

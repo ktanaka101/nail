@@ -133,6 +133,9 @@ pub enum TokenKind {
     /// `,`
     #[token(",")]
     Comma,
+    /// `.`
+    #[token(".")]
+    Dot,
     /// `:`
     #[token(":")]
     Colon,
@@ -229,6 +232,7 @@ impl fmt::Display for TokenKind {
             Self::LtEq => "'<='",
             Self::ThinArrow => "->",
             Self::Comma => "','",
+            Self::Dot => "'.'",
             Self::Colon => "':'",
             Self::Colon2 => "'::'",
             Self::Semicolon => "';'",
@@ -478,6 +482,11 @@ mod tests {
     #[test]
     fn lex_comma() {
         check(",", TokenKind::Comma);
+    }
+
+    #[test]
+    fn lex_dot() {
+        check(".", TokenKind::Dot);
     }
 
     #[test]

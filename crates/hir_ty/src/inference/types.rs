@@ -24,6 +24,8 @@ pub enum Monotype {
     Variable(VariableId),
     /// 関数型
     Function(Signature),
+    /// 構造体型
+    Struct(hir::Struct),
     /// 値を取り得ないことを表す型
     Never,
     /// 未知の型
@@ -64,6 +66,7 @@ impl Monotype {
             | Monotype::Unit
             | Monotype::Char
             | Monotype::String
+            | Monotype::Struct { .. }
             | Monotype::Never
             | Monotype::Unknown => self.clone(),
             Monotype::Variable(id) => {

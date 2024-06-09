@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use la_arena::Idx;
 
-use crate::{Expr, HirFile, HirFileDatabase, HirMasterDatabase, Name, Path};
+use crate::{
+    Expr, HirFile, HirFileDatabase, HirFileSourceMap, HirMasterDatabase, Name, Path, Symbol,
+};
 
 /// 関数のパラメータのIDを表す
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -73,9 +75,27 @@ pub enum Type {
     /// 例: `()`, `fn f() -> () { () }`
     Unit,
     /// 型が不明なことを表す
-    ///
-    /// この型を直接指定することはできませんが、型推論の結果として得られることがあります。
+    /// 型のある部分が欠けている場合に取る可能性があります。
     Unknown,
+    /// 構造体など組み込み以外の型
+    Custom(Symbol),
+}
+impl Type {
+    /// この式IDに対応するテキストの範囲を取得する
+    pub fn text_range(
+        &self,
+        db: &dyn HirMasterDatabase,
+        source_map: &HirFileSourceMap,
+    ) -> ast::TextRange {
+        source_map
+            .source_by_type(db)
+            .get(self)
+            .expect("BUG: There should always be an expression in the source map.")
+            .clone()
+            .value
+            .node
+            .text_range()
+    }
 }
 
 /// 関数定義を表す
@@ -119,6 +139,57 @@ impl Function {
             .function_ast_by_function(db, self)
             .and_then(|f| f.body())
     }
+}
+
+/// 構造体定義を表す
+/// 例: `struct Point { x: int, y: int }`
+#[salsa::tracked]
+pub struct Struct {
+    /// 構造体名
+    pub name: Name,
+    /// 構造体種別
+    #[return_ref]
+    pub kind: StructKind,
+}
+
+/// 構造体種別
+///
+/// 構造体定義には以下の3種類があります。
+/// - タプル構造体: `struct Point(int, int)`
+/// - レコード構造体: `struct Point { x: int, y: int }`
+/// - 空構造体: `struct Point;`
+///
+/// 種別によって、初期化方法が異なります。
+/// - タプル構造体:
+///     - `struct Point(int, int)`: `Point(1, 2)`
+///         関数呼び出しと同等なため、型としては`(int, int) -> Point`で表されます。
+///     - `struct Point()`: `Point()`
+///         関数呼び出しと同等なため、型としては`() -> Point`で表されます。
+/// - レコード構造体:
+///     - `struct Point { x: int, y: int }`: `Point { x: 1, y: 2 }`
+///         型として表すことはできません。
+///     - `struct Point { }`: `Point { }`
+///         型として表すことはできません。
+/// - 空構造体:
+///     - `struct Point;`: `Point`
+///         型として表すことはできません。
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum StructKind {
+    /// タプル構造体
+    Tuple(Vec<Type>),
+    /// レコード構造体
+    Record(Vec<RecordField>),
+    /// 空構造体
+    Unit,
+}
+
+/// レコードフィールドを表す
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct RecordField {
+    /// 名前
+    pub name: Name,
+    /// 型
+    pub ty: Type,
 }
 
 /// モジュール定義を表す
@@ -184,8 +255,12 @@ pub struct UseItem {
     /// 使用宣言対象のパス
     ///
     /// 例: `use std::io::println;` であれば `std::io`
-    #[return_ref]
     pub path: Path,
+
+    /// フルパス
+    ///
+    /// 例: `use std::io::println;` であれば `std::io::println`
+    pub full_path: Path,
 }
 
 /// ファイルルート及びモジュール内のアイテムを表す
@@ -193,6 +268,8 @@ pub struct UseItem {
 pub enum Item {
     /// 関数定義
     Function(Function),
+    /// 構造体定義
+    Struct(Struct),
     /// モジュール定義
     Module(Module),
     /// アイテム使用宣言

@@ -688,7 +688,10 @@ impl<'a> FunctionLower<'a> {
             hir::Expr::Record { symbol, fields } => {
                 let struct_ = match symbol {
                     hir::Symbol::MissingExpr { path } => {
-                        let resolution_status = self.resolution_map.item_by_symbol(path).unwrap();
+                        let Some(resolution_status) = self.resolution_map.item_by_symbol(path)
+                        else {
+                            unreachable!()
+                        };
                         let item = match resolution_status {
                             hir::ResolutionStatus::Unresolved | hir::ResolutionStatus::Error => {
                                 unreachable!();
@@ -724,7 +727,9 @@ impl<'a> FunctionLower<'a> {
 
                         let mut operands = vec![];
                         for defined_field in defined_fields {
-                            let operand = operand_by_name.remove(&defined_field.name).unwrap();
+                            let Some(operand) = operand_by_name.remove(&defined_field.name) else {
+                                unreachable!()
+                            };
                             operands.push(operand);
                         }
 
@@ -762,10 +767,9 @@ impl<'a> FunctionLower<'a> {
                     value: base.into(),
                 });
 
-                let hir_ty::Monotype::Struct(struct_) = self
+                let Some(hir_ty::Monotype::Struct(struct_)) = self
                     .get_inference_by_function(self.function)
                     .type_by_expr(*base_expr_id)
-                    .unwrap()
                 else {
                     unreachable!();
                 };
@@ -773,7 +777,9 @@ impl<'a> FunctionLower<'a> {
                 match struct_.kind(self.db) {
                     hir::StructKind::Unit => unimplemented!(),
                     hir::StructKind::Tuple(_) => {
-                        let idx = name.text(self.db).parse::<u32>().unwrap();
+                        let Ok(idx) = name.text(self.db).parse::<u32>() else {
+                            unreachable!()
+                        };
                         let projection = Projection::Field { idx, name: *name };
                         let place = Place {
                             local: PlaceKind::Local(local_base),

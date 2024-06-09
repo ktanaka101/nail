@@ -488,7 +488,8 @@ impl<'a> Pretty<'a> {
         function: hir::Function,
         nesting: usize,
     ) -> String {
-        let body_expr = function.body(self.db, hir_file).unwrap();
+        let is_entry_point = hir_file.entry_point(self.db) == Some(function);
+        let tag_entry_point = if is_entry_point { "entry:" } else { "" };
 
         let name = function.name(self.db).text(self.db);
         let params = function
@@ -501,6 +502,16 @@ impl<'a> Pretty<'a> {
             .collect::<Vec<_>>()
             .join(", ");
         let return_type = self.format_type(&function.return_type(self.db));
+
+        let body_expr = match function.body(self.db, hir_file) {
+            Some(expr) => expr,
+            None => {
+                return format!(
+                    "{}fn {tag_entry_point}{name}({params}) -> {return_type} {{ /* body missing */ }}\n",
+                    hir::testing::Pretty::format_indent(nesting),
+                )
+            }
+        };
 
         let hir::Expr::Block(block) = body_expr else {
             panic!("Should be Block")
@@ -526,11 +537,9 @@ impl<'a> Pretty<'a> {
             hir::testing::Pretty::format_indent(nesting)
         ));
 
-        let is_entry_point = hir_file.entry_point(self.db) == Some(function);
         format!(
-            "{}fn {}{name}({params}) -> {return_type} {body}\n",
+            "{}fn {tag_entry_point}{name}({params}) -> {return_type} {body}\n",
             hir::testing::Pretty::format_indent(nesting),
-            if is_entry_point { "entry:" } else { "" }
         )
     }
 

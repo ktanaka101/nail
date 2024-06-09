@@ -372,7 +372,9 @@ impl<'a> InferBody<'a> {
                     None => Monotype::Unknown,
                 }
             }
-            hir::Symbol::MissingType { .. } => todo!(),
+            hir::Symbol::MissingType { .. } => {
+                unreachable!("MissingType should be resolved in InferenceSignature. It does not appear within the Body.")
+            }
         }
     }
 

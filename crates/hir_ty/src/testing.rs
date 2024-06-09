@@ -67,392 +67,29 @@ impl<'a> Pretty<'a> {
         }
     }
 
+    fn format_hir_files(&self) -> String {
+        let mut msg = "".to_string();
+        for (_nail_file, hir_file) in self.pods.root_pod.get_hir_files_order_registration_asc() {
+            msg.push_str(&self.format_hir_file(*hir_file, None));
+            msg.push('\n');
+        }
+
+        msg
+    }
+
     pub fn format(&self) -> String {
         let mut msg = "".to_string();
 
         msg.push_str(&self.format_hir_file(self.pods.root_pod.root_hir_file, None));
         msg.push('\n');
 
-        for (_nail_file, hir_file) in self.pods.root_pod.get_hir_files_order_registration_asc() {
-            msg.push_str(&self.format_hir_file(*hir_file, None));
-            msg.push('\n');
-        }
+        msg.push_str(&self.format_hir_files());
 
         msg.push_str("---\n");
-        for (hir_file, function) in self.pods.root_pod.all_functions(self.db) {
-            let errors = self
-                .ty_lower_result
-                .inference_result
-                .errors_by_function(function);
-
-            for error in errors {
-                match error {
-                    InferenceError::MismatchedTypeIfCondition {
-                        expected_condition_bool_ty,
-                        found_condition_expr,
-                        found_condition_ty,
-                    } => {
-                        msg.push_str(
-                            &format!(
-                                "error MismatchedTypeIfCondition: expected_ty: {}, found_ty: {}, found_expr: `{}`",
-                                self.format_monotype(expected_condition_bool_ty),
-                                self.format_monotype(found_condition_ty),
-                                self.format_simplify_expr(hir_file, *found_condition_expr),
-                            ));
-                    }
-                    InferenceError::MismatchedTypeElseBranch {
-                        then_branch_ty,
-                        then_branch,
-                        else_branch_ty,
-                        else_branch,
-                    } => {
-                        msg.push_str(
-                            &format!(
-                                "error MismatchedTypeElseBranch: then_branch_ty: {}, else_branch_ty: {}, then_branch: `{}`, else_branch: `{}`",
-                                self.format_monotype(then_branch_ty),
-                                self.format_monotype(else_branch_ty),
-                                self.format_simplify_expr(hir_file, *then_branch),
-                                self.format_simplify_expr(hir_file, *else_branch),
-                            ));
-                    }
-                    InferenceError::MismatchedTypeOnlyIfBranch {
-                        then_branch_ty,
-                        then_branch,
-                        else_branch_unit_ty,
-                    } => {
-                        msg.push_str(
-                            &format!(
-                                "error MismatchedTypeOnlyIfBranch: then_branch_ty: {}, else_branch_ty: {}, then_branch: `{}`",
-                                self.format_monotype(then_branch_ty),
-                                self.format_monotype(else_branch_unit_ty),
-                                self.format_simplify_expr(hir_file, *then_branch),
-                            ));
-                    }
-                    InferenceError::MismaatchedTypeCallArg {
-                        expected_ty,
-                        found_ty,
-                        expected_signature,
-                        found_expr,
-                        arg_pos,
-                    } => {
-                        msg.push_str(
-                            &format!(
-                                "error MismaatchedSignature: expected_ty: {}, found_ty: {}, found_expr: `{}`, signature: {}, arg_pos: {}",
-                                self.format_monotype(expected_ty),
-                                self.format_monotype(found_ty),
-                                self.format_simplify_expr(hir_file, *found_expr),
-                                self.format_signature(expected_signature),
-                                arg_pos
-                            ));
-                    }
-                    InferenceError::MismatchedBinaryInteger {
-                        expected_int_ty,
-                        found_expr,
-                        found_ty,
-                        op,
-                    } => {
-                        msg.push_str(
-                            &format!(
-                                "error MismatchedBinaryInteger: op: {op}, expected_ty: {}, found_ty: {}, found_expr: `{}`",
-                                self.format_monotype(expected_int_ty),
-                                self.format_monotype(found_ty),
-                                self.format_simplify_expr(hir_file, *found_expr),
-                            ));
-                    }
-                    InferenceError::MismatchedBinaryCompare {
-                        compare_from_ty,
-                        compare_from_expr,
-                        compare_to_expr,
-                        compare_to_ty,
-                        op,
-                    } => {
-                        msg.push_str(
-                            &format!(
-                                "error MismatchedBinaryCompare: op: {op}, expected_ty: {}, found_ty: {}, expected_expr: `{}`, found_expr: `{}`",
-                                self.format_monotype(compare_from_ty),
-                                self.format_monotype(compare_to_ty),
-                                self.format_simplify_expr(hir_file, *compare_from_expr),
-                                self.format_simplify_expr(hir_file, *compare_to_expr),
-                            ));
-                    }
-                    InferenceError::MismatchedUnary {
-                        expected_ty,
-                        found_expr,
-                        found_ty,
-                        op,
-                    } => {
-                        msg.push_str(
-                            &format!(
-                                "error MismatchedUnary: op: {}, expected_ty: {}, found_ty: {}, found_expr: `{}`",
-                                self.format_unary_op(*op),
-                                self.format_monotype(expected_ty),
-                                self.format_monotype(found_ty),
-                                self.format_simplify_expr(hir_file, *found_expr),
-                            ));
-                    }
-                    InferenceError::MismatchedTypeReturnExpr {
-                        expected_signature,
-                        found_ty,
-                        found_return_expr,
-                        found_return: _,
-                    } => {
-                        if let Some(found_return_expr) = found_return_expr {
-                            msg.push_str(
-                            &format!(
-                                "error MismatchedReturnType: expected_ty: {}, found_ty: {}, found_expr: `{}`",
-                                self.format_monotype(&expected_signature.return_type(self.db)),
-                                self.format_monotype(found_ty),
-                                self.format_simplify_expr(hir_file, *found_return_expr),
-                            ));
-                        } else {
-                            msg.push_str(&format!(
-                                "error MismatchedReturnType: expected_ty: {}, found_ty: {}",
-                                self.format_monotype(&expected_signature.return_type(self.db)),
-                                self.format_monotype(found_ty),
-                            ));
-                        }
-                    }
-                    InferenceError::MismatchedTypeReturnValue {
-                        expected_signature,
-                        expected_function: _,
-                        found_ty,
-                        found_last_expr,
-                    } => {
-                        if let Some(found_last_expr) = found_last_expr {
-                            msg.push_str(
-                            &format!(
-                                "error MismatchedTypeReturnValue: expected_ty: {}, found_ty: {}, found_expr: `{}`",
-                                self.format_monotype(&expected_signature.return_type(self.db)),
-                                self.format_monotype(found_ty),
-                                self.format_simplify_expr(hir_file, *found_last_expr),
-                            ));
-                        } else {
-                            msg.push_str(&format!(
-                                "error MismatchedTypeReturnValue: expected_ty: {}, found_ty: {}",
-                                self.format_monotype(&expected_signature.return_type(self.db)),
-                                self.format_monotype(found_ty),
-                            ));
-                        }
-                    }
-                    InferenceError::MismatchedCallArgCount {
-                        expected_callee_arg_count,
-                        found_arg_count,
-                        found_expr: _,
-                    } => {
-                        msg.push_str(&format!(
-                                "error MismatchedCallArgCount: expected_arg_count: {}, found_arg_count: {}",
-                                expected_callee_arg_count,
-                                found_arg_count,
-                            ));
-                    }
-                    InferenceError::NotCallable {
-                        found_callee_ty,
-                        found_callee_symbol,
-                        found_callee_expr: _,
-                    } => {
-                        msg.push_str(&format!(
-                            "error NotCallable: found_callee_ty: {}, found_callee_symbol: {}",
-                            self.format_monotype(found_callee_ty),
-                            self.format_symbol(found_callee_symbol),
-                        ));
-                    }
-                    InferenceError::ModuleAsExpr {
-                        found_module,
-                        found_expr: _,
-                    } => {
-                        msg.push_str(&format!(
-                            "error ModuleAsExpr: found_module: {}",
-                            found_module.name(self.db).text(self.db)
-                        ));
-                    }
-                    InferenceError::MismatchedType {
-                        expected_ty,
-                        expected_expr,
-                        found_ty,
-                        found_expr,
-                    } => {
-                        if let Some(expected_expr) = expected_expr {
-                            msg.push_str(
-                                &format!(
-                                    "error MismatchedType: expected_ty: {}, found_ty: {}, expected_expr: {}, found_expr: `{}`",
-                                    self.format_monotype(expected_ty),
-                                    self.format_monotype(found_ty),
-                                    self.format_simplify_expr(hir_file, *expected_expr),
-                                    self.format_simplify_expr(hir_file, *found_expr),
-                                ));
-                        } else {
-                            msg.push_str(
-                                &format!(
-                                "error MismatchedType: expected_ty: {}, found_ty: {}, found_expr: `{}`",
-                                self.format_monotype(expected_ty),
-                                self.format_monotype(found_ty),
-                                self.format_simplify_expr(hir_file, *found_expr),
-                            ));
-                        }
-                    }
-                    InferenceError::BreakOutsideOfLoop { kind, found_expr } => {
-                        let kind_text = match kind {
-                            BreakKind::Break => "break",
-                            BreakKind::Continue => "continue",
-                        };
-                        msg.push_str(&format!(
-                            "error BreakOutsideOfLoop({kind_text}): found_expr: `{}`",
-                            self.format_simplify_expr(hir_file, *found_expr),
-                        ));
-                    }
-                    InferenceError::NotRecord {
-                        found_struct_ty,
-                        found_struct_symbol,
-                        found_expr,
-                    } => {
-                        msg.push_str(&format!(
-                            "error NotRecord: found_struct_ty: {}, found_struct_symbol: {}, found_expr: `{}`",
-                            self.format_monotype(found_struct_ty),
-                            self.format_symbol(found_struct_symbol),
-                            self.format_simplify_expr(hir_file, *found_expr),
-                        ));
-                    }
-                    InferenceError::NotAllowedType {
-                        found_symbol,
-                        found_function,
-                        found_ty,
-                    } => {
-                        msg.push_str(&format!(
-                            "error NotAllowedType: found_symbol: {}, found_function: {}, found_ty: {}",
-                            self.format_symbol(found_symbol),
-                            found_function.name(self.db).text(self.db),
-                            self.format_type(found_ty),
-                        ));
-                    }
-                    InferenceError::MismatchedTypeInitStructTuple {
-                        expected_ty,
-                        found_ty,
-                        init_struct,
-                        found_arg_expr,
-                        arg_pos,
-                        found_expr,
-                    } => {
-                        msg.push_str(&format!(
-                            "error MismatchedTypeInitStructTuple: expected_ty: {}, found_ty: {}, init_struct: {}, found_arg_expr: `{}`, arg_pos: {}, found_expr: `{}`",
-                            self.format_monotype(expected_ty),
-                            self.format_monotype(found_ty),
-                            init_struct.name(self.db).text(self.db),
-                            self.format_simplify_expr(hir_file, *found_arg_expr),
-                            arg_pos,
-                            self.format_simplify_expr(hir_file, *found_expr),
-                        ));
-                    }
-                    InferenceError::MissingStructRecordField {
-                        missing_fields,
-                        found_struct,
-                        found_expr,
-                    } => {
-                        msg.push_str(&format!(
-                            "error MissingStructRecordField: missing_fields: {:?}, found_struct: {}, found_expr: `{}`",
-                            missing_fields
-                                .iter()
-                                .map(|field| field.text(self.db))
-                                .collect::<Vec<_>>(),
-                            found_struct.name(self.db).text(self.db),
-                            self.format_simplify_expr(hir_file, *found_expr),
-                        ));
-                    }
-                    InferenceError::NoSuchStructRecordField {
-                        no_such_fields,
-                        found_struct,
-                        found_expr,
-                    } => {
-                        msg.push_str(&format!(
-                            "error NoSuchStructRecordField: no_such_fields: {:?}, found_struct: {}, found_expr: `{}`",
-                            no_such_fields
-                                .iter()
-                                .map(|field| field.name.text(self.db))
-                                .collect::<Vec<_>>(),
-                            found_struct.name(self.db).text(self.db),
-                            self.format_simplify_expr(hir_file, *found_expr),
-                        ));
-                    }
-                    InferenceError::MismatchedTypeInitStructRecord {
-                        expected_ty,
-                        found_ty,
-                        found_struct: init_struct,
-                        found_name,
-                        found_expr,
-                    } => {
-                        msg.push_str(&format!(
-                            "error MismatchedTypeInitStructRecord: expected_ty: {}, found_ty: {}, init_struct: {}, found_name: {}, found_expr: `{}`",
-                            self.format_monotype(expected_ty),
-                            self.format_monotype(found_ty),
-                            init_struct.name(self.db).text(self.db),
-                            found_name.text(self.db),
-                            self.format_simplify_expr(hir_file, *found_expr),
-                        ));
-                    }
-                    InferenceError::NeededInitTupleOrRecord {
-                        found_ty,
-                        found_expr,
-                        found_struct,
-                    } => {
-                        msg.push_str(&format!(
-                            "error NeededInitTupleOrRecord: found_ty: {}, found_expr: `{}`, found_struct: {}",
-                            self.format_monotype(found_ty),
-                            self.format_simplify_expr(hir_file, *found_expr),
-                            found_struct.name(self.db).text(self.db),
-                        ));
-                    }
-                    InferenceError::NoSuchFieldAccess {
-                        no_such_field,
-                        found_struct,
-                        found_expr,
-                    } => {
-                        msg.push_str(&format!(
-                            "error NoSuchFieldAccess: no_such_field: {}, found_struct: {}, found_expr: `{}`",
-                            no_such_field.text(self.db),
-                            found_struct.name(self.db).text(self.db),
-                            self.format_simplify_expr(hir_file, *found_expr),
-                        ));
-                    }
-                    InferenceError::CanNotFieldAccess {
-                        no_such_field,
-                        found_ty,
-                        found_expr,
-                    } => {
-                        msg.push_str(&format!(
-                            "error CanNotFieldAccess: no_such_field: {}, found_ty: {}, found_expr: `{}`",
-                            no_such_field.text(self.db),
-                            self.format_monotype(found_ty),
-                            self.format_simplify_expr(hir_file, *found_expr),
-                        ));
-                    }
-                }
-                msg.push('\n');
-            }
-        }
+        msg.push_str(&self.format_inference_errors());
 
         msg.push_str("---\n");
-        for (hir_file, function) in self.pods.root_pod.all_functions(self.db) {
-            let type_check_errors = self
-                .ty_lower_result
-                .type_check_errors_by_function(function)
-                .unwrap();
-            for error in type_check_errors {
-                match error {
-                    TypeCheckError::UnresolvedType { expr } => {
-                        msg.push_str(&format!(
-                            "error Type is unknown: expr: {}",
-                            self.format_simplify_expr(hir_file, *expr),
-                        ));
-                    }
-                    TypeCheckError::ImmutableReassignment { expr } => {
-                        msg.push_str(&format!(
-                            "error ImmutableReassignment: expr: {}",
-                            self.format_simplify_expr(hir_file, *expr),
-                        ));
-                    }
-                }
-                msg.push('\n');
-            }
-        }
+        msg.push_str(&self.format_type_check_errors());
 
         msg
     }
@@ -1042,5 +679,389 @@ impl<'a> Pretty<'a> {
         let mutable_text = hir::testing::Pretty::format_mutable(param_data.mutable);
         let ty = self.format_type(&param_data.ty);
         format!("{name}: {mutable_text}{ty}")
+    }
+
+    fn format_inference_errors(&self) -> String {
+        let mut msg = String::new();
+        for (hir_file, function) in self.pods.root_pod.all_functions(self.db) {
+            let errors = self
+                .ty_lower_result
+                .inference_result
+                .errors_by_function(function);
+
+            for error in errors {
+                match error {
+                    InferenceError::MismatchedTypeIfCondition {
+                        expected_condition_bool_ty,
+                        found_condition_expr,
+                        found_condition_ty,
+                    } => {
+                        msg.push_str(
+                            &format!(
+                                "error MismatchedTypeIfCondition: expected_ty: {}, found_ty: {}, found_expr: `{}`",
+                                self.format_monotype(expected_condition_bool_ty),
+                                self.format_monotype(found_condition_ty),
+                                self.format_simplify_expr(hir_file, *found_condition_expr),
+                            ));
+                    }
+                    InferenceError::MismatchedTypeElseBranch {
+                        then_branch_ty,
+                        then_branch,
+                        else_branch_ty,
+                        else_branch,
+                    } => {
+                        msg.push_str(
+                            &format!(
+                                "error MismatchedTypeElseBranch: then_branch_ty: {}, else_branch_ty: {}, then_branch: `{}`, else_branch: `{}`",
+                                self.format_monotype(then_branch_ty),
+                                self.format_monotype(else_branch_ty),
+                                self.format_simplify_expr(hir_file, *then_branch),
+                                self.format_simplify_expr(hir_file, *else_branch),
+                            ));
+                    }
+                    InferenceError::MismatchedTypeOnlyIfBranch {
+                        then_branch_ty,
+                        then_branch,
+                        else_branch_unit_ty,
+                    } => {
+                        msg.push_str(
+                            &format!(
+                                "error MismatchedTypeOnlyIfBranch: then_branch_ty: {}, else_branch_ty: {}, then_branch: `{}`",
+                                self.format_monotype(then_branch_ty),
+                                self.format_monotype(else_branch_unit_ty),
+                                self.format_simplify_expr(hir_file, *then_branch),
+                            ));
+                    }
+                    InferenceError::MismaatchedTypeCallArg {
+                        expected_ty,
+                        found_ty,
+                        expected_signature,
+                        found_expr,
+                        arg_pos,
+                    } => {
+                        msg.push_str(
+                            &format!(
+                                "error MismaatchedSignature: expected_ty: {}, found_ty: {}, found_expr: `{}`, signature: {}, arg_pos: {}",
+                                self.format_monotype(expected_ty),
+                                self.format_monotype(found_ty),
+                                self.format_simplify_expr(hir_file, *found_expr),
+                                self.format_signature(expected_signature),
+                                arg_pos
+                            ));
+                    }
+                    InferenceError::MismatchedBinaryInteger {
+                        expected_int_ty,
+                        found_expr,
+                        found_ty,
+                        op,
+                    } => {
+                        msg.push_str(
+                            &format!(
+                                "error MismatchedBinaryInteger: op: {op}, expected_ty: {}, found_ty: {}, found_expr: `{}`",
+                                self.format_monotype(expected_int_ty),
+                                self.format_monotype(found_ty),
+                                self.format_simplify_expr(hir_file, *found_expr),
+                            ));
+                    }
+                    InferenceError::MismatchedBinaryCompare {
+                        compare_from_ty,
+                        compare_from_expr,
+                        compare_to_expr,
+                        compare_to_ty,
+                        op,
+                    } => {
+                        msg.push_str(
+                            &format!(
+                                "error MismatchedBinaryCompare: op: {op}, expected_ty: {}, found_ty: {}, expected_expr: `{}`, found_expr: `{}`",
+                                self.format_monotype(compare_from_ty),
+                                self.format_monotype(compare_to_ty),
+                                self.format_simplify_expr(hir_file, *compare_from_expr),
+                                self.format_simplify_expr(hir_file, *compare_to_expr),
+                            ));
+                    }
+                    InferenceError::MismatchedUnary {
+                        expected_ty,
+                        found_expr,
+                        found_ty,
+                        op,
+                    } => {
+                        msg.push_str(
+                            &format!(
+                                "error MismatchedUnary: op: {}, expected_ty: {}, found_ty: {}, found_expr: `{}`",
+                                self.format_unary_op(*op),
+                                self.format_monotype(expected_ty),
+                                self.format_monotype(found_ty),
+                                self.format_simplify_expr(hir_file, *found_expr),
+                            ));
+                    }
+                    InferenceError::MismatchedTypeReturnExpr {
+                        expected_signature,
+                        found_ty,
+                        found_return_expr,
+                        found_return: _,
+                    } => {
+                        if let Some(found_return_expr) = found_return_expr {
+                            msg.push_str(
+                            &format!(
+                                "error MismatchedReturnType: expected_ty: {}, found_ty: {}, found_expr: `{}`",
+                                self.format_monotype(&expected_signature.return_type(self.db)),
+                                self.format_monotype(found_ty),
+                                self.format_simplify_expr(hir_file, *found_return_expr),
+                            ));
+                        } else {
+                            msg.push_str(&format!(
+                                "error MismatchedReturnType: expected_ty: {}, found_ty: {}",
+                                self.format_monotype(&expected_signature.return_type(self.db)),
+                                self.format_monotype(found_ty),
+                            ));
+                        }
+                    }
+                    InferenceError::MismatchedTypeReturnValue {
+                        expected_signature,
+                        expected_function: _,
+                        found_ty,
+                        found_last_expr,
+                    } => {
+                        if let Some(found_last_expr) = found_last_expr {
+                            msg.push_str(
+                            &format!(
+                                "error MismatchedTypeReturnValue: expected_ty: {}, found_ty: {}, found_expr: `{}`",
+                                self.format_monotype(&expected_signature.return_type(self.db)),
+                                self.format_monotype(found_ty),
+                                self.format_simplify_expr(hir_file, *found_last_expr),
+                            ));
+                        } else {
+                            msg.push_str(&format!(
+                                "error MismatchedTypeReturnValue: expected_ty: {}, found_ty: {}",
+                                self.format_monotype(&expected_signature.return_type(self.db)),
+                                self.format_monotype(found_ty),
+                            ));
+                        }
+                    }
+                    InferenceError::MismatchedCallArgCount {
+                        expected_callee_arg_count,
+                        found_arg_count,
+                        found_expr: _,
+                    } => {
+                        msg.push_str(&format!(
+                                "error MismatchedCallArgCount: expected_arg_count: {}, found_arg_count: {}",
+                                expected_callee_arg_count,
+                                found_arg_count,
+                            ));
+                    }
+                    InferenceError::NotCallable {
+                        found_callee_ty,
+                        found_callee_symbol,
+                        found_callee_expr: _,
+                    } => {
+                        msg.push_str(&format!(
+                            "error NotCallable: found_callee_ty: {}, found_callee_symbol: {}",
+                            self.format_monotype(found_callee_ty),
+                            self.format_symbol(found_callee_symbol),
+                        ));
+                    }
+                    InferenceError::ModuleAsExpr {
+                        found_module,
+                        found_expr: _,
+                    } => {
+                        msg.push_str(&format!(
+                            "error ModuleAsExpr: found_module: {}",
+                            found_module.name(self.db).text(self.db)
+                        ));
+                    }
+                    InferenceError::MismatchedType {
+                        expected_ty,
+                        expected_expr,
+                        found_ty,
+                        found_expr,
+                    } => {
+                        if let Some(expected_expr) = expected_expr {
+                            msg.push_str(
+                                &format!(
+                                    "error MismatchedType: expected_ty: {}, found_ty: {}, expected_expr: {}, found_expr: `{}`",
+                                    self.format_monotype(expected_ty),
+                                    self.format_monotype(found_ty),
+                                    self.format_simplify_expr(hir_file, *expected_expr),
+                                    self.format_simplify_expr(hir_file, *found_expr),
+                                ));
+                        } else {
+                            msg.push_str(
+                                &format!(
+                                "error MismatchedType: expected_ty: {}, found_ty: {}, found_expr: `{}`",
+                                self.format_monotype(expected_ty),
+                                self.format_monotype(found_ty),
+                                self.format_simplify_expr(hir_file, *found_expr),
+                            ));
+                        }
+                    }
+                    InferenceError::BreakOutsideOfLoop { kind, found_expr } => {
+                        let kind_text = match kind {
+                            BreakKind::Break => "break",
+                            BreakKind::Continue => "continue",
+                        };
+                        msg.push_str(&format!(
+                            "error BreakOutsideOfLoop({kind_text}): found_expr: `{}`",
+                            self.format_simplify_expr(hir_file, *found_expr),
+                        ));
+                    }
+                    InferenceError::NotRecord {
+                        found_struct_ty,
+                        found_struct_symbol,
+                        found_expr,
+                    } => {
+                        msg.push_str(&format!(
+                            "error NotRecord: found_struct_ty: {}, found_struct_symbol: {}, found_expr: `{}`",
+                            self.format_monotype(found_struct_ty),
+                            self.format_symbol(found_struct_symbol),
+                            self.format_simplify_expr(hir_file, *found_expr),
+                        ));
+                    }
+                    InferenceError::NotAllowedType {
+                        found_symbol,
+                        found_function,
+                        found_ty,
+                    } => {
+                        msg.push_str(&format!(
+                            "error NotAllowedType: found_symbol: {}, found_function: {}, found_ty: {}",
+                            self.format_symbol(found_symbol),
+                            found_function.name(self.db).text(self.db),
+                            self.format_type(found_ty),
+                        ));
+                    }
+                    InferenceError::MismatchedTypeInitStructTuple {
+                        expected_ty,
+                        found_ty,
+                        init_struct,
+                        found_arg_expr,
+                        arg_pos,
+                        found_expr,
+                    } => {
+                        msg.push_str(&format!(
+                            "error MismatchedTypeInitStructTuple: expected_ty: {}, found_ty: {}, init_struct: {}, found_arg_expr: `{}`, arg_pos: {}, found_expr: `{}`",
+                            self.format_monotype(expected_ty),
+                            self.format_monotype(found_ty),
+                            init_struct.name(self.db).text(self.db),
+                            self.format_simplify_expr(hir_file, *found_arg_expr),
+                            arg_pos,
+                            self.format_simplify_expr(hir_file, *found_expr),
+                        ));
+                    }
+                    InferenceError::MissingStructRecordField {
+                        missing_fields,
+                        found_struct,
+                        found_expr,
+                    } => {
+                        msg.push_str(&format!(
+                            "error MissingStructRecordField: missing_fields: {:?}, found_struct: {}, found_expr: `{}`",
+                            missing_fields
+                                .iter()
+                                .map(|field| field.text(self.db))
+                                .collect::<Vec<_>>(),
+                            found_struct.name(self.db).text(self.db),
+                            self.format_simplify_expr(hir_file, *found_expr),
+                        ));
+                    }
+                    InferenceError::NoSuchStructRecordField {
+                        no_such_fields,
+                        found_struct,
+                        found_expr,
+                    } => {
+                        msg.push_str(&format!(
+                            "error NoSuchStructRecordField: no_such_fields: {:?}, found_struct: {}, found_expr: `{}`",
+                            no_such_fields
+                                .iter()
+                                .map(|field| field.name.text(self.db))
+                                .collect::<Vec<_>>(),
+                            found_struct.name(self.db).text(self.db),
+                            self.format_simplify_expr(hir_file, *found_expr),
+                        ));
+                    }
+                    InferenceError::MismatchedTypeInitStructRecord {
+                        expected_ty,
+                        found_ty,
+                        found_struct: init_struct,
+                        found_name,
+                        found_expr,
+                    } => {
+                        msg.push_str(&format!(
+                            "error MismatchedTypeInitStructRecord: expected_ty: {}, found_ty: {}, init_struct: {}, found_name: {}, found_expr: `{}`",
+                            self.format_monotype(expected_ty),
+                            self.format_monotype(found_ty),
+                            init_struct.name(self.db).text(self.db),
+                            found_name.text(self.db),
+                            self.format_simplify_expr(hir_file, *found_expr),
+                        ));
+                    }
+                    InferenceError::NeededInitTupleOrRecord {
+                        found_ty,
+                        found_expr,
+                        found_struct,
+                    } => {
+                        msg.push_str(&format!(
+                            "error NeededInitTupleOrRecord: found_ty: {}, found_expr: `{}`, found_struct: {}",
+                            self.format_monotype(found_ty),
+                            self.format_simplify_expr(hir_file, *found_expr),
+                            found_struct.name(self.db).text(self.db),
+                        ));
+                    }
+                    InferenceError::NoSuchFieldAccess {
+                        no_such_field,
+                        found_struct,
+                        found_expr,
+                    } => {
+                        msg.push_str(&format!(
+                            "error NoSuchFieldAccess: no_such_field: {}, found_struct: {}, found_expr: `{}`",
+                            no_such_field.text(self.db),
+                            found_struct.name(self.db).text(self.db),
+                            self.format_simplify_expr(hir_file, *found_expr),
+                        ));
+                    }
+                    InferenceError::CanNotFieldAccess {
+                        no_such_field,
+                        found_ty,
+                        found_expr,
+                    } => {
+                        msg.push_str(&format!(
+                            "error CanNotFieldAccess: no_such_field: {}, found_ty: {}, found_expr: `{}`",
+                            no_such_field.text(self.db),
+                            self.format_monotype(found_ty),
+                            self.format_simplify_expr(hir_file, *found_expr),
+                        ));
+                    }
+                }
+                msg.push('\n');
+            }
+        }
+
+        msg
+    }
+
+    fn format_type_check_errors(&self) -> String {
+        let mut msg = String::new();
+        for (hir_file, function) in self.pods.root_pod.all_functions(self.db) {
+            let type_check_errors = self
+                .ty_lower_result
+                .type_check_errors_by_function(function)
+                .unwrap();
+            for error in type_check_errors {
+                match error {
+                    TypeCheckError::UnresolvedType { expr } => {
+                        msg.push_str(&format!(
+                            "error Type is unknown: expr: {}",
+                            self.format_simplify_expr(hir_file, *expr),
+                        ));
+                    }
+                    TypeCheckError::ImmutableReassignment { expr } => {
+                        msg.push_str(&format!(
+                            "error ImmutableReassignment: expr: {}",
+                            self.format_simplify_expr(hir_file, *expr),
+                        ));
+                    }
+                }
+                msg.push('\n');
+            }
+        }
+
+        msg
     }
 }

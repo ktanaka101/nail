@@ -55,6 +55,7 @@ pub fn run_server() -> anyhow::Result<()> {
 
     let root_uri = workspace_folders.and_then(|folders| folders.first().map(|it| it.uri.clone()));
     let root_dir_path = if let Some(root_uri) = &root_uri {
+        tracing::info!("Opening root directory: {}", root_uri.path().as_str());
         PathBuf::from(root_uri.path().as_str())
     } else {
         tracing::warn!("root_uri is required");

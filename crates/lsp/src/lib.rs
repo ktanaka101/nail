@@ -16,7 +16,7 @@ use lsp_types::{
     PublishDiagnosticsParams, SemanticTokens, SemanticTokensFullOptions, SemanticTokensLegend,
     SemanticTokensOptions, SemanticTokensParams, SemanticTokensRegistrationOptions,
     SemanticTokensServerCapabilities, ServerCapabilities, StaticRegistrationOptions,
-    TextDocumentRegistrationOptions, TextDocumentSyncCapability, TextDocumentSyncKind, Url,
+    TextDocumentRegistrationOptions, TextDocumentSyncCapability, TextDocumentSyncKind, Uri,
     WorkDoneProgressOptions,
 };
 use semantic_tokens::SEMANTIC_TOKEN_TYPES;
@@ -55,12 +55,7 @@ pub fn run_server() -> anyhow::Result<()> {
 
     let root_uri = workspace_folders.and_then(|folders| folders.first().map(|it| it.uri.clone()));
     let root_dir_path = if let Some(root_uri) = &root_uri {
-        if let Ok(root_dir_path) = root_uri.to_file_path() {
-            root_dir_path
-        } else {
-            tracing::info!("root_uri must be a file path.");
-            env::current_dir()?
-        }
+        PathBuf::from(root_uri.path().as_str())
     } else {
         tracing::warn!("root_uri is required");
         return Err(Error::RequiredRootUri.into());
@@ -167,7 +162,7 @@ struct GlobalState {
     sender: Sender<lsp_server::Message>,
     config: Config,
     db: base_db::SalsaDatabase,
-    analysis_by_uri: HashMap<Url, Analysis>,
+    analysis_by_uri: HashMap<Uri, Analysis>,
 
     shutdown_requested: bool,
 }
@@ -265,7 +260,7 @@ impl GlobalState {
     ) -> anyhow::Result<()> {
         tracing::info!(
             "server semantic tokens full! get uri: {}",
-            params.text_document.uri
+            params.text_document.uri.as_str()
         );
 
         if let Some(analysis) = self.analysis_by_uri.get(&params.text_document.uri) {
@@ -285,7 +280,7 @@ impl GlobalState {
     /// Handle `textDocument/didOpen` notification.
     fn did_open(&mut self, params: lsp_types::DidOpenTextDocumentParams) -> anyhow::Result<()> {
         let opened_uri = params.text_document.uri;
-        tracing::info!("server did open! get uri: {opened_uri}");
+        tracing::info!("server did open! get uri: {}", opened_uri.as_str());
 
         let Ok(source_db) = build_source_db(&self.db, self.config.root_path.clone()) else {
             tracing::info!("failed to build source db");
@@ -294,11 +289,14 @@ impl GlobalState {
         let analysis = match get_analysis_by_file(&self.db, &source_db, opened_uri.clone()) {
             Ok(Some(analysis)) => analysis,
             Ok(None) => {
-                tracing::info!("failed to get analysis by file: {opened_uri}");
+                tracing::info!("failed to get analysis by file: {}", opened_uri.as_str());
                 return Ok(());
             }
             Err(e) => {
-                tracing::info!("failed to get analysis by file: {opened_uri}, error: {e}");
+                tracing::info!(
+                    "failed to get analysis by file: {}, error: {e}",
+                    opened_uri.as_str()
+                );
                 return Ok(());
             }
         };
@@ -313,20 +311,15 @@ impl GlobalState {
 
     fn did_change(&mut self, params: DidChangeTextDocumentParams) -> anyhow::Result<()> {
         let changed_file_uri = params.text_document.uri;
-        tracing::info!("server did change! get uri: {}", changed_file_uri);
+        tracing::info!("server did change! get uri: {}", changed_file_uri.as_str());
 
         let Ok(source_db) = build_source_db(&self.db, self.config.root_path.clone()) else {
             tracing::info!("failed to build source db");
             return Ok(());
         };
 
-        let Ok(changed_file_path) = changed_file_uri.to_file_path() else {
-            tracing::info!(
-                "failed to convert file url to file path. file_url: {changed_file_uri:?}"
-            );
-            return Ok(());
-        };
-
+        let changed_file_path = changed_file_uri.path();
+        let changed_file_path = PathBuf::from(changed_file_path.as_str());
         let Some(changed_file) = source_db.get_file(&changed_file_path) else {
             tracing::info!("file not found in source db. file_path: {changed_file_path:?}");
             return Ok(());
@@ -350,11 +343,17 @@ impl GlobalState {
         let analysis = match get_analysis_by_file(&self.db, &source_db, changed_file_uri.clone()) {
             Ok(Some(analysis)) => analysis,
             Ok(None) => {
-                tracing::info!("failed to get analysis by file: {changed_file_uri}");
+                tracing::info!(
+                    "failed to get analysis by file: {}",
+                    changed_file_uri.as_str()
+                );
                 return Ok(());
             }
             Err(e) => {
-                tracing::info!("failed to get analysis by file: {changed_file_uri}, error: {e}");
+                tracing::info!(
+                    "failed to get analysis by file: {}, error: {e}",
+                    changed_file_uri.as_str()
+                );
                 return Ok(());
             }
         };
@@ -370,7 +369,7 @@ impl GlobalState {
     /// Publish diagnostics to client.
     fn publish_diagnostics(
         &self,
-        uri: Url,
+        uri: Uri,
         diagnostics: Vec<lsp_types::Diagnostic>,
         version: Option<i32>,
     ) -> anyhow::Result<()> {
@@ -420,11 +419,10 @@ fn build_source_db(
 fn get_analysis_by_file(
     db: &base_db::SalsaDatabase,
     source_db: &hir::SourceDatabase,
-    file_url: Url,
+    file_uri: Uri,
 ) -> anyhow::Result<Option<Analysis>> {
-    let Ok(file_path) = file_url.to_file_path() else {
-        anyhow::bail!("failed to convert file url to file path. file_url: {file_url:?}");
-    };
+    let file_path = file_uri.path();
+    let file_path = PathBuf::from(file_path.as_str());
 
     let Some(target_nail_file) = source_db.get_file(&file_path) else {
         anyhow::bail!("file not found in source db. file_path: {file_path:?}");
@@ -520,7 +518,7 @@ fn get_analysis_by_file(
         .collect::<Vec<_>>();
 
     Ok(Some(Analysis {
-        uri: file_url,
+        uri: file_uri,
         file: target_nail_file,
         parsed,
         diagnostics,

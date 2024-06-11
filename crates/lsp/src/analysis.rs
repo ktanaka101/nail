@@ -1,4 +1,4 @@
-use lsp_types::{SemanticToken, Url};
+use lsp_types::{SemanticToken, Uri};
 
 use crate::{line_index, semantic_tokens};
 
@@ -7,7 +7,7 @@ use crate::{line_index, semantic_tokens};
 pub struct Analysis {
     /// ソースコードのURI
     #[allow(dead_code)]
-    pub uri: Url,
+    pub uri: Uri,
     /// ソースコードのファイル情報
     #[allow(dead_code)]
     pub file: hir::NailFile,

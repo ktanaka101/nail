@@ -2,13 +2,13 @@ mod scopes;
 
 use std::collections::HashMap;
 
-use ast::AstNode;
+use ast::{AstNode, AstPtr};
 use la_arena::{Arena, Idx};
 
 use crate::{
     body::scopes::ExprScopes,
     item::{ParamData, RecordField, StructKind},
-    AstPtr, BinaryOp, Binding, Block, Expr, ExprSource, Function, FunctionSource, HirFileSourceMap,
+    BinaryOp, Binding, Block, Expr, ExprSource, Function, FunctionSource, HirFileSourceMap,
     HirMasterDatabase, InFile, Item, Literal, Module, ModuleKind, NailFile, NailGreenNode, Name,
     NameSolutionPath, Param, Path, RecordFieldExpr, Stmt, Struct, Symbol, Type, TypeSource,
     UnaryOp, UseItem,

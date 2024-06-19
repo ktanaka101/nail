@@ -7,6 +7,8 @@ mod tokens;
 /// ASTのバリデーションを行うためのモジュールです。
 pub mod validation;
 
+use std::marker::PhantomData;
+
 pub use ast_node::*;
 pub use nodes::*;
 pub use rowan::{GreenNode, TextRange};
@@ -39,5 +41,35 @@ impl SourceFile {
     /// ファイルのトップレベルの[Item]を返します。
     pub fn items(&self) -> impl Iterator<Item = nodes::Item> {
         ast_node::children_nodes(self)
+    }
+}
+
+/// ASTノードのIDです。
+///
+/// 1ファイル内でユニークです。
+/// IDからASTを参照し、ファイル内における位置を取得することができます。
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub struct AstPtr<T: AstNode> {
+    /// ASTノード
+    pub node: SyntaxNodePtr,
+    _ty: PhantomData<T>,
+}
+impl<T: AstNode> Clone for AstPtr<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+impl<T: AstNode> Copy for AstPtr<T> {}
+/// `AstPtr`はスレッドセーフです。
+/// `AstNode`はスレッドセーフではありませんが、`AstPtr`は`AstNode`の型情報のみを参照するだけのためスレッドセーフです。
+unsafe impl<T: AstNode> Send for AstPtr<T> {}
+unsafe impl<T: AstNode> Sync for AstPtr<T> {}
+impl<T: AstNode> AstPtr<T> {
+    /// 新しいASTポインタを作成します。
+    pub fn new(node: &T) -> Self {
+        Self {
+            node: SyntaxNodePtr::new(node.syntax()),
+            _ty: PhantomData,
+        }
     }
 }

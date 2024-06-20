@@ -320,9 +320,7 @@ impl<'a> BodyLower<'a> {
 
     /// 構造体のHIRを構築します。
     fn lower_struct(&mut self, db: &dyn HirMasterDatabase, def: ast::StructDef) -> Option<Struct> {
-        let name = def
-            .name()
-            .map(|name| Name::new(db, name.name().to_string()))?;
+        let name = def.name().map(|name| Name::new_from_ident(db, name))?;
 
         let kind = match def.to_kind() {
             ast::StructKind::Tuple(fileds) => StructKind::Tuple(
@@ -335,7 +333,7 @@ impl<'a> BodyLower<'a> {
                 fields
                     .fields()
                     .map(|field| {
-                        let name = Name::new(db, field.name().unwrap().name().to_string());
+                        let name = Name::new_from_ident(db, field.name().unwrap());
                         let ty = self.lower_path_type(db, field.ty());
                         RecordField { name, ty }
                     })
@@ -361,7 +359,7 @@ impl<'a> BodyLower<'a> {
         ast_module: ast::Module,
     ) -> Option<Module> {
         if let Some(name) = ast_module.name() {
-            let module_name = Name::new(db, name.name().to_string());
+            let module_name = Name::new_from_ident(db, name);
 
             let module_kind = if let Some(item_list) = ast_module.items() {
                 let mut items = vec![];
@@ -388,10 +386,10 @@ impl<'a> BodyLower<'a> {
         match use_path.as_slice() {
             [] => unreachable!("use path should not be empty"),
             [path @ .., name] => {
-                let name = Name::new(db, name.name().unwrap().name().to_string());
+                let name = Name::new_from_ident(db, name.name().unwrap());
                 let segments = path
                     .iter()
-                    .map(|segment| Name::new(db, segment.name().unwrap().name().to_string()))
+                    .map(|segment| Name::new_from_ident(db, segment.name().unwrap()))
                     .collect::<Vec<_>>();
                 let path = Path::new(db, segments.clone());
                 let full_path = Path::new(db, {
@@ -448,10 +446,7 @@ impl<'a> BodyLower<'a> {
                                     segments
                                         .iter()
                                         .map(|segment| {
-                                            Name::new(
-                                                db,
-                                                segment.name().unwrap().name().to_string(),
-                                            )
+                                            Name::new_from_ident(db, segment.name().unwrap())
                                         })
                                         .collect(),
                                 );
@@ -484,7 +479,7 @@ impl<'a> BodyLower<'a> {
         let result = match ast_stmt {
             ast::Stmt::Let(def) => {
                 let expr = self.lower_expr(db, def.value());
-                let name = Name::new(db, def.name()?.name().to_owned());
+                let name = Name::new_from_ident(db, def.name()?);
                 let mutable = def.mut_token().is_some();
 
                 let binding = Binding {
@@ -665,7 +660,7 @@ impl<'a> BodyLower<'a> {
                 .path()
                 .unwrap()
                 .segments()
-                .map(|segment| Name::new(db, segment.name().unwrap().name().to_string()))
+                .map(|segment| Name::new_from_ident(db, segment.name().unwrap()))
                 .collect(),
         );
         let symbol = self.lookup_path(db, path);
@@ -903,7 +898,7 @@ impl<'a> BodyLower<'a> {
                 .path()
                 .unwrap()
                 .segments()
-                .map(|segment| Name::new(db, segment.name().unwrap().name().to_string()))
+                .map(|segment| Name::new_from_ident(db, segment.name().unwrap()))
                 .collect(),
         );
         let symbol = Symbol::MissingExpr {
@@ -915,7 +910,7 @@ impl<'a> BodyLower<'a> {
             .unwrap()
             .fields()
             .map(|field| {
-                let name = Name::new(db, field.name().unwrap().name().to_string());
+                let name = Name::new_from_ident(db, field.name().unwrap());
                 let value = self.lower_expr(db, field.value());
                 RecordFieldExpr { name, value }
             })

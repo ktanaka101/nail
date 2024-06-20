@@ -520,6 +520,12 @@ pub struct Name {
     #[return_ref]
     pub text: String,
 }
+impl Name {
+    #[inline]
+    pub(crate) fn new_from_ident(db: &dyn HirMasterDatabase, ident: ast::Ident) -> Self {
+        Name::new(db, ident.name().to_string())
+    }
+}
 
 /// ステートメントです。
 #[derive(Debug, Clone, PartialEq, Eq)]

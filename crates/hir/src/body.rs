@@ -260,9 +260,7 @@ impl<'a> BodyLower<'a> {
             .params()
             .enumerate()
             .map(|(pos, param)| {
-                let name = param
-                    .name()
-                    .map(|name| Name::new(db, name.name().to_string()));
+                let name = param.name().map(|name| Name::new_from_ident(db, name));
                 let ty = self.lower_path_type(db, param.ty());
                 Param::new(self.hir_file_db, name, ty, pos, param.mut_token().is_some())
             })

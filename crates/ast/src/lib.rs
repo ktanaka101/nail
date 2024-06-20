@@ -66,10 +66,17 @@ unsafe impl<T: AstNode> Send for AstPtr<T> {}
 unsafe impl<T: AstNode> Sync for AstPtr<T> {}
 impl<T: AstNode> AstPtr<T> {
     /// 新しいASTポインタを作成します。
+    #[inline]
     pub fn new(node: &T) -> Self {
         Self {
             node: SyntaxNodePtr::new(node.syntax()),
             _ty: PhantomData,
         }
+    }
+
+    /// ASTポインタを元にASTノードを取得します。
+    #[inline]
+    pub fn to_ast_node(&self, syntax_node: &SyntaxNode) -> Option<T> {
+        T::from_ast_ptr(self, syntax_node)
     }
 }

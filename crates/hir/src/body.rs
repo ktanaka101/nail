@@ -162,7 +162,7 @@ impl HirFileDatabase {
 
         self.ast_by_function
             .get(&function)
-            .and_then(|ptr| ast::FunctionDef::cast(ptr.node.to_node(&syntax_node)))
+            .and_then(|ptr| ptr.to_ast_node(&syntax_node))
     }
 
     pub fn function_ast_ptr_by_function(
@@ -278,7 +278,7 @@ impl<'a> BodyLower<'a> {
         };
 
         let function = Function::new(db, name, params, param_by_name, return_type);
-        let def_ptr = AstPtr::new(&def);
+        let def_ptr = def.to_ast_ptr();
 
         self.hir_file_db.functions.push(function);
         self.source_by_function.insert(
@@ -313,7 +313,7 @@ impl<'a> BodyLower<'a> {
             .insert(function, FunctionBodyId(body_expr));
         self.hir_file_db
             .function_body_by_ast_block
-            .insert(AstPtr::new(&ast_block), FunctionBodyId(body_expr));
+            .insert(ast_block.to_ast_ptr(), FunctionBodyId(body_expr));
 
         Some(function)
     }
@@ -470,7 +470,7 @@ impl<'a> BodyLower<'a> {
                     ty.clone(),
                     TypeSource {
                         file: self.file,
-                        value: AstPtr::new(&path_type),
+                        value: path_type.to_ast_ptr(),
                     },
                 );
 
@@ -594,7 +594,7 @@ impl<'a> BodyLower<'a> {
             expr_id,
             InFile {
                 file: self.file,
-                value: AstPtr::new(ast_expr),
+                value: ast_expr.to_ast_ptr(),
             },
         );
 
@@ -615,7 +615,7 @@ impl<'a> BodyLower<'a> {
             expr_id,
             InFile {
                 file: self.file,
-                value: AstPtr::new(from_ast_expr),
+                value: from_ast_expr.to_ast_ptr(),
             },
         );
 

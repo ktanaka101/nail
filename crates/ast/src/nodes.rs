@@ -5,6 +5,14 @@ use crate::{
     tokens,
 };
 
+/// 式に変換可能なASTノードを定義します。
+pub trait ToExpr: AstNode {
+    /// Expr ASTノードに変換します。
+    fn to_expr(&self) -> Expr {
+        Expr::cast(self.syntax().clone()).unwrap()
+    }
+}
+
 /// ASTノードを定義します。
 ///
 /// # Example
@@ -202,6 +210,22 @@ impl AstNode for Expr {
         }
     }
 }
+
+impl ToExpr for BinaryExpr {}
+impl ToExpr for Literal {}
+impl ToExpr for ParenExpr {}
+impl ToExpr for UnaryExpr {}
+impl ToExpr for PathExpr {}
+impl ToExpr for CallExpr {}
+impl ToExpr for BlockExpr {}
+impl ToExpr for IfExpr {}
+impl ToExpr for ReturnExpr {}
+impl ToExpr for LoopExpr {}
+impl ToExpr for ContinueExpr {}
+impl ToExpr for BreakExpr {}
+impl ToExpr for WhileExpr {}
+impl ToExpr for RecordExpr {}
+impl ToExpr for FieldExpr {}
 
 /// ステートメントノード
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

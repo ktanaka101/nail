@@ -2,7 +2,7 @@ mod scopes;
 
 use std::collections::HashMap;
 
-use ast::{AstNode, AstPtr};
+use ast::{AstNode, AstPtr, ToExpr};
 use la_arena::{Arena, Idx};
 
 use crate::{
@@ -298,10 +298,7 @@ impl<'a> BodyLower<'a> {
         let source_by_expr = body_lower.source_by_expr;
         let source_by_function = body_lower.source_by_function;
 
-        let body_expr = self.alloc_expr(
-            &ast::Expr::cast(ast_block.syntax().clone()).unwrap(),
-            body_expr,
-        );
+        let body_expr = self.alloc_expr(&ast_block.to_expr(), body_expr);
 
         // キーはファイル内で一意なので重複する心配はない
         self.source_by_expr.extend(source_by_expr);
@@ -759,17 +756,11 @@ impl<'a> BodyLower<'a> {
 
         let ast_then_branch = ast_if.then_branch().unwrap();
         let then_branch = self.lower_block(db, &ast_then_branch);
-        let then_branch = self.alloc_expr(
-            &ast::Expr::cast(ast_then_branch.syntax().clone()).unwrap(),
-            then_branch,
-        );
+        let then_branch = self.alloc_expr(&ast_then_branch.to_expr(), then_branch);
 
         let else_branch = if let Some(ast_else_branch) = ast_if.else_branch() {
             let else_branch = self.lower_block(db, &ast_else_branch);
-            Some(self.alloc_expr(
-                &ast::Expr::cast(ast_else_branch.syntax().clone()).unwrap(),
-                else_branch,
-            ))
+            Some(self.alloc_expr(&ast_else_branch.to_expr(), else_branch))
         } else {
             None
         };
@@ -796,7 +787,7 @@ impl<'a> BodyLower<'a> {
         if let Some(body) = ast_loop.body() {
             let block = self.lower_block(db, &body);
             Expr::Loop {
-                block: self.alloc_expr(&ast::Expr::cast(ast_loop.syntax().clone()).unwrap(), block),
+                block: self.alloc_expr(&ast_loop.to_expr(), block),
             }
         } else {
             Expr::Missing
@@ -838,17 +829,14 @@ impl<'a> BodyLower<'a> {
 
         if let Some(ast_body) = ast_while.body() {
             // while式の条件が一致する間実行するブロック
-            let do_block = self.lower_expr(
-                db,
-                Some(ast::Expr::cast(ast_body.syntax().clone()).unwrap()),
-            );
+            let do_block = self.lower_expr(db, Some(ast_body.to_expr()));
 
             // while式の条件が一致しない場合にbreakするためのブロック
             let break_block = {
                 let break_block = Expr::Block(Block {
                     stmts: vec![Stmt::Expr {
                         expr: self.alloc_expr_desugared(
-                            &ast::Expr::cast(ast_while.syntax().clone()).unwrap(),
+                            &ast_while.to_expr(),
                             Expr::Break { value: None },
                         ),
                         has_semicolon: true,
@@ -868,17 +856,13 @@ impl<'a> BodyLower<'a> {
 
                 Expr::Block(Block {
                     stmts: vec![Stmt::Expr {
-                        expr: self.alloc_expr_desugared(
-                            &ast::Expr::cast(ast_while.syntax().clone()).unwrap(),
-                            if_expr,
-                        ),
+                        expr: self.alloc_expr_desugared(&ast_while.to_expr(), if_expr),
                         has_semicolon: true,
                     }],
                     tail: None,
                 })
             };
-            let loop_block =
-                self.alloc_expr_desugared(&ast::Expr::WhileExpr(ast_while.clone()), loop_block);
+            let loop_block = self.alloc_expr_desugared(&ast_while.to_expr(), loop_block);
             Expr::Loop { block: loop_block }
         } else {
             Expr::Missing

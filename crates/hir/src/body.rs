@@ -2,7 +2,7 @@ mod scopes;
 
 use std::collections::HashMap;
 
-use ast::{AstNode, AstPtr, ToExpr};
+use ast::{AstNode, AstPtr, HasName, HasPath, ToExpr};
 use la_arena::{Arena, Idx};
 
 use crate::{
@@ -250,9 +250,7 @@ impl<'a> BodyLower<'a> {
         db: &dyn HirMasterDatabase,
         def: ast::FunctionDef,
     ) -> Option<Function> {
-        let name = def
-            .name()
-            .map(|name| Name::new(db, name.name().to_string()))?;
+        let name = Name::new_from_has_name(db, &def)?;
 
         let ast_block = def.body()?;
         let params = def
@@ -315,7 +313,7 @@ impl<'a> BodyLower<'a> {
 
     /// 構造体のHIRを構築します。
     fn lower_struct(&mut self, db: &dyn HirMasterDatabase, def: ast::StructDef) -> Option<Struct> {
-        let name = def.name().map(|name| Name::new_from_ident(db, name))?;
+        let name = Name::new_from_has_name(db, &def)?;
 
         let kind = match def.to_kind() {
             ast::StructKind::Tuple(fileds) => StructKind::Tuple(
@@ -380,19 +378,15 @@ impl<'a> BodyLower<'a> {
         let use_path = ast_use.path()?.segments().collect::<Vec<_>>();
         match use_path.as_slice() {
             [] => unreachable!("use path should not be empty"),
-            [path @ .., name] => {
-                let name = Name::new_from_ident(db, name.name().unwrap());
-                let segments = path
-                    .iter()
-                    .map(|segment| Name::new_from_ident(db, segment.name().unwrap()))
-                    .collect::<Vec<_>>();
-                let path = Path::new(db, segments.clone());
-                let full_path = Path::new(db, {
-                    let mut full_path = segments.clone();
-                    full_path.push(name);
-                    full_path
-                });
-                let use_item = UseItem::new(db, name, path, full_path);
+            [path_segments @ .., name_segment] => {
+                let name = Name::new_from_has_name(db, name_segment).unwrap();
+                let path_exclude_name = Path::new_from_has_names(db, path_segments).unwrap();
+                let full_path = Path::new_from_has_names(db, {
+                    let full_path = path_segments;
+                    &[full_path, &[name_segment.clone()]].concat()
+                })
+                .unwrap();
+                let use_item = UseItem::new(db, name, path_exclude_name, full_path);
 
                 Some(use_item)
             }
@@ -436,15 +430,7 @@ impl<'a> BodyLower<'a> {
                                 }
                             }
                             _ => {
-                                let path = Path::new(
-                                    db,
-                                    segments
-                                        .iter()
-                                        .map(|segment| {
-                                            Name::new_from_ident(db, segment.name().unwrap())
-                                        })
-                                        .collect(),
-                                );
+                                let path = Path::new_from_has_names(db, &segments).unwrap();
                                 let symbol = Symbol::MissingType {
                                     path: NameSolutionPath::new(db, path),
                                 };
@@ -649,15 +635,7 @@ impl<'a> BodyLower<'a> {
     }
 
     fn lower_path_expr(&mut self, db: &dyn HirMasterDatabase, ast_path: &ast::PathExpr) -> Expr {
-        let path = Path::new(
-            db,
-            ast_path
-                .path()
-                .unwrap()
-                .segments()
-                .map(|segment| Name::new_from_ident(db, segment.name().unwrap()))
-                .collect(),
-        );
+        let path = Path::new_from_path(db, ast_path).unwrap();
         let symbol = self.lookup_path(db, path);
         Expr::Symbol(symbol)
     }
@@ -874,15 +852,7 @@ impl<'a> BodyLower<'a> {
         db: &dyn HirMasterDatabase,
         ast_record_expr: &ast::RecordExpr,
     ) -> Expr {
-        let path = Path::new(
-            db,
-            ast_record_expr
-                .path()
-                .unwrap()
-                .segments()
-                .map(|segment| Name::new_from_ident(db, segment.name().unwrap()))
-                .collect(),
-        );
+        let path = Path::new_from_path(db, ast_record_expr).unwrap();
         let symbol = Symbol::MissingExpr {
             path: NameSolutionPath::new(db, path),
         };

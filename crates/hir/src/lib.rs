@@ -34,7 +34,7 @@ pub mod testing;
 
 use std::collections::HashMap;
 
-use ast::{AstNode, AstPtr};
+use ast::{AstNode, AstPtr, HasName};
 pub use body::{BindingId, BodyLower, ExprId, FunctionBodyId, HirFileDatabase};
 pub use db::{HirMasterDatabase, Jar};
 pub use input::{FixtureDatabase, NailFile, SourceDatabase, SourceDatabaseTrait};
@@ -525,6 +525,14 @@ impl Name {
     pub(crate) fn new_from_ident(db: &dyn HirMasterDatabase, ident: ast::Ident) -> Self {
         Name::new(db, ident.name().to_string())
     }
+
+    #[inline]
+    pub(crate) fn new_from_has_name<T: ast::HasName>(
+        db: &dyn HirMasterDatabase,
+        has_name: &T,
+    ) -> Option<Self> {
+        Some(Name::new_from_ident(db, has_name.name()?))
+    }
 }
 
 /// ステートメントです。
@@ -731,6 +739,32 @@ pub enum Expr {
 pub struct Path {
     #[return_ref]
     pub segments: Vec<Name>,
+}
+impl Path {
+    /// パスを含んだASTノードからHIR表現のパスを生成します
+    pub(crate) fn new_from_path<T: ast::HasPath>(
+        db: &dyn HirMasterDatabase,
+        has_path: &T,
+    ) -> Option<Self> {
+        let path = has_path.path()?;
+        let segments = path
+            .segments()
+            .map(|segment| Some(Name::new_from_ident(db, segment.name()?)))
+            .collect::<Option<Vec<Name>>>()?;
+        Some(Path::new(db, segments))
+    }
+
+    /// Nameを含んだASTNodeリストからパスを生成します
+    pub(crate) fn new_from_has_names<T: ast::HasName>(
+        db: &dyn HirMasterDatabase,
+        has_names: &[T],
+    ) -> Option<Self> {
+        let segments = has_names
+            .iter()
+            .map(|has_name| Name::new_from_has_name(db, has_name))
+            .collect::<Option<Vec<Name>>>()?;
+        Some(Path::new(db, segments))
+    }
 }
 
 /// コード中に現れるシンボルを表します

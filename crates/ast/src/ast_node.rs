@@ -7,7 +7,7 @@ pub trait Ast {}
 /// ASTノード
 ///
 /// ASTノードはASTトークンの集合であり、ASTノードはASTトークンを持つことができます。
-pub trait AstNode: Ast {
+pub trait AstNode: Ast + Sized {
     /// 指定した[SyntaxKind]にキャスト可能かどうかを返します。
     fn can_cast(kind: SyntaxKind) -> bool;
 
@@ -35,6 +35,22 @@ pub trait AstNode: Ast {
         Self: Sized,
     {
         Self::cast(self.syntax().clone_subtree()).unwrap()
+    }
+
+    /// ASTポインタからASTノードを取得します。
+    /// `syntax_node`がASTノードを持っていない場合は[None]を返します。
+    #[inline]
+    fn from_ast_ptr(
+        ptr: &crate::AstPtr<Self>,
+        syntax_node: &rowan::SyntaxNode<syntax::NailLanguage>,
+    ) -> Option<Self> {
+        Self::cast(ptr.node.to_node(syntax_node))
+    }
+
+    /// ASTポインタを返します。
+    #[inline]
+    fn to_ast_ptr(&self) -> crate::AstPtr<Self> {
+        crate::AstPtr::new(self)
     }
 }
 

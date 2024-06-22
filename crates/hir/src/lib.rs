@@ -32,9 +32,9 @@ mod item;
 mod name_resolver;
 pub mod testing;
 
-use std::{collections::HashMap, marker::PhantomData};
+use std::collections::HashMap;
 
-use ast::AstNode;
+use ast::{AstNode, AstPtr, HasName};
 pub use body::{BindingId, BodyLower, ExprId, FunctionBodyId, HirFileDatabase};
 pub use db::{HirMasterDatabase, Jar};
 pub use input::{FixtureDatabase, NailFile, SourceDatabase, SourceDatabaseTrait};
@@ -380,36 +380,6 @@ pub fn build_green_node(db: &dyn HirMasterDatabase, nail_file: NailFile) -> Nail
     NailGreenNode::new(db, nail_file, parse_result.green_node)
 }
 
-/// ASTノードのIDです。
-///
-/// 1ファイル内でユニークです。
-/// IDからASTを参照し、ファイル内における位置を取得することができます。
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub struct AstPtr<T: AstNode> {
-    /// ASTノード
-    pub node: ast::SyntaxNodePtr,
-    _ty: PhantomData<T>,
-}
-impl<T: AstNode> Clone for AstPtr<T> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-impl<T: AstNode> Copy for AstPtr<T> {}
-/// `AstPtr`はスレッドセーフです。
-/// `AstNode`はスレッドセーフではありませんが、`AstPtr`は`AstNode`の型情報のみを参照するだけのためスレッドセーフです。
-unsafe impl<T: AstNode> Send for AstPtr<T> {}
-unsafe impl<T: AstNode> Sync for AstPtr<T> {}
-impl<T: AstNode> AstPtr<T> {
-    /// 新しいASTポインタを作成します。
-    pub fn new(node: &T) -> Self {
-        Self {
-            node: ast::SyntaxNodePtr::new(node.syntax()),
-            _ty: PhantomData,
-        }
-    }
-}
-
 /// 式のAST位置です。
 pub type ExprSource = InFile<AstPtr<ast::Expr>>;
 /// 関数定義のAST位置です。
@@ -549,6 +519,20 @@ fn get_entry_point(db: &dyn HirMasterDatabase, top_level_items: &[Item]) -> Opti
 pub struct Name {
     #[return_ref]
     pub text: String,
+}
+impl Name {
+    #[inline]
+    pub(crate) fn new_from_ident(db: &dyn HirMasterDatabase, ident: ast::Ident) -> Self {
+        Name::new(db, ident.name().to_string())
+    }
+
+    #[inline]
+    pub(crate) fn new_from_has_name<T: ast::HasName>(
+        db: &dyn HirMasterDatabase,
+        has_name: &T,
+    ) -> Option<Self> {
+        Some(Name::new_from_ident(db, has_name.name()?))
+    }
 }
 
 /// ステートメントです。
@@ -755,6 +739,32 @@ pub enum Expr {
 pub struct Path {
     #[return_ref]
     pub segments: Vec<Name>,
+}
+impl Path {
+    /// パスを含んだASTノードからHIR表現のパスを生成します
+    pub(crate) fn new_from_path<T: ast::HasPath>(
+        db: &dyn HirMasterDatabase,
+        has_path: &T,
+    ) -> Option<Self> {
+        let path = has_path.path()?;
+        let segments = path
+            .segments()
+            .map(|segment| Some(Name::new_from_ident(db, segment.name()?)))
+            .collect::<Option<Vec<Name>>>()?;
+        Some(Path::new(db, segments))
+    }
+
+    /// Nameを含んだASTNodeリストからパスを生成します
+    pub(crate) fn new_from_has_names<T: ast::HasName>(
+        db: &dyn HirMasterDatabase,
+        has_names: &[T],
+    ) -> Option<Self> {
+        let segments = has_names
+            .iter()
+            .map(|has_name| Name::new_from_has_name(db, has_name))
+            .collect::<Option<Vec<Name>>>()?;
+        Some(Path::new(db, segments))
+    }
 }
 
 /// コード中に現れるシンボルを表します

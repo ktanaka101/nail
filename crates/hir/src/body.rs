@@ -2,13 +2,13 @@ mod scopes;
 
 use std::collections::HashMap;
 
-use ast::AstNode;
+use ast::{AstNode, AstPtr, HasName, HasPath, ToExpr};
 use la_arena::{Arena, Idx};
 
 use crate::{
     body::scopes::ExprScopes,
     item::{ParamData, RecordField, StructKind},
-    AstPtr, BinaryOp, Binding, Block, Expr, ExprSource, Function, FunctionSource, HirFileSourceMap,
+    BinaryOp, Binding, Block, Expr, ExprSource, Function, FunctionSource, HirFileSourceMap,
     HirMasterDatabase, InFile, Item, Literal, Module, ModuleKind, NailFile, NailGreenNode, Name,
     NameSolutionPath, Param, Path, RecordFieldExpr, Stmt, Struct, Symbol, Type, TypeSource,
     UnaryOp, UseItem,
@@ -162,7 +162,7 @@ impl HirFileDatabase {
 
         self.ast_by_function
             .get(&function)
-            .and_then(|ptr| ast::FunctionDef::cast(ptr.node.to_node(&syntax_node)))
+            .and_then(|ptr| ptr.to_ast_node(&syntax_node))
     }
 
     pub fn function_ast_ptr_by_function(
@@ -250,9 +250,7 @@ impl<'a> BodyLower<'a> {
         db: &dyn HirMasterDatabase,
         def: ast::FunctionDef,
     ) -> Option<Function> {
-        let name = def
-            .name()
-            .map(|name| Name::new(db, name.name().to_string()))?;
+        let name = Name::new_from_has_name(db, &def)?;
 
         let ast_block = def.body()?;
         let params = def
@@ -260,9 +258,7 @@ impl<'a> BodyLower<'a> {
             .params()
             .enumerate()
             .map(|(pos, param)| {
-                let name = param
-                    .name()
-                    .map(|name| Name::new(db, name.name().to_string()));
+                let name = param.name().map(|name| Name::new_from_ident(db, name));
                 let ty = self.lower_path_type(db, param.ty());
                 Param::new(self.hir_file_db, name, ty, pos, param.mut_token().is_some())
             })
@@ -278,7 +274,7 @@ impl<'a> BodyLower<'a> {
         };
 
         let function = Function::new(db, name, params, param_by_name, return_type);
-        let def_ptr = AstPtr::new(&def);
+        let def_ptr = def.to_ast_ptr();
 
         self.hir_file_db.functions.push(function);
         self.source_by_function.insert(
@@ -300,10 +296,7 @@ impl<'a> BodyLower<'a> {
         let source_by_expr = body_lower.source_by_expr;
         let source_by_function = body_lower.source_by_function;
 
-        let body_expr = self.alloc_expr(
-            &ast::Expr::cast(ast_block.syntax().clone()).unwrap(),
-            body_expr,
-        );
+        let body_expr = self.alloc_expr(&ast_block.to_expr(), body_expr);
 
         // キーはファイル内で一意なので重複する心配はない
         self.source_by_expr.extend(source_by_expr);
@@ -313,16 +306,14 @@ impl<'a> BodyLower<'a> {
             .insert(function, FunctionBodyId(body_expr));
         self.hir_file_db
             .function_body_by_ast_block
-            .insert(AstPtr::new(&ast_block), FunctionBodyId(body_expr));
+            .insert(ast_block.to_ast_ptr(), FunctionBodyId(body_expr));
 
         Some(function)
     }
 
     /// 構造体のHIRを構築します。
     fn lower_struct(&mut self, db: &dyn HirMasterDatabase, def: ast::StructDef) -> Option<Struct> {
-        let name = def
-            .name()
-            .map(|name| Name::new(db, name.name().to_string()))?;
+        let name = Name::new_from_has_name(db, &def)?;
 
         let kind = match def.to_kind() {
             ast::StructKind::Tuple(fileds) => StructKind::Tuple(
@@ -335,7 +326,7 @@ impl<'a> BodyLower<'a> {
                 fields
                     .fields()
                     .map(|field| {
-                        let name = Name::new(db, field.name().unwrap().name().to_string());
+                        let name = Name::new_from_ident(db, field.name().unwrap());
                         let ty = self.lower_path_type(db, field.ty());
                         RecordField { name, ty }
                     })
@@ -361,7 +352,7 @@ impl<'a> BodyLower<'a> {
         ast_module: ast::Module,
     ) -> Option<Module> {
         if let Some(name) = ast_module.name() {
-            let module_name = Name::new(db, name.name().to_string());
+            let module_name = Name::new_from_ident(db, name);
 
             let module_kind = if let Some(item_list) = ast_module.items() {
                 let mut items = vec![];
@@ -387,19 +378,15 @@ impl<'a> BodyLower<'a> {
         let use_path = ast_use.path()?.segments().collect::<Vec<_>>();
         match use_path.as_slice() {
             [] => unreachable!("use path should not be empty"),
-            [path @ .., name] => {
-                let name = Name::new(db, name.name().unwrap().name().to_string());
-                let segments = path
-                    .iter()
-                    .map(|segment| Name::new(db, segment.name().unwrap().name().to_string()))
-                    .collect::<Vec<_>>();
-                let path = Path::new(db, segments.clone());
-                let full_path = Path::new(db, {
-                    let mut full_path = segments.clone();
-                    full_path.push(name);
-                    full_path
-                });
-                let use_item = UseItem::new(db, name, path, full_path);
+            [path_segments @ .., name_segment] => {
+                let name = Name::new_from_has_name(db, name_segment).unwrap();
+                let path_exclude_name = Path::new_from_has_names(db, path_segments).unwrap();
+                let full_path = Path::new_from_has_names(db, {
+                    let full_path = path_segments;
+                    &[full_path, &[name_segment.clone()]].concat()
+                })
+                .unwrap();
+                let use_item = UseItem::new(db, name, path_exclude_name, full_path);
 
                 Some(use_item)
             }
@@ -443,18 +430,7 @@ impl<'a> BodyLower<'a> {
                                 }
                             }
                             _ => {
-                                let path = Path::new(
-                                    db,
-                                    segments
-                                        .iter()
-                                        .map(|segment| {
-                                            Name::new(
-                                                db,
-                                                segment.name().unwrap().name().to_string(),
-                                            )
-                                        })
-                                        .collect(),
-                                );
+                                let path = Path::new_from_has_names(db, &segments).unwrap();
                                 let symbol = Symbol::MissingType {
                                     path: NameSolutionPath::new(db, path),
                                 };
@@ -470,7 +446,7 @@ impl<'a> BodyLower<'a> {
                     ty.clone(),
                     TypeSource {
                         file: self.file,
-                        value: AstPtr::new(&path_type),
+                        value: path_type.to_ast_ptr(),
                     },
                 );
 
@@ -484,7 +460,7 @@ impl<'a> BodyLower<'a> {
         let result = match ast_stmt {
             ast::Stmt::Let(def) => {
                 let expr = self.lower_expr(db, def.value());
-                let name = Name::new(db, def.name()?.name().to_owned());
+                let name = Name::new_from_ident(db, def.name()?);
                 let mutable = def.mut_token().is_some();
 
                 let binding = Binding {
@@ -594,7 +570,7 @@ impl<'a> BodyLower<'a> {
             expr_id,
             InFile {
                 file: self.file,
-                value: AstPtr::new(ast_expr),
+                value: ast_expr.to_ast_ptr(),
             },
         );
 
@@ -615,7 +591,7 @@ impl<'a> BodyLower<'a> {
             expr_id,
             InFile {
                 file: self.file,
-                value: AstPtr::new(from_ast_expr),
+                value: from_ast_expr.to_ast_ptr(),
             },
         );
 
@@ -659,15 +635,7 @@ impl<'a> BodyLower<'a> {
     }
 
     fn lower_path_expr(&mut self, db: &dyn HirMasterDatabase, ast_path: &ast::PathExpr) -> Expr {
-        let path = Path::new(
-            db,
-            ast_path
-                .path()
-                .unwrap()
-                .segments()
-                .map(|segment| Name::new(db, segment.name().unwrap().name().to_string()))
-                .collect(),
-        );
+        let path = Path::new_from_path(db, ast_path).unwrap();
         let symbol = self.lookup_path(db, path);
         Expr::Symbol(symbol)
     }
@@ -766,17 +734,11 @@ impl<'a> BodyLower<'a> {
 
         let ast_then_branch = ast_if.then_branch().unwrap();
         let then_branch = self.lower_block(db, &ast_then_branch);
-        let then_branch = self.alloc_expr(
-            &ast::Expr::cast(ast_then_branch.syntax().clone()).unwrap(),
-            then_branch,
-        );
+        let then_branch = self.alloc_expr(&ast_then_branch.to_expr(), then_branch);
 
         let else_branch = if let Some(ast_else_branch) = ast_if.else_branch() {
             let else_branch = self.lower_block(db, &ast_else_branch);
-            Some(self.alloc_expr(
-                &ast::Expr::cast(ast_else_branch.syntax().clone()).unwrap(),
-                else_branch,
-            ))
+            Some(self.alloc_expr(&ast_else_branch.to_expr(), else_branch))
         } else {
             None
         };
@@ -803,7 +765,7 @@ impl<'a> BodyLower<'a> {
         if let Some(body) = ast_loop.body() {
             let block = self.lower_block(db, &body);
             Expr::Loop {
-                block: self.alloc_expr(&ast::Expr::cast(ast_loop.syntax().clone()).unwrap(), block),
+                block: self.alloc_expr(&ast_loop.to_expr(), block),
             }
         } else {
             Expr::Missing
@@ -845,17 +807,14 @@ impl<'a> BodyLower<'a> {
 
         if let Some(ast_body) = ast_while.body() {
             // while式の条件が一致する間実行するブロック
-            let do_block = self.lower_expr(
-                db,
-                Some(ast::Expr::cast(ast_body.syntax().clone()).unwrap()),
-            );
+            let do_block = self.lower_expr(db, Some(ast_body.to_expr()));
 
             // while式の条件が一致しない場合にbreakするためのブロック
             let break_block = {
                 let break_block = Expr::Block(Block {
                     stmts: vec![Stmt::Expr {
                         expr: self.alloc_expr_desugared(
-                            &ast::Expr::cast(ast_while.syntax().clone()).unwrap(),
+                            &ast_while.to_expr(),
                             Expr::Break { value: None },
                         ),
                         has_semicolon: true,
@@ -875,17 +834,13 @@ impl<'a> BodyLower<'a> {
 
                 Expr::Block(Block {
                     stmts: vec![Stmt::Expr {
-                        expr: self.alloc_expr_desugared(
-                            &ast::Expr::cast(ast_while.syntax().clone()).unwrap(),
-                            if_expr,
-                        ),
+                        expr: self.alloc_expr_desugared(&ast_while.to_expr(), if_expr),
                         has_semicolon: true,
                     }],
                     tail: None,
                 })
             };
-            let loop_block =
-                self.alloc_expr_desugared(&ast::Expr::WhileExpr(ast_while.clone()), loop_block);
+            let loop_block = self.alloc_expr_desugared(&ast_while.to_expr(), loop_block);
             Expr::Loop { block: loop_block }
         } else {
             Expr::Missing
@@ -897,15 +852,7 @@ impl<'a> BodyLower<'a> {
         db: &dyn HirMasterDatabase,
         ast_record_expr: &ast::RecordExpr,
     ) -> Expr {
-        let path = Path::new(
-            db,
-            ast_record_expr
-                .path()
-                .unwrap()
-                .segments()
-                .map(|segment| Name::new(db, segment.name().unwrap().name().to_string()))
-                .collect(),
-        );
+        let path = Path::new_from_path(db, ast_record_expr).unwrap();
         let symbol = Symbol::MissingExpr {
             path: NameSolutionPath::new(db, path),
         };
@@ -915,7 +862,7 @@ impl<'a> BodyLower<'a> {
             .unwrap()
             .fields()
             .map(|field| {
-                let name = Name::new(db, field.name().unwrap().name().to_string());
+                let name = Name::new_from_ident(db, field.name().unwrap());
                 let value = self.lower_expr(db, field.value());
                 RecordFieldExpr { name, value }
             })

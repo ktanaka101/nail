@@ -2,8 +2,42 @@ use syntax::{SyntaxKind, SyntaxNode, SyntaxToken};
 
 use crate::{
     ast_node::{self, Ast, AstNode, AstToken},
-    tokens,
+    tokens, Ident,
 };
+
+/// 式に変換可能なASTノードを定義します。
+///
+/// このトレイトを実装することで、式に変換する機能を提供します。
+pub trait ToExpr: AstNode {
+    /// Expr ASTノードに変換します。
+    fn to_expr(&self) -> Expr {
+        Expr::cast(self.syntax().clone()).unwrap()
+    }
+}
+
+/// パスを含むASTノードを定義します。
+///
+/// このトレイトを実装することで、ASTノードからパスを取得する機能を提供します。
+pub trait HasPath: AstNode {
+    /// パスASTノードを取得します。
+    ///
+    /// パスが存在しない場合は `None` を返します。
+    fn path(&self) -> Option<Path> {
+        ast_node::child_node(self)
+    }
+}
+
+/// 名前を含むASTノードを定義します。
+///
+/// このトレイトを実装することで、ASTノードから名前を取得する機能を提供します。
+pub trait HasName: AstNode {
+    /// 名前ASTノードを取得します。
+    ///
+    /// 名前が存在しない場合は `None` を返します。
+    fn name(&self) -> Option<Ident> {
+        ast_node::child_token(self)
+    }
+}
 
 /// ASTノードを定義します。
 ///
@@ -203,6 +237,22 @@ impl AstNode for Expr {
     }
 }
 
+impl ToExpr for BinaryExpr {}
+impl ToExpr for Literal {}
+impl ToExpr for ParenExpr {}
+impl ToExpr for UnaryExpr {}
+impl ToExpr for PathExpr {}
+impl ToExpr for CallExpr {}
+impl ToExpr for BlockExpr {}
+impl ToExpr for IfExpr {}
+impl ToExpr for ReturnExpr {}
+impl ToExpr for LoopExpr {}
+impl ToExpr for ContinueExpr {}
+impl ToExpr for BreakExpr {}
+impl ToExpr for WhileExpr {}
+impl ToExpr for RecordExpr {}
+impl ToExpr for FieldExpr {}
+
 /// ステートメントノード
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Stmt {
@@ -374,12 +424,7 @@ def_ast_node!(
     /// パス式のASTノード
     PathExpr
 );
-impl PathExpr {
-    /// パスノードを返します。
-    pub fn path(&self) -> Option<Path> {
-        ast_node::child_node(self)
-    }
-}
+impl HasPath for PathExpr {}
 
 def_ast_node!(
     /// パスのASTノード
@@ -396,12 +441,8 @@ def_ast_node!(
     /// パスのセグメントのASTノード
     PathSegment
 );
-impl PathSegment {
-    /// パスのセグメントの名前に位置するトークンを返します。
-    pub fn name(&self) -> Option<tokens::Ident> {
-        ast_node::child_token(self)
-    }
-}
+/// パスのセグメントの名前に位置するトークンを返します。
+impl HasName for PathSegment {}
 
 def_ast_node!(
     /// ブロック式のASTノード
@@ -504,11 +545,6 @@ impl FunctionDef {
         ast_node::child_node(self)
     }
 
-    /// 関数の名前に位置するトークンを返します。
-    pub fn name(&self) -> Option<tokens::Ident> {
-        ast_node::child_token(self)
-    }
-
     /// 関数の本体に位置する式ノードを返します。
     pub fn body(&self) -> Option<BlockExpr> {
         ast_node::child_node(self)
@@ -519,6 +555,8 @@ impl FunctionDef {
         ast_node::child_node(self)
     }
 }
+/// 関数の名前に位置するトークンを返します。
+impl HasName for FunctionDef {}
 
 def_ast_node!(
     /// 関数のパラメータのリストのASTノード
@@ -579,11 +617,6 @@ impl StructDef {
         }
     }
 
-    /// 構造体の名前に位置するトークンを返します。
-    pub fn name(&self) -> Option<tokens::Ident> {
-        ast_node::child_token(self)
-    }
-
     /// 構造体のフィールドのリストに位置するフィールドリストノードを返します。
     pub fn fields(&self) -> Option<FieldList> {
         if let Some(tuple_fields) = self.tuple_fields() {
@@ -618,6 +651,8 @@ impl StructDef {
         ast_node::child_node(self)
     }
 }
+/// 構造体の名前に位置するトークンを返します。
+impl HasName for StructDef {}
 
 /// 構造体の種類
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -718,16 +753,13 @@ def_ast_node!(
     RecordExpr
 );
 impl RecordExpr {
-    /// レコードの名前に位置するトークンを返します。
-    pub fn path(&self) -> Option<Path> {
-        ast_node::child_node(self)
-    }
-
     /// レコードフィールドの一覧を返します。
     pub fn fields(&self) -> Option<RecordFieldListExpr> {
         ast_node::child_node(self)
     }
 }
+/// レコードの名前に位置するトークンを返します。
+impl HasPath for RecordExpr {}
 
 def_ast_node!(
     /// レコード式のフィールドリストのASTノード
@@ -811,12 +843,8 @@ def_ast_node!(
     /// パス型のASTノード
     PathType
 );
-impl PathType {
-    /// 型を表すパスに位置するトークンを返します。
-    pub fn path(&self) -> Option<Path> {
-        ast_node::child_node(self)
-    }
-}
+/// 型を表すパスに位置するトークンを返します。
+impl HasPath for PathType {}
 
 def_ast_node!(
     /// 関数呼び出しのASTノード
@@ -871,6 +899,7 @@ impl Module {
         ast_node::child_node(self)
     }
 }
+impl HasName for Module {}
 
 def_ast_node!(
     /// アイテム一覧を表すASTノード

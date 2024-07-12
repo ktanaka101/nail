@@ -317,9 +317,9 @@
     eslint-visitor-keys "^3.4.3"
 
 "@vscode/test-cli@*":
-  version "0.0.9"
-  resolved "https://registry.yarnpkg.com/@vscode/test-cli/-/test-cli-0.0.9.tgz#7c8deca15d81ecf6df484ac2e420a85abc526ee6"
-  integrity sha512-vsl5/ueE3Jf0f6XzB0ECHHMsd5A0Yu6StElb8a+XsubZW7kHNAOw4Y3TSSuDzKEpLnJ92nbMy1Zl+KLGCE6NaA==
+  version "0.0.10"
+  resolved "https://registry.yarnpkg.com/@vscode/test-cli/-/test-cli-0.0.10.tgz#35f0e81c2e0ff8daceb223e99d1b65306c15822c"
+  integrity sha512-B0mMH4ia+MOOtwNiLi79XhA+MLmUItIC8FckEuKrVAVriIuSWjt7vv4+bF8qVFiNFe4QRfzPaIZk39FZGWEwHA==
   dependencies:
     "@types/mocha" "^10.0.2"
     c8 "^9.1.0"

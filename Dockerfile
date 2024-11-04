@@ -37,7 +37,7 @@ RUN curl -sL https://deb.nodesource.com/setup_18.x | bash - && \
   apt install -y libglib2.0-dev libnss3 libdbus-1-3	libatk1.0-0 libatk-bridge2.0-0 libgtk-3-0	libgbm1 libasound2 xvfb && \
   /etc/init.d/dbus restart && \
   # Rust
-  rustup default nightly-2024-11-04 && \
+  rustup default nightly-2024-10-18 && \
   ## install cargo-nextest
   curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash && \
   cargo binstall cargo-nextest@^0.9 --secure --no-confirm && \

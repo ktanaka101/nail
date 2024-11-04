@@ -1,3 +1,5 @@
+//! This module is a common module for testing.
+
 use expect_test::expect_file;
 use once_cell::sync::Lazy;
 use regex::Regex;

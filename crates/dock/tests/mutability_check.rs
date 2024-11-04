@@ -1,3 +1,5 @@
+//! Tests for checking the mutability of variables.
+
 mod common;
 
 #[cfg(test)]

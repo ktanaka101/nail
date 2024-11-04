@@ -1,4 +1,4 @@
-FROM rust:slim-bookworm AS base
+FROM rust:1.82-slim-bookworm AS base
 
 RUN apt update && apt -y upgrade && \
   apt install -y gnupg2 wget curl && \

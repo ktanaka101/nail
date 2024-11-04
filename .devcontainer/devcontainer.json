@@ -38,24 +38,34 @@
         }
       },
       "extensions": [
-        "vadimcn.vscode-lldb",
-        "mutantdino.resourcemonitor",
-        "rust-lang.rust-analyzer",
-        "tamasfe.even-better-toml",
+        // Dev common
         "editorconfig.editorconfig",
-        "gizak.shortcuts",
         "christian-kohler.path-intellisense",
         "spywhere.guides",
+        "eamodio.gitlens",
+        "ms-azuretools.vscode-docker",
+
+        // Dev rust
+        "rust-lang.rust-analyzer",
+        "vadimcn.vscode-lldb",
+        "tamasfe.even-better-toml",
+
+        // Dev LSP client
+        "unifiedjs.vscode-mdx",
+        "biomejs.biome",
+
+        // Markdown tools
+        "yzhang.markdown-all-in-one",
+        "bierner.github-markdown-preview",
+        "bierner.markdown-preview-github-styles",
+
+        // AI tools
         "github.copilot",
         "github.copilot-chat",
-        "eamodio.gitlens",
-        "unifiedjs.vscode-mdx",
-        "yzhang.markdown-all-in-one",
-        "ms-azuretools.vscode-docker",
-        "biomejs.biome",
-        "Codium.codium",
-        "bierner.github-markdown-preview",
-        "bierner.markdown-preview-github-styles"
+
+        // Utils
+        "gizak.shortcuts",
+        "mutantdino.resourcemonitor"
       ]
     }
   },

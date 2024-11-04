@@ -1,3 +1,10 @@
+//! このモジュールはテスト用の共通ユーティリティを提供します。
+//!
+//! # 主な機能
+//! - テストケースの実行と検証
+//! - 出力の正規化
+//! - パスの正規化
+
 use expect_test::expect_file;
 use once_cell::sync::Lazy;
 use regex::Regex;

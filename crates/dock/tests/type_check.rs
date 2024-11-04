@@ -1,3 +1,4 @@
+//! Test type checking.
 mod common;
 
 #[cfg(test)]

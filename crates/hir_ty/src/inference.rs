@@ -65,7 +65,7 @@ struct InferenceSignature<'a> {
 
     errors: Vec<InferenceError>,
 }
-impl<'a> InferenceSignature<'a> {
+impl InferenceSignature<'_> {
     fn infer_signature(mut self) -> InferenceSignatureResult {
         let params = self
             .function

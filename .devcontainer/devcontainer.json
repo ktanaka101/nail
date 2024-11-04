@@ -44,6 +44,7 @@
         "spywhere.guides",
         "eamodio.gitlens",
         "ms-azuretools.vscode-docker",
+        "fill-labs.dependi",
 
         // Dev rust
         "rust-lang.rust-analyzer",

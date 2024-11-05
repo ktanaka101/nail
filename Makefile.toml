@@ -43,7 +43,7 @@ cm_run_task ${SUBCOMMAND_PREFIX}_${1}
 [tasks.nail_compile]
 private = true
 command = "cargo"
-args = ["nextest", "run", "--workspace", "--locked"]
+args = ["build", "--workspace", "--locked"]
 install_crate = false
 
 [tasks.nail_compile-ci]

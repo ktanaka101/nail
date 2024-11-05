@@ -4,6 +4,7 @@ use std::{
     collections::HashMap,
     ffi::{c_char, CString},
     io,
+    ops::Range,
     path::{self, PathBuf},
 };
 
@@ -228,17 +229,20 @@ fn print_error(
     let file = diagnostic.file;
     let file_path = file.file_path(db).to_str().unwrap().to_string();
     let labels = diagnostic.messages.into_iter().map(|message| {
-        Label::new((&file_path, message.range.into())).with_message(message.message)
+        Label::new((&file_path, Range::<usize>::from(message.range))).with_message(message.message)
     });
 
-    Report::build(ReportKind::Error, &file_path, diagnostic.head_offset)
-        .with_message(diagnostic.title)
-        .with_labels(labels)
-        .with_config(config)
-        .finish()
-        .write(
-            (&file_path, Source::from(diagnostic.file.contents(db))),
-            write_dest_err,
-        )
-        .unwrap();
+    Report::build(
+        ReportKind::Error,
+        (&file_path, diagnostic.head_offset..diagnostic.head_offset),
+    )
+    .with_message(diagnostic.title)
+    .with_labels(labels)
+    .with_config(config)
+    .finish()
+    .write(
+        (&file_path, Source::from(diagnostic.file.contents(db))),
+        write_dest_err,
+    )
+    .unwrap();
 }

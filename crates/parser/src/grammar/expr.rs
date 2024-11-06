@@ -230,6 +230,8 @@ fn parse_lhs(parser: &mut Parser, parse_mode: ParseMode) -> Option<CompletedNode
         }
     } else if parser.at_set(&[TokenKind::Minus, TokenKind::Bang]) {
         parse_prefix_expr(parser)
+    } else if parser.at(TokenKind::LBrace) {
+        parse_array_expr(parser)
     } else if parser.at(TokenKind::LParen) {
         parse_paren_expr(parser)
     } else if parser.at(TokenKind::LCurly) {
@@ -314,6 +316,39 @@ fn validate_literal(parser: &mut Parser) {
             parser.error_in_token(vec![TokenKind::SingleQuote]);
         }
     }
+}
+
+/// 配列式のパース
+///
+/// ex. `let arr = [1, 2, 3];`
+fn parse_array_expr(parser: &mut Parser) -> CompletedNodeMarker {
+    assert!(parser.at(TokenKind::LBrace));
+
+    let marker = parser.start();
+
+    parser.expect_on_block(TokenKind::LBrace);
+
+    if parser.at_set_no_expected(&EXPR_FIRST) {
+        parse_expr(parser);
+    } else {
+        parser.expect_on_block(TokenKind::RBrace);
+        return marker.complete(parser, SyntaxKind::ArrayExpr);
+    }
+
+    while parser.at(TokenKind::Comma) {
+        parser.bump();
+        if parser.at(TokenKind::RBrace) {
+            break;
+        }
+
+        if parser.at_set_no_expected(&EXPR_FIRST) {
+            parse_expr(parser);
+        }
+    }
+
+    parser.expect_on_block(TokenKind::RBrace);
+
+    marker.complete(parser, SyntaxKind::ArrayExpr)
 }
 
 /// パス式あるいはレコード式のパース
@@ -960,6 +995,95 @@ mod tests {
     }
 
     #[test]
+    fn parse_array_expr() {
+        check_debug_tree_in_block(
+            r#"[0, 1]"#,
+            expect![[r#"
+                SourceFile@0..6
+                  ExprStmt@0..6
+                    ArrayExpr@0..6
+                      LBrace@0..1 "["
+                      Literal@1..2
+                        Integer@1..2 "0"
+                      Comma@2..3 ","
+                      Whitespace@3..4 " "
+                      Literal@4..5
+                        Integer@4..5 "1"
+                      RBrace@5..6 "]"
+            "#]],
+        );
+
+        check_debug_tree_in_block(
+            r#"["aaa", "bbb"]"#,
+            expect![[r#"
+                SourceFile@0..14
+                  ExprStmt@0..14
+                    ArrayExpr@0..14
+                      LBrace@0..1 "["
+                      Literal@1..6
+                        String@1..6 "\"aaa\""
+                      Comma@6..7 ","
+                      Whitespace@7..8 " "
+                      Literal@8..13
+                        String@8..13 "\"bbb\""
+                      RBrace@13..14 "]"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_array_expr_empty() {
+        check_debug_tree_in_block(
+            r#"[]"#,
+            expect![[r#"
+                SourceFile@0..2
+                  ExprStmt@0..2
+                    ArrayExpr@0..2
+                      LBrace@0..1 "["
+                      RBrace@1..2 "]"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_array_expr_inner_expr() {
+        check_debug_tree_in_block(
+            r#"[{ 0 }, { 1 + 2 }]"#,
+            expect![[r#"
+                SourceFile@0..18
+                  ExprStmt@0..18
+                    ArrayExpr@0..18
+                      LBrace@0..1 "["
+                      BlockExpr@1..6
+                        LCurly@1..2 "{"
+                        Whitespace@2..3 " "
+                        ExprStmt@3..4
+                          Literal@3..4
+                            Integer@3..4 "0"
+                        Whitespace@4..5 " "
+                        RCurly@5..6 "}"
+                      Comma@6..7 ","
+                      Whitespace@7..8 " "
+                      BlockExpr@8..17
+                        LCurly@8..9 "{"
+                        Whitespace@9..10 " "
+                        ExprStmt@10..15
+                          BinaryExpr@10..15
+                            Literal@10..11
+                              Integer@10..11 "1"
+                            Whitespace@11..12 " "
+                            Plus@12..13 "+"
+                            Whitespace@13..14 " "
+                            Literal@14..15
+                              Integer@14..15 "2"
+                        Whitespace@15..16 " "
+                        RCurly@16..17 "}"
+                      RBrace@17..18 "]"
+            "#]],
+        );
+    }
+
+    #[test]
     fn parse_unterminated_char() {
         check_debug_tree_in_block(
             "'a",
@@ -1141,7 +1265,7 @@ mod tests {
                         Literal@1..2
                           Integer@1..2 "1"
                         Plus@2..3 "+"
-                error at 2..3: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while'
+                error at 2..3: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '[', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while'
                 error at 2..3: expected ')'
             "#]],
         );
@@ -1473,7 +1597,7 @@ mod tests {
                     Error@5..6
                       RParen@5..6 ")"
                 error at 4..5: expected '::', '{', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ',' or ')', but found identifier
-                error at 5..6: expected '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ';', 'let', 'fn', 'struct', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found ')'
+                error at 5..6: expected '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ';', 'let', 'fn', 'struct', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '[', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found ')'
             "#]],
         );
     }
@@ -1707,7 +1831,7 @@ mod tests {
                       Whitespace@75..76 " "
                       RCurly@76..77 "}"
                   Whitespace@77..90 "\n            "
-                error at 62..63: expected '::', '{', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ';', '}', 'let', 'fn', 'struct', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found ':'
+                error at 62..63: expected '::', '{', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ';', '}', 'let', 'fn', 'struct', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '[', '(', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found ':'
             "#]],
         );
     }
@@ -2798,7 +2922,7 @@ mod tests {
                       Path@7..14
                         PathSegment@7..14
                           Ident@7..14 "foo_bar"
-                error at 6..7: expected 'let', 'fn', 'struct', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found '.'
+                error at 6..7: expected 'let', 'fn', 'struct', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '[', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found '.'
             "#]],
         );
 

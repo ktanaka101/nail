@@ -424,7 +424,7 @@ mod tests {
                     Error@8..10
                       Integer@8..10 "10"
                 error at 8..10: expected '=', but found integerLiteral
-                error at 8..10: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while'
+                error at 8..10: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '[', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while'
             "#]],
         )
     }
@@ -471,7 +471,7 @@ mod tests {
                       Path@16..17
                         PathSegment@16..17
                           Ident@16..17 "a"
-                error at 8..11: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found 'let'
+                error at 8..11: expected integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '[', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found 'let'
             "#]],
         );
     }
@@ -1047,7 +1047,7 @@ mod tests {
                     Error@16..17
                       RCurly@16..17 "}"
                 error at 13..15: expected identifier or '}', but found integerLiteral
-                error at 16..17: expected '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ';', 'let', 'fn', 'struct', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found '}'
+                error at 16..17: expected '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ';', 'let', 'fn', 'struct', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '[', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found '}'
             "#]],
         );
     }

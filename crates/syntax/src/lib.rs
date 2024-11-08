@@ -30,7 +30,7 @@ pub enum SyntaxKind {
     // ---expression nodes---
     /// `INTEGER_LITERAL` | `CHAR_LITERAL` | `STRING_LITERAL` | `true` | `false`
     Literal,
-    /// `[EXPR, ...]`
+    /// `[EXPR, ...]` ex. `[1, 2, 3]`, `[x, y]`
     ArrayExpr,
     /// `(EXPR)`
     ParenExpr,

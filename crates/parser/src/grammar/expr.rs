@@ -9,7 +9,7 @@ use crate::{
 };
 
 /// 式の最初に現れる可能性があるトークンの集合
-pub(super) const EXPR_FIRST: [TokenKind; 17] = [
+pub(super) const EXPR_FIRST: [TokenKind; 18] = [
     TokenKind::StringLiteral,
     TokenKind::CharLiteral(false),
     TokenKind::CharLiteral(true),
@@ -21,6 +21,7 @@ pub(super) const EXPR_FIRST: [TokenKind; 17] = [
     TokenKind::Minus,
     TokenKind::LParen,
     TokenKind::LCurly,
+    TokenKind::LBrace,
     TokenKind::IfKw,
     TokenKind::ReturnKw,
     TokenKind::LoopKw,
@@ -328,6 +329,7 @@ fn parse_array_expr(parser: &mut Parser) -> CompletedNodeMarker {
 
     parser.expect_on_block(TokenKind::LBrace);
 
+    // First element or empty array
     if parser.at_set_no_expected(&EXPR_FIRST) {
         parse_expr(parser);
     } else {
@@ -1041,6 +1043,36 @@ mod tests {
                     ArrayExpr@0..2
                       LBrace@0..1 "["
                       RBrace@1..2 "]"
+            "#]],
+        );
+    }
+
+    #[test]
+    fn parse_array_expr_nested() {
+        check_debug_tree_in_block(
+            r#"[[[1], 2], 3]"#,
+            expect![[r#"
+                SourceFile@0..13
+                  ExprStmt@0..13
+                    ArrayExpr@0..13
+                      LBrace@0..1 "["
+                      ArrayExpr@1..9
+                        LBrace@1..2 "["
+                        ArrayExpr@2..5
+                          LBrace@2..3 "["
+                          Literal@3..4
+                            Integer@3..4 "1"
+                          RBrace@4..5 "]"
+                        Comma@5..6 ","
+                        Whitespace@6..7 " "
+                        Literal@7..8
+                          Integer@7..8 "2"
+                        RBrace@8..9 "]"
+                      Comma@9..10 ","
+                      Whitespace@10..11 " "
+                      Literal@11..12
+                        Integer@11..12 "3"
+                      RBrace@12..13 "]"
             "#]],
         );
     }

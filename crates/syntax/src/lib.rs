@@ -212,9 +212,9 @@ pub enum SyntaxKind {
     /// `)`
     RParen,
     /// `[`
-    LBrace,
+    LBracket,
     /// `]`
-    RBrace,
+    RBracket,
     /// `{`
     LCurly,
     /// `}`
@@ -281,8 +281,8 @@ impl From<TokenKind> for SyntaxKind {
             TokenKind::Semicolon => Self::Semicolon,
             TokenKind::LParen => Self::LParen,
             TokenKind::RParen => Self::RParen,
-            TokenKind::LBrace => Self::LBrace,
-            TokenKind::RBrace => Self::RBrace,
+            TokenKind::LBracket => Self::LBracket,
+            TokenKind::RBracket => Self::RBracket,
             TokenKind::LCurly => Self::LCurly,
             TokenKind::RCurly => Self::RCurly,
             TokenKind::Pipe => Self::Pipe,

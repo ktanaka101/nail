@@ -21,7 +21,7 @@ pub(super) const EXPR_FIRST: [TokenKind; 18] = [
     TokenKind::Minus,
     TokenKind::LParen,
     TokenKind::LCurly,
-    TokenKind::LBrace,
+    TokenKind::LBracket,
     TokenKind::IfKw,
     TokenKind::ReturnKw,
     TokenKind::LoopKw,
@@ -231,7 +231,7 @@ fn parse_lhs(parser: &mut Parser, parse_mode: ParseMode) -> Option<CompletedNode
         }
     } else if parser.at_set(&[TokenKind::Minus, TokenKind::Bang]) {
         parse_prefix_expr(parser)
-    } else if parser.at(TokenKind::LBrace) {
+    } else if parser.at(TokenKind::LBracket) {
         parse_array_expr(parser)
     } else if parser.at(TokenKind::LParen) {
         parse_paren_expr(parser)
@@ -323,23 +323,23 @@ fn validate_literal(parser: &mut Parser) {
 ///
 /// ex. `let arr = [1, 2, 3];`
 fn parse_array_expr(parser: &mut Parser) -> CompletedNodeMarker {
-    assert!(parser.at(TokenKind::LBrace));
+    assert!(parser.at(TokenKind::LBracket));
 
     let marker = parser.start();
 
-    parser.expect_on_block(TokenKind::LBrace);
+    parser.expect_on_block(TokenKind::LBracket);
 
     // First element or empty array
     if parser.at_set_no_expected(&EXPR_FIRST) {
         parse_expr(parser);
     } else {
-        parser.expect_on_block(TokenKind::RBrace);
+        parser.expect_on_block(TokenKind::RBracket);
         return marker.complete(parser, SyntaxKind::ArrayExpr);
     }
 
     while parser.at(TokenKind::Comma) {
         parser.bump();
-        if parser.at(TokenKind::RBrace) {
+        if parser.at(TokenKind::RBracket) {
             break;
         }
 
@@ -348,7 +348,7 @@ fn parse_array_expr(parser: &mut Parser) -> CompletedNodeMarker {
         }
     }
 
-    parser.expect_on_block(TokenKind::RBrace);
+    parser.expect_on_block(TokenKind::RBracket);
 
     marker.complete(parser, SyntaxKind::ArrayExpr)
 }
@@ -1004,14 +1004,14 @@ mod tests {
                 SourceFile@0..6
                   ExprStmt@0..6
                     ArrayExpr@0..6
-                      LBrace@0..1 "["
+                      LBracket@0..1 "["
                       Literal@1..2
                         Integer@1..2 "0"
                       Comma@2..3 ","
                       Whitespace@3..4 " "
                       Literal@4..5
                         Integer@4..5 "1"
-                      RBrace@5..6 "]"
+                      RBracket@5..6 "]"
             "#]],
         );
 
@@ -1021,14 +1021,14 @@ mod tests {
                 SourceFile@0..14
                   ExprStmt@0..14
                     ArrayExpr@0..14
-                      LBrace@0..1 "["
+                      LBracket@0..1 "["
                       Literal@1..6
                         String@1..6 "\"aaa\""
                       Comma@6..7 ","
                       Whitespace@7..8 " "
                       Literal@8..13
                         String@8..13 "\"bbb\""
-                      RBrace@13..14 "]"
+                      RBracket@13..14 "]"
             "#]],
         );
     }
@@ -1041,8 +1041,8 @@ mod tests {
                 SourceFile@0..2
                   ExprStmt@0..2
                     ArrayExpr@0..2
-                      LBrace@0..1 "["
-                      RBrace@1..2 "]"
+                      LBracket@0..1 "["
+                      RBracket@1..2 "]"
             "#]],
         );
     }
@@ -1055,24 +1055,24 @@ mod tests {
                 SourceFile@0..13
                   ExprStmt@0..13
                     ArrayExpr@0..13
-                      LBrace@0..1 "["
+                      LBracket@0..1 "["
                       ArrayExpr@1..9
-                        LBrace@1..2 "["
+                        LBracket@1..2 "["
                         ArrayExpr@2..5
-                          LBrace@2..3 "["
+                          LBracket@2..3 "["
                           Literal@3..4
                             Integer@3..4 "1"
-                          RBrace@4..5 "]"
+                          RBracket@4..5 "]"
                         Comma@5..6 ","
                         Whitespace@6..7 " "
                         Literal@7..8
                           Integer@7..8 "2"
-                        RBrace@8..9 "]"
+                        RBracket@8..9 "]"
                       Comma@9..10 ","
                       Whitespace@10..11 " "
                       Literal@11..12
                         Integer@11..12 "3"
-                      RBrace@12..13 "]"
+                      RBracket@12..13 "]"
             "#]],
         );
     }
@@ -1085,7 +1085,7 @@ mod tests {
                 SourceFile@0..18
                   ExprStmt@0..18
                     ArrayExpr@0..18
-                      LBrace@0..1 "["
+                      LBracket@0..1 "["
                       BlockExpr@1..6
                         LCurly@1..2 "{"
                         Whitespace@2..3 " "
@@ -1110,7 +1110,7 @@ mod tests {
                               Integer@14..15 "2"
                         Whitespace@15..16 " "
                         RCurly@16..17 "}"
-                      RBrace@17..18 "]"
+                      RBracket@17..18 "]"
             "#]],
         );
     }

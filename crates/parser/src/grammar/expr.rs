@@ -20,7 +20,7 @@ pub(super) const EXPR_FIRST: [TokenKind; 18] = [
     TokenKind::Bang,
     TokenKind::Minus,
     TokenKind::LParen,
-    TokenKind::LCurly,
+    TokenKind::LBrace,
     TokenKind::LBracket,
     TokenKind::IfKw,
     TokenKind::ReturnKw,
@@ -235,7 +235,7 @@ fn parse_lhs(parser: &mut Parser, parse_mode: ParseMode) -> Option<CompletedNode
         parse_array_expr(parser)
     } else if parser.at(TokenKind::LParen) {
         parse_paren_expr(parser)
-    } else if parser.at(TokenKind::LCurly) {
+    } else if parser.at(TokenKind::LBrace) {
         parse_block(parser)
     } else if parser.at(TokenKind::IfKw) {
         parse_if(parser)
@@ -365,7 +365,7 @@ fn parse_path_expr_or_record_expr(parser: &mut Parser) -> CompletedNodeMarker {
 
     parse_path(parser, &BLOCK_RECOVERY_SET);
 
-    if parser.at(TokenKind::LCurly) {
+    if parser.at(TokenKind::LBrace) {
         // Pathの次に`{`がある場合はRecordExprとして返す
         parse_record_field_list_expr(parser);
         marker.complete(parser, SyntaxKind::RecordExpr)
@@ -449,14 +449,14 @@ fn parse_paren_expr(parser: &mut Parser) -> CompletedNodeMarker {
 /// ブロックはさまざまな箇所で使用されています。
 /// `if-else`式や、`while`式、関数などです。
 fn parse_block(parser: &mut Parser) -> CompletedNodeMarker {
-    assert!(parser.at(TokenKind::LCurly));
+    assert!(parser.at(TokenKind::LBrace));
 
     let marker = parser.start();
     parser.bump();
-    while !parser.at(TokenKind::RCurly) && !parser.at_end() {
+    while !parser.at(TokenKind::RBrace) && !parser.at_end() {
         parse_stmt_on_block(parser);
     }
-    parser.expect_on_block(TokenKind::RCurly);
+    parser.expect_on_block(TokenKind::RBrace);
 
     marker.complete(parser, SyntaxKind::BlockExpr)
 }
@@ -469,14 +469,14 @@ fn parse_if(parser: &mut Parser) -> CompletedNodeMarker {
     parser.bump();
     parse_expr_block_safe(parser);
 
-    if parser.at(TokenKind::LCurly) {
+    if parser.at(TokenKind::LBrace) {
         parse_block(parser);
     }
 
     if parser.at(TokenKind::ElseKw) {
         parser.bump();
         // elseのブロックがなくても続きを食わない事で、続きの一連のトークンに影響を及ぼさない
-        if parser.at(TokenKind::LCurly) {
+        if parser.at(TokenKind::LBrace) {
             parse_block(parser);
         }
     }
@@ -504,7 +504,7 @@ fn parse_loop(parser: &mut Parser) -> CompletedNodeMarker {
     let marker = parser.start();
     parser.bump();
 
-    if parser.at(TokenKind::LCurly) {
+    if parser.at(TokenKind::LBrace) {
         parse_block(parser);
     }
 
@@ -543,7 +543,7 @@ fn parse_while(parser: &mut Parser) -> CompletedNodeMarker {
     parser.bump();
     parse_expr_block_safe(parser);
 
-    if parser.at(TokenKind::LCurly) {
+    if parser.at(TokenKind::LBrace) {
         parse_block(parser);
     }
 
@@ -551,11 +551,11 @@ fn parse_while(parser: &mut Parser) -> CompletedNodeMarker {
 }
 
 fn parse_record_field_list_expr(parser: &mut Parser) -> CompletedNodeMarker {
-    assert!(parser.at(TokenKind::LCurly));
+    assert!(parser.at(TokenKind::LBrace));
 
     let marker = parser.start();
 
-    parser.expect_on_block(TokenKind::LCurly);
+    parser.expect_on_block(TokenKind::LBrace);
 
     if parser.at(TokenKind::Ident)
         || parser.peek() == Some(TokenKind::Colon)
@@ -573,7 +573,7 @@ fn parse_record_field_list_expr(parser: &mut Parser) -> CompletedNodeMarker {
             parser.bump();
             // Point { x: 10, y: 20, }
             //                     ^,時点で停止させる
-            if parser.at(TokenKind::RCurly) {
+            if parser.at(TokenKind::RBrace) {
                 break;
             }
 
@@ -587,7 +587,7 @@ fn parse_record_field_list_expr(parser: &mut Parser) -> CompletedNodeMarker {
         }
     }
 
-    parser.expect_on_block(TokenKind::RCurly);
+    parser.expect_on_block(TokenKind::RBrace);
 
     marker.complete(parser, SyntaxKind::RecordFieldListExpr)
 }
@@ -1087,17 +1087,17 @@ mod tests {
                     ArrayExpr@0..18
                       LBracket@0..1 "["
                       BlockExpr@1..6
-                        LCurly@1..2 "{"
+                        LBrace@1..2 "{"
                         Whitespace@2..3 " "
                         ExprStmt@3..4
                           Literal@3..4
                             Integer@3..4 "0"
                         Whitespace@4..5 " "
-                        RCurly@5..6 "}"
+                        RBrace@5..6 "}"
                       Comma@6..7 ","
                       Whitespace@7..8 " "
                       BlockExpr@8..17
-                        LCurly@8..9 "{"
+                        LBrace@8..9 "{"
                         Whitespace@9..10 " "
                         ExprStmt@10..15
                           BinaryExpr@10..15
@@ -1109,7 +1109,7 @@ mod tests {
                             Literal@14..15
                               Integer@14..15 "2"
                         Whitespace@15..16 " "
-                        RCurly@16..17 "}"
+                        RBrace@16..17 "}"
                       RBracket@17..18 "]"
             "#]],
         );
@@ -1311,13 +1311,13 @@ mod tests {
                 SourceFile@0..5
                   ExprStmt@0..5
                     BlockExpr@0..5
-                      LCurly@0..1 "{"
+                      LBrace@0..1 "{"
                       Whitespace@1..2 " "
                       ExprStmt@2..3
                         Literal@2..3
                           Integer@2..3 "1"
                       Whitespace@3..4 " "
-                      RCurly@4..5 "}"
+                      RBrace@4..5 "}"
             "#]],
         );
     }
@@ -1330,7 +1330,7 @@ mod tests {
                 SourceFile@0..4
                   ExprStmt@0..3
                     BlockExpr@0..3
-                      LCurly@0..1 "{"
+                      LBrace@0..1 "{"
                       Whitespace@1..2 " "
                       ExprStmt@2..3
                         Literal@2..3
@@ -1352,7 +1352,7 @@ mod tests {
                 SourceFile@0..24
                   ExprStmt@0..24
                     BlockExpr@0..24
-                      LCurly@0..1 "{"
+                      LBrace@0..1 "{"
                       Whitespace@1..4 "\n  "
                       Let@4..14
                         LetKw@4..7 "let"
@@ -1366,15 +1366,15 @@ mod tests {
                       Whitespace@14..17 "\n  "
                       ExprStmt@17..22
                         BlockExpr@17..22
-                          LCurly@17..18 "{"
+                          LBrace@17..18 "{"
                           Whitespace@18..19 " "
                           ExprStmt@19..20
                             Literal@19..20
                               Integer@19..20 "1"
                           Whitespace@20..21 " "
-                          RCurly@21..22 "}"
+                          RBrace@21..22 "}"
                       Whitespace@22..23 "\n"
-                      RCurly@23..24 "}"
+                      RBrace@23..24 "}"
             "#]],
         );
     }
@@ -1472,7 +1472,7 @@ mod tests {
                   ExprStmt@0..7
                     CallExpr@0..7
                       BlockExpr@0..5
-                        LCurly@0..1 "{"
+                        LBrace@0..1 "{"
                         Whitespace@1..2 " "
                         ExprStmt@2..3
                           PathExpr@2..3
@@ -1480,7 +1480,7 @@ mod tests {
                               PathSegment@2..3
                                 Ident@2..3 "a"
                         Whitespace@3..4 " "
-                        RCurly@4..5 "}"
+                        RBrace@4..5 "}"
                       ArgList@5..7
                         LParen@5..6 "("
                         RParen@6..7 ")"
@@ -1679,7 +1679,7 @@ mod tests {
                         LParen@1..2 "("
                         Arg@2..11
                           BlockExpr@2..11
-                            LCurly@2..3 "{"
+                            LBrace@2..3 "{"
                             Whitespace@3..4 " "
                             ExprStmt@4..9
                               BinaryExpr@4..9
@@ -1695,7 +1695,7 @@ mod tests {
                                     PathSegment@8..9
                                       Ident@8..9 "y"
                             Whitespace@9..10 " "
-                            RCurly@10..11 "}"
+                            RBrace@10..11 "}"
                         RParen@11..12 ")"
             "#]],
         );
@@ -1715,13 +1715,13 @@ mod tests {
                         TrueKw@3..7 "true"
                       Whitespace@7..8 " "
                       BlockExpr@8..14
-                        LCurly@8..9 "{"
+                        LBrace@8..9 "{"
                         Whitespace@9..10 " "
                         ExprStmt@10..12
                           Literal@10..12
                             Integer@10..12 "10"
                         Whitespace@12..13 " "
-                        RCurly@13..14 "}"
+                        RBrace@13..14 "}"
             "#]],
         );
 
@@ -1737,24 +1737,24 @@ mod tests {
                         TrueKw@3..7 "true"
                       Whitespace@7..8 " "
                       BlockExpr@8..14
-                        LCurly@8..9 "{"
+                        LBrace@8..9 "{"
                         Whitespace@9..10 " "
                         ExprStmt@10..12
                           Literal@10..12
                             Integer@10..12 "10"
                         Whitespace@12..13 " "
-                        RCurly@13..14 "}"
+                        RBrace@13..14 "}"
                       Whitespace@14..15 " "
                       ElseKw@15..19 "else"
                       Whitespace@19..20 " "
                       BlockExpr@20..26
-                        LCurly@20..21 "{"
+                        LBrace@20..21 "{"
                         Whitespace@21..22 " "
                         ExprStmt@22..24
                           Literal@22..24
                             Integer@22..24 "20"
                         Whitespace@24..25 " "
-                        RCurly@25..26 "}"
+                        RBrace@25..26 "}"
             "#]],
         )
     }
@@ -1786,13 +1786,13 @@ mod tests {
                             Ident@17..18 "a"
                       Whitespace@18..19 " "
                       BlockExpr@19..25
-                        LCurly@19..20 "{"
+                        LBrace@19..20 "{"
                         Whitespace@20..21 " "
                         ExprStmt@21..23
                           Literal@21..23
                             Integer@21..23 "10"
                         Whitespace@23..24 " "
-                        RCurly@24..25 "}"
+                        RBrace@24..25 "}"
             "#]],
         );
     }
@@ -1813,7 +1813,7 @@ mod tests {
                     Ident@24..25 "A"
                     Whitespace@25..26 " "
                     RecordFieldList@26..37
-                      LCurly@26..27 "{"
+                      LBrace@26..27 "{"
                       Whitespace@27..28 " "
                       RecordField@28..35
                         Ident@28..29 "x"
@@ -1824,7 +1824,7 @@ mod tests {
                             PathSegment@31..35
                               Ident@31..35 "bool"
                       Whitespace@35..36 " "
-                      RCurly@36..37 "}"
+                      RBrace@36..37 "}"
                   Whitespace@37..54 "\n                "
                   ExprStmt@54..70
                     IfExpr@54..70
@@ -1836,7 +1836,7 @@ mod tests {
                             Ident@57..58 "A"
                       Whitespace@58..59 " "
                       BlockExpr@59..70
-                        LCurly@59..60 "{"
+                        LBrace@59..60 "{"
                         Whitespace@60..61 " "
                         ExprStmt@61..62
                           PathExpr@61..62
@@ -1851,17 +1851,17 @@ mod tests {
                           Literal@64..68
                             TrueKw@64..68 "true"
                         Whitespace@68..69 " "
-                        RCurly@69..70 "}"
+                        RBrace@69..70 "}"
                   Whitespace@70..71 " "
                   ExprStmt@71..77
                     BlockExpr@71..77
-                      LCurly@71..72 "{"
+                      LBrace@71..72 "{"
                       Whitespace@72..73 " "
                       ExprStmt@73..75
                         Literal@73..75
                           Integer@73..75 "10"
                       Whitespace@75..76 " "
-                      RCurly@76..77 "}"
+                      RBrace@76..77 "}"
                   Whitespace@77..90 "\n            "
                 error at 62..63: expected '::', '{', '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ';', '}', 'let', 'fn', 'struct', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '[', '(', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found ':'
             "#]],
@@ -1884,7 +1884,7 @@ mod tests {
                     Ident@24..25 "A"
                     Whitespace@25..26 " "
                     RecordFieldList@26..37
-                      LCurly@26..27 "{"
+                      LBrace@26..27 "{"
                       Whitespace@27..28 " "
                       RecordField@28..35
                         Ident@28..29 "x"
@@ -1895,7 +1895,7 @@ mod tests {
                             PathSegment@31..35
                               Ident@31..35 "bool"
                       Whitespace@35..36 " "
-                      RCurly@36..37 "}"
+                      RBrace@36..37 "}"
                   Whitespace@37..54 "\n                "
                   ExprStmt@54..79
                     IfExpr@54..79
@@ -1909,7 +1909,7 @@ mod tests {
                               Ident@58..59 "A"
                           Whitespace@59..60 " "
                           RecordFieldListExpr@60..71
-                            LCurly@60..61 "{"
+                            LBrace@60..61 "{"
                             Whitespace@61..62 " "
                             RecordFieldExpr@62..69
                               Ident@62..63 "x"
@@ -1918,17 +1918,17 @@ mod tests {
                               Literal@65..69
                                 TrueKw@65..69 "true"
                             Whitespace@69..70 " "
-                            RCurly@70..71 "}"
+                            RBrace@70..71 "}"
                         RParen@71..72 ")"
                       Whitespace@72..73 " "
                       BlockExpr@73..79
-                        LCurly@73..74 "{"
+                        LBrace@73..74 "{"
                         Whitespace@74..75 " "
                         ExprStmt@75..77
                           Literal@75..77
                             Integer@75..77 "10"
                         Whitespace@77..78 " "
-                        RCurly@78..79 "}"
+                        RBrace@78..79 "}"
                   Whitespace@79..92 "\n            "
             "#]],
         );
@@ -1954,24 +1954,24 @@ mod tests {
                         TrueKw@11..15 "true"
                       Whitespace@15..16 " "
                       BlockExpr@16..22
-                        LCurly@16..17 "{"
+                        LBrace@16..17 "{"
                         Whitespace@17..18 " "
                         ExprStmt@18..20
                           Literal@18..20
                             Integer@18..20 "10"
                         Whitespace@20..21 " "
-                        RCurly@21..22 "}"
+                        RBrace@21..22 "}"
                       Whitespace@22..23 " "
                       ElseKw@23..27 "else"
                       Whitespace@27..28 " "
                       BlockExpr@28..34
-                        LCurly@28..29 "{"
+                        LBrace@28..29 "{"
                         Whitespace@29..30 " "
                         ExprStmt@30..32
                           Literal@30..32
                             Integer@30..32 "20"
                         Whitespace@32..33 " "
-                        RCurly@33..34 "}"
+                        RBrace@33..34 "}"
             "#]],
         )
     }
@@ -1987,24 +1987,24 @@ mod tests {
                       IfKw@0..2 "if"
                       Whitespace@2..3 " "
                       BlockExpr@3..9
-                        LCurly@3..4 "{"
+                        LBrace@3..4 "{"
                         Whitespace@4..5 " "
                         ExprStmt@5..7
                           Literal@5..7
                             Integer@5..7 "10"
                         Whitespace@7..8 " "
-                        RCurly@8..9 "}"
+                        RBrace@8..9 "}"
                       Whitespace@9..10 " "
                       ElseKw@10..14 "else"
                       Whitespace@14..15 " "
                       BlockExpr@15..21
-                        LCurly@15..16 "{"
+                        LBrace@15..16 "{"
                         Whitespace@16..17 " "
                         ExprStmt@17..19
                           Literal@17..19
                             Integer@17..19 "20"
                         Whitespace@19..20 " "
-                        RCurly@20..21 "}"
+                        RBrace@20..21 "}"
             "#]],
         );
     }
@@ -2025,13 +2025,13 @@ mod tests {
                       ElseKw@8..12 "else"
                       Whitespace@12..13 " "
                       BlockExpr@13..19
-                        LCurly@13..14 "{"
+                        LBrace@13..14 "{"
                         Whitespace@14..15 " "
                         ExprStmt@15..17
                           Literal@15..17
                             Integer@15..17 "20"
                         Whitespace@17..18 " "
-                        RCurly@18..19 "}"
+                        RBrace@18..19 "}"
             "#]],
         );
     }
@@ -2050,23 +2050,23 @@ mod tests {
                         TrueKw@3..7 "true"
                       Whitespace@7..8 " "
                       BlockExpr@8..14
-                        LCurly@8..9 "{"
+                        LBrace@8..9 "{"
                         Whitespace@9..10 " "
                         ExprStmt@10..12
                           Literal@10..12
                             Integer@10..12 "10"
                         Whitespace@12..13 " "
-                        RCurly@13..14 "}"
+                        RBrace@13..14 "}"
                   Whitespace@14..15 " "
                   ExprStmt@15..21
                     BlockExpr@15..21
-                      LCurly@15..16 "{"
+                      LBrace@15..16 "{"
                       Whitespace@16..17 " "
                       ExprStmt@17..19
                         Literal@17..19
                           Integer@17..19 "20"
                       Whitespace@19..20 " "
-                      RCurly@20..21 "}"
+                      RBrace@20..21 "}"
             "#]],
         );
     }
@@ -2085,13 +2085,13 @@ mod tests {
                         TrueKw@3..7 "true"
                       Whitespace@7..8 " "
                       BlockExpr@8..14
-                        LCurly@8..9 "{"
+                        LBrace@8..9 "{"
                         Whitespace@9..10 " "
                         ExprStmt@10..12
                           Literal@10..12
                             Integer@10..12 "10"
                         Whitespace@12..13 " "
-                        RCurly@13..14 "}"
+                        RBrace@13..14 "}"
                       Whitespace@14..15 " "
                       ElseKw@15..19 "else"
             "#]],
@@ -2109,33 +2109,33 @@ mod tests {
                       IfKw@0..2 "if"
                       Whitespace@2..3 " "
                       BlockExpr@3..11
-                        LCurly@3..4 "{"
+                        LBrace@3..4 "{"
                         Whitespace@4..5 " "
                         ExprStmt@5..9
                           Literal@5..9
                             TrueKw@5..9 "true"
                         Whitespace@9..10 " "
-                        RCurly@10..11 "}"
+                        RBrace@10..11 "}"
                       Whitespace@11..12 " "
                       BlockExpr@12..18
-                        LCurly@12..13 "{"
+                        LBrace@12..13 "{"
                         Whitespace@13..14 " "
                         ExprStmt@14..16
                           Literal@14..16
                             Integer@14..16 "10"
                         Whitespace@16..17 " "
-                        RCurly@17..18 "}"
+                        RBrace@17..18 "}"
                       Whitespace@18..19 " "
                       ElseKw@19..23 "else"
                       Whitespace@23..24 " "
                       BlockExpr@24..30
-                        LCurly@24..25 "{"
+                        LBrace@24..25 "{"
                         Whitespace@25..26 " "
                         ExprStmt@26..28
                           Literal@26..28
                             Integer@26..28 "20"
                         Whitespace@28..29 " "
-                        RCurly@29..30 "}"
+                        RBrace@29..30 "}"
             "#]],
         );
     }
@@ -2317,37 +2317,37 @@ mod tests {
                           TrueKw@279..283 "true"
                         Whitespace@283..284 " "
                         BlockExpr@284..290
-                          LCurly@284..285 "{"
+                          LBrace@284..285 "{"
                           Whitespace@285..286 " "
                           ExprStmt@286..288
                             Literal@286..288
                               Integer@286..288 "10"
                           Whitespace@288..289 " "
-                          RCurly@289..290 "}"
+                          RBrace@289..290 "}"
                         Whitespace@290..291 " "
                         ElseKw@291..295 "else"
                         Whitespace@295..296 " "
                         BlockExpr@296..302
-                          LCurly@296..297 "{"
+                          LBrace@296..297 "{"
                           Whitespace@297..298 " "
                           ExprStmt@298..300
                             Literal@298..300
                               Integer@298..300 "20"
                           Whitespace@300..301 " "
-                          RCurly@301..302 "}"
+                          RBrace@301..302 "}"
                   Whitespace@302..319 "\n                "
                   ExprStmt@319..332
                     ReturnExpr@319..332
                       ReturnKw@319..325 "return"
                       Whitespace@325..326 " "
                       BlockExpr@326..332
-                        LCurly@326..327 "{"
+                        LBrace@326..327 "{"
                         Whitespace@327..328 " "
                         ExprStmt@328..330
                           Literal@328..330
                             Integer@328..330 "10"
                         Whitespace@330..331 " "
-                        RCurly@331..332 "}"
+                        RBrace@331..332 "}"
                   Whitespace@332..349 "\n                "
                   ExprStmt@349..365
                     ReturnExpr@349..365
@@ -2464,7 +2464,7 @@ mod tests {
                       LoopKw@0..4 "loop"
                       Whitespace@4..5 " "
                       BlockExpr@5..19
-                        LCurly@5..6 "{"
+                        LBrace@5..6 "{"
                         Whitespace@6..7 " "
                         ExprStmt@7..10
                           Literal@7..9
@@ -2480,7 +2480,7 @@ mod tests {
                           Literal@15..17
                             Integer@15..17 "30"
                         Whitespace@17..18 " "
-                        RCurly@18..19 "}"
+                        RBrace@18..19 "}"
             "#]],
         );
     }
@@ -2496,14 +2496,14 @@ mod tests {
                       LoopKw@0..4 "loop"
                       Whitespace@4..5 " "
                       BlockExpr@5..18
-                        LCurly@5..6 "{"
+                        LBrace@5..6 "{"
                         Whitespace@6..7 " "
                         ExprStmt@7..16
                           ContinueExpr@7..15
                             ContinueKw@7..15 "continue"
                           Semicolon@15..16 ";"
                         Whitespace@16..17 " "
-                        RCurly@17..18 "}"
+                        RBrace@17..18 "}"
             "#]],
         );
     }
@@ -2519,14 +2519,14 @@ mod tests {
                       LoopKw@0..4 "loop"
                       Whitespace@4..5 " "
                       BlockExpr@5..15
-                        LCurly@5..6 "{"
+                        LBrace@5..6 "{"
                         Whitespace@6..7 " "
                         ExprStmt@7..13
                           BreakExpr@7..12
                             BreakKw@7..12 "break"
                           Semicolon@12..13 ";"
                         Whitespace@13..14 " "
-                        RCurly@14..15 "}"
+                        RBrace@14..15 "}"
             "#]],
         );
     }
@@ -2542,7 +2542,7 @@ mod tests {
                       LoopKw@0..4 "loop"
                       Whitespace@4..5 " "
                       BlockExpr@5..18
-                        LCurly@5..6 "{"
+                        LBrace@5..6 "{"
                         Whitespace@6..7 " "
                         ExprStmt@7..16
                           BreakExpr@7..15
@@ -2552,7 +2552,7 @@ mod tests {
                               Integer@13..15 "10"
                           Semicolon@15..16 ";"
                         Whitespace@16..17 " "
-                        RCurly@17..18 "}"
+                        RBrace@17..18 "}"
             "#]],
         );
     }
@@ -2571,7 +2571,7 @@ mod tests {
                         TrueKw@6..10 "true"
                       Whitespace@10..11 " "
                       BlockExpr@11..25
-                        LCurly@11..12 "{"
+                        LBrace@11..12 "{"
                         Whitespace@12..13 " "
                         ExprStmt@13..16
                           Literal@13..15
@@ -2587,7 +2587,7 @@ mod tests {
                           Literal@21..23
                             Integer@21..23 "30"
                         Whitespace@23..24 " "
-                        RCurly@24..25 "}"
+                        RBrace@24..25 "}"
             "#]],
         );
     }
@@ -2606,9 +2606,9 @@ mod tests {
                         TrueKw@6..10 "true"
                       Whitespace@10..11 " "
                       BlockExpr@11..14
-                        LCurly@11..12 "{"
+                        LBrace@11..12 "{"
                         Whitespace@12..13 " "
-                        RCurly@13..14 "}"
+                        RBrace@13..14 "}"
             "#]],
         );
     }
@@ -2656,13 +2656,13 @@ mod tests {
                             Ident@20..21 "a"
                       Whitespace@21..22 " "
                       BlockExpr@22..28
-                        LCurly@22..23 "{"
+                        LBrace@22..23 "{"
                         Whitespace@23..24 " "
                         ExprStmt@24..26
                           Literal@24..26
                             Integer@24..26 "10"
                         Whitespace@26..27 " "
-                        RCurly@27..28 "}"
+                        RBrace@27..28 "}"
             "#]],
         );
     }
@@ -2678,7 +2678,7 @@ mod tests {
                       WhileKw@0..5 "while"
                       Whitespace@5..6 " "
                       BlockExpr@6..18
-                        LCurly@6..7 "{"
+                        LBrace@6..7 "{"
                         Whitespace@7..8 " "
                         ExprStmt@8..11
                           Literal@8..10
@@ -2689,16 +2689,16 @@ mod tests {
                           Literal@12..16
                             TrueKw@12..16 "true"
                         Whitespace@16..17 " "
-                        RCurly@17..18 "}"
+                        RBrace@17..18 "}"
                       Whitespace@18..19 " "
                       BlockExpr@19..25
-                        LCurly@19..20 "{"
+                        LBrace@19..20 "{"
                         Whitespace@20..21 " "
                         ExprStmt@21..23
                           Literal@21..23
                             Integer@21..23 "20"
                         Whitespace@23..24 " "
-                        RCurly@24..25 "}"
+                        RBrace@24..25 "}"
             "#]],
         );
     }
@@ -2722,8 +2722,8 @@ mod tests {
                           Ident@12..17 "Point"
                       Whitespace@17..18 " "
                       RecordFieldListExpr@18..20
-                        LCurly@18..19 "{"
-                        RCurly@19..20 "}"
+                        LBrace@18..19 "{"
+                        RBrace@19..20 "}"
                     Semicolon@20..21 ";"
             "#]],
         );
@@ -2745,7 +2745,7 @@ mod tests {
                           Ident@12..17 "Point"
                       Whitespace@17..18 " "
                       RecordFieldListExpr@18..27
-                        LCurly@18..19 "{"
+                        LBrace@18..19 "{"
                         Whitespace@19..20 " "
                         RecordFieldExpr@20..25
                           Ident@20..21 "x"
@@ -2754,7 +2754,7 @@ mod tests {
                           Literal@23..25
                             Integer@23..25 "10"
                         Whitespace@25..26 " "
-                        RCurly@26..27 "}"
+                        RBrace@26..27 "}"
                     Semicolon@27..28 ";"
             "#]],
         );
@@ -2776,7 +2776,7 @@ mod tests {
                           Ident@12..17 "Point"
                       Whitespace@17..18 " "
                       RecordFieldListExpr@18..28
-                        LCurly@18..19 "{"
+                        LBrace@18..19 "{"
                         Whitespace@19..20 " "
                         RecordFieldExpr@20..25
                           Ident@20..21 "x"
@@ -2786,7 +2786,7 @@ mod tests {
                             Integer@23..25 "10"
                         Whitespace@25..26 " "
                         Comma@26..27 ","
-                        RCurly@27..28 "}"
+                        RBrace@27..28 "}"
                     Semicolon@28..29 ";"
             "#]],
         );
@@ -2808,7 +2808,7 @@ mod tests {
                           Ident@12..17 "Point"
                       Whitespace@17..18 " "
                       RecordFieldListExpr@18..34
-                        LCurly@18..19 "{"
+                        LBrace@18..19 "{"
                         Whitespace@19..20 " "
                         RecordFieldExpr@20..25
                           Ident@20..21 "x"
@@ -2825,7 +2825,7 @@ mod tests {
                           Literal@30..32
                             Integer@30..32 "20"
                         Whitespace@32..33 " "
-                        RCurly@33..34 "}"
+                        RBrace@33..34 "}"
                     Semicolon@34..35 ";"
             "#]],
         );
@@ -2847,7 +2847,7 @@ mod tests {
                           Ident@12..17 "Point"
                       Whitespace@17..18 " "
                       RecordFieldListExpr@18..35
-                        LCurly@18..19 "{"
+                        LBrace@18..19 "{"
                         Whitespace@19..20 " "
                         RecordFieldExpr@20..25
                           Ident@20..21 "x"
@@ -2865,7 +2865,7 @@ mod tests {
                             Integer@30..32 "20"
                         Comma@32..33 ","
                         Whitespace@33..34 " "
-                        RCurly@34..35 "}"
+                        RBrace@34..35 "}"
                     Semicolon@35..36 ";"
             "#]],
         );

@@ -43,7 +43,7 @@ pub(super) fn parse_module(parser: &mut Parser, recovery_set: &[TokenKind]) -> C
     // inline module
     {
         let marker = parser.start();
-        if parser.at(TokenKind::LCurly) {
+        if parser.at(TokenKind::LBrace) {
             parser.bump();
 
             while parser.at_set_no_expected(ITEM_FIRST) {
@@ -51,7 +51,7 @@ pub(super) fn parse_module(parser: &mut Parser, recovery_set: &[TokenKind]) -> C
             }
         }
 
-        if parser.at(TokenKind::RCurly) {
+        if parser.at(TokenKind::RBrace) {
             parser.bump();
         }
 
@@ -131,8 +131,8 @@ mod tests {
                             Ident@12..15 "int"
                     Whitespace@15..16 " "
                     BlockExpr@16..18
-                      LCurly@16..17 "{"
-                      RCurly@17..18 "}"
+                      LBrace@16..17 "{"
+                      RBrace@17..18 "}"
             "#]],
         );
     }
@@ -160,7 +160,7 @@ mod tests {
                             Ident@12..15 "int"
                     Whitespace@15..16 " "
                     BlockExpr@16..27
-                      LCurly@16..17 "{"
+                      LBrace@16..17 "{"
                       Whitespace@17..18 " "
                       ExprStmt@18..25
                         BinaryExpr@18..25
@@ -172,7 +172,7 @@ mod tests {
                           Literal@23..25
                             Integer@23..25 "20"
                       Whitespace@25..26 " "
-                      RCurly@26..27 "}"
+                      RBrace@26..27 "}"
             "#]],
         );
     }
@@ -211,13 +211,13 @@ mod tests {
                             Ident@20..23 "int"
                     Whitespace@23..24 " "
                     BlockExpr@24..30
-                      LCurly@24..25 "{"
+                      LBrace@24..25 "{"
                       Whitespace@25..26 " "
                       ExprStmt@26..28
                         Literal@26..28
                           Integer@26..28 "10"
                       Whitespace@28..29 " "
-                      RCurly@29..30 "}"
+                      RBrace@29..30 "}"
                 error at 17..19: expected ':', but found ->
                 error at 17..19: expected 'mut', identifier, ',' or ')', but found ->
             "#]],
@@ -253,13 +253,13 @@ mod tests {
                             Ident@18..21 "int"
                     Whitespace@21..22 " "
                     BlockExpr@22..28
-                      LCurly@22..23 "{"
+                      LBrace@22..23 "{"
                       Whitespace@23..24 " "
                       ExprStmt@24..26
                         Literal@24..26
                           Integer@24..26 "10"
                       Whitespace@26..27 " "
-                      RCurly@27..28 "}"
+                      RBrace@27..28 "}"
                 error at 15..17: expected identifier, but found ->
                 error at 15..17: expected ':', but found ->
                 error at 15..17: expected 'mut', identifier, ',' or ')', but found ->
@@ -294,13 +294,13 @@ mod tests {
                             Ident@17..20 "int"
                     Whitespace@20..21 " "
                     BlockExpr@21..27
-                      LCurly@21..22 "{"
+                      LBrace@21..22 "{"
                       Whitespace@22..23 " "
                       ExprStmt@23..25
                         Literal@23..25
                           Integer@23..25 "10"
                       Whitespace@25..26 " "
-                      RCurly@26..27 "}"
+                      RBrace@26..27 "}"
                 error at 14..16: expected '::', ',' or ')', but found ->
             "#]],
         );
@@ -328,13 +328,13 @@ mod tests {
                             Ident@13..16 "int"
                     Whitespace@16..17 " "
                     BlockExpr@17..23
-                      LCurly@17..18 "{"
+                      LBrace@17..18 "{"
                       Whitespace@18..19 " "
                       ExprStmt@19..21
                         Literal@19..21
                           Integer@19..21 "10"
                       Whitespace@21..22 " "
-                      RCurly@22..23 "}"
+                      RBrace@22..23 "}"
                 error at 10..12: expected 'mut', identifier, ',' or ')', but found ->
             "#]],
         );
@@ -361,13 +361,13 @@ mod tests {
                             Ident@12..15 "int"
                     Whitespace@15..16 " "
                     BlockExpr@16..22
-                      LCurly@16..17 "{"
+                      LBrace@16..17 "{"
                       Whitespace@17..18 " "
                       ExprStmt@18..20
                         Literal@18..20
                           Integer@18..20 "10"
                       Whitespace@20..21 " "
-                      RCurly@21..22 "}"
+                      RBrace@21..22 "}"
                 error at 9..11: expected ':', but found ->
                 error at 9..11: expected 'mut', identifier, ',' or ')', but found ->
             "#]],
@@ -393,13 +393,13 @@ mod tests {
                             Ident@11..14 "int"
                     Whitespace@14..15 " "
                     BlockExpr@15..21
-                      LCurly@15..16 "{"
+                      LBrace@15..16 "{"
                       Whitespace@16..17 " "
                       ExprStmt@17..19
                         Literal@17..19
                           Integer@17..19 "10"
                       Whitespace@19..20 " "
-                      RCurly@20..21 "}"
+                      RBrace@20..21 "}"
                 error at 8..10: expected identifier or ')', but found ->
             "#]],
         );
@@ -433,13 +433,13 @@ mod tests {
                             Ident@13..16 "int"
                     Whitespace@16..17 " "
                     BlockExpr@17..23
-                      LCurly@17..18 "{"
+                      LBrace@17..18 "{"
                       Whitespace@18..19 " "
                       ExprStmt@19..21
                         Literal@19..21
                           Integer@19..21 "10"
                       Whitespace@21..22 " "
-                      RCurly@22..23 "}"
+                      RBrace@22..23 "}"
                 error at 3..4: expected identifier, but found '('
                 error at 5..6: expected ':', but found ','
                 error at 8..9: expected ':', but found ')'
@@ -462,13 +462,13 @@ mod tests {
                       RParen@5..6 ")"
                     Whitespace@6..7 " "
                     BlockExpr@7..13
-                      LCurly@7..8 "{"
+                      LBrace@7..8 "{"
                       Whitespace@8..9 " "
                       ExprStmt@9..11
                         Literal@9..11
                           Integer@9..11 "10"
                       Whitespace@11..12 " "
-                      RCurly@12..13 "}"
+                      RBrace@12..13 "}"
             "#]],
         );
 
@@ -488,13 +488,13 @@ mod tests {
                       ThinArrow@7..9 "->"
                     Whitespace@9..10 " "
                     BlockExpr@10..16
-                      LCurly@10..11 "{"
+                      LBrace@10..11 "{"
                       Whitespace@11..12 " "
                       ExprStmt@12..14
                         Literal@12..14
                           Integer@12..14 "10"
                       Whitespace@14..15 " "
-                      RCurly@15..16 "}"
+                      RBrace@15..16 "}"
                 error at 10..11: expected identifier, but found '{'
             "#]],
         );
@@ -515,13 +515,13 @@ mod tests {
                     Ident@7..10 "int"
                   Whitespace@10..11 " "
                   Error@11..12
-                    LCurly@11..12 "{"
+                    LBrace@11..12 "{"
                   Whitespace@12..13 " "
                   Error@13..15
                     Integer@13..15 "10"
                   Whitespace@15..16 " "
                   Error@16..17
-                    RCurly@16..17 "}"
+                    RBrace@16..17 "}"
                 error at 7..10: expected ->, '{', 'fn', 'struct', 'mod' or 'use', but found identifier
                 error at 11..12: expected 'fn', 'struct', 'mod' or 'use', but found '{'
                 error at 13..15: expected 'fn', 'struct', 'mod' or 'use', but found integerLiteral
@@ -575,7 +575,7 @@ struct A { foo: i32, bar: i32 }
                     Ident@38..39 "A"
                     Whitespace@39..40 " "
                     RecordFieldList@40..62
-                      LCurly@40..41 "{"
+                      LBrace@40..41 "{"
                       Whitespace@41..42 " "
                       RecordField@42..50
                         Ident@42..45 "foo"
@@ -596,7 +596,7 @@ struct A { foo: i32, bar: i32 }
                             PathSegment@57..60
                               Ident@57..60 "i32"
                       Whitespace@60..61 " "
-                      RCurly@61..62 "}"
+                      RBrace@61..62 "}"
                   Whitespace@62..75 "\n            "
             "#]],
         );
@@ -622,7 +622,7 @@ fn main() {}
                     Ident@5..15 "one_module"
                     Whitespace@15..16 " "
                     ItemList@16..58
-                      LCurly@16..17 "{"
+                      LBrace@16..17 "{"
                       Whitespace@17..22 "\n    "
                       FunctionDef@22..56
                         FnKw@22..24 "fn"
@@ -641,15 +641,15 @@ fn main() {}
                                 Ident@34..37 "int"
                         Whitespace@37..38 " "
                         BlockExpr@38..56
-                          LCurly@38..39 "{"
+                          LBrace@38..39 "{"
                           Whitespace@39..48 "\n        "
                           ExprStmt@48..50
                             Literal@48..50
                               Integer@48..50 "10"
                           Whitespace@50..55 "\n    "
-                          RCurly@55..56 "}"
+                          RBrace@55..56 "}"
                       Whitespace@56..57 "\n"
-                      RCurly@57..58 "}"
+                      RBrace@57..58 "}"
                   Whitespace@58..59 "\n"
                   FunctionDef@59..71
                     FnKw@59..61 "fn"
@@ -660,8 +660,8 @@ fn main() {}
                       RParen@67..68 ")"
                     Whitespace@68..69 " "
                     BlockExpr@69..71
-                      LCurly@69..70 "{"
-                      RCurly@70..71 "}"
+                      LBrace@69..70 "{"
+                      RBrace@70..71 "}"
                   Whitespace@71..84 "\n            "
             "#]],
         );
@@ -696,7 +696,7 @@ fn main() {}
                     Ident@5..15 "one_module"
                     Whitespace@15..16 " "
                     ItemList@16..228
-                      LCurly@16..17 "{"
+                      LBrace@16..17 "{"
                       Whitespace@17..22 "\n    "
                       Module@22..98
                         ModKw@22..25 "mod"
@@ -704,7 +704,7 @@ fn main() {}
                         Ident@26..39 "second_module"
                         Whitespace@39..40 " "
                         ItemList@40..98
-                          LCurly@40..41 "{"
+                          LBrace@40..41 "{"
                           Whitespace@41..50 "\n        "
                           FunctionDef@50..92
                             FnKw@50..52 "fn"
@@ -723,15 +723,15 @@ fn main() {}
                                     Ident@62..65 "int"
                             Whitespace@65..66 " "
                             BlockExpr@66..92
-                              LCurly@66..67 "{"
+                              LBrace@66..67 "{"
                               Whitespace@67..80 "\n            "
                               ExprStmt@80..82
                                 Literal@80..82
                                   Integer@80..82 "10"
                               Whitespace@82..91 "\n        "
-                              RCurly@91..92 "}"
+                              RBrace@91..92 "}"
                           Whitespace@92..97 "\n    "
-                          RCurly@97..98 "}"
+                          RBrace@97..98 "}"
                       Whitespace@98..103 "\n    "
                       FunctionDef@103..226
                         FnKw@103..105 "fn"
@@ -750,7 +750,7 @@ fn main() {}
                                 Ident@115..118 "int"
                         Whitespace@118..119 " "
                         BlockExpr@119..226
-                          LCurly@119..120 "{"
+                          LBrace@119..120 "{"
                           Whitespace@120..129 "\n        "
                           Module@129..220
                             ModKw@129..132 "mod"
@@ -758,7 +758,7 @@ fn main() {}
                             Ident@133..145 "third_module"
                             Whitespace@145..146 " "
                             ItemList@146..220
-                              LCurly@146..147 "{"
+                              LBrace@146..147 "{"
                               Whitespace@147..160 "\n            "
                               FunctionDef@160..210
                                 FnKw@160..162 "fn"
@@ -777,19 +777,19 @@ fn main() {}
                                         Ident@172..175 "int"
                                 Whitespace@175..176 " "
                                 BlockExpr@176..210
-                                  LCurly@176..177 "{"
+                                  LBrace@176..177 "{"
                                   Whitespace@177..194 "\n                "
                                   ExprStmt@194..196
                                     Literal@194..196
                                       Integer@194..196 "20"
                                   Whitespace@196..209 "\n            "
-                                  RCurly@209..210 "}"
+                                  RBrace@209..210 "}"
                               Whitespace@210..219 "\n        "
-                              RCurly@219..220 "}"
+                              RBrace@219..220 "}"
                           Whitespace@220..225 "\n    "
-                          RCurly@225..226 "}"
+                          RBrace@225..226 "}"
                       Whitespace@226..227 "\n"
-                      RCurly@227..228 "}"
+                      RBrace@227..228 "}"
                   Whitespace@228..229 "\n"
                   FunctionDef@229..241
                     FnKw@229..231 "fn"
@@ -800,8 +800,8 @@ fn main() {}
                       RParen@237..238 ")"
                     Whitespace@238..239 " "
                     BlockExpr@239..241
-                      LCurly@239..240 "{"
-                      RCurly@240..241 "}"
+                      LBrace@239..240 "{"
+                      RBrace@240..241 "}"
                   Whitespace@241..254 "\n            "
             "#]],
         );
@@ -844,13 +844,13 @@ mod module_aaa {
                       RParen@9..10 ")"
                     Whitespace@10..11 " "
                     BlockExpr@11..25
-                      LCurly@11..12 "{"
+                      LBrace@11..12 "{"
                       Whitespace@12..17 "\n    "
                       ExprStmt@17..23
                         ReturnExpr@17..23
                           ReturnKw@17..23 "return"
                       Whitespace@23..24 "\n"
-                      RCurly@24..25 "}"
+                      RBrace@24..25 "}"
                   Whitespace@25..26 "\n"
                   Module@26..308
                     ModKw@26..29 "mod"
@@ -858,7 +858,7 @@ mod module_aaa {
                     Ident@30..40 "module_aaa"
                     Whitespace@40..41 " "
                     ItemList@41..308
-                      LCurly@41..42 "{"
+                      LBrace@41..42 "{"
                       Whitespace@42..47 "\n    "
                       Module@47..257
                         ModKw@47..50 "mod"
@@ -866,7 +866,7 @@ mod module_aaa {
                         Ident@51..61 "module_bbb"
                         Whitespace@61..62 " "
                         ItemList@62..257
-                          LCurly@62..63 "{"
+                          LBrace@62..63 "{"
                           Whitespace@63..72 "\n        "
                           FunctionDef@72..251
                             FnKw@72..74 "fn"
@@ -885,7 +885,7 @@ mod module_aaa {
                                     Ident@93..96 "int"
                             Whitespace@96..97 " "
                             BlockExpr@97..251
-                              LCurly@97..98 "{"
+                              LBrace@97..98 "{"
                               Whitespace@98..111 "\n            "
                               Module@111..225
                                 ModKw@111..114 "mod"
@@ -893,7 +893,7 @@ mod module_aaa {
                                 Ident@115..125 "module_ccc"
                                 Whitespace@125..126 " "
                                 ItemList@126..225
-                                  LCurly@126..127 "{"
+                                  LBrace@126..127 "{"
                                   Whitespace@127..144 "\n                "
                                   FunctionDef@144..211
                                     FnKw@144..146 "fn"
@@ -912,23 +912,23 @@ mod module_aaa {
                                             Ident@165..168 "int"
                                     Whitespace@168..169 " "
                                     BlockExpr@169..211
-                                      LCurly@169..170 "{"
+                                      LBrace@169..170 "{"
                                       Whitespace@170..191 "\n                    "
                                       ExprStmt@191..193
                                         Literal@191..193
                                           Integer@191..193 "10"
                                       Whitespace@193..210 "\n                "
-                                      RCurly@210..211 "}"
+                                      RBrace@210..211 "}"
                                   Whitespace@211..224 "\n            "
-                                  RCurly@224..225 "}"
+                                  RBrace@224..225 "}"
                               Whitespace@225..239 "\n\n            "
                               ExprStmt@239..241
                                 Literal@239..241
                                   Integer@239..241 "20"
                               Whitespace@241..250 "\n        "
-                              RCurly@250..251 "}"
+                              RBrace@250..251 "}"
                           Whitespace@251..256 "\n    "
-                          RCurly@256..257 "}"
+                          RBrace@256..257 "}"
                       Whitespace@257..263 "\n\n    "
                       FunctionDef@263..306
                         FnKw@263..265 "fn"
@@ -947,15 +947,15 @@ mod module_aaa {
                                 Ident@284..287 "int"
                         Whitespace@287..288 " "
                         BlockExpr@288..306
-                          LCurly@288..289 "{"
+                          LBrace@288..289 "{"
                           Whitespace@289..298 "\n        "
                           ExprStmt@298..300
                             Literal@298..300
                               Integer@298..300 "30"
                           Whitespace@300..305 "\n    "
-                          RCurly@305..306 "}"
+                          RBrace@305..306 "}"
                       Whitespace@306..307 "\n"
-                      RCurly@307..308 "}"
+                      RBrace@307..308 "}"
                   Whitespace@308..321 "\n            "
             "#]],
         );

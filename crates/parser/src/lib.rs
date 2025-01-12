@@ -149,7 +149,7 @@ mod tests {
                       RParen@5..6 ")"
                     Whitespace@6..7 " "
                     BlockExpr@7..18
-                      LCurly@7..8 "{"
+                      LBrace@7..8 "{"
                       Whitespace@8..9 " "
                       ExprStmt@9..10
                         Error@9..10
@@ -161,7 +161,7 @@ mod tests {
                             PathSegment@11..16
                               Ident@11..16 "hello"
                       Whitespace@16..17 " "
-                      RCurly@17..18 "}"
+                      RBrace@17..18 "}"
                 error at 9..10: expected '}', 'let', 'fn', 'struct', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '-', '!', '[', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found '/'
             "#]],
         );
@@ -189,7 +189,7 @@ fn x() {
                       RParen@6..7 ")"
                     Whitespace@7..8 " "
                     BlockExpr@8..56
-                      LCurly@8..9 "{"
+                      LBrace@8..9 "{"
                       Whitespace@9..14 "\n    "
                       ExprStmt@14..43
                         BinaryExpr@14..43
@@ -211,7 +211,7 @@ fn x() {
                       Whitespace@43..44 " "
                       CommentSingle@44..54 "// Add ten"
                       Whitespace@54..55 "\n"
-                      RCurly@55..56 "}"
+                      RBrace@55..56 "}"
                   Whitespace@56..69 "\n            "
             "#]],
         );
@@ -244,13 +244,13 @@ fn y() {
                       RParen@6..7 ")"
                     Whitespace@7..8 " "
                     BlockExpr@8..18
-                      LCurly@8..9 "{"
+                      LBrace@8..9 "{"
                       Whitespace@9..14 "\n    "
                       ExprStmt@14..15
                         Literal@14..15
                           Integer@14..15 "1"
                       Whitespace@15..17 "\n\n"
-                      RCurly@17..18 "}"
+                      RBrace@17..18 "}"
                   Whitespace@18..20 "\n\n"
                   FunctionDef@20..37
                     FnKw@20..22 "fn"
@@ -261,13 +261,13 @@ fn y() {
                       RParen@25..26 ")"
                     Whitespace@26..27 " "
                     BlockExpr@27..37
-                      LCurly@27..28 "{"
+                      LBrace@27..28 "{"
                       Whitespace@28..33 "\n    "
                       ExprStmt@33..34
                         Literal@33..34
                           Integer@33..34 "2"
                       Whitespace@34..36 "\n\n"
-                      RCurly@36..37 "}"
+                      RBrace@36..37 "}"
                   Whitespace@37..51 "\n\n            "
             "#]],
         );

@@ -2,53 +2,78 @@
 
 ## Summary
 
-__WIP__
+**WIP**
 
-🚀 Introducing Nail!  
-Merging the robustness of Rust with the simplicity of Go's runtime.  
-Just like Rust, if it compiles, it's likely to run bug-free (of course, not all bugs can be eliminated).
-A memory-safe language powered by GC, embracing Rust's type system (with a touch of TypeScript) and concurrent model inspired by Go.  
-Step into the future with a language inspired by the best of Rust and Go. A refreshing take on modern programming!
+Nail is a next-generation language inspired by Rust, but with a built-in garbage collector.  
+Like Rust, we aim for “if it compiles, it will likely run reliably,” while recognizing that no language can guarantee complete freedom from bugs.  
+By merging Rust’s robust type system with a GC-based memory model—and adopting certain TypeScript-like features for front-end development—Nail strives to be a practical choice for everything from server-side projects to web front ends.  
+We also provide an `async/await` concurrency model to simplify asynchronous programming across various use cases (excluding embedded targets).
 
-- Base: Rust
-- Memory Management: GC + optimization
-- Type System: Rust, with hints of TypeScript
-- Concurrency: Go
+- **Base**: Rust
+- **Memory Management**: GC + possible ownership-based optimizations
+- **Type System**: Rust-inspired, with TypeScript-like additions
+- **Concurrency**: async/await
 
-🔧 Note: While our vision remains consistent, the specific implementations to achieve our goals may undergo significant changes.
+> **Note**: While our core vision remains steady, the specific implementation details may evolve significantly.
 
-## Memory Management Strategy
+## Target Domains
 
-__Mutable Data__
+Nail is an experimental, GC-enabled language inspired by Rust. While still in early development, our primary focus is on:
 
-- __Large Size__: Pass by pointer  
-  For large data structures, passing by pointer avoids the cost of copying the entire data.
-- __Small Size__: Pass by pointer  
-	Even for small data, passing by pointer ensures consistent data management for mutable data.
+- **Console (CLI) Applications**  
+- **Desktop Applications**  
+- **Web Back-End**  
+- **Web Front-End** (e.g., compiling to WebAssembly)  
+- **Mobile (planned)** – taking cues from Dart/Flutter
 
-__Immutable Data__
+> **Note**: We do **not** plan to support heavily resource-constrained embedded devices.
 
-- __Large Size__: Pass by pointer  
-	For large immutable data, passing by pointer provides efficient access without the performance overhead of copying.
-- __Small Size__: Pass by value  
-	Small immutable data is copied to the stack, resulting in faster memory access.
+---
 
-This approach ensures efficient memory management and optimized performance by automatically selecting the most appropriate method based on data size and mutability.
+## Additional Concepts
+
+- **Default GC with Ownership-Based Optimization**  
+  By default, we plan to rely on a garbage collector. However, if the compiler can determine an object’s lifetime or ownership precisely, it may skip the GC step for those objects to improve performance.
+
+- **Keyword & Default Arguments**  
+  We plan to support **keyword arguments** and **default arguments** for better readability—especially useful when dealing with UI-like or large-parameter-function scenarios.
+
+- **Async/Await Syntax**  
+  We aim to provide an `async/await` style similar to C# or JavaScript. Since this language is GC-based, we will avoid exposing detailed lifetime mechanics, offering a more high-level asynchronous programming experience.
+
+- **Trait-Based Partial Subtyping (Low Priority)**  
+  We are exploring a design that automatically implements a trait if a type structurally meets the trait’s requirements. However, this is a **low-priority** feature for now and may change or be dropped.
+
+- **No Macros (For Now)**  
+  We have decided not to include macros in the early stages of development, aiming to keep the language simple and maintainable. We may revisit macros in the future.
+
+- **Potential Dynamic Sections**  
+  To handle unknown (JSON-like) data, we are considering “dynamic sections” in which static type checks are relaxed, and runtime checks ensure safety. This idea is still under consideration.
+
+- **WebAssembly Compilation**  
+  We plan to use LLVM as the primary backend for WebAssembly. We will explore optimizations and suitable GC strategies to ensure high performance on WASM.
+
+- **AI-Friendly Language Design**  
+  We would like to consider language specifications that are compatible with recent generation AI.
+
+---
 
 ## Specification
 
-Implemented = ✅, Partially Implemented = 🚧, Not Implemented = ❌
+The statuses below reflect our current progress:
+**Implemented = ✅, Partially Implemented = 🚧, Not Implemented = ❌**
 
-1.  Variables and Data Types
+### 1. Variables and Data Types
 
-- ✅ Variable definition and referencing
+- ✅ **Variable definition and referencing**  
   ```rust
   let value = 10;
   value // 10
   ```
-- Basic data types, such as integers, floating-point numbers, booleans, and characters
-  - 🚧 Integer types  
-    Integer literals can be written as 10. To specify the number of bits, add the type name to the end, like 10_i8. If the type cannot be determined through type inference, it defaults to i32.
+
+- **Basic data types** (integers, floats, booleans, chars)  
+  - 🚧 **Integer types**  
+    Default is `i32`. You can specify bit width, for example `10_i8`.  
     | Length   | Signed | Unsigned |
     | -------- | ------ | -------- |
     | 8-bits   | i8     | u8       |
@@ -57,46 +82,45 @@ Implemented = ✅, Partially Implemented = 🚧, Not Implemented = ❌
     | 64-bits  | i64    | u64      |
     | 128-bits | i128   | u128     |
     | arch     | isize  | usize    |
-  - ❌ Floating-point types  
-    Floating-point literals can be written as 10.0. To specify the number of bits, add the type name to the end, like 10_f32 or 10.0_f32. If the type cannot be determined through type inference, it defaults to f64.
+  - ❌ **Floating-point types**  
+    Default is `f64`. For example, `10.0_f32`.  
     | Length   | -    |
     | -------- | ---- |
     | 32-bits  | f32  |
     | 64-bits  | f64  |
     | 128-bits | f128 |
-  - ✅ Boolean types  
-    Boolean literals can be written as true and false.
-  - 🚧 Character types  
-    Character literals can be written as 'a'.
-- Collection types, such as strings, arrays, lists, tuples, and dictionaries
-  - ✅ String types  
-    Strings are allocated on the heap.
-    String literals can be written as "Hello, world!".
-  - ❌ Array types  
-    Arrays are allocated on the stack.
-    Array literals can be written as [1, 2, 3].
-  - ❌ List types  
-    Lists are dynamic arrays and are allocated on the heap.
-    List literals can be written as vec![1, 2, 3].
-  - ❌ Tuple types  
-    Tuple literals can be written as (1, "hello", 3.14).
-  - ❌ Dictionary types  
-    Dictionary literals can be written as map!{ "a": 1, "b": 2, "c": 3 }.
-- Defining and using custom types, such as structs, enums, and algebraic data types
-  - ❌ Struct types  
+  - ✅ **Boolean types**  
+    `true` and `false`.
+  - 🚧 **Character types**  
+    Written as `'a'`.
+
+- **Collection types** (strings, arrays, lists, tuples, dictionaries)  
+  - ✅ **String types**  
+    Allocated on the heap. Written as `"Hello, world!"`.
+  - ❌ **Array types**  
+    Allocated on the stack. For example, `[1, 2, 3]`.
+  - ❌ **List types**  
+    Dynamic arrays on the heap. For example, `vec![1, 2, 3]`.
+  - ❌ **Tuple types**  
+    For example, `(1, "hello", 3.14)`.
+  - ❌ **Dictionary types**  
+    For example, `map!{"a": 1, "b": 2}`.
+
+- **Custom types** (structs, enums, ADTs)  
+  - ❌ **Struct types**  
     ```rust
     struct User {
         name: String
     }
     ```
-  - ❌ Enum types
+  - ❌ **Enum types**  
     ```rust
     enum ShapeType {
         Circle,
         Rectangle,
     }
     ```
-  - ❌ Algebraic data types
+  - ❌ **Algebraic data types**  
     ```rust
     enum Shape {
         Circle(f32),
@@ -105,218 +129,105 @@ Implemented = ✅, Partially Implemented = 🚧, Not Implemented = ❌
     }
     ```
 
-2. Operators
+### 2. Operators
 
-- ✅ Arithmetic operators (addition, subtraction, multiplication, division, etc.)
+- ✅ **Arithmetic operators** (`+`, `-`, `*`, `/`, etc.)  
   ```rust
-  1 + 2; // add
-  1 - 2; // sub
-  1 * 2; // mul
-  1 / 2; // div
+  1 + 2;
+  1 - 2;
+  1 * 2;
+  1 / 2;
   ```
-- ✅ Comparison operators (equality, inequality, greater/less than, etc.)
+- ✅ **Comparison operators** (`==`, `!=`, `<`, `>`, etc.)  
   ```rust
-  1 == 2; // equal
-  1 != 2; // not equal
+  1 == 2;
+  1 != 2;
   ```
-- ❌ Logical operators (AND, OR, NOT, etc.)
+- ❌ **Logical operators** (`&&`, `||`, `!`, etc.)  
+- 🚧 **Assignment operators**  
   ```rust
-  true && true // and
-  false || true // or
-  !true // not
-  ```
-- 🚧 Assignment operators
-  Only mutable variables can be assigned.
-  ```rust
-  let mut a = 10; // define variable
+  let mut a = 10;
   a = 20;
   ```
-- ❌ Bitwise operators (bitwise AND, OR, NOT, shift, etc.)
-  ```rust
-  1 & 0 // bitwise and
-  1 | 0 // bitwise or
-  1 << 2 // bit left shift
-  2 >> 1 // bit right shift
-  ```
+- ❌ **Bitwise operators** (`&`, `|`, `<<`, `>>`, etc.)
 
-3. Control structures
+### 3. Control structures
 
-- Conditional branching (if, else, match, etc.)
-
-  - ✅ if
+- **Conditionals** (`if`, `else`, `match`, etc.)
+  - ✅ **if / else**  
     ```rust
-    if true {
-        // statements
-    }
-    ```
-  - ✅ else
-    ```rust
-    if false {
-        // statements
+    if condition {
+        // ...
     } else {
-        // statements
+        // ...
     }
     ```
-  - ❌ match
-
+  - ❌ **match**  
     ```rust
     enum Shape {
         Circle(f32),
         Rectangle(f32, f32),
         Triangle { base: f32, height: f32 }
     }
-
-    let shape = ShapeType::Circle;
     match shape {
-        Shape::Circle(radius) => (), // expression
-        Shape::Rectanble(width, height) => {
-            // statements
-        }
-        Triangle { base: f32, height: f32 } => {
-            // statements
-        }
+        Shape::Circle(r) => (),
+        Shape::Rectangle(w, h) => (),
+        Shape::Triangle { base, height } => (),
     }
     ```
 
-  - Loops (for, while, etc.)
-    - ❌ for
+- **Loops** (`for`, `while`, `loop`)  
+  - ❌ **for**  
+  - ❌ **while**  
+  - ✅ **loop**  
+    ```rust
+    loop {
+        // ...
+    }
+    ```
+
+  - **Jump statements** (`break`, `continue`, `return`)
+    - ✅ **break**  
       ```rust
-      for value in [1, 2, 3] {
-          // statements
+      loop { break; }
+      ```
+    - ✅ **continue**  
+      ```rust
+      loop { continue; }
+      ```
+    - ✅ **return**  
+      ```rust
+      fn return_value() -> i32 {
+          return 10;
       }
       ```
-    - ❌ while
-      ```rust
-      let value = 1;
-      while value < 10 {
-          // statements
-      }
-      ```
-    - ✅ loop
-      ```rust
-      loop {
-          // statements
-      }
-      ```
-    - Jumps (break, continue, return, etc.)
-      - ✅ break  
-        Exits the current loop context.
-        ```rust
-        loop {
-            break;
-        }
-        ```
-      - ✅ continue  
-        Preserves the current loop context and skips the processing after continue, proceeding to the next iteration.
-        ```rust
-        loop {
-            continue;
-            // no execution
-        }
-        ```
 
-- ✅ return  
-  Interrupts the current function and returns a value. If no value is specified, () is returned.
-  ```rust
-  fn return_unit() {
-    return;
-  }
-  fn return_value() -> i32 {
-    return 10;
-  }
-  ```
+### 4. Functions and Methods
 
-2.  Functions and Methods
-
-- ✅ Function definition and invocation
-
+- ✅ **Function definition and invocation**  
   ```rust
   fn function() -> i32 {
-      return 10
+      10
   }
-
   function();
   ```
+- ❌ **Struct function definition (impl)**  
+- ❌ **Lambda expressions (closures)**  
 
-- ❌ Struct function definition and invocation  
-  You can define functions in the struct scope using impl.  
-  Defined functions can be called by using struct_name::function_name.  
-  By specifying self as the first argument, object-oriented style method invocation is possible.
+### 5. Modules and Packages
 
+- 🚧 **File modules / In-file modules**  
   ```rust
-  struct Rect {
-    x: i32,
-    y: i32
-  }
-  impl Rect {
-    fn new(x: i32, y: i32) -> Rect {
-      Rect {
-        x: x,
-        y: y
-      }
-    }
+  // file_mod.nail
+  fn function_in_file_mod() -> i32 { 10 }
 
-    fn area(self) -> i32 {
-        self.x * self.y
-    }
-  }
-  let rect = Rect::new(2, 3);
-  rect.area(); // 6
-  ```
-
-- ❌ Lambda expressions
-
-  ```rust
-  let value = || 10;
-  value(); // 10
-
-  let sum = |x, y| x * y;
-  sum(2, 3); // 6
-
-  let block = ||　{
-      let x = 10;
-      let y = 20;
-      x + y
-  };
-  block(); // 30
-
-  let capture_value = 10;
-  let closure = || {
-      capture_value + 20
-  };
-  closure(); // 30
-  ```
-
-3. Modules and Packages
-
-- 🚧 File modules
-
-  ```rust
-  //- /file_mod.nail
-  fn function_in_file_mod() -> i32 {
-      10
-  }
-
-  //- /main.nail
+  // main.nail
   mod file_mod;
   ```
-
-- 🚧 In-file modules
-  ```rust
-  mod module_in_file {
-      fn function() -> i32 {
-          10
-      }
-  }
-  ```
-- 🚧 Module reference  
-  Reference by specifying the path directly or using use. The reference method is the same for both file modules and in-file modules.
-
+- 🚧 **Module reference**  
   ```rust
   mod module {
-    fn function() -> i32 {
-      10
-    }
+    fn function() -> i32 { 10 }
   }
   fn main() {
     module::function(); // 10
@@ -325,371 +236,84 @@ Implemented = ✅, Partially Implemented = 🚧, Not Implemented = ❌
     function(); // 10
   }
   ```
-
-- ❌ Package management and dependency resolution  
-  Undefined
-
-4. Error Handling
-
-- ❌ Recoverable Errors  
-  Recoverable errors are just one of the values. The Result type is used to indicate success or failure. The Result type allows for early returns of errors using ? and extraction of the value on success.
-  ```rust
-  enum Error {
-      SomeError
-  }
-  fn operate() -> Result<String, Error> {
-      Result::Err(Error::SomeError)
-  }
-  fn main() -> Result<String, Error> {
-      let result = match operate {
-          Ok(value) => value,
-          Err(err) => return err,
-      };
-      // or
-      let result = operate()?;
-  }
-  ```
-- ❌ Unrecoverable Errors  
-  Unrecoverable errors cause the call stack to unwind, and the application terminates. There are plans to provide ways to catch unrecoverable errors, but they are intended for library developers and not for use in application code.
-  ```rust
-  panic!("Some error.");
-  ```
-
-5. Type System
-
-- 🚧 Static Typing and Dynamic Typing  
-  Undefined
-- 🚧 Type Inference  
-  Based on the Hindley–Milner type system, it features bidirectional type inference.
-  ```rust
-  fn value(x: i64) -> i64 {
-      x
-  }
-  let a = 10;
-  x(a) // type of a is i64
-  ```
-- ❌ Generics  
-  Generics can be used with function definitions, structs, algebraic data types, and in impl blocks.
-  ```rust
-  fn swap<T>(x: T, y: T) -> (T, T) {
-      (y, x)
-  }
-  struct Vec<T> {
-      data: [T],
-  }
-  enum Result<T, E> {
-      Ok(T),
-      Err(E),
-  }
-  impl<T, E> Result<T, E> {
-      fn unwrap(self) -> T {
-          match self {
-              Result::Ok(value) => value,
-              Result::Err(err) => panic!(err),
-          }
-      }
-  }
-  ```
-
-6. Memory Management
-
-   - ❌ Garbage Collection
-     Undefined
-   - ❌ Manual Memory Management
-     Undefined
-
-7. Concurrency and Parallelism
-
-   - ❌ Creating and running threads or tasks  
-     Undefined
-
-   - ❌ Synchronization primitives (mutexes, semaphores, condition variables, etc.)  
-     Undefined
-
-   - ❌ Asynchronous programming  
-     Undefined
-
-   - ❌ Concurrency models  
-     Nail supports the CSP concurrency model and has an asynchronous runtime. By default, functions are executed in the asynchronous runtime, so there is no need to mark individual asynchronous functions. Use spawn for non-blocking execution; otherwise, it will be a blocking execution.
-     The work-stealing algorithm is continuation stealing.
-     ```rust
-     fn async_function() -> i32 {
-       10
-     }
-     fn main() {
-       async_function(); // await
-       async_function().async;
-     }
-     ```
-
-8. Input/Output
-
-- ❌ Access to standard input, standard output, and standard error output  
-  Undefined
-- ❌ Reading and writing files  
-  Undefined
-- ❌ Network communication (TCP/IP, UDP, HTTP, etc.)  
-  Undefined
-
-9. String manipulation
-
-- ❌ String concatenation, splitting, replacement, searching, etc.  
-  Undefined
-- ❌ Regular expressions  
-  Undefined
-
-10. Traits
-
-- ❌ Definition  
-  Undefined
-- ❌ Invocation  
-  Undefined
-
-11. Meta-programming (as needed)
-
-- ❌ Macros  
-  Undefined
-- ❌ Compile-time computation  
-  Undefined
-
-12. Debugging and profiling
-
-- ❌ Debugging features (breakpoints, step execution, variable monitoring, etc.)  
-  Undefined
-- ❌ Profiling features (performance measurement, memory usage analysis, etc.)  
-  Undefined
-
-13. Standard library
-
-- ❌ A library providing general features such as mathematical functions, date and time manipulation, collection operations, etc.  
-  Undefined
-
-14. Parallel compilation  
-    Per-file or per-pod(package) basis
-
-## Experimental
-
-It is a specification that I am currently considering whether to include it as a language feature.
-
-- Partial Type  
-Support structural subtyping.
-  ```
-  partial type V4IpAddress {
-      address: Vec<u8>
-  }
-
-  partial type V6IpAddress {
-      address: Vec<u8>
-  }
-
-  fn is_empty(ip_address: V4IpAddress) -> bool {
-      ip_address.address.is_empty()
-  }
-
-  fn handle(ip_address: V4IpAddress) -> bool {
-      match ip_address {
-          // IpAddressV4 and IpAddressV6 cannot be matched because I don't know what to pass to IpAddress.
-          // It is close to the concept of Trait and Interface.
-          // It might be called an implicitly implemented Trait or Interface.
-      }
-  }
-
-  let ip_address = V4IpAddress {
-      address: vec![127, 0, 0, 1]
-  };
-  is_empty(ip_address); // false
-
-  let ip_address = V6IpAddress {
-      address: vec![0, 0, 0, 0, 0, 0, 0, 1]
-  };
-  is_empty(ip_address); // false
-  ```
-
-- Nested type definition  
-Support for type definitions with nested structures such as Json
-  ```
-  type Json {
-      key1: {
-          key2: {
-              key3: String
-          }
-      },
-      key4: String
-  }
-
-  let json = Json {
-      key1: .{ // This has the problem of being indistinguishable from BlockExpr. So let's add.
-          key2: .{
-              key3: "value"
-          }
-      },
-      key4: "value"
-  };
-  json.key1.key2.key3; // "value"
-  json.key4; // "value"
-  fn handle(json: Json) -> bool {
-      json.key1.key2.key3; // "value"
-  }
-  ```
-
-- Reference / Move / Copy semantics
-
-  ```rust
-  struct NotCopyable(i32);
-
-  struct Copyable(i32);
-  impl Copy for Copyable {}
-
-  struct Custom {
-    not_copyable: NotCopyable
-    copyable: Copyable
-    auto_copyable: i32
-  }
-  impl Custom {
-    fn new() -> *Custom {
-      *Custom { a: 10 }
-    }
-
-    /** Custom */
-    fn ref_self(self) -> Custom {
-      self
-    }
-
-    fn move_self(*self) -> *Custom {
-      *self
-    }
-
-    fn copy_self(*self) -> *Custom {
-      *self.copy() // Error
-    }
-
-    /** NotCopyable */
-    fn ref_not_copyable(self) -> NotCopyable {
-      self.not_copyable
-    }
-
-    fn move_not_copyable(*self) -> *NotCopyable {
-      *self.not_copyable
-    }
-
-    fn copy_not_copyable(self) -> *NotCopyable {
-      *self.not_copyable.copy() // Error
-    }
-
-    /** Copyable */
-    fn ref_copyable(self) -> Copyable {
-      self.copyable // Error
-    }
-
-    fn move_copyable(*self) -> *Copyable {
-      *self.copyable // Error
-    }
-
-    fn copy_copyable(self) -> *Copyable {
-      self.copyable.copy() // or *self.b
-    }
-
-    /** AutoCopyable */
-    fn ref_auto_copyable(self) -> i32 {
-      self.auto_copyable // Auto copy
-    }
-
-    fn move_auto_copyable(self) -> i32 {
-      *self.auto_copyable // Error
-    }
-
-    fn copy_auto_copyable(self) -> i32 {
-      self.auto_copyable // or self.auto_copyable.copy()
-    }
-  }
-
-  // Cannot be referenced.
-  // Must always call .copy().
-  trait Copy: Clone {
-  }
-
-  // This is an automatic copy.
-  // No need to call .copy().
-  // Essentially, only primitive types implement this.
-  // note: On the IDE, want to change the color
-  trait AutoCopy: Copy {
-  }
-  ```
-
-- Reference / Copy semantics  
-Consider that it is always a copy of the reference.
-
-  ```rust
-  struct NotCopyable(i32);
-
-  struct Copyable(i32);
-  impl Copy for Copyable {}
-
-  struct Custom {
-    not_copyable: NotCopyable
-    copyable: Copyable
-    auto_copyable: i32
-  }
-  impl Custom {
-    fn new() -> *Custom {
-      *Custom { a: 10 }
-    }
-
-    /** Custom */
-    fn ref_self(self) -> Custom {
-      self
-    }
-
-    fn copy_self(self) -> Custom {
-      self.copy() // Error
-    }
-
-    /** NotCopyable */
-    fn ref_not_copyable(self) -> NotCopyable {
-      self.not_copyable
-    }
-
-    fn copy_not_copyable(self) -> NotCopyable {
-      self.not_copyable.copy() // Error
-    }
-
-    /** Copyable */
-    fn ref_copyable(self) -> Copyable {
-      self.copyable
-    }
-
-    fn copy_copyable(self) -> Copyable {
-      self.copyable.copy() // or *self.copyable
-    }
-
-    /** AutoCopyable */
-    fn ref_auto_copyable(self) -> i32 {
-      self.auto_copyable // Auto copy, no reference
-    }
-
-    fn copy_auto_copyable(self) -> i32 {
-      self.auto_copyable // or self.auto_copyable.copy() or *self.auto_copyable
-    }
-  }
-  ```
-
-  It can also consume itself or its arguments.
-
-  ```rust
-  impl Custom {
-    fn consume_self(consume self) {
-      // After that, self cannot be accessed.
-    }
-
-    fn consume_arg(self, x: consume i32) {
-      // The x passed to this function will be consumed.
-    }
-  }
-  ```
+- ❌ **Package management**  
+  Not yet defined
+
+### 6. Error Handling
+
+- ❌ **Recoverable Errors**  
+  Likely to adopt `Result<T, E>` with `?` for early returns.
+- ❌ **Unrecoverable Errors**  
+  Likely to adopt `panic!("...")`.
+
+### 7. Type System
+
+- 🚧 **Static Typing / Dynamic Typing**  
+  Under consideration
+- 🚧 **Type Inference**  
+  Inspired by Hindley–Milner with bidirectional inference.
+- ❌ **Generics**  
+  Will be supported for functions, structs, enums, and impl blocks.
+- ❌ **Traits**
+  WIP
+
+### 8. Memory Management
+
+- ❌ **Garbage Collection**  
+  Undecided details (with potential ownership-based optimizations).
+- ❌ **Manual Memory Management**  
+  Not planned yet, subject to discussion
+
+### 9. Concurrency and Parallelism
+
+❌
+In this language, calling an asynchronous function immediately starts its process.
+You have two ways to handle the result:
+
+1. **Immediate Await (`.await`)**  
+   The function call returns a value, waiting right away:
+   ```pseudo
+   let result = fetch_data("https://example.com").await;
+   // Execution continues after fetch_data completes
+   ```
+
+2. **Async First, Await Later (`.async` → `.await`)**  
+   Start the process and receive a `Future`, then wait for it when you need:
+   ```pseudo
+   let future = fetch_data("https://example.org").async;
+   // ... do other work ...
+   let result = future.await;
+   ```
+
+#### Benefits
+- **Clarity**: You explicitly show whether you wait immediately or retrieve the result later.  
+- **Flexibility**: You can launch multiple async tasks and await them at the right time.  
+- **Error Prevention**: The compiler warns if you ignore a returned `Future` without handling or awaiting it.
+
+Use `.await` to get the result right away, or `.async` when you need concurrent execution and plan to await later.
+
+```rust
+async fn main() {
+    let result = async {
+        let a = async { 1 };
+        let b = fetch_data().async;
+        a.await + b.await
+    }.await; // 3
+}
+async fn fetch_data() -> i64 {
+    let data = async {
+        // fetch data from the network
+        2
+    }.await;
+    return data;
+}
+```
+
+---
 
 ## Contributors
 
-- [ktanaka101](https://github.com/ktanaka101) - creator, maintainer
+- [ktanaka101](https://github.com/ktanaka101) — creator, maintainer
 
 ## License
 

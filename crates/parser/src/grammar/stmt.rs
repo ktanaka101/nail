@@ -63,7 +63,7 @@ pub(super) fn parse_function_def(
         TokenKind::Ident,
         &[
             recovery_set,
-            &[TokenKind::LParen, TokenKind::ThinArrow, TokenKind::LCurly],
+            &[TokenKind::LParen, TokenKind::ThinArrow, TokenKind::LBrace],
         ]
         .concat(),
     );
@@ -71,15 +71,15 @@ pub(super) fn parse_function_def(
     if parser.at(TokenKind::LParen) {
         parse_params(
             parser,
-            &[recovery_set, &[TokenKind::ThinArrow, TokenKind::LCurly]].concat(),
+            &[recovery_set, &[TokenKind::ThinArrow, TokenKind::LBrace]].concat(),
         );
     }
 
     if parser.at(TokenKind::ThinArrow) {
-        parse_return_type(parser, &[recovery_set, &[TokenKind::LCurly]].concat());
+        parse_return_type(parser, &[recovery_set, &[TokenKind::LBrace]].concat());
     }
 
-    if parser.at(TokenKind::LCurly) {
+    if parser.at(TokenKind::LBrace) {
         parse_block(parser);
     }
 
@@ -97,7 +97,7 @@ pub(super) fn parse_struct(parser: &mut Parser, recovery_set: &[TokenKind]) -> C
         TokenKind::Ident,
         &[
             recovery_set,
-            &[TokenKind::LParen, TokenKind::LCurly, TokenKind::Semicolon],
+            &[TokenKind::LParen, TokenKind::LBrace, TokenKind::Semicolon],
         ]
         .concat(),
     );
@@ -114,7 +114,7 @@ pub(super) fn parse_struct(parser: &mut Parser, recovery_set: &[TokenKind]) -> C
         }
     }
     // or record fields struct
-    else if parser.at(TokenKind::LCurly) {
+    else if parser.at(TokenKind::LBrace) {
         parse_record_fields(parser, recovery_set);
     }
 
@@ -206,15 +206,15 @@ fn parse_return_type(parser: &mut Parser, recovery_set: &[TokenKind]) -> Complet
 
 /// ブロックをパースする
 fn parse_block(parser: &mut Parser) -> CompletedNodeMarker {
-    assert!(parser.at(TokenKind::LCurly));
+    assert!(parser.at(TokenKind::LBrace));
 
     let marker = parser.start();
     parser.bump();
 
-    while !parser.at(TokenKind::RCurly) && !parser.at_end() {
+    while !parser.at(TokenKind::RBrace) && !parser.at_end() {
         parse_stmt_on_block(parser);
     }
-    parser.expect_on_block(TokenKind::RCurly);
+    parser.expect_on_block(TokenKind::RBrace);
 
     marker.complete(parser, SyntaxKind::BlockExpr)
 }
@@ -224,11 +224,11 @@ fn parse_block(parser: &mut Parser) -> CompletedNodeMarker {
 /// 構造体定義はトップレベルとブロック内でパースするため、
 /// それぞれに合わせて復帰トークン種別を`recovery_set`に指定可能にしています。
 fn parse_record_fields(parser: &mut Parser, recovery_set: &[TokenKind]) -> CompletedNodeMarker {
-    assert!(parser.at(TokenKind::LCurly));
+    assert!(parser.at(TokenKind::LBrace));
 
     let recovery_set = &[
         recovery_set,
-        &[TokenKind::Comma, TokenKind::Colon, TokenKind::RCurly],
+        &[TokenKind::Comma, TokenKind::Colon, TokenKind::RBrace],
     ]
     .concat();
 
@@ -253,7 +253,7 @@ fn parse_record_fields(parser: &mut Parser, recovery_set: &[TokenKind]) -> Compl
             parser.bump();
             // struct AAA { a: int, b: int, }
             //                            ^,時点で停止させる
-            if parser.at(TokenKind::RCurly) {
+            if parser.at(TokenKind::RBrace) {
                 break;
             }
 
@@ -269,7 +269,7 @@ fn parse_record_fields(parser: &mut Parser, recovery_set: &[TokenKind]) -> Compl
             }
         }
     }
-    parser.expect_with_recovery_set_no_default(TokenKind::RCurly, recovery_set);
+    parser.expect_with_recovery_set_no_default(TokenKind::RBrace, recovery_set);
 
     marker.complete(parser, SyntaxKind::RecordFieldList)
 }
@@ -498,8 +498,8 @@ mod tests {
                       RParen@11..12 ")"
                     Whitespace@12..13 " "
                     BlockExpr@13..15
-                      LCurly@13..14 "{"
-                      RCurly@14..15 "}"
+                      LBrace@13..14 "{"
+                      RBrace@14..15 "}"
                 error at 6..8: expected identifier or ')', but found 'fn'
             "#]],
         );
@@ -553,8 +553,8 @@ mod tests {
                             Ident@12..15 "int"
                     Whitespace@15..16 " "
                     BlockExpr@16..18
-                      LCurly@16..17 "{"
-                      RCurly@17..18 "}"
+                      LBrace@16..17 "{"
+                      RBrace@17..18 "}"
             "#]],
         );
     }
@@ -600,8 +600,8 @@ mod tests {
                             Ident@26..29 "int"
                     Whitespace@29..30 " "
                     BlockExpr@30..32
-                      LCurly@30..31 "{"
-                      RCurly@31..32 "}"
+                      LBrace@30..31 "{"
+                      RBrace@31..32 "}"
             "#]],
         );
     }
@@ -651,8 +651,8 @@ mod tests {
                             Ident@34..37 "int"
                     Whitespace@37..38 " "
                     BlockExpr@38..40
-                      LCurly@38..39 "{"
-                      RCurly@39..40 "}"
+                      LBrace@38..39 "{"
+                      RBrace@39..40 "}"
             "#]],
         );
     }
@@ -680,7 +680,7 @@ mod tests {
                             Ident@12..15 "int"
                     Whitespace@15..16 " "
                     BlockExpr@16..27
-                      LCurly@16..17 "{"
+                      LBrace@16..17 "{"
                       Whitespace@17..18 " "
                       ExprStmt@18..25
                         BinaryExpr@18..25
@@ -692,7 +692,7 @@ mod tests {
                           Literal@23..25
                             Integer@23..25 "20"
                       Whitespace@25..26 " "
-                      RCurly@26..27 "}"
+                      RBrace@26..27 "}"
             "#]],
         );
     }
@@ -731,13 +731,13 @@ mod tests {
                             Ident@20..23 "int"
                     Whitespace@23..24 " "
                     BlockExpr@24..30
-                      LCurly@24..25 "{"
+                      LBrace@24..25 "{"
                       Whitespace@25..26 " "
                       ExprStmt@26..28
                         Literal@26..28
                           Integer@26..28 "10"
                       Whitespace@28..29 " "
-                      RCurly@29..30 "}"
+                      RBrace@29..30 "}"
                 error at 17..19: expected ':', but found ->
                 error at 17..19: expected 'mut', identifier, ',' or ')', but found ->
             "#]],
@@ -773,13 +773,13 @@ mod tests {
                             Ident@18..21 "int"
                     Whitespace@21..22 " "
                     BlockExpr@22..28
-                      LCurly@22..23 "{"
+                      LBrace@22..23 "{"
                       Whitespace@23..24 " "
                       ExprStmt@24..26
                         Literal@24..26
                           Integer@24..26 "10"
                       Whitespace@26..27 " "
-                      RCurly@27..28 "}"
+                      RBrace@27..28 "}"
                 error at 15..17: expected identifier, but found ->
                 error at 15..17: expected ':', but found ->
                 error at 15..17: expected 'mut', identifier, ',' or ')', but found ->
@@ -814,13 +814,13 @@ mod tests {
                             Ident@17..20 "int"
                     Whitespace@20..21 " "
                     BlockExpr@21..27
-                      LCurly@21..22 "{"
+                      LBrace@21..22 "{"
                       Whitespace@22..23 " "
                       ExprStmt@23..25
                         Literal@23..25
                           Integer@23..25 "10"
                       Whitespace@25..26 " "
-                      RCurly@26..27 "}"
+                      RBrace@26..27 "}"
                 error at 14..16: expected '::', ',' or ')', but found ->
             "#]],
         );
@@ -848,13 +848,13 @@ mod tests {
                             Ident@13..16 "int"
                     Whitespace@16..17 " "
                     BlockExpr@17..23
-                      LCurly@17..18 "{"
+                      LBrace@17..18 "{"
                       Whitespace@18..19 " "
                       ExprStmt@19..21
                         Literal@19..21
                           Integer@19..21 "10"
                       Whitespace@21..22 " "
-                      RCurly@22..23 "}"
+                      RBrace@22..23 "}"
                 error at 10..12: expected 'mut', identifier, ',' or ')', but found ->
             "#]],
         );
@@ -881,13 +881,13 @@ mod tests {
                             Ident@12..15 "int"
                     Whitespace@15..16 " "
                     BlockExpr@16..22
-                      LCurly@16..17 "{"
+                      LBrace@16..17 "{"
                       Whitespace@17..18 " "
                       ExprStmt@18..20
                         Literal@18..20
                           Integer@18..20 "10"
                       Whitespace@20..21 " "
-                      RCurly@21..22 "}"
+                      RBrace@21..22 "}"
                 error at 9..11: expected ':', but found ->
                 error at 9..11: expected 'mut', identifier, ',' or ')', but found ->
             "#]],
@@ -913,13 +913,13 @@ mod tests {
                             Ident@11..14 "int"
                     Whitespace@14..15 " "
                     BlockExpr@15..21
-                      LCurly@15..16 "{"
+                      LBrace@15..16 "{"
                       Whitespace@16..17 " "
                       ExprStmt@17..19
                         Literal@17..19
                           Integer@17..19 "10"
                       Whitespace@19..20 " "
-                      RCurly@20..21 "}"
+                      RBrace@20..21 "}"
                 error at 8..10: expected identifier or ')', but found ->
             "#]],
         );
@@ -953,13 +953,13 @@ mod tests {
                             Ident@13..16 "int"
                     Whitespace@16..17 " "
                     BlockExpr@17..23
-                      LCurly@17..18 "{"
+                      LBrace@17..18 "{"
                       Whitespace@18..19 " "
                       ExprStmt@19..21
                         Literal@19..21
                           Integer@19..21 "10"
                       Whitespace@21..22 " "
-                      RCurly@22..23 "}"
+                      RBrace@22..23 "}"
                 error at 3..4: expected identifier, but found '('
                 error at 5..6: expected ':', but found ','
                 error at 8..9: expected ':', but found ')'
@@ -982,13 +982,13 @@ mod tests {
                       RParen@5..6 ")"
                     Whitespace@6..7 " "
                     BlockExpr@7..13
-                      LCurly@7..8 "{"
+                      LBrace@7..8 "{"
                       Whitespace@8..9 " "
                       ExprStmt@9..11
                         Literal@9..11
                           Integer@9..11 "10"
                       Whitespace@11..12 " "
-                      RCurly@12..13 "}"
+                      RBrace@12..13 "}"
             "#]],
         );
 
@@ -1008,13 +1008,13 @@ mod tests {
                       ThinArrow@7..9 "->"
                     Whitespace@9..10 " "
                     BlockExpr@10..16
-                      LCurly@10..11 "{"
+                      LBrace@10..11 "{"
                       Whitespace@11..12 " "
                       ExprStmt@12..14
                         Literal@12..14
                           Integer@12..14 "10"
                       Whitespace@14..15 " "
-                      RCurly@15..16 "}"
+                      RBrace@15..16 "}"
                 error at 10..11: expected identifier, but found '{'
             "#]],
         );
@@ -1038,14 +1038,14 @@ mod tests {
                           Ident@7..10 "int"
                       Whitespace@10..11 " "
                       RecordFieldListExpr@11..15
-                        LCurly@11..12 "{"
+                        LBrace@11..12 "{"
                         Whitespace@12..13 " "
                         Error@13..15
                           Integer@13..15 "10"
                   Whitespace@15..16 " "
                   ExprStmt@16..17
                     Error@16..17
-                      RCurly@16..17 "}"
+                      RBrace@16..17 "}"
                 error at 13..15: expected identifier or '}', but found integerLiteral
                 error at 16..17: expected '+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', '=', ';', 'let', 'fn', 'struct', 'mod', integerLiteral, charLiteral, stringLiteral, 'true', 'false', identifier, '!', '[', '(', '{', 'if', 'return', 'loop', 'continue', 'break' or 'while', but found '}'
             "#]],
@@ -1196,8 +1196,8 @@ struct AAA;
                     Ident@7..10 "AAA"
                     Whitespace@10..11 " "
                     RecordFieldList@11..13
-                      LCurly@11..12 "{"
-                      RCurly@12..13 "}"
+                      LBrace@11..12 "{"
+                      RBrace@12..13 "}"
             "#]],
         );
 
@@ -1211,7 +1211,7 @@ struct AAA;
                     Ident@7..10 "AAA"
                     Whitespace@10..11 " "
                     RecordFieldList@11..21
-                      LCurly@11..12 "{"
+                      LBrace@11..12 "{"
                       Whitespace@12..13 " "
                       RecordField@13..19
                         Ident@13..14 "a"
@@ -1222,7 +1222,7 @@ struct AAA;
                             PathSegment@16..19
                               Ident@16..19 "int"
                       Whitespace@19..20 " "
-                      RCurly@20..21 "}"
+                      RBrace@20..21 "}"
             "#]],
         );
 
@@ -1236,7 +1236,7 @@ struct AAA;
                     Ident@7..10 "AAA"
                     Whitespace@10..11 " "
                     RecordFieldList@11..22
-                      LCurly@11..12 "{"
+                      LBrace@11..12 "{"
                       Whitespace@12..13 " "
                       RecordField@13..19
                         Ident@13..14 "a"
@@ -1248,7 +1248,7 @@ struct AAA;
                               Ident@16..19 "int"
                       Comma@19..20 ","
                       Whitespace@20..21 " "
-                      RCurly@21..22 "}"
+                      RBrace@21..22 "}"
             "#]],
         );
 
@@ -1262,7 +1262,7 @@ struct AAA;
                     Ident@7..10 "AAA"
                     Whitespace@10..11 " "
                     RecordFieldList@11..29
-                      LCurly@11..12 "{"
+                      LBrace@11..12 "{"
                       Whitespace@12..13 " "
                       RecordField@13..19
                         Ident@13..14 "a"
@@ -1283,7 +1283,7 @@ struct AAA;
                             PathSegment@24..27
                               Ident@24..27 "int"
                       Whitespace@27..28 " "
-                      RCurly@28..29 "}"
+                      RBrace@28..29 "}"
             "#]],
         );
 
@@ -1297,7 +1297,7 @@ struct AAA;
                     Ident@7..10 "AAA"
                     Whitespace@10..11 " "
                     RecordFieldList@11..30
-                      LCurly@11..12 "{"
+                      LBrace@11..12 "{"
                       Whitespace@12..13 " "
                       RecordField@13..19
                         Ident@13..14 "a"
@@ -1319,7 +1319,7 @@ struct AAA;
                               Ident@24..27 "int"
                       Comma@27..28 ","
                       Whitespace@28..29 " "
-                      RCurly@29..30 "}"
+                      RBrace@29..30 "}"
             "#]],
         );
     }
@@ -1378,7 +1378,7 @@ struct AAA;
                     StructKw@0..6 "struct"
                     Whitespace@6..7 " "
                     RecordFieldList@7..17
-                      LCurly@7..8 "{"
+                      LBrace@7..8 "{"
                       Whitespace@8..9 " "
                       RecordField@9..15
                         Ident@9..10 "a"
@@ -1389,7 +1389,7 @@ struct AAA;
                             PathSegment@12..15
                               Ident@12..15 "i32"
                       Whitespace@15..16 " "
-                      RCurly@16..17 "}"
+                      RBrace@16..17 "}"
                 error at 7..8: expected identifier, but found '{'
             "#]],
         );
@@ -1404,7 +1404,7 @@ struct AAA;
                     Ident@7..10 "AAA"
                     Whitespace@10..11 " "
                     RecordFieldList@11..19
-                      LCurly@11..12 "{"
+                      LBrace@11..12 "{"
                       Whitespace@12..13 " "
                       RecordField@13..14
                         Colon@13..14 ":"
@@ -1413,7 +1413,7 @@ struct AAA;
                       RecordField@16..17
                         Colon@16..17 ":"
                       Whitespace@17..18 " "
-                      RCurly@18..19 "}"
+                      RBrace@18..19 "}"
                 error at 13..14: expected identifier, but found ':'
                 error at 16..17: expected '}' or identifier, but found ':'
             "#]],
@@ -1429,7 +1429,7 @@ struct AAA;
                     Ident@7..10 "AAA"
                     Whitespace@10..11 " "
                     RecordFieldList@11..28
-                      LCurly@11..12 "{"
+                      LBrace@11..12 "{"
                       Whitespace@12..13 " "
                       RecordField@13..18
                         Colon@13..14 ":"
@@ -1448,7 +1448,7 @@ struct AAA;
                             PathSegment@22..26
                               Ident@22..26 "bool"
                       Whitespace@26..27 " "
-                      RCurly@27..28 "}"
+                      RBrace@27..28 "}"
                 error at 13..14: expected identifier, but found ':'
                 error at 20..21: expected '}' or identifier, but found ':'
             "#]],
@@ -1464,7 +1464,7 @@ struct AAA;
                     Ident@7..10 "AAA"
                     Whitespace@10..11 " "
                     RecordFieldList@11..21
-                      LCurly@11..12 "{"
+                      LBrace@11..12 "{"
                       Whitespace@12..13 " "
                       RecordField@13..15
                         Ident@13..14 "a"
@@ -1475,7 +1475,7 @@ struct AAA;
                         Ident@17..18 "b"
                         Colon@18..19 ":"
                       Whitespace@19..20 " "
-                      RCurly@20..21 "}"
+                      RBrace@20..21 "}"
             "#]],
         );
     }
@@ -1530,8 +1530,8 @@ struct AAA;
                             Ident@41..44 "bar"
                     Whitespace@44..45 " "
                     BlockExpr@45..47
-                      LCurly@45..46 "{"
-                      RCurly@46..47 "}"
+                      LBrace@45..46 "{"
+                      RBrace@46..47 "}"
             "#]],
         );
     }
@@ -1581,7 +1581,7 @@ struct AAA;
                     Ident@7..10 "AAA"
                     Whitespace@10..11 " "
                     RecordFieldList@11..39
-                      LCurly@11..12 "{"
+                      LBrace@11..12 "{"
                       Whitespace@12..13 " "
                       RecordField@13..24
                         Ident@13..14 "x"
@@ -1608,7 +1608,7 @@ struct AAA;
                             PathSegment@34..37
                               Ident@34..37 "bbb"
                       Whitespace@37..38 " "
-                      RCurly@38..39 "}"
+                      RBrace@38..39 "}"
             "#]],
         );
     }

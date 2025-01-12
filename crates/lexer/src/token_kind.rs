@@ -153,10 +153,10 @@ pub enum TokenKind {
     RParen,
     /// `[`
     #[token("[")]
-    LBrace,
+    LBracket,
     /// `]`
     #[token("]")]
-    RBrace,
+    RBracket,
     /// `{`
     #[token("{")]
     LCurly,
@@ -238,8 +238,8 @@ impl fmt::Display for TokenKind {
             Self::Semicolon => "';'",
             Self::LParen => "'('",
             Self::RParen => "')'",
-            Self::LBrace => "'['",
-            Self::RBrace => "']'",
+            Self::LBracket => "'['",
+            Self::RBracket => "']'",
             Self::LCurly => "'{'",
             Self::RCurly => "'}'",
             Self::Pipe => "'|'",
@@ -515,13 +515,13 @@ mod tests {
     }
 
     #[test]
-    fn lex_left_brace() {
-        check("[", TokenKind::LBrace);
+    fn lex_left_bracket() {
+        check("[", TokenKind::LBracket);
     }
 
     #[test]
-    fn lex_right_brace() {
-        check("]", TokenKind::RBrace);
+    fn lex_right_bracket() {
+        check("]", TokenKind::RBracket);
     }
 
     #[test]

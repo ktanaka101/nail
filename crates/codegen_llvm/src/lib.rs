@@ -123,14 +123,34 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             unimplemented!();
         }
 
+        // Declare GC functions and initialize GC
+        self.declare_gc_functions();
+        self.build_call_gc_init().expect("Failed to call GC_init");
+
+        // Declare user defined structs declaration
         self.emit_structs_declaration();
 
+        // Declare user defined functions
         self.gen_function_signatures(self.db);
 
+        // Define user defined structs body
+        // This should be done after declaring structs
+        // because we need to know the struct type to define the body
         self.emit_structs_body();
 
+        // Define user defined functions
+        // This should be done after declaring functions
+        // because we need to know the function type to define the body
         self.gen_functions();
 
+        // Define entry point
+        // The entry point is a function that calls the user defined main function
+        // The entry point function is defined as follows:
+        // ```
+        // void __main__() { // internal entry point
+        //     main(); // call user defined main function
+        // }
+        // ```
         let result = {
             let fn_type = self
                 .context

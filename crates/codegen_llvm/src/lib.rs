@@ -558,6 +558,14 @@ mod tests {
 
                 declare ptr @ptr_to_string(i64, ptr, i64)
 
+                declare void @GC_init()
+
+                declare ptr @GC_malloc(i64)
+
+                declare void @GC_free(ptr)
+
+                declare ptr @GC_realloc(ptr, i64)
+
                 define i64 @fibonacci(i64 %0) {
                 start:
                   %"0" = alloca i64, align 8
@@ -665,6 +673,7 @@ mod tests {
 
                 define ptr @__main__() {
                 start:
+                  call void @GC_init()
                   %call_entry_point = call i64 @main()
                   ret void
                 }
@@ -690,6 +699,14 @@ mod tests {
 
                 declare ptr @ptr_to_string(i64, ptr, i64)
 
+                declare void @GC_init()
+
+                declare ptr @GC_malloc(i64)
+
+                declare void @GC_free(ptr)
+
+                declare ptr @GC_realloc(ptr, i64)
+
                 define i64 @main() {
                 start:
                   %"0" = alloca i64, align 8
@@ -710,6 +727,7 @@ mod tests {
 
                 define ptr @__main__() {
                 start:
+                  call void @GC_init()
                   %call_entry_point = call i64 @main()
                   ret void
                 }
@@ -734,6 +752,14 @@ mod tests {
 
                 declare ptr @ptr_to_string(i64, ptr, i64)
 
+                declare void @GC_init()
+
+                declare ptr @GC_malloc(i64)
+
+                declare void @GC_free(ptr)
+
+                declare ptr @GC_realloc(ptr, i64)
+
                 define ptr @main() {
                 start:
                   %"0" = alloca ptr, align 8
@@ -753,6 +779,7 @@ mod tests {
 
                 define ptr @__main__() {
                 start:
+                  call void @GC_init()
                   %call_entry_point = call ptr @main()
                   ret void
                 }
@@ -776,6 +803,14 @@ mod tests {
 
                 declare ptr @ptr_to_string(i64, ptr, i64)
 
+                declare void @GC_init()
+
+                declare ptr @GC_malloc(i64)
+
+                declare void @GC_free(ptr)
+
+                declare ptr @GC_realloc(ptr, i64)
+
                 define i64 @main() {
                 start:
                   %"0" = alloca i64, align 8
@@ -792,6 +827,7 @@ mod tests {
 
                 define ptr @__main__() {
                 start:
+                  call void @GC_init()
                   %call_entry_point = call i64 @main()
                   ret void
                 }
@@ -815,6 +851,14 @@ mod tests {
                 source_filename = "top"
 
                 declare ptr @ptr_to_string(i64, ptr, i64)
+
+                declare void @GC_init()
+
+                declare ptr @GC_malloc(i64)
+
+                declare void @GC_free(ptr)
+
+                declare ptr @GC_realloc(ptr, i64)
 
                 define i64 @main() {
                 start:
@@ -846,6 +890,7 @@ mod tests {
 
                 define ptr @__main__() {
                 start:
+                  call void @GC_init()
                   %call_entry_point = call i64 @main()
                   ret void
                 }
@@ -868,6 +913,14 @@ mod tests {
 
                 declare ptr @ptr_to_string(i64, ptr, i64)
 
+                declare void @GC_init()
+
+                declare ptr @GC_malloc(i64)
+
+                declare void @GC_free(ptr)
+
+                declare ptr @GC_realloc(ptr, i64)
+
                 define i64 @main() {
                 start:
                   %"0" = alloca i64, align 8
@@ -887,6 +940,7 @@ mod tests {
 
                 define ptr @__main__() {
                 start:
+                  call void @GC_init()
                   %call_entry_point = call i64 @main()
                   ret void
                 }
@@ -911,6 +965,14 @@ mod tests {
                 %Point = type { i64, i64 }
 
                 declare ptr @ptr_to_string(i64, ptr, i64)
+
+                declare void @GC_init()
+
+                declare ptr @GC_malloc(i64)
+
+                declare void @GC_free(ptr)
+
+                declare ptr @GC_realloc(ptr, i64)
 
                 define i64 @main() {
                 start:
@@ -939,6 +1001,7 @@ mod tests {
 
                 define ptr @__main__() {
                 start:
+                  call void @GC_init()
                   %call_entry_point = call i64 @main()
                   ret void
                 }
@@ -963,6 +1026,14 @@ mod tests {
                 %Point = type { i64, i64 }
 
                 declare ptr @ptr_to_string(i64, ptr, i64)
+
+                declare void @GC_init()
+
+                declare ptr @GC_malloc(i64)
+
+                declare void @GC_free(ptr)
+
+                declare ptr @GC_realloc(ptr, i64)
 
                 define %Point @main() {
                 start:
@@ -999,6 +1070,7 @@ mod tests {
 
                 define ptr @__main__() {
                 start:
+                  call void @GC_init()
                   %call_entry_point = call %Point @main()
                   ret void
                 }
@@ -2238,6 +2310,14 @@ mod tests {
 
                 declare ptr @ptr_to_string(i64, ptr, i64)
 
+                declare void @GC_init()
+
+                declare ptr @GC_malloc(i64)
+
+                declare void @GC_free(ptr)
+
+                declare ptr @GC_realloc(ptr, i64)
+
                 define i64 @main() {
                 start:
                   %"0" = alloca i64, align 8
@@ -2302,6 +2382,7 @@ mod tests {
 
                 define ptr @__main__() {
                 start:
+                  call void @GC_init()
                   %call_entry_point = call i64 @main()
                   ret void
                 }
@@ -2359,6 +2440,14 @@ mod tests {
 
                 declare ptr @ptr_to_string(i64, ptr, i64)
 
+                declare void @GC_init()
+
+                declare ptr @GC_malloc(i64)
+
+                declare void @GC_free(ptr)
+
+                declare ptr @GC_realloc(ptr, i64)
+
                 define i64 @main() {
                 start:
                   %"0" = alloca i64, align 8
@@ -2392,6 +2481,7 @@ mod tests {
 
                 define ptr @__main__() {
                 start:
+                  call void @GC_init()
                   %call_entry_point = call i64 @main()
                   ret void
                 }

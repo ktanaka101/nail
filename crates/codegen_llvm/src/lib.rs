@@ -125,7 +125,6 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
 
         // Declare GC functions and initialize GC
         self.declare_gc_functions();
-        self.build_call_gc_init().expect("Failed to call GC_init");
 
         // Declare user defined structs declaration
         self.emit_structs_declaration();
@@ -148,6 +147,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         // The entry point function is defined as follows:
         // ```
         // void __main__() { // internal entry point
+        //     GC_init(); // call GC_init function
         //     main(); // call user defined main function
         // }
         // ```
@@ -163,6 +163,11 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 .context
                 .append_basic_block(entry_point, FN_ENTRY_BLOCK_NAME);
             self.builder.position_at_end(inner_entry_point_block);
+
+            // Call GC_init
+            self.build_call_gc_init().expect("Failed to call GC_init");
+
+            // Call user defined main function
             self.builder
                 .build_call(
                     self.defined_functions[&self.mir_result.function_id_of_entry_point().unwrap()],

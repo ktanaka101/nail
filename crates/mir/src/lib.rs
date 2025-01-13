@@ -169,6 +169,11 @@ impl Body {
             return_value: self.return_local,
         }
     }
+
+    /// Return type of the function
+    pub fn return_type(&self) -> Monotype {
+        self.locals[self.return_local].ty.clone()
+    }
 }
 
 /// 関数のシグネチャ

@@ -7,7 +7,6 @@ mod gc;
 use std::collections::HashMap;
 
 use body::BodyCodegen;
-pub use builtin_function::{Output, OutputType};
 use either::Either;
 use inkwell::{
     basic_block::BasicBlock,
@@ -180,10 +179,16 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         if should_return_string {
             match result.try_as_basic_value() {
                 Either::Left(result_value) => {
-                    let call_v = self.build_to_string(result_value);
-                    let return_v = call_v.try_as_basic_value().left().unwrap();
+                    let entry_point_fn_id = self.mir_result.function_id_of_entry_point().unwrap();
+                    let entry_point_body = self.mir_result.body_by_function_id(entry_point_fn_id);
+                    let return_type = entry_point_body.return_type();
 
-                    self.builder.build_return(Some(&return_v)).unwrap();
+                    let string_ptr_of_return_val =
+                        self.build_call_to_string(return_type, result_value);
+
+                    self.builder
+                        .build_return(Some(&string_ptr_of_return_val))
+                        .unwrap();
                 }
                 Either::Right(_) => unreachable!(),
             }
@@ -371,6 +376,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
 mod tests {
     use std::ffi::{c_char, CString};
 
+    use builtin_function::to_string::{Output, OutputType};
     use expect_test::{expect, Expect};
     use hir::FixtureDatabase;
     use inkwell::OptimizationLevel;
@@ -500,11 +506,11 @@ mod tests {
 
         let result_string = execute_in_root_file(&input_with_entry_point);
 
-        let output = serde_json::from_str::<crate::Output>(&result_string).unwrap();
+        let output = serde_json::from_str::<Output>(&result_string).unwrap();
         assert_eq!(
             output,
-            crate::Output {
-                nail_type: crate::OutputType::Int,
+            Output {
+                nail_type: OutputType::Int,
                 value: serde_json::json!(expect)
             },
             "input: {input}"
@@ -522,11 +528,11 @@ mod tests {
 
         let result_string = execute_in_root_file(&input_with_entry_point);
 
-        let output = serde_json::from_str::<crate::Output>(&result_string).unwrap();
+        let output = serde_json::from_str::<Output>(&result_string).unwrap();
         assert_eq!(
             output,
-            crate::Output {
-                nail_type: crate::OutputType::Boolean,
+            Output {
+                nail_type: OutputType::Boolean,
                 value: serde_json::json!(expect)
             },
             "input: {input}",
@@ -556,7 +562,13 @@ mod tests {
                 ; ModuleID = 'top'
                 source_filename = "top"
 
-                declare ptr @ptr_to_string(i64, ptr, i64)
+                declare ptr @int_to_string(i64)
+
+                declare ptr @to_string_bool(i1)
+
+                declare ptr @str_to_string(ptr)
+
+                declare ptr @struct_to_string()
 
                 declare void @GC_init()
 
@@ -697,7 +709,13 @@ mod tests {
 
                 @const_string = private unnamed_addr constant [4 x i8] c"aaa\00", align 1
 
-                declare ptr @ptr_to_string(i64, ptr, i64)
+                declare ptr @int_to_string(i64)
+
+                declare ptr @to_string_bool(i1)
+
+                declare ptr @str_to_string(ptr)
+
+                declare ptr @struct_to_string()
 
                 declare void @GC_init()
 
@@ -750,7 +768,13 @@ mod tests {
 
                 @const_string = private unnamed_addr constant [4 x i8] c"aaa\00", align 1
 
-                declare ptr @ptr_to_string(i64, ptr, i64)
+                declare ptr @int_to_string(i64)
+
+                declare ptr @to_string_bool(i1)
+
+                declare ptr @str_to_string(ptr)
+
+                declare ptr @struct_to_string()
 
                 declare void @GC_init()
 
@@ -801,7 +825,13 @@ mod tests {
                 ; ModuleID = 'top'
                 source_filename = "top"
 
-                declare ptr @ptr_to_string(i64, ptr, i64)
+                declare ptr @int_to_string(i64)
+
+                declare ptr @to_string_bool(i1)
+
+                declare ptr @str_to_string(ptr)
+
+                declare ptr @struct_to_string()
 
                 declare void @GC_init()
 
@@ -850,7 +880,13 @@ mod tests {
                 ; ModuleID = 'top'
                 source_filename = "top"
 
-                declare ptr @ptr_to_string(i64, ptr, i64)
+                declare ptr @int_to_string(i64)
+
+                declare ptr @to_string_bool(i1)
+
+                declare ptr @str_to_string(ptr)
+
+                declare ptr @struct_to_string()
 
                 declare void @GC_init()
 
@@ -911,7 +947,13 @@ mod tests {
                 ; ModuleID = 'top'
                 source_filename = "top"
 
-                declare ptr @ptr_to_string(i64, ptr, i64)
+                declare ptr @int_to_string(i64)
+
+                declare ptr @to_string_bool(i1)
+
+                declare ptr @str_to_string(ptr)
+
+                declare ptr @struct_to_string()
 
                 declare void @GC_init()
 
@@ -964,7 +1006,13 @@ mod tests {
 
                 %Point = type { i64, i64 }
 
-                declare ptr @ptr_to_string(i64, ptr, i64)
+                declare ptr @int_to_string(i64)
+
+                declare ptr @to_string_bool(i1)
+
+                declare ptr @str_to_string(ptr)
+
+                declare ptr @struct_to_string()
 
                 declare void @GC_init()
 
@@ -1025,7 +1073,13 @@ mod tests {
 
                 %Point = type { i64, i64 }
 
-                declare ptr @ptr_to_string(i64, ptr, i64)
+                declare ptr @int_to_string(i64)
+
+                declare ptr @to_string_bool(i1)
+
+                declare ptr @str_to_string(ptr)
+
+                declare ptr @struct_to_string()
 
                 declare void @GC_init()
 
@@ -2308,7 +2362,13 @@ mod tests {
                 ; ModuleID = 'top'
                 source_filename = "top"
 
-                declare ptr @ptr_to_string(i64, ptr, i64)
+                declare ptr @int_to_string(i64)
+
+                declare ptr @to_string_bool(i1)
+
+                declare ptr @str_to_string(ptr)
+
+                declare ptr @struct_to_string()
 
                 declare void @GC_init()
 
@@ -2438,7 +2498,13 @@ mod tests {
 
                 %Point = type { i64, i64 }
 
-                declare ptr @ptr_to_string(i64, ptr, i64)
+                declare ptr @int_to_string(i64)
+
+                declare ptr @to_string_bool(i1)
+
+                declare ptr @str_to_string(ptr)
+
+                declare ptr @struct_to_string()
 
                 declare void @GC_init()
 

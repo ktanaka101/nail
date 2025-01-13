@@ -151,10 +151,13 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         // }
         // ```
         let result = {
-            let fn_type = self
-                .context
-                .ptr_type(AddressSpace::default())
-                .fn_type(&[], false);
+            let fn_type = if should_return_string {
+                self.context
+                    .ptr_type(AddressSpace::default())
+                    .fn_type(&[], false)
+            } else {
+                self.context.void_type().fn_type(&[], false)
+            };
             let entry_point = self
                 .module
                 .add_function(INTERNAL_ENTRY_POINT, fn_type, None);
@@ -429,6 +432,8 @@ mod tests {
             },
             false,
         );
+
+        module.verify().expect("IR Verification failed");
         module.print_to_stderr();
 
         let ir = module.to_string();
@@ -485,6 +490,8 @@ mod tests {
             },
             true,
         );
+
+        module.verify().expect("IR Verification failed");
         module.print_to_stderr();
 
         {
@@ -683,7 +690,7 @@ mod tests {
                   br label %exit
                 }
 
-                define ptr @__main__() {
+                define void @__main__() {
                 start:
                   call void @GC_init()
                   %call_entry_point = call i64 @main()
@@ -743,7 +750,7 @@ mod tests {
                   ret i64 %load
                 }
 
-                define ptr @__main__() {
+                define void @__main__() {
                 start:
                   call void @GC_init()
                   %call_entry_point = call i64 @main()
@@ -801,7 +808,7 @@ mod tests {
                   ret ptr %load1
                 }
 
-                define ptr @__main__() {
+                define void @__main__() {
                 start:
                   call void @GC_init()
                   %call_entry_point = call ptr @main()
@@ -855,7 +862,7 @@ mod tests {
                   ret i64 %load
                 }
 
-                define ptr @__main__() {
+                define void @__main__() {
                 start:
                   call void @GC_init()
                   %call_entry_point = call i64 @main()
@@ -924,7 +931,7 @@ mod tests {
                   ret i64 %load
                 }
 
-                define ptr @__main__() {
+                define void @__main__() {
                 start:
                   call void @GC_init()
                   %call_entry_point = call i64 @main()
@@ -980,7 +987,7 @@ mod tests {
                   ret i64 %load1
                 }
 
-                define ptr @__main__() {
+                define void @__main__() {
                 start:
                   call void @GC_init()
                   %call_entry_point = call i64 @main()
@@ -1047,7 +1054,7 @@ mod tests {
                   ret i64 %load3
                 }
 
-                define ptr @__main__() {
+                define void @__main__() {
                 start:
                   call void @GC_init()
                   %call_entry_point = call i64 @main()
@@ -1122,7 +1129,7 @@ mod tests {
                   ret %Point %load7
                 }
 
-                define ptr @__main__() {
+                define void @__main__() {
                 start:
                   call void @GC_init()
                   %call_entry_point = call %Point @main()
@@ -2440,7 +2447,7 @@ mod tests {
                   ret i64 %load
                 }
 
-                define ptr @__main__() {
+                define void @__main__() {
                 start:
                   call void @GC_init()
                   %call_entry_point = call i64 @main()
@@ -2545,7 +2552,7 @@ mod tests {
                   ret i64 %load5
                 }
 
-                define ptr @__main__() {
+                define void @__main__() {
                 start:
                   call void @GC_init()
                   %call_entry_point = call i64 @main()

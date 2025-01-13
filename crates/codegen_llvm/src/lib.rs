@@ -2,6 +2,8 @@
 
 mod body;
 mod builtin_function;
+mod gc;
+
 use std::collections::HashMap;
 
 use body::BodyCodegen;

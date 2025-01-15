@@ -69,9 +69,6 @@ impl Environment {
 
     #[allow(dead_code)]
     fn generalize(&self, ty: &Monotype, db: &dyn HirTyMasterDatabase) -> TypeScheme {
-        TypeScheme::new_with_variables(
-            ty.clone(),
-            ty.free_variables(db).sub(&self.free_variables(db)),
-        )
+        TypeScheme::new_with_variables(*ty, ty.free_variables(db).sub(&self.free_variables(db)))
     }
 }

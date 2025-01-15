@@ -316,7 +316,7 @@ impl<'a> InferBody<'a> {
                 value,
             } => {
                 let ty = self.infer_expr(*value);
-                let ty_scheme = TypeScheme::new(ty.clone());
+                let ty_scheme = TypeScheme::new(ty);
                 self.mut_current_scope().insert(*value, ty_scheme);
                 ty
             }
@@ -586,9 +586,9 @@ impl<'a> InferBody<'a> {
                         &lhs_ty,
                         &rhs_ty,
                         &UnifyPurpose::MismatchedType {
-                            expected_ty: lhs_ty.clone(),
+                            expected_ty: lhs_ty,
                             expected_expr: Some(*lhs),
-                            found_ty: rhs_ty.clone(),
+                            found_ty: rhs_ty,
                             found_expr: *rhs,
                         },
                     );
@@ -742,12 +742,12 @@ impl<'a> InferBody<'a> {
                     &UnifyPurpose::MismatchedType {
                         expected_ty: Monotype::Unit,
                         expected_expr: None,
-                        found_ty: block_ty.clone(),
+                        found_ty: block_ty,
                         found_expr: *block,
                     },
                 );
 
-                let loop_ty = self.current_breakable().unwrap().first_break_ty.clone();
+                let loop_ty = self.current_breakable().unwrap().first_break_ty;
 
                 self.exit_breakable();
 
@@ -777,15 +777,15 @@ impl<'a> InferBody<'a> {
                 };
 
                 if let Some(breakable) = self.mut_current_breakable() {
-                    if let Some(break_ty) = breakable.first_break_ty.clone() {
+                    if let Some(break_ty) = breakable.first_break_ty {
                         // 2回目以降のbreakの型が最初に現れたbreakの型と異なる場合はエラーとする
                         self.unifier.unify(
                             &break_ty,
                             &ty,
                             &UnifyPurpose::MismatchedType {
-                                expected_ty: break_ty.clone(),
+                                expected_ty: break_ty,
                                 expected_expr: None,
-                                found_ty: ty.clone(),
+                                found_ty: ty,
                                 found_expr: expr_id,
                             },
                         );
@@ -1001,7 +1001,7 @@ impl<'a> InferBody<'a> {
             }
         };
 
-        self.type_by_expr.insert(expr_id, ty.clone());
+        self.type_by_expr.insert(expr_id, ty);
 
         ty
     }

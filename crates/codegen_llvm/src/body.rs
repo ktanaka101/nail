@@ -120,7 +120,7 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
         // 1) load pointer to struct
         let (ty, alloca_ptr) = self.locals[&local_idx];
         let struct_ty = {
-            let t = self.body.locals[local_idx].ty.clone();
+            let t = self.body.locals[local_idx].ty;
             let struct_ = match t {
                 hir_ty::Monotype::Struct(s) => s,
                 _ => unreachable!(),
@@ -144,7 +144,12 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
         self.codegen.builder.build_store(field_ptr, value).unwrap();
     }
 
-    fn load_local_struct_gep(&self, local_idx: mir::LocalIdx, idx: u32) -> BasicValueEnum<'ctx> {
+    fn load_local_struct_gep(
+        &self,
+        local_idx: mir::LocalIdx,
+        idx: u32,
+        field_ty: hir_ty::Monotype,
+    ) -> BasicValueEnum<'ctx> {
         // 1) load pointer to struct
         let (ty, alloca_ptr) = self.locals[&local_idx];
         let ptr_val = self
@@ -156,7 +161,7 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
 
         // 2) GEP
         let struct_ty = {
-            let t = self.body.locals[local_idx].ty.clone();
+            let t = self.body.locals[local_idx].ty;
             let struct_ = match t {
                 hir_ty::Monotype::Struct(s) => s,
                 _ => unreachable!(),
@@ -170,9 +175,25 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
             .build_struct_gep(struct_ty, ptr_val, idx, "gep_field")
             .unwrap();
 
+        let field_ty: BasicTypeEnum = match field_ty {
+            hir_ty::Monotype::Unit => self.codegen.unit_type().into(),
+            hir_ty::Monotype::Integer => self.codegen.integer_type().into(),
+            hir_ty::Monotype::String => self.codegen.string_type().into(),
+            hir_ty::Monotype::Bool => self.codegen.bool_type().into(),
+            hir_ty::Monotype::Char => todo!("char not yet handled"),
+            hir_ty::Monotype::Struct(_) => self
+                .codegen
+                .context
+                .ptr_type(AddressSpace::default())
+                .into(),
+            hir_ty::Monotype::Never => unreachable!(),
+            hir_ty::Monotype::Function(_) => todo!("functions not yet handled"),
+            hir_ty::Monotype::Variable(_) | hir_ty::Monotype::Unknown => unreachable!(),
+        };
+
         self.codegen
             .builder
-            .build_load(field_ptr.get_type(), field_ptr, "load_field")
+            .build_load(field_ty, field_ptr, "load_field")
             .unwrap()
     }
 
@@ -181,7 +202,12 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
         self.function.get_nth_param(param.pos).unwrap()
     }
 
-    fn load_param_struct_gep(&self, param_idx: mir::ParamIdx, idx: u32) -> BasicValueEnum<'ctx> {
+    fn load_param_struct_gep(
+        &self,
+        param_idx: mir::ParamIdx,
+        idx: u32,
+        field_ty: hir_ty::Monotype,
+    ) -> BasicValueEnum<'ctx> {
         let param = &self.body.params[param_idx];
         let param_val = self.function.get_nth_param(param.pos).unwrap();
 
@@ -201,9 +227,25 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
             .build_struct_gep(struct_ty, struct_ptr, idx, "param_field")
             .unwrap();
 
+        let field_ty: BasicTypeEnum = match field_ty {
+            hir_ty::Monotype::Unit => self.codegen.unit_type().into(),
+            hir_ty::Monotype::Integer => self.codegen.integer_type().into(),
+            hir_ty::Monotype::String => self.codegen.string_type().into(),
+            hir_ty::Monotype::Bool => self.codegen.bool_type().into(),
+            hir_ty::Monotype::Char => todo!("char not yet handled"),
+            hir_ty::Monotype::Struct(_) => self
+                .codegen
+                .context
+                .ptr_type(AddressSpace::default())
+                .into(),
+            hir_ty::Monotype::Never => unreachable!(),
+            hir_ty::Monotype::Function(_) => todo!("functions not yet handled"),
+            hir_ty::Monotype::Variable(_) | hir_ty::Monotype::Unknown => unreachable!(),
+        };
+
         self.codegen
             .builder
-            .build_load(field_ptr.get_type(), field_ptr, "load_param_field")
+            .build_load(field_ty, field_ptr, "load_param_field")
             .unwrap()
     }
 
@@ -226,11 +268,10 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                             mir::AggregateKind::Struct(struct_) => {
                                 let struct_ty = self.codegen.declaration_structs[struct_];
 
-                                // 1) allocate struct on stack
+                                // 1) allocate struct on heap
                                 let struct_ptr = self
                                     .codegen
-                                    .builder
-                                    .build_alloca(struct_ty, "struct_val")
+                                    .build_call_gc_malloc(struct_ty.size_of().unwrap())
                                     .unwrap();
 
                                 // 2) store each field
@@ -303,8 +344,8 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                         mir::PlaceKind::Param(param_idx) => {
                             if let Some(projection) = condition.projection {
                                 match projection {
-                                    mir::Projection::Field { idx, .. } => {
-                                        self.load_param_struct_gep(param_idx, idx)
+                                    mir::Projection::Field { idx, ty, name: _ } => {
+                                        self.load_param_struct_gep(param_idx, idx, ty)
                                     }
                                 }
                             } else {
@@ -314,8 +355,8 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                         mir::PlaceKind::Local(local_idx) => {
                             if let Some(projection) = condition.projection {
                                 match projection {
-                                    mir::Projection::Field { idx, .. } => {
-                                        self.load_local_struct_gep(local_idx, idx)
+                                    mir::Projection::Field { idx, ty, name: _ } => {
+                                        self.load_local_struct_gep(local_idx, idx, ty)
                                     }
                                 }
                             } else {
@@ -387,8 +428,8 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                 mir::PlaceKind::Param(param_idx) => {
                     if let Some(projection) = place.projection {
                         match projection {
-                            mir::Projection::Field { idx, .. } => {
-                                self.load_param_struct_gep(param_idx, idx)
+                            mir::Projection::Field { idx, ty, name: _ } => {
+                                self.load_param_struct_gep(param_idx, idx, ty)
                             }
                         }
                     } else {
@@ -398,8 +439,8 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                 mir::PlaceKind::Local(local_idx) => {
                     if let Some(projection) = place.projection {
                         match projection {
-                            mir::Projection::Field { idx, .. } => {
-                                self.load_local_struct_gep(local_idx, idx)
+                            mir::Projection::Field { idx, ty, name: _ } => {
+                                self.load_local_struct_gep(local_idx, idx, ty)
                             }
                         }
                     } else {

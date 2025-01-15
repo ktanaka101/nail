@@ -257,7 +257,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
     fn gen_function_signatures(&mut self, db: &dyn hir::HirMasterDatabase) {
         for (idx, body) in self.mir_result.ref_bodies() {
             let params = self.body_to_params(body);
-            let return_type = body.locals[body.return_local].ty.clone();
+            let return_type = body.locals[body.return_local].ty;
 
             let fn_ty: FunctionType<'ctx> = match return_type {
                 hir_ty::Monotype::Unit => {
@@ -428,7 +428,6 @@ mod tests {
         );
 
         module.verify().expect("IR Verification failed");
-        module.print_to_stderr();
 
         let ir = module.to_string();
         // Remove environment dependent IR.
@@ -486,7 +485,6 @@ mod tests {
         );
 
         module.verify().expect("IR Verification failed");
-        module.print_to_stderr();
 
         {
             let c_string_ptr = unsafe { result.function.call() };
@@ -1031,12 +1029,12 @@ mod tests {
                   br label %entry
 
                 entry:                                            ; preds = %start
-                  %struct_val = alloca %Point, align 8
-                  %struct_field = getelementptr inbounds %Point, ptr %struct_val, i32 0, i32 0
+                  %call_gc_malloc = call ptr @GC_malloc(i64 ptrtoint (ptr getelementptr (%Point, ptr null, i32 1) to i64))
+                  %struct_field = getelementptr inbounds %Point, ptr %call_gc_malloc, i32 0, i32 0
                   store i64 10, ptr %struct_field, align 8
-                  %struct_field1 = getelementptr inbounds %Point, ptr %struct_val, i32 0, i32 1
+                  %struct_field1 = getelementptr inbounds %Point, ptr %call_gc_malloc, i32 0, i32 1
                   store i64 20, ptr %struct_field1, align 8
-                  store ptr %struct_val, ptr %"2", align 8
+                  store ptr %call_gc_malloc, ptr %"2", align 8
                   %load_local = load ptr, ptr %"2", align 8
                   store ptr %load_local, ptr %"1", align 8
                   store i64 10, ptr %"0", align 8
@@ -1101,14 +1099,14 @@ mod tests {
                 entry:                                            ; preds = %start
                   store i64 30, ptr %"2", align 8
                   store i64 70, ptr %"3", align 8
-                  %struct_val = alloca %Point, align 8
+                  %call_gc_malloc = call ptr @GC_malloc(i64 ptrtoint (ptr getelementptr (%Point, ptr null, i32 1) to i64))
                   %load_local = load i64, ptr %"3", align 8
-                  %struct_field = getelementptr inbounds %Point, ptr %struct_val, i32 0, i32 0
+                  %struct_field = getelementptr inbounds %Point, ptr %call_gc_malloc, i32 0, i32 0
                   store i64 %load_local, ptr %struct_field, align 8
                   %load_local1 = load i64, ptr %"2", align 8
-                  %struct_field2 = getelementptr inbounds %Point, ptr %struct_val, i32 0, i32 1
+                  %struct_field2 = getelementptr inbounds %Point, ptr %call_gc_malloc, i32 0, i32 1
                   store i64 %load_local1, ptr %struct_field2, align 8
-                  store ptr %struct_val, ptr %"4", align 8
+                  store ptr %call_gc_malloc, ptr %"4", align 8
                   %load_local3 = load ptr, ptr %"4", align 8
                   store ptr %load_local3, ptr %"1", align 8
                   %load_local4 = load ptr, ptr %"4", align 8
@@ -2521,20 +2519,20 @@ mod tests {
                   br label %entry
 
                 entry:                                            ; preds = %start
-                  %struct_val = alloca %Point, align 8
-                  %struct_field = getelementptr inbounds %Point, ptr %struct_val, i32 0, i32 0
+                  %call_gc_malloc = call ptr @GC_malloc(i64 ptrtoint (ptr getelementptr (%Point, ptr null, i32 1) to i64))
+                  %struct_field = getelementptr inbounds %Point, ptr %call_gc_malloc, i32 0, i32 0
                   store i64 10, ptr %struct_field, align 8
-                  %struct_field1 = getelementptr inbounds %Point, ptr %struct_val, i32 0, i32 1
+                  %struct_field1 = getelementptr inbounds %Point, ptr %call_gc_malloc, i32 0, i32 1
                   store i64 20, ptr %struct_field1, align 8
-                  store ptr %struct_val, ptr %"2", align 8
+                  store ptr %call_gc_malloc, ptr %"2", align 8
                   %load_local = load ptr, ptr %"2", align 8
                   store ptr %load_local, ptr %"1", align 8
                   %load_local2 = load ptr, ptr %"2", align 8
                   store ptr %load_local2, ptr %"3", align 8
                   %load_struct_ptr = load ptr, ptr %"3", align 8
                   %gep_field = getelementptr inbounds %Point, ptr %load_struct_ptr, i32 0, i32 0
-                  %load_field = load ptr, ptr %gep_field, align 8
-                  store ptr %load_field, ptr %"0", align 8
+                  %load_field = load i64, ptr %gep_field, align 8
+                  store i64 %load_field, ptr %"0", align 8
                   br label %exit
 
                 exit:                                             ; preds = %entry
@@ -2553,7 +2551,7 @@ mod tests {
     }
 
     #[test]
-    fn record_field_expr() {
+    fn record_field_expr_exe() {
         check_result_in_root_file(
             r#"
                 struct Point { x: int, y: int }

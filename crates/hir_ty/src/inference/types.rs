@@ -8,7 +8,7 @@ use super::{
 use crate::HirTyMasterDatabase;
 
 /// 単一の型
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Monotype {
     /// 整数型
     Integer,
@@ -68,16 +68,16 @@ impl Monotype {
             | Monotype::String
             | Monotype::Struct { .. }
             | Monotype::Never
-            | Monotype::Unknown => self.clone(),
+            | Monotype::Unknown => *self,
             Monotype::Variable(id) => {
                 if let Some(ty) = subst.lookup(*id) {
                     ty
                 } else {
-                    self.clone()
+                    *self
                 }
             }
             // 関数シグネチャに自由変数を持たないので何もしない
-            Monotype::Function(_signagure) => self.clone(),
+            Monotype::Function(_signagure) => *self,
         }
     }
 }

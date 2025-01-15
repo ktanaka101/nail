@@ -194,9 +194,9 @@ fn build_unify_error_from_unify_purpose(
             found_ty,
             found_expr,
         } => InferenceError::MismatchedType {
-            expected_ty: expected_ty.clone(),
+            expected_ty: *expected_ty,
             expected_expr: *expected_expr,
-            found_ty: found_ty.clone(),
+            found_ty: *found_ty,
             found_expr: *found_expr,
         },
         UnifyPurpose::InitStructTuple {
@@ -239,8 +239,8 @@ impl TypeUnifier {
         if let Some(node) = node {
             node.topmost_parent().value
         } else {
-            self.nodes.insert(ty.clone(), Node::new(ty.clone()));
-            ty.clone()
+            self.nodes.insert(*ty, Node::new(*ty));
+            *ty
         }
     }
 

@@ -102,7 +102,7 @@ impl<'a> FunctionLower<'a> {
             .get_inference_by_function(self.function)
             .type_by_expr(expr)
             .unwrap();
-        let local_idx = self.alloc_local_by_ty(ty.clone());
+        let local_idx = self.alloc_local_by_ty(*ty);
         self.local_by_hir.insert(expr, local_idx);
 
         local_idx
@@ -780,7 +780,17 @@ impl<'a> FunctionLower<'a> {
                         let Ok(idx) = name.text(self.db).parse::<u32>() else {
                             unreachable!()
                         };
-                        let projection = Projection::Field { idx, name: *name };
+                        let Some(ty) = self
+                            .get_inference_by_function(self.function)
+                            .type_by_expr(expr_id)
+                        else {
+                            unreachable!("field type not found");
+                        };
+                        let projection = Projection::Field {
+                            idx,
+                            name: *name,
+                            ty: *ty,
+                        };
                         let place = Place {
                             local: PlaceKind::Local(local_base),
                             projection: Some(projection),
@@ -791,7 +801,19 @@ impl<'a> FunctionLower<'a> {
                     hir::StructKind::Record(fields) => {
                         let idx = fields.iter().position(|field| field.name == *name).unwrap();
                         let idx = u32::try_from(idx).unwrap();
-                        let projection = Projection::Field { idx, name: *name };
+
+                        let Some(ty) = self
+                            .get_inference_by_function(self.function)
+                            .type_by_expr(expr_id)
+                        else {
+                            unreachable!("field type not found");
+                        };
+
+                        let projection = Projection::Field {
+                            idx,
+                            name: *name,
+                            ty: *ty,
+                        };
                         let place = Place {
                             local: PlaceKind::Local(local_base),
                             projection: Some(projection),
@@ -856,7 +878,7 @@ impl<'a> FunctionLower<'a> {
             .zip(signature.params(self.db).iter())
         {
             let param_idx = self.params.alloc(Param {
-                ty: param_ty.clone(),
+                ty: *param_ty,
                 idx: self.local_idx,
                 pos: param
                     .data(self.hir_file.db(self.db))

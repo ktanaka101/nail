@@ -172,7 +172,7 @@ impl Body {
 
     /// Return type of the function
     pub fn return_type(&self) -> Monotype {
-        self.locals[self.return_local].ty.clone()
+        self.locals[self.return_local].ty
     }
 }
 
@@ -336,6 +336,8 @@ pub enum Projection {
     Field {
         /// フィールドのインデックス
         idx: u32,
+        /// Field type
+        ty: Monotype,
         /// フィールド名
         name: hir::Name,
     },

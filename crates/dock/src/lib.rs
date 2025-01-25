@@ -2,7 +2,6 @@
 
 use std::{
     collections::HashMap,
-    ffi::{c_char, CString},
     io,
     ops::Range,
     path::{self, PathBuf},
@@ -196,7 +195,7 @@ pub fn execute(
     let execution_engine = module
         .create_jit_execution_engine(OptimizationLevel::None)
         .unwrap();
-    let codegen_result = codegen_llvm::codegen(
+    let result_string = codegen_llvm::execute_return_string(
         &db,
         &pods,
         &mir_result,
@@ -206,15 +205,8 @@ pub fn execute(
             builder: &builder,
             execution_engine: &execution_engine,
         },
-        true,
     );
 
-    let result_string = {
-        let c_string_ptr = unsafe { codegen_result.function.call() };
-        unsafe { CString::from_raw(c_string_ptr as *mut c_char) }
-            .into_string()
-            .unwrap()
-    };
     write_dest_out.write_all(result_string.as_bytes())?;
 
     Ok(())

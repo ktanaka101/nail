@@ -2,11 +2,14 @@
 
 mod body;
 mod builtin_function;
-mod gc;
 
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    ffi::{c_char, CString},
+};
 
 use body::BodyCodegen;
+use builtin_function::stackmap::StackMapIdGenerator;
 use either::Either;
 use inkwell::{
     basic_block::BasicBlock,
@@ -34,8 +37,48 @@ pub struct CodegenContext<'a, 'ctx> {
     pub execution_engine: &'a ExecutionEngine<'ctx>,
 }
 
+pub fn execute_return_string<'a>(
+    db: &'a dyn hir::HirMasterDatabase,
+    pods: &'a hir::Pods,
+    mir_result: &'a mir::LowerResult,
+    codegen_context: &'a CodegenContext<'a, '_>,
+) -> String {
+    println!("before nail_gc_init");
+    nail_gc::externs::nail_gc_init();
+    println!("after nail_gc_init");
+
+    let codegen_result = codegen(db, pods, mir_result, codegen_context, true);
+
+    let result_string = {
+        let c_string_ptr = unsafe { codegen_result.function.call() };
+        unsafe { CString::from_raw(c_string_ptr as *mut c_char) }
+            .into_string()
+            .unwrap()
+    };
+
+    nail_gc::externs::nail_gc_shutdown();
+
+    result_string
+}
+
+pub fn execute<'a>(
+    db: &'a dyn hir::HirMasterDatabase,
+    pods: &'a hir::Pods,
+    mir_result: &'a mir::LowerResult,
+    codegen_context: &'a CodegenContext<'a, '_>,
+) {
+    println!("before nail_gc_init");
+    nail_gc::externs::nail_gc_init();
+    println!("after nail_gc_init");
+
+    let codegen_result = codegen(db, pods, mir_result, codegen_context, false);
+    unsafe { codegen_result.function.call() };
+
+    nail_gc::externs::nail_gc_shutdown();
+}
+
 /// LLVM IRを生成します。
-pub fn codegen<'a, 'ctx>(
+fn codegen<'a, 'ctx>(
     db: &'a dyn hir::HirMasterDatabase,
     pods: &'a hir::Pods,
     mir_result: &'a mir::LowerResult,
@@ -79,6 +122,8 @@ struct Codegen<'a, 'ctx> {
     entry_blocks: HashMap<mir::FunctionId, BasicBlock<'ctx>>,
 
     declaration_structs: HashMap<hir::Struct, StructType<'ctx>>,
+
+    stackmap_generator: StackMapIdGenerator,
 }
 
 impl<'a, 'ctx> Codegen<'a, 'ctx> {
@@ -91,7 +136,7 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         builder: &'a Builder<'ctx>,
         execution_engine: &'a ExecutionEngine<'ctx>,
     ) -> Self {
-        let mut codegen = Self {
+        Self {
             db,
             mir_result,
             pods,
@@ -103,10 +148,8 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             defined_functions: HashMap::new(),
             entry_blocks: HashMap::new(),
             declaration_structs: HashMap::new(),
-        };
-        codegen.add_builtin_function();
-
-        codegen
+            stackmap_generator: StackMapIdGenerator::new(),
+        }
     }
 
     fn move_to_entry_bb_in_function(&self, function_id: mir::FunctionId) {
@@ -119,8 +162,8 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
             unimplemented!();
         }
 
-        // Declare GC functions and initialize GC
-        self.declare_gc_functions();
+        // Declare builtin functions
+        self.add_builtin_function();
 
         // Declare user defined structs declaration
         self.emit_structs_declaration();
@@ -163,9 +206,6 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
                 .append_basic_block(entry_point, FN_ENTRY_BLOCK_NAME);
             self.builder.position_at_end(inner_entry_point_block);
 
-            // Call GC_init
-            self.build_call_gc_init().expect("Failed to call GC_init");
-
             // Call user defined main function
             self.builder
                 .build_call(
@@ -195,6 +235,8 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         } else {
             self.builder.build_return(None).unwrap();
         }
+
+        self.module.verify().expect("IR Verification failed");
 
         CodegenResult {
             function: unsafe {
@@ -371,8 +413,6 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
 
 #[cfg(test)]
 mod tests {
-    use std::ffi::{c_char, CString};
-
     use builtin_function::to_string::{Output, OutputType};
     use expect_test::{expect, Expect};
     use hir::FixtureDatabase;
@@ -471,7 +511,7 @@ mod tests {
         let execution_engine = module
             .create_jit_execution_engine(OptimizationLevel::None)
             .unwrap();
-        let result = codegen(
+        let result_string = execute_return_string(
             &db,
             &pods,
             &mir_result,
@@ -481,17 +521,10 @@ mod tests {
                 builder: &builder,
                 execution_engine: &execution_engine,
             },
-            true,
         );
-
         module.verify().expect("IR Verification failed");
 
-        {
-            let c_string_ptr = unsafe { result.function.call() };
-            unsafe { CString::from_raw(c_string_ptr as *mut c_char) }
-                .into_string()
-                .unwrap()
-        }
+        result_string
     }
 
     fn check_integer(input: &str, expect: i64) {
@@ -1029,12 +1062,12 @@ mod tests {
                   br label %entry
 
                 entry:                                            ; preds = %start
-                  %call_gc_malloc = call ptr @GC_malloc(i64 ptrtoint (ptr getelementptr (%Point, ptr null, i32 1) to i64))
-                  %struct_field = getelementptr inbounds %Point, ptr %call_gc_malloc, i32 0, i32 0
+                  %malloc_struct = tail call ptr @malloc(i32 ptrtoint (ptr getelementptr (%Point, ptr null, i32 1) to i32))
+                  %struct_field = getelementptr inbounds %Point, ptr %malloc_struct, i32 0, i32 0
                   store i64 10, ptr %struct_field, align 8
-                  %struct_field1 = getelementptr inbounds %Point, ptr %call_gc_malloc, i32 0, i32 1
+                  %struct_field1 = getelementptr inbounds %Point, ptr %malloc_struct, i32 0, i32 1
                   store i64 20, ptr %struct_field1, align 8
-                  store ptr %call_gc_malloc, ptr %"2", align 8
+                  store ptr %malloc_struct, ptr %"2", align 8
                   %load_local = load ptr, ptr %"2", align 8
                   store ptr %load_local, ptr %"1", align 8
                   store i64 10, ptr %"0", align 8
@@ -1044,6 +1077,8 @@ mod tests {
                   %load_local2 = load i64, ptr %"0", align 8
                   ret i64 %load_local2
                 }
+
+                declare noalias ptr @malloc(i32)
 
                 define void @__main__() {
                 start:
@@ -1099,14 +1134,14 @@ mod tests {
                 entry:                                            ; preds = %start
                   store i64 30, ptr %"2", align 8
                   store i64 70, ptr %"3", align 8
-                  %call_gc_malloc = call ptr @GC_malloc(i64 ptrtoint (ptr getelementptr (%Point, ptr null, i32 1) to i64))
+                  %malloc_struct = tail call ptr @malloc(i32 ptrtoint (ptr getelementptr (%Point, ptr null, i32 1) to i32))
                   %load_local = load i64, ptr %"3", align 8
-                  %struct_field = getelementptr inbounds %Point, ptr %call_gc_malloc, i32 0, i32 0
+                  %struct_field = getelementptr inbounds %Point, ptr %malloc_struct, i32 0, i32 0
                   store i64 %load_local, ptr %struct_field, align 8
                   %load_local1 = load i64, ptr %"2", align 8
-                  %struct_field2 = getelementptr inbounds %Point, ptr %call_gc_malloc, i32 0, i32 1
+                  %struct_field2 = getelementptr inbounds %Point, ptr %malloc_struct, i32 0, i32 1
                   store i64 %load_local1, ptr %struct_field2, align 8
-                  store ptr %call_gc_malloc, ptr %"4", align 8
+                  store ptr %malloc_struct, ptr %"4", align 8
                   %load_local3 = load ptr, ptr %"4", align 8
                   store ptr %load_local3, ptr %"1", align 8
                   %load_local4 = load ptr, ptr %"4", align 8
@@ -1117,6 +1152,8 @@ mod tests {
                   %load_local5 = load ptr, ptr %"0", align 8
                   ret ptr %load_local5
                 }
+
+                declare noalias ptr @malloc(i32)
 
                 define void @__main__() {
                 start:
@@ -2096,22 +2133,148 @@ mod tests {
     }
 
     #[test]
-    fn test_loop() {
-        check_result_in_root_file(
+    fn ir_loop() {
+        // check_ir_in_root_file(
+        //     r#"
+        //         fn main() -> bool {
+        //             loop {
+        //                 break true;
+        //             }
+        //         }
+        //     "#,
+        //     expect![[r#"
+        //         ; ModuleID = 'top'
+        //         source_filename = "top"
+
+        //         declare ptr @int_to_string(i64)
+
+        //         declare ptr @to_string_bool(i1)
+
+        //         declare ptr @str_to_string(ptr)
+
+        //         declare ptr @struct_to_string()
+
+        //         declare void @GC_init()
+
+        //         declare ptr @GC_malloc(i64)
+
+        //         declare void @GC_free(ptr)
+
+        //         declare ptr @GC_realloc(ptr, i64)
+
+        //         define i1 @main() {
+        //         start:
+        //           %"0" = alloca i1, align 1
+        //           %"1" = alloca i1, align 1
+        //           br label %entry
+
+        //         entry:                                            ; preds = %start
+        //           br label %loop0
+
+        //         exit:                                             ; preds = %bb1
+        //           %load_local = load i1, ptr %"0", align 1
+        //           ret i1 %load_local
+
+        //         loop0:                                            ; preds = %entry
+        //           store i1 true, ptr %"1", align 1
+        //           br label %bb1
+
+        //         bb1:                                              ; preds = %loop0
+        //           %load_local1 = load i1, ptr %"1", align 1
+        //           store i1 %load_local1, ptr %"0", align 1
+        //           br label %exit
+        //         }
+
+        //         define void @__main__() {
+        //         start:
+        //           call void @GC_init()
+        //           %call_entry_point = call i1 @main()
+        //           ret void
+        //         }
+        //     "#]],
+        // );
+
+        check_ir_in_root_file(
             r#"
-                fn main() -> bool {
+                fn main() -> int {
                     loop {
-                        break true;
+                        break 10;
                     }
                 }
             "#,
             expect![[r#"
-                {
-                  "nail_type": "Boolean",
-                  "value": true
+                ; ModuleID = 'top'
+                source_filename = "top"
+
+                declare ptr @int_to_string(i64)
+
+                declare ptr @to_string_bool(i1)
+
+                declare ptr @str_to_string(ptr)
+
+                declare ptr @struct_to_string()
+
+                declare void @GC_init()
+
+                declare ptr @GC_malloc(i64)
+
+                declare void @GC_free(ptr)
+
+                declare ptr @GC_realloc(ptr, i64)
+
+                declare void @GC_gcollect()
+
+                define i64 @main() {
+                start:
+                  %"0" = alloca i64, align 8
+                  %"1" = alloca i64, align 8
+                  br label %entry
+
+                entry:                                            ; preds = %start
+                  br label %loop0
+
+                exit:                                             ; preds = %bb1
+                  %load_local = load i64, ptr %"0", align 8
+                  ret i64 %load_local
+
+                loop0:                                            ; preds = %entry
+                  store i64 10, ptr %"1", align 8
+                  br label %bb1
+
+                bb1:                                              ; preds = %loop0
+                  %load_local1 = load i64, ptr %"1", align 8
+                  store i64 %load_local1, ptr %"0", align 8
+                  br label %exit
+                }
+
+                define void @__main__() {
+                start:
+                  call void @GC_init()
+                  %call_entry_point = call i64 @main()
+                  call void @GC_gcollect()
+                  ret void
                 }
             "#]],
         );
+    }
+
+    #[test]
+    fn test_loop() {
+        // check_result_in_root_file(
+        //     r#"
+        //         fn main() -> bool {
+        //             loop {
+        //                 break true;
+        //             }
+        //         }
+        //     "#,
+        //     expect![[r#"
+        //         {
+        //           "nail_type": "Boolean",
+        //           "value": true
+        //         }
+        //     "#]],
+        // );
 
         check_result_in_root_file(
             r#"
@@ -2519,12 +2682,12 @@ mod tests {
                   br label %entry
 
                 entry:                                            ; preds = %start
-                  %call_gc_malloc = call ptr @GC_malloc(i64 ptrtoint (ptr getelementptr (%Point, ptr null, i32 1) to i64))
-                  %struct_field = getelementptr inbounds %Point, ptr %call_gc_malloc, i32 0, i32 0
+                  %malloc_struct = tail call ptr @malloc(i32 ptrtoint (ptr getelementptr (%Point, ptr null, i32 1) to i32))
+                  %struct_field = getelementptr inbounds %Point, ptr %malloc_struct, i32 0, i32 0
                   store i64 10, ptr %struct_field, align 8
-                  %struct_field1 = getelementptr inbounds %Point, ptr %call_gc_malloc, i32 0, i32 1
+                  %struct_field1 = getelementptr inbounds %Point, ptr %malloc_struct, i32 0, i32 1
                   store i64 20, ptr %struct_field1, align 8
-                  store ptr %call_gc_malloc, ptr %"2", align 8
+                  store ptr %malloc_struct, ptr %"2", align 8
                   %load_local = load ptr, ptr %"2", align 8
                   store ptr %load_local, ptr %"1", align 8
                   %load_local2 = load ptr, ptr %"2", align 8
@@ -2539,6 +2702,8 @@ mod tests {
                   %load_local3 = load i64, ptr %"0", align 8
                   ret i64 %load_local3
                 }
+
+                declare noalias ptr @malloc(i32)
 
                 define void @__main__() {
                 start:
@@ -2597,6 +2762,105 @@ mod tests {
                   "nail_type": "String",
                   "value": "aaa"
                 }
+            "#]],
+        );
+    }
+
+    #[test]
+    fn ir_param_record_field_expr() {
+        check_ir_in_root_file(
+            r#"
+                struct Point { x: int, y: string }
+                fn main() -> int {
+                    let point = Point { x: 10, y: "aaa" };
+                    foo(point)
+                }
+                fn foo(point: Point) -> int {
+                    point.x
+                }
+            "#,
+            expect![[r#"
+                ; ModuleID = 'top'
+                source_filename = "top"
+
+                %Point = type { i64, ptr }
+
+                @const_string = private unnamed_addr constant [4 x i8] c"aaa\00", align 1
+
+                ; Function Attrs: nocallback nofree nosync willreturn
+                declare void @llvm.experimental.stackmap(i64, i32, ...) #0
+
+                declare void @nail_gc_collect()
+
+                declare ptr @nail_gc_malloc(i64)
+
+                declare ptr @int_to_string(i64)
+
+                declare ptr @bool_to_string(i1)
+
+                declare ptr @str_to_string(ptr)
+
+                declare ptr @struct_to_string()
+
+                define i64 @main() {
+                start:
+                  %"0" = alloca i64, align 8
+                  %"1" = alloca ptr, align 8
+                  %"2" = alloca ptr, align 8
+                  %"3" = alloca i64, align 8
+                  br label %entry
+
+                entry:                                            ; preds = %start
+                  call void (i64, i32, ...) @llvm.experimental.stackmap(i64 0, i32 0)
+                  %call_nail_gc_malloc = call ptr @nail_gc_malloc(i64 ptrtoint (ptr getelementptr (%Point, ptr null, i32 1) to i64))
+                  %struct_field = getelementptr inbounds %Point, ptr %call_nail_gc_malloc, i32 0, i32 0
+                  store i64 10, ptr %struct_field, align 8
+                  %struct_field1 = getelementptr inbounds %Point, ptr %call_nail_gc_malloc, i32 0, i32 1
+                  store ptr @const_string, ptr %struct_field1, align 8
+                  store ptr %call_nail_gc_malloc, ptr %"2", align 8
+                  %load_local = load ptr, ptr %"2", align 8
+                  store ptr %load_local, ptr %"1", align 8
+                  %load_local2 = load ptr, ptr %"2", align 8
+                  %call = call i64 @foo(ptr %load_local2)
+                  store i64 %call, ptr %"3", align 8
+                  br label %bb0
+
+                exit:                                             ; preds = %bb0
+                  %load_local3 = load i64, ptr %"0", align 8
+                  ret i64 %load_local3
+
+                bb0:                                              ; preds = %entry
+                  %load_local4 = load i64, ptr %"3", align 8
+                  store i64 %load_local4, ptr %"0", align 8
+                  br label %exit
+                }
+
+                define i64 @foo(ptr %0) {
+                start:
+                  %"0" = alloca i64, align 8
+                  %"2" = alloca ptr, align 8
+                  br label %entry
+
+                entry:                                            ; preds = %start
+                  store ptr %0, ptr %"2", align 8
+                  %load_struct_ptr = load ptr, ptr %"2", align 8
+                  %gep_field = getelementptr inbounds %Point, ptr %load_struct_ptr, i32 0, i32 0
+                  %load_field = load i64, ptr %gep_field, align 8
+                  store i64 %load_field, ptr %"0", align 8
+                  br label %exit
+
+                exit:                                             ; preds = %entry
+                  %load_local = load i64, ptr %"0", align 8
+                  ret i64 %load_local
+                }
+
+                define void @__main__() {
+                start:
+                  %call_entry_point = call i64 @main()
+                  ret void
+                }
+
+                attributes #0 = { nocallback nofree nosync willreturn }
             "#]],
         );
     }

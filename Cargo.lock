@@ -210,7 +210,9 @@ dependencies = [
  "hir",
  "hir_ty",
  "inkwell",
+ "libc",
  "mir",
+ "nail_gc",
  "parser",
  "serde",
  "serde_json",
@@ -495,7 +497,6 @@ dependencies = [
 [[package]]
 name = "inkwell"
 version = "0.5.0"
-source = "git+https://github.com/TheDan64/inkwell?branch=master#8bd9f087c7fedd3897016568184aa8516d6a0abf"
 dependencies = [
  "either",
  "inkwell_internals",
@@ -508,7 +509,6 @@ dependencies = [
 [[package]]
 name = "inkwell_internals"
 version = "0.10.0"
-source = "git+https://github.com/TheDan64/inkwell?branch=master#8bd9f087c7fedd3897016568184aa8516d6a0abf"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -705,6 +705,14 @@ dependencies = [
  "pkg-config",
  "tracing-subscriber",
  "tracing-tree",
+]
+
+[[package]]
+name = "nail_gc"
+version = "0.1.0"
+dependencies = [
+ "inkwell",
+ "libc",
 ]
 
 [[package]]

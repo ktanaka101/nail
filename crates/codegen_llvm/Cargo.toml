@@ -11,9 +11,11 @@ workspace = true
 anyhow = { workspace = true }
 either = { workspace = true }
 inkwell = { workspace = true }
+libc = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
+nail_gc = { workspace = true }
 hir = { workspace = true }
 hir_ty = { workspace = true }
 mir = { workspace = true }

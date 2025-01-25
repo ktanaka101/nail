@@ -1,0 +1,12 @@
+[package]
+name = "nail_gc"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+
+[lints]
+workspace = true
+
+[dependencies]
+libc = { workspace = true }
+inkwell = { workspace = true }

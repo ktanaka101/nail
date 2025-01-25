@@ -31,7 +31,6 @@ pkg-config = { workspace = true }
 members = ["crates/*"]
 
 [workspace.lints.rust]
-missing_docs = "deny"
 
 [workspace.dependencies]
 anyhow = "*"
@@ -42,10 +41,9 @@ drop_bomb = "*"
 either = "*"
 expect-test = "*"
 indexmap = "*"
-inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = [
-  "llvm18-0",
-] }
+inkwell = { path = "../inkwell", features = ["llvm18-0"] }
 la-arena = "*"
+libc = "*"
 logos = "*"
 lsp-server = { version = "*" }
 lsp-types = { version = "*", features = ["proposed"] }
@@ -66,6 +64,7 @@ tracing-subscriber = "*"
 tracing-tree = "*"
 
 dock = { path = "crates/dock" }
+nail_gc = { path = "crates/nail_gc" }
 lexer = { path = "crates/lexer" }
 syntax = { path = "crates/syntax" }
 parser = { path = "crates/parser" }

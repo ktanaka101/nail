@@ -19,7 +19,7 @@ extern "C" fn bool_to_string(value: bool) -> *const c_char {
     c.into_raw()
 }
 
-const NAME_BOOL_TO_STRING: &str = "to_string_bool";
+const NAME_BOOL_TO_STRING: &str = "bool_to_string";
 pub(super) fn define_bool_to_string(codegen: &mut Codegen) {
     let return_ty = codegen.context.ptr_type(AddressSpace::default());
     let fn_type = return_ty.fn_type(&[codegen.context.bool_type().into()], false);

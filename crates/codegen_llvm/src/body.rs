@@ -269,10 +269,7 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                                 let struct_ty = self.codegen.declaration_structs[struct_];
 
                                 // 1) allocate struct on heap
-                                let struct_ptr = self
-                                    .codegen
-                                    .build_call_gc_malloc(struct_ty.size_of().unwrap())
-                                    .unwrap();
+                                let struct_ptr = self.codegen.build_call_gc_malloc(struct_ty);
 
                                 // 2) store each field
                                 for (i, operand) in operands.iter().enumerate() {

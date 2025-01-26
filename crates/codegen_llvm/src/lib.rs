@@ -43,9 +43,7 @@ pub fn execute_return_string<'a>(
     mir_result: &'a mir::LowerResult,
     codegen_context: &'a CodegenContext<'a, '_>,
 ) -> String {
-    println!("before nail_gc_init");
     nail_gc::externs::nail_gc_init();
-    println!("after nail_gc_init");
 
     let codegen_result = codegen(db, pods, mir_result, codegen_context, true);
 
@@ -67,9 +65,7 @@ pub fn execute<'a>(
     mir_result: &'a mir::LowerResult,
     codegen_context: &'a CodegenContext<'a, '_>,
 ) {
-    println!("before nail_gc_init");
     nail_gc::externs::nail_gc_init();
-    println!("after nail_gc_init");
 
     let codegen_result = codegen(db, pods, mir_result, codegen_context, false);
     unsafe { codegen_result.function.call() };
@@ -186,7 +182,6 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
         // The entry point function is defined as follows:
         // ```
         // void __main__() { // internal entry point
-        //     GC_init(); // call GC_init function
         //     main(); // call user defined main function
         // }
         // ```

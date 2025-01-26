@@ -14,6 +14,7 @@ pub(super) fn define_gc_collect(codegen: &mut Codegen) {
 }
 
 impl Codegen<'_, '_> {
+    #[allow(dead_code)]
     pub(crate) fn build_call_gc_collect(&self) {
         let fn_gc_collect = self
             .module

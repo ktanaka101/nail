@@ -14,6 +14,7 @@ inkwell = { workspace = true }
 libc = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+serial_test = { workspace = true }
 
 nail_gc = { workspace = true }
 hir = { workspace = true }

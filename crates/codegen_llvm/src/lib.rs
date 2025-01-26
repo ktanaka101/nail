@@ -417,6 +417,7 @@ mod tests {
     use expect_test::{expect, Expect};
     use hir::FixtureDatabase;
     use inkwell::OptimizationLevel;
+    use serial_test::serial;
 
     use super::*;
 
@@ -594,21 +595,20 @@ mod tests {
                 ; ModuleID = 'top'
                 source_filename = "top"
 
+                ; Function Attrs: nocallback nofree nosync willreturn
+                declare void @llvm.experimental.stackmap(i64, i32, ...) #0
+
+                declare void @nail_gc_collect()
+
+                declare ptr @nail_gc_malloc(i64)
+
                 declare ptr @int_to_string(i64)
 
-                declare ptr @to_string_bool(i1)
+                declare ptr @bool_to_string(i1)
 
                 declare ptr @str_to_string(ptr)
 
                 declare ptr @struct_to_string()
-
-                declare void @GC_init()
-
-                declare ptr @GC_malloc(i64)
-
-                declare void @GC_free(ptr)
-
-                declare ptr @GC_realloc(ptr, i64)
 
                 define i64 @fibonacci(i64 %0) {
                 start:
@@ -717,10 +717,11 @@ mod tests {
 
                 define void @__main__() {
                 start:
-                  call void @GC_init()
                   %call_entry_point = call i64 @main()
                   ret void
                 }
+
+                attributes #0 = { nocallback nofree nosync willreturn }
             "#]],
         );
     }
@@ -741,21 +742,20 @@ mod tests {
 
                 @const_string = private unnamed_addr constant [4 x i8] c"aaa\00", align 1
 
+                ; Function Attrs: nocallback nofree nosync willreturn
+                declare void @llvm.experimental.stackmap(i64, i32, ...) #0
+
+                declare void @nail_gc_collect()
+
+                declare ptr @nail_gc_malloc(i64)
+
                 declare ptr @int_to_string(i64)
 
-                declare ptr @to_string_bool(i1)
+                declare ptr @bool_to_string(i1)
 
                 declare ptr @str_to_string(ptr)
 
                 declare ptr @struct_to_string()
-
-                declare void @GC_init()
-
-                declare ptr @GC_malloc(i64)
-
-                declare void @GC_free(ptr)
-
-                declare ptr @GC_realloc(ptr, i64)
 
                 define i64 @main() {
                 start:
@@ -777,10 +777,11 @@ mod tests {
 
                 define void @__main__() {
                 start:
-                  call void @GC_init()
                   %call_entry_point = call i64 @main()
                   ret void
                 }
+
+                attributes #0 = { nocallback nofree nosync willreturn }
             "#]],
         );
     }
@@ -800,21 +801,20 @@ mod tests {
 
                 @const_string = private unnamed_addr constant [4 x i8] c"aaa\00", align 1
 
+                ; Function Attrs: nocallback nofree nosync willreturn
+                declare void @llvm.experimental.stackmap(i64, i32, ...) #0
+
+                declare void @nail_gc_collect()
+
+                declare ptr @nail_gc_malloc(i64)
+
                 declare ptr @int_to_string(i64)
 
-                declare ptr @to_string_bool(i1)
+                declare ptr @bool_to_string(i1)
 
                 declare ptr @str_to_string(ptr)
 
                 declare ptr @struct_to_string()
-
-                declare void @GC_init()
-
-                declare ptr @GC_malloc(i64)
-
-                declare void @GC_free(ptr)
-
-                declare ptr @GC_realloc(ptr, i64)
 
                 define ptr @main() {
                 start:
@@ -835,10 +835,11 @@ mod tests {
 
                 define void @__main__() {
                 start:
-                  call void @GC_init()
                   %call_entry_point = call ptr @main()
                   ret void
                 }
+
+                attributes #0 = { nocallback nofree nosync willreturn }
             "#]],
         );
     }
@@ -857,21 +858,20 @@ mod tests {
                 ; ModuleID = 'top'
                 source_filename = "top"
 
+                ; Function Attrs: nocallback nofree nosync willreturn
+                declare void @llvm.experimental.stackmap(i64, i32, ...) #0
+
+                declare void @nail_gc_collect()
+
+                declare ptr @nail_gc_malloc(i64)
+
                 declare ptr @int_to_string(i64)
 
-                declare ptr @to_string_bool(i1)
+                declare ptr @bool_to_string(i1)
 
                 declare ptr @str_to_string(ptr)
 
                 declare ptr @struct_to_string()
-
-                declare void @GC_init()
-
-                declare ptr @GC_malloc(i64)
-
-                declare void @GC_free(ptr)
-
-                declare ptr @GC_realloc(ptr, i64)
 
                 define i64 @main() {
                 start:
@@ -889,10 +889,11 @@ mod tests {
 
                 define void @__main__() {
                 start:
-                  call void @GC_init()
                   %call_entry_point = call i64 @main()
                   ret void
                 }
+
+                attributes #0 = { nocallback nofree nosync willreturn }
             "#]],
         );
     }
@@ -912,21 +913,20 @@ mod tests {
                 ; ModuleID = 'top'
                 source_filename = "top"
 
+                ; Function Attrs: nocallback nofree nosync willreturn
+                declare void @llvm.experimental.stackmap(i64, i32, ...) #0
+
+                declare void @nail_gc_collect()
+
+                declare ptr @nail_gc_malloc(i64)
+
                 declare ptr @int_to_string(i64)
 
-                declare ptr @to_string_bool(i1)
+                declare ptr @bool_to_string(i1)
 
                 declare ptr @str_to_string(ptr)
 
                 declare ptr @struct_to_string()
-
-                declare void @GC_init()
-
-                declare ptr @GC_malloc(i64)
-
-                declare void @GC_free(ptr)
-
-                declare ptr @GC_realloc(ptr, i64)
 
                 define i64 @main() {
                 start:
@@ -958,10 +958,11 @@ mod tests {
 
                 define void @__main__() {
                 start:
-                  call void @GC_init()
                   %call_entry_point = call i64 @main()
                   ret void
                 }
+
+                attributes #0 = { nocallback nofree nosync willreturn }
             "#]],
         );
     }
@@ -979,21 +980,20 @@ mod tests {
                 ; ModuleID = 'top'
                 source_filename = "top"
 
+                ; Function Attrs: nocallback nofree nosync willreturn
+                declare void @llvm.experimental.stackmap(i64, i32, ...) #0
+
+                declare void @nail_gc_collect()
+
+                declare ptr @nail_gc_malloc(i64)
+
                 declare ptr @int_to_string(i64)
 
-                declare ptr @to_string_bool(i1)
+                declare ptr @bool_to_string(i1)
 
                 declare ptr @str_to_string(ptr)
 
                 declare ptr @struct_to_string()
-
-                declare void @GC_init()
-
-                declare ptr @GC_malloc(i64)
-
-                declare void @GC_free(ptr)
-
-                declare ptr @GC_realloc(ptr, i64)
 
                 define i64 @main() {
                 start:
@@ -1014,10 +1014,11 @@ mod tests {
 
                 define void @__main__() {
                 start:
-                  call void @GC_init()
                   %call_entry_point = call i64 @main()
                   ret void
                 }
+
+                attributes #0 = { nocallback nofree nosync willreturn }
             "#]],
         );
     }
@@ -1038,21 +1039,20 @@ mod tests {
 
                 %Point = type { i64, i64 }
 
+                ; Function Attrs: nocallback nofree nosync willreturn
+                declare void @llvm.experimental.stackmap(i64, i32, ...) #0
+
+                declare void @nail_gc_collect()
+
+                declare ptr @nail_gc_malloc(i64)
+
                 declare ptr @int_to_string(i64)
 
-                declare ptr @to_string_bool(i1)
+                declare ptr @bool_to_string(i1)
 
                 declare ptr @str_to_string(ptr)
 
                 declare ptr @struct_to_string()
-
-                declare void @GC_init()
-
-                declare ptr @GC_malloc(i64)
-
-                declare void @GC_free(ptr)
-
-                declare ptr @GC_realloc(ptr, i64)
 
                 define i64 @main() {
                 start:
@@ -1062,12 +1062,13 @@ mod tests {
                   br label %entry
 
                 entry:                                            ; preds = %start
-                  %malloc_struct = tail call ptr @malloc(i32 ptrtoint (ptr getelementptr (%Point, ptr null, i32 1) to i32))
-                  %struct_field = getelementptr inbounds %Point, ptr %malloc_struct, i32 0, i32 0
+                  call void (i64, i32, ...) @llvm.experimental.stackmap(i64 0, i32 0)
+                  %call_nail_gc_malloc = call ptr @nail_gc_malloc(i64 ptrtoint (ptr getelementptr (%Point, ptr null, i32 1) to i64))
+                  %struct_field = getelementptr inbounds %Point, ptr %call_nail_gc_malloc, i32 0, i32 0
                   store i64 10, ptr %struct_field, align 8
-                  %struct_field1 = getelementptr inbounds %Point, ptr %malloc_struct, i32 0, i32 1
+                  %struct_field1 = getelementptr inbounds %Point, ptr %call_nail_gc_malloc, i32 0, i32 1
                   store i64 20, ptr %struct_field1, align 8
-                  store ptr %malloc_struct, ptr %"2", align 8
+                  store ptr %call_nail_gc_malloc, ptr %"2", align 8
                   %load_local = load ptr, ptr %"2", align 8
                   store ptr %load_local, ptr %"1", align 8
                   store i64 10, ptr %"0", align 8
@@ -1078,14 +1079,13 @@ mod tests {
                   ret i64 %load_local2
                 }
 
-                declare noalias ptr @malloc(i32)
-
                 define void @__main__() {
                 start:
-                  call void @GC_init()
                   %call_entry_point = call i64 @main()
                   ret void
                 }
+
+                attributes #0 = { nocallback nofree nosync willreturn }
             "#]],
         );
     }
@@ -1106,21 +1106,20 @@ mod tests {
 
                 %Point = type { i64, i64 }
 
+                ; Function Attrs: nocallback nofree nosync willreturn
+                declare void @llvm.experimental.stackmap(i64, i32, ...) #0
+
+                declare void @nail_gc_collect()
+
+                declare ptr @nail_gc_malloc(i64)
+
                 declare ptr @int_to_string(i64)
 
-                declare ptr @to_string_bool(i1)
+                declare ptr @bool_to_string(i1)
 
                 declare ptr @str_to_string(ptr)
 
                 declare ptr @struct_to_string()
-
-                declare void @GC_init()
-
-                declare ptr @GC_malloc(i64)
-
-                declare void @GC_free(ptr)
-
-                declare ptr @GC_realloc(ptr, i64)
 
                 define ptr @main() {
                 start:
@@ -1134,14 +1133,15 @@ mod tests {
                 entry:                                            ; preds = %start
                   store i64 30, ptr %"2", align 8
                   store i64 70, ptr %"3", align 8
-                  %malloc_struct = tail call ptr @malloc(i32 ptrtoint (ptr getelementptr (%Point, ptr null, i32 1) to i32))
+                  call void (i64, i32, ...) @llvm.experimental.stackmap(i64 0, i32 0)
+                  %call_nail_gc_malloc = call ptr @nail_gc_malloc(i64 ptrtoint (ptr getelementptr (%Point, ptr null, i32 1) to i64))
                   %load_local = load i64, ptr %"3", align 8
-                  %struct_field = getelementptr inbounds %Point, ptr %malloc_struct, i32 0, i32 0
+                  %struct_field = getelementptr inbounds %Point, ptr %call_nail_gc_malloc, i32 0, i32 0
                   store i64 %load_local, ptr %struct_field, align 8
                   %load_local1 = load i64, ptr %"2", align 8
-                  %struct_field2 = getelementptr inbounds %Point, ptr %malloc_struct, i32 0, i32 1
+                  %struct_field2 = getelementptr inbounds %Point, ptr %call_nail_gc_malloc, i32 0, i32 1
                   store i64 %load_local1, ptr %struct_field2, align 8
-                  store ptr %malloc_struct, ptr %"4", align 8
+                  store ptr %call_nail_gc_malloc, ptr %"4", align 8
                   %load_local3 = load ptr, ptr %"4", align 8
                   store ptr %load_local3, ptr %"1", align 8
                   %load_local4 = load ptr, ptr %"4", align 8
@@ -1153,18 +1153,18 @@ mod tests {
                   ret ptr %load_local5
                 }
 
-                declare noalias ptr @malloc(i32)
-
                 define void @__main__() {
                 start:
-                  call void @GC_init()
                   %call_entry_point = call ptr @main()
                   ret void
                 }
+
+                attributes #0 = { nocallback nofree nosync willreturn }
             "#]],
         );
     }
 
+    #[serial]
     #[test]
     fn test_fibonacci() {
         check_result_in_root_file(
@@ -1194,6 +1194,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_return_integer_of_main() {
         check_result_in_root_file(
             r#"
@@ -1211,6 +1212,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_return_string_of_main() {
         check_result_in_root_file(
             r#"
@@ -1228,6 +1230,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_return_bool_of_main() {
         check_result_in_root_file(
             r#"
@@ -1245,6 +1248,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_return_unit_of_main() {
         check_result_in_root_file(
             r#"
@@ -1262,6 +1266,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_let_binding() {
         check_result_in_root_file(
             r#"
@@ -1295,6 +1300,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_multiple_ref() {
         check_result_in_root_file(
             r#"
@@ -1315,6 +1321,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_block() {
         check_result_in_root_file(
             r#"
@@ -1333,6 +1340,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_block_binding() {
         check_result_in_root_file(
             r#"
@@ -1368,6 +1376,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_call() {
         check_result_in_root_file(
             r#"
@@ -1390,6 +1399,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_call_with_params() {
         check_result_in_root_file(
             r#"
@@ -1431,6 +1441,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_call_with_param_types() {
         check_result_in_root_file(
             r#"
@@ -1491,6 +1502,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_gen_signature_preorder() {
         check_result_in_root_file(
             r#"
@@ -1521,6 +1533,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_gen_if_expr() {
         check_result_in_root_file(
             r#"
@@ -1581,6 +1594,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_if_cond_by_comparing() {
         check_integer("if 5 > 2 { 10 } else { 20 }", 10);
         check_integer("if 2 > 5 { 10 } else { 20 }", 20);
@@ -1591,6 +1605,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_add_number() {
         check_result_in_root_file(
             r#"
@@ -1613,6 +1628,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_sub_number() {
         check_result_in_root_file(
             r#"
@@ -1632,6 +1648,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_mul_number() {
         check_result_in_root_file(
             r#"
@@ -1651,6 +1668,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_div_number() {
         check_result_in_root_file(
             r#"
@@ -1670,6 +1688,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_div_number_truncation() {
         check_result_in_root_file(
             r#"
@@ -1689,6 +1708,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_equal_number() {
         check_result_in_root_file(
             r#"
@@ -1724,6 +1744,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_equal_bool() {
         check_result_in_root_file(
             r#"
@@ -1759,6 +1780,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_not_equal_number() {
         check_result_in_root_file(
             r#"
@@ -1794,6 +1816,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_ord_number() {
         check_result_in_root_file(
             r#"
@@ -1893,6 +1916,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_number_formula() {
         check_integer("5 + 5 + 5 + 5 - 10", 10);
         check_integer("2 * 2 * 2 * 2 * 2", 32);
@@ -1908,6 +1932,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_compare() {
         check_bool("0 > 0", false);
         check_bool("0 < 0", false);
@@ -1936,6 +1961,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_assign() {
         check_result_in_root_file(
             r#"
@@ -1956,6 +1982,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_negative_number() {
         check_result_in_root_file(
             r#"
@@ -1979,6 +2006,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_not_bool() {
         check_result_in_root_file(
             r#"
@@ -2000,6 +2028,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_bang() {
         check_bool("!false", true);
         check_bool("!true", false);
@@ -2012,6 +2041,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_return() {
         check_result_in_root_file(
             r#"
@@ -2134,65 +2164,65 @@ mod tests {
 
     #[test]
     fn ir_loop() {
-        // check_ir_in_root_file(
-        //     r#"
-        //         fn main() -> bool {
-        //             loop {
-        //                 break true;
-        //             }
-        //         }
-        //     "#,
-        //     expect![[r#"
-        //         ; ModuleID = 'top'
-        //         source_filename = "top"
+        check_ir_in_root_file(
+            r#"
+                fn main() -> bool {
+                    loop {
+                        break true;
+                    }
+                }
+            "#,
+            expect![[r#"
+                ; ModuleID = 'top'
+                source_filename = "top"
 
-        //         declare ptr @int_to_string(i64)
+                ; Function Attrs: nocallback nofree nosync willreturn
+                declare void @llvm.experimental.stackmap(i64, i32, ...) #0
 
-        //         declare ptr @to_string_bool(i1)
+                declare void @nail_gc_collect()
 
-        //         declare ptr @str_to_string(ptr)
+                declare ptr @nail_gc_malloc(i64)
 
-        //         declare ptr @struct_to_string()
+                declare ptr @int_to_string(i64)
 
-        //         declare void @GC_init()
+                declare ptr @bool_to_string(i1)
 
-        //         declare ptr @GC_malloc(i64)
+                declare ptr @str_to_string(ptr)
 
-        //         declare void @GC_free(ptr)
+                declare ptr @struct_to_string()
 
-        //         declare ptr @GC_realloc(ptr, i64)
+                define i1 @main() {
+                start:
+                  %"0" = alloca i1, align 1
+                  %"1" = alloca i1, align 1
+                  br label %entry
 
-        //         define i1 @main() {
-        //         start:
-        //           %"0" = alloca i1, align 1
-        //           %"1" = alloca i1, align 1
-        //           br label %entry
+                entry:                                            ; preds = %start
+                  br label %loop0
 
-        //         entry:                                            ; preds = %start
-        //           br label %loop0
+                exit:                                             ; preds = %bb1
+                  %load_local = load i1, ptr %"0", align 1
+                  ret i1 %load_local
 
-        //         exit:                                             ; preds = %bb1
-        //           %load_local = load i1, ptr %"0", align 1
-        //           ret i1 %load_local
+                loop0:                                            ; preds = %entry
+                  store i1 true, ptr %"1", align 1
+                  br label %bb1
 
-        //         loop0:                                            ; preds = %entry
-        //           store i1 true, ptr %"1", align 1
-        //           br label %bb1
+                bb1:                                              ; preds = %loop0
+                  %load_local1 = load i1, ptr %"1", align 1
+                  store i1 %load_local1, ptr %"0", align 1
+                  br label %exit
+                }
 
-        //         bb1:                                              ; preds = %loop0
-        //           %load_local1 = load i1, ptr %"1", align 1
-        //           store i1 %load_local1, ptr %"0", align 1
-        //           br label %exit
-        //         }
+                define void @__main__() {
+                start:
+                  %call_entry_point = call i1 @main()
+                  ret void
+                }
 
-        //         define void @__main__() {
-        //         start:
-        //           call void @GC_init()
-        //           %call_entry_point = call i1 @main()
-        //           ret void
-        //         }
-        //     "#]],
-        // );
+                attributes #0 = { nocallback nofree nosync willreturn }
+            "#]],
+        );
 
         check_ir_in_root_file(
             r#"
@@ -2206,23 +2236,20 @@ mod tests {
                 ; ModuleID = 'top'
                 source_filename = "top"
 
+                ; Function Attrs: nocallback nofree nosync willreturn
+                declare void @llvm.experimental.stackmap(i64, i32, ...) #0
+
+                declare void @nail_gc_collect()
+
+                declare ptr @nail_gc_malloc(i64)
+
                 declare ptr @int_to_string(i64)
 
-                declare ptr @to_string_bool(i1)
+                declare ptr @bool_to_string(i1)
 
                 declare ptr @str_to_string(ptr)
 
                 declare ptr @struct_to_string()
-
-                declare void @GC_init()
-
-                declare ptr @GC_malloc(i64)
-
-                declare void @GC_free(ptr)
-
-                declare ptr @GC_realloc(ptr, i64)
-
-                declare void @GC_gcollect()
 
                 define i64 @main() {
                 start:
@@ -2249,32 +2276,33 @@ mod tests {
 
                 define void @__main__() {
                 start:
-                  call void @GC_init()
                   %call_entry_point = call i64 @main()
-                  call void @GC_gcollect()
                   ret void
                 }
+
+                attributes #0 = { nocallback nofree nosync willreturn }
             "#]],
         );
     }
 
     #[test]
-    fn test_loop() {
-        // check_result_in_root_file(
-        //     r#"
-        //         fn main() -> bool {
-        //             loop {
-        //                 break true;
-        //             }
-        //         }
-        //     "#,
-        //     expect![[r#"
-        //         {
-        //           "nail_type": "Boolean",
-        //           "value": true
-        //         }
-        //     "#]],
-        // );
+    #[serial]
+    fn test_exe_loop() {
+        check_result_in_root_file(
+            r#"
+                fn main() -> bool {
+                    loop {
+                        break true;
+                    }
+                }
+            "#,
+            expect![[r#"
+                {
+                  "nail_type": "Boolean",
+                  "value": true
+                }
+            "#]],
+        );
 
         check_result_in_root_file(
             r#"
@@ -2294,6 +2322,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_loop_break_in_if() {
         check_result_in_root_file(
             r#"
@@ -2377,6 +2406,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_loop_continue() {
         check_result_in_root_file(
             r#"
@@ -2402,6 +2432,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_while() {
         check_result_in_root_file(
             r#"
@@ -2424,6 +2455,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_modules() {
         check_result_in_root_file(
             r#"
@@ -2461,6 +2493,7 @@ mod tests {
 
     // unimplemented
     #[test]
+    #[serial]
     #[should_panic]
     fn test_use_in_file() {
         check_result_in_root_file(
@@ -2521,21 +2554,20 @@ mod tests {
                 ; ModuleID = 'top'
                 source_filename = "top"
 
+                ; Function Attrs: nocallback nofree nosync willreturn
+                declare void @llvm.experimental.stackmap(i64, i32, ...) #0
+
+                declare void @nail_gc_collect()
+
+                declare ptr @nail_gc_malloc(i64)
+
                 declare ptr @int_to_string(i64)
 
-                declare ptr @to_string_bool(i1)
+                declare ptr @bool_to_string(i1)
 
                 declare ptr @str_to_string(ptr)
 
                 declare ptr @struct_to_string()
-
-                declare void @GC_init()
-
-                declare ptr @GC_malloc(i64)
-
-                declare void @GC_free(ptr)
-
-                declare ptr @GC_realloc(ptr, i64)
 
                 define i64 @main() {
                 start:
@@ -2601,15 +2633,17 @@ mod tests {
 
                 define void @__main__() {
                 start:
-                  call void @GC_init()
                   %call_entry_point = call i64 @main()
                   ret void
                 }
+
+                attributes #0 = { nocallback nofree nosync willreturn }
             "#]],
         );
     }
 
     #[test]
+    #[serial]
     fn test_nested_outline_module() {
         check_result_pod_result_start_with_root_file(
             r#"
@@ -2657,21 +2691,20 @@ mod tests {
 
                 %Point = type { i64, i64 }
 
+                ; Function Attrs: nocallback nofree nosync willreturn
+                declare void @llvm.experimental.stackmap(i64, i32, ...) #0
+
+                declare void @nail_gc_collect()
+
+                declare ptr @nail_gc_malloc(i64)
+
                 declare ptr @int_to_string(i64)
 
-                declare ptr @to_string_bool(i1)
+                declare ptr @bool_to_string(i1)
 
                 declare ptr @str_to_string(ptr)
 
                 declare ptr @struct_to_string()
-
-                declare void @GC_init()
-
-                declare ptr @GC_malloc(i64)
-
-                declare void @GC_free(ptr)
-
-                declare ptr @GC_realloc(ptr, i64)
 
                 define i64 @main() {
                 start:
@@ -2682,12 +2715,13 @@ mod tests {
                   br label %entry
 
                 entry:                                            ; preds = %start
-                  %malloc_struct = tail call ptr @malloc(i32 ptrtoint (ptr getelementptr (%Point, ptr null, i32 1) to i32))
-                  %struct_field = getelementptr inbounds %Point, ptr %malloc_struct, i32 0, i32 0
+                  call void (i64, i32, ...) @llvm.experimental.stackmap(i64 0, i32 0)
+                  %call_nail_gc_malloc = call ptr @nail_gc_malloc(i64 ptrtoint (ptr getelementptr (%Point, ptr null, i32 1) to i64))
+                  %struct_field = getelementptr inbounds %Point, ptr %call_nail_gc_malloc, i32 0, i32 0
                   store i64 10, ptr %struct_field, align 8
-                  %struct_field1 = getelementptr inbounds %Point, ptr %malloc_struct, i32 0, i32 1
+                  %struct_field1 = getelementptr inbounds %Point, ptr %call_nail_gc_malloc, i32 0, i32 1
                   store i64 20, ptr %struct_field1, align 8
-                  store ptr %malloc_struct, ptr %"2", align 8
+                  store ptr %call_nail_gc_malloc, ptr %"2", align 8
                   %load_local = load ptr, ptr %"2", align 8
                   store ptr %load_local, ptr %"1", align 8
                   %load_local2 = load ptr, ptr %"2", align 8
@@ -2703,20 +2737,20 @@ mod tests {
                   ret i64 %load_local3
                 }
 
-                declare noalias ptr @malloc(i32)
-
                 define void @__main__() {
                 start:
-                  call void @GC_init()
                   %call_entry_point = call i64 @main()
                   ret void
                 }
+
+                attributes #0 = { nocallback nofree nosync willreturn }
             "#]],
         );
     }
 
     #[test]
-    fn record_field_expr_exe() {
+    #[serial]
+    fn record_field_expr() {
         check_result_in_root_file(
             r#"
                 struct Point { x: int, y: int }
@@ -2866,6 +2900,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn param_record_field_expr() {
         check_result_in_root_file(
             r#"
@@ -2888,6 +2923,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn init_tuple_struct() {
         check_result_in_root_file(
             r#"
@@ -2907,6 +2943,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn init_unit_struct() {
         check_result_in_root_file(
             r#"
@@ -2939,21 +2976,20 @@ mod tests {
                 ; ModuleID = 'top'
                 source_filename = "top"
 
+                ; Function Attrs: nocallback nofree nosync willreturn
+                declare void @llvm.experimental.stackmap(i64, i32, ...) #0
+
+                declare void @nail_gc_collect()
+
+                declare ptr @nail_gc_malloc(i64)
+
                 declare ptr @int_to_string(i64)
 
-                declare ptr @to_string_bool(i1)
+                declare ptr @bool_to_string(i1)
 
                 declare ptr @str_to_string(ptr)
 
                 declare ptr @struct_to_string()
-
-                declare void @GC_init()
-
-                declare ptr @GC_malloc(i64)
-
-                declare void @GC_free(ptr)
-
-                declare ptr @GC_realloc(ptr, i64)
 
                 define ptr @main() {
                 start:
@@ -2974,10 +3010,11 @@ mod tests {
 
                 define void @__main__() {
                 start:
-                  call void @GC_init()
                   %call_entry_point = call ptr @main()
                   ret void
                 }
+
+                attributes #0 = { nocallback nofree nosync willreturn }
             "#]],
         );
     }

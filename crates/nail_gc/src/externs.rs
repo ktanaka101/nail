@@ -1,43 +1,63 @@
-use std::sync::{Mutex, MutexGuard, OnceLock};
+use std::sync::{Mutex, MutexGuard};
 
 use crate::gc::GC;
 
-static mut GLOBAL_GC: OnceLock<Mutex<GC>> = OnceLock::new();
+/// Global GC
+/// - `None`: Uninitialized
+/// - `Some(gc)`: Initialized
+static GLOBAL_GC: Mutex<Option<GC>> = Mutex::new(None);
 
-pub(crate) fn get_global_gc() -> MutexGuard<'static, GC> {
-    unsafe { GLOBAL_GC.get().unwrap().lock().unwrap() }
+/// ロックを取得し、`Option<GC>` へのミュータブル参照を返す
+pub(crate) fn get_gc_lock() -> MutexGuard<'static, Option<GC>> {
+    GLOBAL_GC.lock().expect("Mutex poisoned")
+}
+
+/// 便利関数: GC が初期化されていればクロージャに &mut GC を渡す。
+/// 戻り値: クロージャの戻り値
+pub(crate) fn with_global_gc<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut GC) -> R,
+{
+    let mut guard = get_gc_lock();
+    let gc = guard.as_mut();
+    if let Some(gc) = gc {
+        f(gc)
+    } else {
+        panic!("GC not initialized");
+    }
 }
 
 #[no_mangle]
 pub extern "C" fn nail_gc_init() {
-    println!("nail_gc_init");
-
-    let gc = Mutex::new(GC::new());
-    unsafe { GLOBAL_GC.set(gc).expect("GC already initialized") };
+    tracing::debug!("nail_gc_init");
+    let mut guard = get_gc_lock();
+    if guard.is_some() {
+        panic!("GC already initialized");
+    } else {
+        *guard = Some(GC::new());
+        tracing::debug!("GC is now initialized");
+    }
 }
 
 #[no_mangle]
 pub extern "C" fn nail_gc_shutdown() {
-    println!("nail_gc_shutdown");
-
-    if let Some(_gc) = unsafe { GLOBAL_GC.take() } {
-        // drop(gc)
+    tracing::debug!("nail_gc_shutdown");
+    let mut guard = get_gc_lock();
+    if guard.is_none() {
+        panic!("GC not initialized or already shut down");
     } else {
-        println!("GC already shutdown or not initialized");
+        // dropしてメモリ解放
+        *guard = None;
+        tracing::debug!("GC was shut down");
     }
 }
 
 #[no_mangle]
 pub extern "C" fn nail_gc_malloc(size: usize) -> *mut u8 {
-    println!("nail_gc_malloc: size={}", size);
-    let mut gc = get_global_gc();
-    gc.gc_alloc(size)
+    with_global_gc(|gc| gc.gc_alloc(size))
 }
 
 #[no_mangle]
 pub extern "C" fn nail_gc_collect() {
-    println!("nail_gc_collect");
-
-    let mut gc = get_global_gc();
-    gc.gc_collect();
+    with_global_gc(|gc| gc.gc_collect());
 }

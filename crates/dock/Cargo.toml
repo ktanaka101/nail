@@ -21,6 +21,7 @@ base_db = { workspace = true }
 hir = { workspace = true }
 hir_ty = { workspace = true }
 mir = { workspace = true }
+nail_gc = { workspace = true }
 codegen_llvm = { workspace = true }
 diagnostic = { workspace = true }
 

@@ -352,6 +352,7 @@ dependencies = [
  "hir_ty",
  "inkwell",
  "mir",
+ "nail_gc",
  "once_cell",
  "rayon",
  "regex",

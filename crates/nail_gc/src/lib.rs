@@ -1,3 +1,3 @@
 pub mod externs;
 mod gc;
-mod memory_manager;
+pub mod memory_manager;

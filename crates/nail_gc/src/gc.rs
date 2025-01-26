@@ -56,7 +56,7 @@ impl GC {
         let offset_aligned = (self.heap_offset + align - 1) & !(align - 1);
         let total = offset_aligned + std::mem::size_of::<GCObject>() + size;
         if total > self.capacity() {
-            println!("Out of GC heap => force collect?");
+            tracing::debug!("Out of GC heap => force collect?");
             // self.gc_collect();
         }
 
@@ -77,7 +77,7 @@ impl GC {
     }
 
     pub(crate) fn gc_collect(&mut self) {
-        println!("---- GC Collect start (Mark-Sweep) ----");
+        tracing::debug!("---- GC Collect start (Mark-Sweep) ----");
 
         // 1) Mark phase: we would read from the stack (or from stackmap records) to find root regs
         // For demonstration: we'll just pretend all are "dead" except the first
@@ -85,7 +85,7 @@ impl GC {
             unsafe {
                 (*first.as_ptr()).alive_mark = true;
             }
-            println!("Mark first object as alive => demonstration");
+            tracing::debug!("Mark first object as alive => demonstration");
         }
 
         // 2) Sweep phase
@@ -101,12 +101,12 @@ impl GC {
                 new_objs.push(obj_ptr);
             } else {
                 // drop it (do nothing for now)
-                println!("Drop object => {:?}", obj_ptr);
+                tracing::debug!("Drop object => {:?}", obj_ptr);
             }
         }
         self.allocated_objs = new_objs;
 
-        println!("---- GC Collect end ----");
+        tracing::debug!("---- GC Collect end ----");
     }
 }
 
@@ -115,15 +115,16 @@ impl GC {
 /// (1) load_stackmap_in_memory_jit: called by JIT to load the stackmap data in memory
 impl GC {
     pub(crate) fn load_stackmap_in_memory_jit(&mut self, buf: *mut u8, size: usize) {
-        println!(
+        tracing::debug!(
             "Load stackmap data => ptr={:?}, size={}",
-            self.stackmap_ptr, self.stackmap_size
+            self.stackmap_ptr,
+            self.stackmap_size
         );
         self.stackmap_ptr = Some(ptr::NonNull::new(buf).expect("stackmap must be not null ptr"));
         self.stackmap_size = size;
 
         if self.stackmap_size == 0 {
-            println!("No .llvm_stackmaps data => skipping parse");
+            tracing::debug!("No .llvm_stackmaps data => skipping parse");
         }
 
         // TODO: parse the stackmap data

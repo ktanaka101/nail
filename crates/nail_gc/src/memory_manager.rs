@@ -3,7 +3,7 @@ use std::ptr::null_mut;
 use inkwell::memory_manager::McjitMemoryManager;
 use libc::{mprotect, PROT_EXEC, PROT_READ, PROT_WRITE};
 
-use crate::externs::{get_global_gc, nail_gc_shutdown};
+use crate::externs::with_global_gc;
 
 #[derive(Debug)]
 pub struct MarkSweepMemoryManager {
@@ -39,15 +39,14 @@ impl McjitMemoryManager for MarkSweepMemoryManager {
         section_id: libc::c_uint,
         section_name: &str,
     ) -> *mut u8 {
-        println!("allocate_code_section: section_id={section_id} section_name={section_name} size={size} alignment={alignment}");
+        tracing::debug!("allocate_code_section: section_id={section_id} section_name={section_name} size={size} alignment={alignment}");
 
         let code_buf_ptr = unsafe { libc::malloc(size) };
         if code_buf_ptr.is_null() {
-            println!("Failed to allocate code section");
+            tracing::debug!("Failed to allocate code section");
             return null_mut();
         }
 
-        println!("Storing code ptr={:?} size={}", code_buf_ptr, size);
         self.code_buf_ptr = code_buf_ptr;
         self.code_buf_size = size;
 
@@ -62,15 +61,14 @@ impl McjitMemoryManager for MarkSweepMemoryManager {
         section_name: &str,
         is_read_only: bool,
     ) -> *mut u8 {
-        println!("allocate_data_section: section_id={section_id} section_name={section_name} size={size} alignment={alignment} readonly={is_read_only}");
+        tracing::debug!("allocate_data_section: section_id={section_id} section_name={section_name} size={size} alignment={alignment} readonly={is_read_only}");
 
         let data_buf_ptr = unsafe { libc::malloc(size) };
         if data_buf_ptr.is_null() {
-            println!("Failed to allocate data section");
+            tracing::debug!("Failed to allocate data section");
             return null_mut();
         }
 
-        println!("Storing data ptr={:?} size={}", data_buf_ptr, size);
         self.data_buf_ptr = data_buf_ptr;
         self.data_buf_size = size;
 
@@ -78,7 +76,7 @@ impl McjitMemoryManager for MarkSweepMemoryManager {
     }
 
     fn finalize_memory(&mut self) -> Result<(), String> {
-        println!("MarkSweepMemoryManager finalize_memory");
+        tracing::debug!("MarkSweepMemoryManager finalize_memory");
         if self.finalized {
             panic!("MemoryManager already finalized");
         }
@@ -90,16 +88,15 @@ impl McjitMemoryManager for MarkSweepMemoryManager {
         // mprotect data region to RW
         self.mprotect_rw(self.data_buf_ptr, self.data_buf_size)?;
 
-        let mut gc = get_global_gc();
-        gc.load_stackmap_in_memory_jit(self.data_buf_ptr as *mut u8, self.data_buf_size);
-
-        println!("finalize_memory done");
+        with_global_gc(|gc| {
+            gc.load_stackmap_in_memory_jit(self.data_buf_ptr as *mut u8, self.data_buf_size);
+        });
 
         Ok(())
     }
 
     fn destroy(&mut self) {
-        println!("MarkSweepMemoryManager destroy");
+        tracing::debug!("MarkSweepMemoryManager destroy");
         if self.destroyed {
             panic!("MemoryManager already destroyed");
         }
@@ -122,10 +119,6 @@ impl McjitMemoryManager for MarkSweepMemoryManager {
             self.data_buf_ptr = null_mut();
             self.data_buf_size = 0;
         }
-
-        nail_gc_shutdown();
-
-        println!("destroy done");
     }
 }
 

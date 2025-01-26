@@ -10,3 +10,4 @@ workspace = true
 [dependencies]
 libc = { workspace = true }
 inkwell = { workspace = true }
+tracing = { workspace = true }

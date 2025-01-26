@@ -355,6 +355,7 @@ dependencies = [
  "once_cell",
  "rayon",
  "regex",
+ "serial_test",
  "thiserror",
 ]
 

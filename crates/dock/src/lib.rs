@@ -10,7 +10,7 @@ use std::{
 use anyhow::Result;
 use ariadne::{Label, Report, ReportKind, Source};
 use codegen_llvm::CodegenContext;
-use inkwell::{context::Context, OptimizationLevel};
+use inkwell::{context::Context, targets::CodeModel, OptimizationLevel};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use thiserror::Error;
 
@@ -189,11 +189,19 @@ pub fn execute(
 
     let mir_result = mir::lower_pods(&db, &pods, &ty_result);
 
+    let memory_manager = nail_gc::memory_manager::MemoryManager::new();
+
     let context = Context::create();
     let module = context.create_module("top");
     let builder = context.create_builder();
     let execution_engine = module
-        .create_jit_execution_engine(OptimizationLevel::None)
+        .create_mcjit_execution_engine_with_memory_manager(
+            memory_manager,
+            OptimizationLevel::None,
+            CodeModel::Default,
+            false,
+            false,
+        )
         .unwrap();
     let result_string = codegen_llvm::execute_return_string(
         &db,

@@ -411,7 +411,7 @@ mod tests {
     use builtin_function::to_string::{Output, OutputType};
     use expect_test::{expect, Expect};
     use hir::FixtureDatabase;
-    use inkwell::OptimizationLevel;
+    use inkwell::{targets::CodeModel, OptimizationLevel};
     use serial_test::serial;
 
     use super::*;
@@ -444,11 +444,19 @@ mod tests {
     fn check_ir_pod_result_start_with_root_file(fixture: &str, expect: Expect) {
         let (db, pods, _ty_result, mir_result) = lower(fixture);
 
+        let memory_manager = nail_gc::memory_manager::MemoryManager::new();
+
         let context = Context::create();
         let module = context.create_module("top");
         let builder = context.create_builder();
         let execution_engine = module
-            .create_jit_execution_engine(OptimizationLevel::None)
+            .create_mcjit_execution_engine_with_memory_manager(
+                memory_manager,
+                OptimizationLevel::None,
+                CodeModel::Default,
+                false,
+                false,
+            )
             .unwrap();
         codegen(
             &db,
@@ -501,11 +509,19 @@ mod tests {
     fn execute_pod_result_start_with_root_file(fixture: &str) -> String {
         let (db, pods, _ty_result, mir_result) = lower(fixture);
 
+        let memory_manager = nail_gc::memory_manager::MemoryManager::new();
+
         let context = Context::create();
         let module = context.create_module("top");
         let builder = context.create_builder();
         let execution_engine = module
-            .create_jit_execution_engine(OptimizationLevel::None)
+            .create_mcjit_execution_engine_with_memory_manager(
+                memory_manager,
+                OptimizationLevel::None,
+                CodeModel::Default,
+                false,
+                false,
+            )
             .unwrap();
         let result_string = execute_return_string(
             &db,

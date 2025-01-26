@@ -71,6 +71,11 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
         // register basic blocks
         let mut is_entry = true;
         for (bb_idx, bb) in self.body.blocks.iter() {
+            // skip empty block because llvm ir does not allow empty block
+            if bb.statements.is_empty() && bb.termination.is_none() {
+                continue;
+            }
+
             let appended_bb = self
                 .codegen
                 .context
@@ -88,6 +93,11 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
 
         // codegen
         for (bb_idx, bb) in self.body.blocks.iter() {
+            // skip empty block because llvm ir does not allow empty block
+            if bb.statements.is_empty() && bb.termination.is_none() {
+                continue;
+            }
+
             self.move_to_bb_by_bb_idx(bb_idx);
             self.gen_bb(bb);
         }

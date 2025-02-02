@@ -41,7 +41,9 @@ drop_bomb = "*"
 either = "*"
 expect-test = "*"
 indexmap = "*"
-inkwell = { path = "../inkwell", features = ["llvm18-0"] }
+inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = [
+  "llvm18-0",
+] }
 la-arena = "*"
 libc = "*"
 logos = "*"

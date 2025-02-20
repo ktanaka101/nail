@@ -408,13 +408,26 @@ impl<'a, 'ctx> Codegen<'a, 'ctx> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Once;
+
     use builtin_function::to_string::{Output, OutputType};
     use expect_test::{expect, Expect};
     use hir::FixtureDatabase;
     use inkwell::{targets::CodeModel, OptimizationLevel};
     use serial_test::serial;
+    use tracing_subscriber::filter::LevelFilter;
 
     use super::*;
+
+    static INIT: Once = Once::new();
+
+    fn init_tracing() {
+        INIT.call_once(|| {
+            tracing_subscriber::fmt()
+                .with_max_level(LevelFilter::DEBUG)
+                .init();
+        });
+    }
 
     fn lower(
         fixture: &str,
@@ -2913,6 +2926,7 @@ mod tests {
     #[test]
     #[serial]
     fn param_record_field_expr() {
+        init_tracing();
         check_result_in_root_file(
             r#"
                 struct Point { x: int, y: string }

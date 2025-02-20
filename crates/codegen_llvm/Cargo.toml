@@ -23,6 +23,7 @@ mir = { workspace = true }
 
 [dev-dependencies]
 expect-test = { workspace = true }
+tracing-subscriber = { workspace = true }
 
 parser = { workspace = true }
 ast = { workspace = true }

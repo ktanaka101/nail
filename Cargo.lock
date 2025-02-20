@@ -217,6 +217,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serial_test",
+ "tracing-subscriber",
 ]
 
 [[package]]

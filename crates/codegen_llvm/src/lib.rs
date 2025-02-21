@@ -415,7 +415,7 @@ mod tests {
     use hir::FixtureDatabase;
     use inkwell::{targets::CodeModel, OptimizationLevel};
     use serial_test::serial;
-    use tracing_subscriber::filter::LevelFilter;
+    use tracing_subscriber::{filter::LevelFilter, EnvFilter};
 
     use super::*;
 
@@ -425,6 +425,7 @@ mod tests {
         INIT.call_once(|| {
             tracing_subscriber::fmt()
                 .with_max_level(LevelFilter::DEBUG)
+                .with_env_filter(EnvFilter::new("debug,salsa_2022=off"))
                 .init();
         });
     }

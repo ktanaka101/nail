@@ -145,6 +145,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf4b9d6a944f767f8e5e0db018570623c85f3d925ac718db4e06d0187adb21c1"
 
 [[package]]
+name = "byteorder"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
+
+[[package]]
 name = "cc"
 version = "1.1.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -662,6 +668,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "llvm_stackmap"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
+ "thiserror",
+]
+
+[[package]]
 name = "lock_api"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -805,6 +819,7 @@ version = "0.1.0"
 dependencies = [
  "inkwell",
  "libc",
+ "llvm_stackmap",
  "tracing",
 ]
 

@@ -35,6 +35,7 @@ members = ["crates/*"]
 [workspace.dependencies]
 anyhow = "*"
 ariadne = { version = "*", features = ["auto-color"] }
+byteorder = "*"
 clap = { version = "*", features = ["derive"] }
 crossbeam-channel = "*"
 drop_bomb = "*"
@@ -77,6 +78,7 @@ hir_ty = { path = "crates/hir_ty" }
 mir = { path = "crates/mir" }
 codegen_llvm = { path = "crates/codegen_llvm" }
 base_db = { path = "crates/base_db" }
+llvm_stackmap = { path = "crates/llvm_stackmap" }
 lsp = { path = "crates/lsp" }
 diagnostic = { path = "crates/diagnostic" }
 

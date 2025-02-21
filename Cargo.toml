@@ -63,7 +63,7 @@ serial_test = "*"
 text-size = "*"
 thiserror = "*"
 tracing = "*"
-tracing-subscriber = "*"
+tracing-subscriber = { version = "*", features = ["env-filter"] }
 tracing-tree = "*"
 
 dock = { path = "crates/dock" }

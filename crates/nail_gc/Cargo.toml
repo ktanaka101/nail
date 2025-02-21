@@ -8,6 +8,7 @@ license = { workspace = true }
 workspace = true
 
 [dependencies]
+llvm_stackmap = { workspace = true }
 libc = { workspace = true }
 inkwell = { workspace = true }
 tracing = { workspace = true }

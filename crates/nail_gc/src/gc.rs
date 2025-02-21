@@ -1,42 +1,51 @@
-use std::ptr::{self, null_mut};
+use std::ptr;
 
-// 簡易的なオブジェクトヘッダなど
+use llvm_stackmap::StackMap;
+
+// オブジェクトタイプ
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) enum GCObjectType {
+    Integer,
+    Float,
+    String,
+    Array,
+    Object,
+}
+
+// GCオブジェクトヘッダ
 #[derive(Debug)]
 pub(crate) struct GCObject {
     pub(crate) alive_mark: bool,
     pub(crate) size: usize,
-    // payload starts here
+    pub(crate) obj_type: GCObjectType,
+    pub(crate) references: Vec<ptr::NonNull<GCObject>>, // 他のオブジェクトへの参照を追跡
 }
 
 #[derive(Debug)]
 pub(crate) struct GC {
-    // JIT stackmap data pointer
-    stackmap_ptr: Option<ptr::NonNull<u8>>,
-    stackmap_size: usize,
+    stackmap: Option<StackMap>,
 
-    // A simple bump pointer region for GC objects (toy)
+    // A simple bump pointer region for GC objects
     heap: Box<[u8]>,
     heap_offset: usize,
 
     finalized: bool,
     destroyed: bool,
 
-    // a naive list of allocated objects
-    // store the ptr to the object header on heap
+    // List of allocated objects
     allocated_objs: Vec<ptr::NonNull<GCObject>>,
 }
+
 unsafe impl Send for GC {}
 
 impl GC {
     pub(crate) fn new() -> Self {
-        // 1) allocate a 1KiB region for the GC-managed heap
-        let heap_capacity = 1024;
+        let heap_capacity = 1024 * 1024; // 1MB
         let heap = vec![0u8; heap_capacity];
         let heap = heap.into_boxed_slice();
 
         Self {
-            stackmap_ptr: None,
-            stackmap_size: 0,
+            stackmap: None,
             heap,
             heap_offset: 0,
             finalized: false,
@@ -50,14 +59,55 @@ impl GC {
         self.heap.len()
     }
 
-    pub(crate) fn gc_alloc(&mut self, size: usize) -> *mut u8 {
-        // very naive bump pointer
+    // ヒープ内のポインタかどうかを判定
+    fn is_heap_ptr(&self, ptr: *mut u8) -> bool {
+        let heap_start = self.heap.as_ptr() as usize;
+        let heap_end = heap_start + self.heap.len();
+        let ptr_addr = ptr as usize;
+        ptr_addr >= heap_start && ptr_addr < heap_end
+    }
+
+    // オブジェクトタイプに基づいて参照を収集
+    fn collect_references(&self, obj: &GCObject) -> Vec<ptr::NonNull<GCObject>> {
+        let mut refs = Vec::new();
+
+        // オブジェクトタイプに応じて参照を収集
+        match obj.obj_type {
+            GCObjectType::Array | GCObjectType::Object => {
+                // ペイロードをポインタの配列として解釈
+                let payload_ptr = unsafe { (obj as *const GCObject).add(1) as *const *mut u8 };
+                let payload_len = obj.size / std::mem::size_of::<*mut u8>();
+
+                for i in 0..payload_len {
+                    let ptr = unsafe { *payload_ptr.add(i) };
+                    if self.is_heap_ptr(ptr) {
+                        let obj_ptr = ptr as *mut GCObject;
+                        if let Some(nonnull) = ptr::NonNull::new(obj_ptr) {
+                            refs.push(nonnull);
+                        }
+                    }
+                }
+            }
+            _ => {} // 他のタイプは参照を持たない
+        }
+
+        refs
+    }
+
+    pub(crate) fn gc_alloc(&mut self, size: usize, obj_type: GCObjectType) -> *mut u8 {
+        // Check if we need to collect garbage
         let align = std::mem::align_of::<GCObject>().max(16);
         let offset_aligned = (self.heap_offset + align - 1) & !(align - 1);
         let total = offset_aligned + std::mem::size_of::<GCObject>() + size;
+
         if total > self.capacity() {
-            tracing::debug!("Out of GC heap => force collect?");
-            // self.gc_collect();
+            tracing::debug!("Out of GC heap => force collect");
+            self.gc_collect();
+
+            // After collection, check if we have enough space
+            if total > self.capacity() {
+                panic!("Out of memory even after GC");
+            }
         }
 
         // create object header
@@ -66,6 +116,8 @@ impl GC {
             // init
             (*obj_ptr).alive_mark = false;
             (*obj_ptr).size = size;
+            (*obj_ptr).obj_type = obj_type;
+            (*obj_ptr).references = Vec::new();
         }
 
         self.heap_offset = total;
@@ -76,60 +128,74 @@ impl GC {
         unsafe { obj_ptr.add(1) as *mut u8 }
     }
 
+    fn mark_object(&mut self, obj_ptr: ptr::NonNull<GCObject>) {
+        unsafe {
+            let obj_ref = obj_ptr.as_ptr();
+            if (*obj_ref).alive_mark {
+                return; // Already marked
+            }
+
+            // Mark this object
+            (*obj_ref).alive_mark = true;
+
+            // Update references
+            (*obj_ref).references = self.collect_references(&*obj_ref);
+
+            // Recursively mark all referenced objects
+            let refs = (*obj_ref).references.clone();
+            for &ref_ptr in &refs {
+                self.mark_object(ref_ptr);
+            }
+        }
+    }
+
+    fn mark_from_location(&mut self, offset: usize) {
+        // 実装予定: スタックマップデータからルートを特定
+        tracing::debug!("Marking from location at offset {}", offset);
+    }
+
     pub(crate) fn gc_collect(&mut self) {
         tracing::debug!("---- GC Collect start (Mark-Sweep) ----");
 
-        // 1) Mark phase: we would read from the stack (or from stackmap records) to find root regs
-        // For demonstration: we'll just pretend all are "dead" except the first
-        if let Some(first) = self.allocated_objs.first() {
+        // Reset all marks
+        for &obj_ptr in &self.allocated_objs {
             unsafe {
-                (*first.as_ptr()).alive_mark = true;
+                (*obj_ptr.as_ptr()).alive_mark = false;
             }
-            tracing::debug!("Mark first object as alive => demonstration");
         }
 
-        // 2) Sweep phase
+        // Additional mark phase for global roots (if any)
+        if let Some(first) = self.allocated_objs.first() {
+            self.mark_object(*first);
+        }
+
+        // Sweep phase
         let mut new_objs = Vec::new();
         for &obj_ptr in &self.allocated_objs {
             let alive = unsafe { obj_ptr.as_ref().alive_mark };
             if alive {
-                // keep it, clear mark
-                unsafe {
-                    let mut_ref = obj_ptr.as_ptr();
-                    (*mut_ref).alive_mark = false;
-                }
                 new_objs.push(obj_ptr);
             } else {
-                // drop it (do nothing for now)
                 tracing::debug!("Drop object => {:?}", obj_ptr);
             }
         }
+
+        // Update allocated objects list
         self.allocated_objs = new_objs;
+
+        // Reset heap offset if all objects are dead
+        if self.allocated_objs.is_empty() {
+            self.heap_offset = 0;
+        }
 
         tracing::debug!("---- GC Collect end ----");
     }
 }
 
 /// for JIT
-///
-/// (1) load_stackmap_in_memory_jit: called by JIT to load the stackmap data in memory
 impl GC {
-    pub(crate) fn load_stackmap_in_memory_jit(&mut self, buf: *mut u8, size: usize) {
-        tracing::debug!(
-            "Load stackmap data => ptr={:?}, size={}",
-            self.stackmap_ptr,
-            self.stackmap_size
-        );
-        self.stackmap_ptr = Some(ptr::NonNull::new(buf).expect("stackmap must be not null ptr"));
-        self.stackmap_size = size;
-
-        if self.stackmap_size == 0 {
-            tracing::debug!("No .llvm_stackmaps data => skipping parse");
-        }
-
-        // TODO: parse the stackmap data
-        // Pseudo parse example
-        // In reality, you'd interpret the header, records, etc.
-        // store them in some self.stackmapsRecords ...
+    pub(crate) fn load_stackmap_in_memory_jit(&mut self, stackmap: StackMap) {
+        self.stackmap = Some(stackmap);
+        tracing::debug!("Loaded stackmap in memory JIT");
     }
 }

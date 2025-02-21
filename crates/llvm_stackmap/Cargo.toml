@@ -1,0 +1,9 @@
+[package]
+name = "llvm_stackmap"
+version = "0.1.0"
+edition = "2021"
+description = "A parser for LLVM stackmap section data"
+
+[dependencies]
+byteorder = { workspace = true }
+thiserror = { workspace = true }

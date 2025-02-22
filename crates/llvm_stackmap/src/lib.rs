@@ -27,7 +27,7 @@ pub struct StkSizeRecord {
     pub record_count: u64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Location {
     pub kind: LocationKind,
     pub size: u16,
@@ -35,7 +35,7 @@ pub struct Location {
     pub offset_or_small_constant: i32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum LocationKind {
     Register,
     Direct,

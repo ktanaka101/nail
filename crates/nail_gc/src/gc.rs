@@ -1,10 +1,12 @@
-use std::ptr;
+use std::{ptr, sync::Arc};
 
 use llvm_stackmap::StackMap;
 
-// オブジェクトタイプ
+use crate::register::{get_register_value, Register};
+
+// Object type
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) enum GCObjectType {
+pub enum GCObjectType {
     Integer,
     Float,
     String,
@@ -12,18 +14,41 @@ pub(crate) enum GCObjectType {
     Object,
 }
 
-// GCオブジェクトヘッダ
+impl GCObjectType {
+    pub fn to_u8(self) -> u8 {
+        match self {
+            Self::Integer => 0,
+            Self::Float => 1,
+            Self::String => 2,
+            Self::Array => 3,
+            Self::Object => 4,
+        }
+    }
+
+    pub fn from_u8(value: u8) -> Self {
+        match value {
+            0 => Self::Integer,
+            1 => Self::Float,
+            2 => Self::String,
+            3 => Self::Array,
+            4 => Self::Object,
+            _ => panic!("Invalid GC object type tag: {}", value),
+        }
+    }
+}
+
+// GC object header
 #[derive(Debug)]
 pub(crate) struct GCObject {
     pub(crate) alive_mark: bool,
     pub(crate) size: usize,
     pub(crate) obj_type: GCObjectType,
-    pub(crate) references: Vec<ptr::NonNull<GCObject>>, // 他のオブジェクトへの参照を追跡
+    pub(crate) references: Vec<ptr::NonNull<GCObject>>, // Track references to other objects
 }
 
 #[derive(Debug)]
 pub(crate) struct GC {
-    stackmap: Option<StackMap>,
+    stackmap: Option<Arc<StackMap>>,
 
     // A simple bump pointer region for GC objects
     heap: Box<[u8]>,
@@ -59,7 +84,7 @@ impl GC {
         self.heap.len()
     }
 
-    // ヒープ内のポインタかどうかを判定
+    // Determine if a pointer is within the heap
     fn is_heap_ptr(&self, ptr: *mut u8) -> bool {
         let heap_start = self.heap.as_ptr() as usize;
         let heap_end = heap_start + self.heap.len();
@@ -67,14 +92,14 @@ impl GC {
         ptr_addr >= heap_start && ptr_addr < heap_end
     }
 
-    // オブジェクトタイプに基づいて参照を収集
+    // Collect references based on object type
     fn collect_references(&self, obj: &GCObject) -> Vec<ptr::NonNull<GCObject>> {
         let mut refs = Vec::new();
 
-        // オブジェクトタイプに応じて参照を収集
+        // Collect references according to object type
         match obj.obj_type {
             GCObjectType::Array | GCObjectType::Object => {
-                // ペイロードをポインタの配列として解釈
+                // Interpret payload as an array of pointers
                 let payload_ptr = unsafe { (obj as *const GCObject).add(1) as *const *mut u8 };
                 let payload_len = obj.size / std::mem::size_of::<*mut u8>();
 
@@ -88,7 +113,7 @@ impl GC {
                     }
                 }
             }
-            _ => {} // 他のタイプは参照を持たない
+            _ => {} // Other types don't have references
         }
 
         refs
@@ -128,30 +153,84 @@ impl GC {
         unsafe { obj_ptr.add(1) as *mut u8 }
     }
 
-    fn mark_object(&mut self, obj_ptr: ptr::NonNull<GCObject>) {
+    fn mark_object_and_get_refs(
+        &mut self,
+        obj_ptr: ptr::NonNull<GCObject>,
+    ) -> Vec<ptr::NonNull<GCObject>> {
         unsafe {
             let obj_ref = obj_ptr.as_ptr();
             if (*obj_ref).alive_mark {
-                return; // Already marked
+                return Vec::new(); // Already marked
             }
 
             // Mark this object
             (*obj_ref).alive_mark = true;
 
-            // Update references
-            (*obj_ref).references = self.collect_references(&*obj_ref);
-
-            // Recursively mark all referenced objects
-            let refs = (*obj_ref).references.clone();
-            for &ref_ptr in &refs {
-                self.mark_object(ref_ptr);
-            }
+            // Collect references
+            let refs = self.collect_references(&*obj_ref);
+            (*obj_ref).references = refs.clone();
+            refs
         }
     }
 
-    fn mark_from_location(&mut self, offset: usize) {
-        // 実装予定: スタックマップデータからルートを特定
-        tracing::debug!("Marking from location at offset {}", offset);
+    fn mark_object(&mut self, obj_ptr: ptr::NonNull<GCObject>) {
+        let mut to_mark = vec![obj_ptr];
+        while let Some(current) = to_mark.pop() {
+            let refs = self.mark_object_and_get_refs(current);
+            to_mark.extend(refs);
+        }
+    }
+
+    fn mark_from_location(&mut self, location: &llvm_stackmap::Location) {
+        tracing::debug!("Marking from location: {:?}", location);
+
+        // Get pointer from stackmap location
+        let ptr = match location.kind {
+            llvm_stackmap::LocationKind::Register => {
+                // Get pointer from register
+                if let Some(reg) = Register::from_dwarf_regnum(location.dwarf_reg_num) {
+                    unsafe { get_register_value(reg) }
+                } else {
+                    tracing::warn!("Unknown register number: {}", location.dwarf_reg_num);
+                    return;
+                }
+            }
+            llvm_stackmap::LocationKind::Direct => {
+                // Get pointer from register + offset
+                if let Some(reg) = Register::from_dwarf_regnum(location.dwarf_reg_num) {
+                    let base_ptr = unsafe { get_register_value(reg) };
+                    unsafe { base_ptr.offset(location.offset_or_small_constant as isize) }
+                } else {
+                    tracing::warn!("Unknown register number: {}", location.dwarf_reg_num);
+                    return;
+                }
+            }
+            llvm_stackmap::LocationKind::Indirect => {
+                // Get pointer from indirect reference
+                if let Some(reg) = Register::from_dwarf_regnum(location.dwarf_reg_num) {
+                    let base_ptr = unsafe { get_register_value(reg) };
+                    let ptr_ptr =
+                        unsafe { base_ptr.offset(location.offset_or_small_constant as isize) };
+                    unsafe { *(ptr_ptr as *mut *mut u8) }
+                } else {
+                    tracing::warn!("Unknown register number: {}", location.dwarf_reg_num);
+                    return;
+                }
+            }
+            llvm_stackmap::LocationKind::Constant => return, // Constants are not currently supported
+            llvm_stackmap::LocationKind::ConstantIndex => return, // Constant indices are not currently supported
+        };
+
+        // Check if pointer points within the heap
+        if !self.is_heap_ptr(ptr) {
+            return;
+        }
+
+        // Mark as GC object
+        let obj_ptr = ptr as *mut GCObject;
+        if let Some(nonnull) = ptr::NonNull::new(obj_ptr) {
+            self.mark_object(nonnull);
+        }
     }
 
     pub(crate) fn gc_collect(&mut self) {
@@ -164,9 +243,31 @@ impl GC {
             }
         }
 
-        // Additional mark phase for global roots (if any)
-        if let Some(first) = self.allocated_objs.first() {
-            self.mark_object(*first);
+        // Collect roots from stackmap
+        let stackmap = self.stackmap.clone();
+        let locations: Vec<_> = if let Some(stackmap) = &stackmap {
+            stackmap
+                .records
+                .iter()
+                .flat_map(|record| record.locations.iter())
+                .collect()
+        } else {
+            tracing::warn!("No stackmap available for GC");
+            Vec::new()
+        };
+
+        // Execute marking process from collected locations
+        if !locations.is_empty() {
+            for location in locations {
+                self.mark_from_location(location);
+            }
+        } else {
+            // If no stackmap exists, conservatively mark all objects as alive
+            // Length won't change by mark_object.
+            // However, malloc must not be called asynchronously.
+            for i in 0..self.allocated_objs.len() {
+                self.mark_object(self.allocated_objs[i]);
+            }
         }
 
         // Sweep phase
@@ -195,7 +296,7 @@ impl GC {
 /// for JIT
 impl GC {
     pub(crate) fn load_stackmap_in_memory_jit(&mut self, stackmap: StackMap) {
-        self.stackmap = Some(stackmap);
+        self.stackmap = Some(Arc::new(stackmap));
         tracing::debug!("Loaded stackmap in memory JIT");
     }
 }

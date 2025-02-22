@@ -168,6 +168,10 @@ impl McjitMemoryManager for MemoryManager {
             }
         }
 
+        if self.stack_map_size == 0 {
+            return Ok(());
+        }
+
         let mut binding = get_gc_lock();
         let gc = binding.as_mut();
         if let Some(gc) = gc {

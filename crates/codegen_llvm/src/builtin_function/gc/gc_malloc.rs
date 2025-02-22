@@ -1,4 +1,5 @@
 use inkwell::{types::BasicType, values::PointerValue, AddressSpace};
+use nail_gc::gc::GCObjectType;
 
 use crate::Codegen;
 
@@ -22,7 +23,11 @@ pub(super) fn define_gc_malloc(codegen: &mut Codegen) {
 }
 
 impl<'ctx> Codegen<'_, 'ctx> {
-    pub(crate) fn build_call_gc_malloc<T: BasicType<'ctx>>(&self, ty: T) -> PointerValue<'ctx> {
+    pub(crate) fn build_call_gc_malloc<T: BasicType<'ctx>>(
+        &self,
+        ty: T,
+        type_tag: GCObjectType,
+    ) -> PointerValue<'ctx> {
         if !ty.is_sized() {
             panic!("Cannot allocate unsized type");
         }
@@ -37,13 +42,16 @@ impl<'ctx> Codegen<'_, 'ctx> {
         let stackmap_id = self.context.i64_type().const_int(stackmap_id as u64, false);
         self.build_llvm_stackmap(stackmap_id, self.context.i32_type().const_zero(), &[]);
 
-        // TODO: type_tag
+        // Use the type_tag provided by the caller
         self.builder
             .build_call(
                 fn_gc_collect,
                 &[
                     size.into(),
-                    self.context.i8_type().const_int(0, false).into(), // Default to Integer type
+                    self.context
+                        .i8_type()
+                        .const_int(type_tag.to_u8() as u64, false)
+                        .into(),
                 ],
                 &format!("call_{FN_NAME}"),
             )

@@ -10,5 +10,6 @@ workspace = true
 [dependencies]
 llvm_stackmap = { workspace = true }
 libc = { workspace = true }
+num_enum = { workspace = true }
 inkwell = { workspace = true }
 tracing = { workspace = true }

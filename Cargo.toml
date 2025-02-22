@@ -50,6 +50,7 @@ libc = "*"
 logos = "*"
 lsp-server = { version = "*" }
 lsp-types = { version = "*", features = ["proposed"] }
+num_enum = "*"
 num-derive = "*"
 num-traits = "*"
 once_cell = "*"

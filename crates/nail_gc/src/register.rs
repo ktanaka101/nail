@@ -1,6 +1,9 @@
 //! AArch64向けのレジスタアクセス実装
 
-#[derive(Debug, Clone, Copy)]
+use num_enum::{IntoPrimitive, TryFromPrimitive};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive, IntoPrimitive)]
+#[repr(u8)]
 pub enum Register {
     X0 = 0,
     X1 = 1,
@@ -38,12 +41,7 @@ pub enum Register {
 
 impl Register {
     pub fn from_dwarf_regnum(regnum: u16) -> Option<Self> {
-        // DWARFのレジスタ番号からAArch64のレジスタに変換
-        match regnum {
-            0..=30 => Some(unsafe { std::mem::transmute(regnum as u8) }),
-            31 => Some(Register::SP),
-            _ => None,
-        }
+        Self::try_from(regnum as u8).ok()
     }
 }
 

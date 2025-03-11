@@ -13,3 +13,6 @@ libc = { workspace = true }
 num_enum = { workspace = true }
 inkwell = { workspace = true }
 tracing = { workspace = true }
+
+[dev-dependencies]
+tracing-subscriber = { workspace = true }

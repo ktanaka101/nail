@@ -419,8 +419,10 @@ mod tests {
 
     use super::*;
 
+    #[allow(dead_code)]
     static INIT: Once = Once::new();
 
+    #[allow(dead_code)]
     fn init_tracing() {
         INIT.call_once(|| {
             tracing_subscriber::fmt()
@@ -1088,7 +1090,7 @@ mod tests {
 
                 entry:                                            ; preds = %start
                   call void (i64, i32, ...) @llvm.experimental.stackmap(i64 0, i32 0)
-                  %call_nail_gc_malloc = call ptr @nail_gc_malloc(i64 ptrtoint (ptr getelementptr (%Point, ptr null, i32 1) to i64), i8 4)
+                  %call_nail_gc_malloc = call ptr @nail_gc_malloc(i64 ptrtoint (ptr getelementptr (%Point, ptr null, i32 1) to i64), i8 0)
                   %struct_field = getelementptr inbounds %Point, ptr %call_nail_gc_malloc, i32 0, i32 0
                   store i64 10, ptr %struct_field, align 8
                   %struct_field1 = getelementptr inbounds %Point, ptr %call_nail_gc_malloc, i32 0, i32 1
@@ -1159,7 +1161,7 @@ mod tests {
                   store i64 30, ptr %"2", align 8
                   store i64 70, ptr %"3", align 8
                   call void (i64, i32, ...) @llvm.experimental.stackmap(i64 0, i32 0)
-                  %call_nail_gc_malloc = call ptr @nail_gc_malloc(i64 ptrtoint (ptr getelementptr (%Point, ptr null, i32 1) to i64), i8 4)
+                  %call_nail_gc_malloc = call ptr @nail_gc_malloc(i64 ptrtoint (ptr getelementptr (%Point, ptr null, i32 1) to i64), i8 0)
                   %load_local = load i64, ptr %"3", align 8
                   %struct_field = getelementptr inbounds %Point, ptr %call_nail_gc_malloc, i32 0, i32 0
                   store i64 %load_local, ptr %struct_field, align 8
@@ -2741,7 +2743,7 @@ mod tests {
 
                 entry:                                            ; preds = %start
                   call void (i64, i32, ...) @llvm.experimental.stackmap(i64 0, i32 0)
-                  %call_nail_gc_malloc = call ptr @nail_gc_malloc(i64 ptrtoint (ptr getelementptr (%Point, ptr null, i32 1) to i64), i8 4)
+                  %call_nail_gc_malloc = call ptr @nail_gc_malloc(i64 ptrtoint (ptr getelementptr (%Point, ptr null, i32 1) to i64), i8 0)
                   %struct_field = getelementptr inbounds %Point, ptr %call_nail_gc_malloc, i32 0, i32 0
                   store i64 10, ptr %struct_field, align 8
                   %struct_field1 = getelementptr inbounds %Point, ptr %call_nail_gc_malloc, i32 0, i32 1
@@ -2871,7 +2873,7 @@ mod tests {
 
                 entry:                                            ; preds = %start
                   call void (i64, i32, ...) @llvm.experimental.stackmap(i64 0, i32 0)
-                  %call_nail_gc_malloc = call ptr @nail_gc_malloc(i64 ptrtoint (ptr getelementptr (%Point, ptr null, i32 1) to i64), i8 4)
+                  %call_nail_gc_malloc = call ptr @nail_gc_malloc(i64 ptrtoint (ptr getelementptr (%Point, ptr null, i32 1) to i64), i8 0)
                   %struct_field = getelementptr inbounds %Point, ptr %call_nail_gc_malloc, i32 0, i32 0
                   store i64 10, ptr %struct_field, align 8
                   %struct_field1 = getelementptr inbounds %Point, ptr %call_nail_gc_malloc, i32 0, i32 1
@@ -2927,7 +2929,6 @@ mod tests {
     #[test]
     #[serial]
     fn exec_param_record_field_expr() {
-        init_tracing();
         check_result_in_root_file(
             r#"
                 struct Point { x: int, y: string }

@@ -3,7 +3,7 @@ use core::slice;
 use inkwell::memory_manager::McjitMemoryManager;
 use llvm_stackmap::StackMap;
 
-use crate::externs::{get_gc_lock, with_global_gc};
+use crate::externs::get_gc_lock;
 
 #[derive(Debug)]
 pub struct MemoryManager {

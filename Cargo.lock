@@ -822,6 +822,7 @@ dependencies = [
  "llvm_stackmap",
  "num_enum",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

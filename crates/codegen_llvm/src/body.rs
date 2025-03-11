@@ -281,7 +281,7 @@ impl<'a, 'ctx> BodyCodegen<'a, 'ctx> {
                                 // 1) allocate struct on heap
                                 let struct_ptr = self.codegen.build_call_gc_malloc(
                                     struct_ty,
-                                    nail_gc::gc::GCObjectType::Object,
+                                    nail_gc::gc::GCObjectKind::Struct,
                                 );
 
                                 // 2) store each field

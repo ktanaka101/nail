@@ -6,44 +6,51 @@ use crate::register::{get_register_value, Register};
 
 // Object type
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum GCObjectType {
-    Integer,
-    Float,
-    String,
-    Array,
-    Object,
+pub enum GCObjectKind {
+    Struct,
 }
 
-impl GCObjectType {
+impl GCObjectKind {
     pub fn to_u8(self) -> u8 {
         match self {
-            Self::Integer => 0,
-            Self::Float => 1,
-            Self::String => 2,
-            Self::Array => 3,
-            Self::Object => 4,
+            Self::Struct => 0,
         }
     }
 
     pub fn from_u8(value: u8) -> Self {
         match value {
-            0 => Self::Integer,
-            1 => Self::Float,
-            2 => Self::String,
-            3 => Self::Array,
-            4 => Self::Object,
+            0 => Self::Struct,
             _ => panic!("Invalid GC object type tag: {}", value),
         }
     }
 }
 
+/// Field offset information used by GC when following references.
+#[derive(Debug)]
+#[allow(dead_code)]
+pub(crate) struct FieldOffset {
+    pub(crate) offset: usize,
+    pub(crate) is_ptr: bool,
+}
+
+/// Type descriptor for GC objects
+#[derive(Debug)]
+#[allow(dead_code)]
+pub(crate) struct TypeDescriptor {
+    pub(crate) kind: GCObjectKind,
+    pub(crate) type_name: &'static str,
+    pub(crate) size_of: usize,
+    pub(crate) fields: Vec<FieldOffset>,
+}
+
 // GC object header
 #[derive(Debug)]
-pub(crate) struct GCObject {
+pub(crate) struct GCHeader {
     pub(crate) alive_mark: bool,
     pub(crate) size: usize,
-    pub(crate) obj_type: GCObjectType,
-    pub(crate) references: Vec<ptr::NonNull<GCObject>>, // Track references to other objects
+    pub(crate) type_info: TypeDescriptor,
+    /// Track references to other objects
+    pub(crate) references: Vec<ptr::NonNull<GCHeader>>,
 }
 
 #[derive(Debug)]
@@ -54,11 +61,8 @@ pub(crate) struct GC {
     heap: Box<[u8]>,
     heap_offset: usize,
 
-    finalized: bool,
-    destroyed: bool,
-
     // List of allocated objects
-    allocated_objs: Vec<ptr::NonNull<GCObject>>,
+    allocated_objs: Vec<ptr::NonNull<GCHeader>>,
 }
 
 unsafe impl Send for GC {}
@@ -73,8 +77,6 @@ impl GC {
             stackmap: None,
             heap,
             heap_offset: 0,
-            finalized: false,
-            destroyed: false,
             allocated_objs: vec![],
         }
     }
@@ -93,37 +95,22 @@ impl GC {
     }
 
     // Collect references based on object type
-    fn collect_references(&self, obj: &GCObject) -> Vec<ptr::NonNull<GCObject>> {
-        let mut refs = Vec::new();
-
-        // Collect references according to object type
-        match obj.obj_type {
-            GCObjectType::Array | GCObjectType::Object => {
-                // Interpret payload as an array of pointers
-                let payload_ptr = unsafe { (obj as *const GCObject).add(1) as *const *mut u8 };
-                let payload_len = obj.size / std::mem::size_of::<*mut u8>();
-
-                for i in 0..payload_len {
-                    let ptr = unsafe { *payload_ptr.add(i) };
-                    if self.is_heap_ptr(ptr) {
-                        let obj_ptr = ptr as *mut GCObject;
-                        if let Some(nonnull) = ptr::NonNull::new(obj_ptr) {
-                            refs.push(nonnull);
-                        }
-                    }
-                }
-            }
-            _ => {} // Other types don't have references
-        }
-
-        refs
+    fn collect_references(&self, _obj: &GCHeader) -> Vec<ptr::NonNull<GCHeader>> {
+        // TODO: Implement field offset calculation
+        Vec::new()
     }
 
-    pub(crate) fn gc_alloc(&mut self, size: usize, obj_type: GCObjectType) -> *mut u8 {
+    pub(crate) fn gc_alloc(&mut self, size: usize, obj_type: GCObjectKind) -> *mut u8 {
         // Check if we need to collect garbage
-        let align = std::mem::align_of::<GCObject>().max(16);
+        let align = std::mem::align_of::<GCHeader>().max(16);
         let offset_aligned = (self.heap_offset + align - 1) & !(align - 1);
-        let total = offset_aligned + std::mem::size_of::<GCObject>() + size;
+        let total = offset_aligned + std::mem::size_of::<GCHeader>() + size;
+        tracing::debug!(
+            "Allocating object: size={}, type={:?}, total={}",
+            size,
+            obj_type,
+            total
+        );
 
         if total > self.capacity() {
             tracing::debug!("Out of GC heap => force collect");
@@ -136,12 +123,17 @@ impl GC {
         }
 
         // create object header
-        let obj_ptr = unsafe { self.heap.as_mut_ptr().add(offset_aligned) as *mut GCObject };
+        let obj_ptr = unsafe { self.heap.as_mut_ptr().add(offset_aligned) as *mut GCHeader };
         unsafe {
-            // init
             (*obj_ptr).alive_mark = false;
             (*obj_ptr).size = size;
-            (*obj_ptr).obj_type = obj_type;
+            // TODO: Set type info
+            (*obj_ptr).type_info = TypeDescriptor {
+                kind: obj_type,
+                type_name: "Unknown",
+                size_of: size,
+                fields: Vec::new(),
+            };
             (*obj_ptr).references = Vec::new();
         }
 
@@ -155,8 +147,8 @@ impl GC {
 
     fn mark_object_and_get_refs(
         &mut self,
-        obj_ptr: ptr::NonNull<GCObject>,
-    ) -> Vec<ptr::NonNull<GCObject>> {
+        obj_ptr: ptr::NonNull<GCHeader>,
+    ) -> Vec<ptr::NonNull<GCHeader>> {
         unsafe {
             let obj_ref = obj_ptr.as_ptr();
             if (*obj_ref).alive_mark {
@@ -173,7 +165,7 @@ impl GC {
         }
     }
 
-    fn mark_object(&mut self, obj_ptr: ptr::NonNull<GCObject>) {
+    fn mark_object(&mut self, obj_ptr: ptr::NonNull<GCHeader>) {
         let mut to_mark = vec![obj_ptr];
         while let Some(current) = to_mark.pop() {
             let refs = self.mark_object_and_get_refs(current);
@@ -227,7 +219,7 @@ impl GC {
         }
 
         // Mark as GC object
-        let obj_ptr = ptr as *mut GCObject;
+        let obj_ptr = ptr as *mut GCHeader;
         if let Some(nonnull) = ptr::NonNull::new(obj_ptr) {
             self.mark_object(nonnull);
         }

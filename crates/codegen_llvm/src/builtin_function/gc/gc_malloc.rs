@@ -1,5 +1,5 @@
 use inkwell::{types::BasicType, values::PointerValue, AddressSpace};
-use nail_gc::gc::GCObjectType;
+use nail_gc::gc::GCObjectKind;
 
 use crate::Codegen;
 
@@ -26,7 +26,7 @@ impl<'ctx> Codegen<'_, 'ctx> {
     pub(crate) fn build_call_gc_malloc<T: BasicType<'ctx>>(
         &self,
         ty: T,
-        type_tag: GCObjectType,
+        type_tag: GCObjectKind,
     ) -> PointerValue<'ctx> {
         if !ty.is_sized() {
             panic!("Cannot allocate unsized type");

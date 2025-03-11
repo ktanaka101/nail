@@ -1,6 +1,6 @@
 use std::sync::{Mutex, MutexGuard};
 
-use crate::gc::{GCObjectType, GC};
+use crate::gc::{GCObjectKind, GC};
 
 /// Global GC
 /// - `None`: Uninitialized
@@ -54,7 +54,7 @@ pub extern "C" fn nail_gc_shutdown() {
 
 #[no_mangle]
 pub extern "C" fn nail_gc_malloc(size: usize, type_tag: u8) -> *mut u8 {
-    let obj_type = GCObjectType::from_u8(type_tag);
+    let obj_type = GCObjectKind::from_u8(type_tag);
     with_global_gc(|gc| gc.gc_alloc(size, obj_type))
 }
 

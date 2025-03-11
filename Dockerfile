@@ -22,9 +22,7 @@ RUN apt update && apt -y upgrade && \
   zstd \
   libzstd-dev \
   # Use mold for building
-  mold=1.10.1+dfsg-1 \
-  # As the GC used by Nail, link it at build time
-  libgc-dev=1:8.2.2-3
+  mold=1.10.1+dfsg-1
 
 # Environment variables are required by llvm-sys
 # LLVM-18.0 needs LLVM_SYS_180_STRICT_VERSIONING=180, LLVM_SYS_181_PREFIX=/usr/lib/llvm-18/

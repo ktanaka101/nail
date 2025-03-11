@@ -24,9 +24,6 @@ tracing-tree = { workspace = true }
 dock = { workspace = true }
 lsp = { workspace = true }
 
-[build-dependencies]
-pkg-config = { workspace = true }
-
 [workspace]
 members = ["crates/*"]
 
@@ -54,7 +51,6 @@ num_enum = "*"
 num-derive = "*"
 num-traits = "*"
 once_cell = "*"
-pkg-config = "*"
 rayon = "*"
 regex = "*"
 rowan = "*"

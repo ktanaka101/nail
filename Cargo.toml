@@ -7,9 +7,6 @@ license = { workspace = true }
 
 default-run = "dock"
 
-[build]
-rustflags = ["-Z", "threads=8"]
-
 [workspace.package]
 version = "0.1.0"
 edition = "2021"

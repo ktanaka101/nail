@@ -68,8 +68,7 @@ pub(crate) struct GC {
 unsafe impl Send for GC {}
 
 impl GC {
-    pub(crate) fn new() -> Self {
-        let heap_capacity = 1024 * 1024; // 1MB
+    pub(crate) fn new(heap_capacity: usize) -> Self {
         let heap = vec![0u8; heap_capacity];
         let heap = heap.into_boxed_slice();
 
@@ -106,10 +105,12 @@ impl GC {
         let offset_aligned = (self.heap_offset + align - 1) & !(align - 1);
         let total = offset_aligned + std::mem::size_of::<GCHeader>() + size;
         tracing::debug!(
-            "Allocating object: size={}, type={:?}, total={}",
+            "Allocating object: size={}, type={:?}, total={} offset_aligned={}. GCHeader aligned={}",
             size,
             obj_type,
-            total
+            total,
+            offset_aligned,
+            align
         );
 
         if total > self.capacity() {

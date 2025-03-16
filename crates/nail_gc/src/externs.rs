@@ -28,13 +28,13 @@ where
 }
 
 #[no_mangle]
-pub extern "C" fn nail_gc_init() {
-    tracing::debug!("nail_gc_init");
+pub extern "C" fn nail_gc_init(heap_capacity: usize) {
+    tracing::debug!("nail_gc_init(heap_capacity={})", heap_capacity);
     let mut guard = get_gc_lock();
     if guard.is_some() {
         panic!("GC already initialized");
     } else {
-        *guard = Some(GC::new());
+        *guard = Some(GC::new(heap_capacity));
         tracing::debug!("GC is now initialized");
     }
 }

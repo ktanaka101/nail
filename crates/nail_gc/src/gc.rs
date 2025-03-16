@@ -85,6 +85,18 @@ impl GC {
         self.heap.len()
     }
 
+    /// Used bytes in the heap
+    #[allow(dead_code)]
+    pub fn used_bytes(&self) -> usize {
+        self.heap_offset
+    }
+
+    /// Number of objects allocated
+    #[allow(dead_code)]
+    pub fn object_count(&self) -> usize {
+        self.allocated_objs.len()
+    }
+
     // Determine if a pointer is within the heap
     fn is_heap_ptr(&self, ptr: *mut u8) -> bool {
         let heap_start = self.heap.as_ptr() as usize;

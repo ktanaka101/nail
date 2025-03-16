@@ -1,5 +1,7 @@
+use core::panic;
+
 use llvm_stackmap::{Header, Location, LocationKind, Record, StackMap, StkSizeRecord};
-use tracing::level_filters::LevelFilter;
+use tracing::{info, level_filters::LevelFilter};
 use tracing_subscriber::EnvFilter;
 
 use crate::{
@@ -7,13 +9,25 @@ use crate::{
     gc::{GCHeader, GCObjectKind},
 };
 
-#[test]
-fn test_gc_allocation_and_collection() {
+#[allow(dead_code)]
+fn init_log() {
     tracing_subscriber::fmt()
         .with_max_level(LevelFilter::DEBUG)
         .with_env_filter(EnvFilter::new("debug,salsa_2022=off"))
         .init();
+}
 
+fn check_object_count(expected: usize) {
+    let mut gc = crate::externs::get_gc_lock();
+    if let Some(gc) = gc.as_mut() {
+        assert!(gc.object_count() == expected);
+    } else {
+        panic!("GC not initialized");
+    }
+}
+
+#[test]
+fn test_gc_allocation_and_collection() {
     // Initialize GC
     nail_gc_init(1024);
 
@@ -47,7 +61,7 @@ fn test_gc_allocation_and_collection() {
         }
     }
 
-    println!("Stackmap loaded");
+    info!("Stackmap loaded");
 
     // Allocate some objects (header size = 88 bytes)
     const HEADER_SIZE: usize = std::mem::size_of::<GCHeader>();
@@ -57,19 +71,22 @@ fn test_gc_allocation_and_collection() {
     let obj2 = nail_gc_malloc(32, GCObjectKind::Struct.to_u8());
     let obj3 = nail_gc_malloc(1024 - 112 - 128 - HEADER_SIZE, GCObjectKind::Struct.to_u8());
 
-    println!("Objects allocated");
+    info!("Objects allocated");
 
     // Verify allocations
     assert!(!obj1.is_null());
     assert!(!obj2.is_null());
     assert!(!obj3.is_null());
+    check_object_count(3);
 
-    println!("Objects not null");
+    info!("Objects not null");
 
     // Run garbage collection
     nail_gc_collect();
 
-    println!("Garbage collection done");
+    check_object_count(0);
+
+    info!("Garbage collection done");
 
     // Since we don't have actual root references in our test stackmap,
     // objects should be marked for collection.
@@ -77,9 +94,10 @@ fn test_gc_allocation_and_collection() {
     // which should succeed if the heap was cleared
     let new_obj = nail_gc_malloc(1024 - HEADER_SIZE, GCObjectKind::Struct.to_u8());
 
-    println!("New object allocated");
+    info!("New object allocated");
 
     assert!(!new_obj.is_null());
+    check_object_count(1);
 
-    println!("New object not null");
+    info!("New object not null");
 }

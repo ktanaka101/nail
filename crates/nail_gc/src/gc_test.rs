@@ -4,7 +4,7 @@ use tracing_subscriber::EnvFilter;
 
 use crate::{
     externs::{nail_gc_collect, nail_gc_init, nail_gc_malloc},
-    gc::GCObjectKind,
+    gc::{GCHeader, GCObjectKind},
 };
 
 #[test]
@@ -15,7 +15,7 @@ fn test_gc_allocation_and_collection() {
         .init();
 
     // Initialize GC
-    nail_gc_init();
+    nail_gc_init(1024);
 
     // Create a simple stackmap for testing
     let stackmap = StackMap {
@@ -49,10 +49,13 @@ fn test_gc_allocation_and_collection() {
 
     println!("Stackmap loaded");
 
-    // Allocate some objects
+    // Allocate some objects (header size = 88 bytes)
+    const HEADER_SIZE: usize = std::mem::size_of::<GCHeader>();
+    // 16 + 88 = 104. 16bytes alined: 112(16^7)
     let obj1 = nail_gc_malloc(16, GCObjectKind::Struct.to_u8());
+    // 32 + 88 = 120. 16 bytes alined: 128(16^8)
     let obj2 = nail_gc_malloc(32, GCObjectKind::Struct.to_u8());
-    let obj3 = nail_gc_malloc(24, GCObjectKind::Struct.to_u8());
+    let obj3 = nail_gc_malloc(1024 - 112 - 128 - HEADER_SIZE, GCObjectKind::Struct.to_u8());
 
     println!("Objects allocated");
 
@@ -72,7 +75,7 @@ fn test_gc_allocation_and_collection() {
     // objects should be marked for collection.
     // We can verify this indirectly by allocating a new object at offset 0,
     // which should succeed if the heap was cleared
-    let new_obj = nail_gc_malloc(8, GCObjectKind::Struct.to_u8());
+    let new_obj = nail_gc_malloc(1024 - HEADER_SIZE, GCObjectKind::Struct.to_u8());
 
     println!("New object allocated");
 

@@ -43,7 +43,7 @@ pub fn execute_return_string<'a>(
     mir_result: &'a mir::LowerResult,
     codegen_context: &'a CodegenContext<'a, '_>,
 ) -> String {
-    nail_gc::externs::nail_gc_init();
+    nail_gc::externs::nail_gc_init(1024 * 1024);
 
     let codegen_result = codegen(db, pods, mir_result, codegen_context, true);
 
@@ -65,7 +65,7 @@ pub fn execute<'a>(
     mir_result: &'a mir::LowerResult,
     codegen_context: &'a CodegenContext<'a, '_>,
 ) {
-    nail_gc::externs::nail_gc_init();
+    nail_gc::externs::nail_gc_init(1024 * 1024);
 
     let codegen_result = codegen(db, pods, mir_result, codegen_context, false);
     unsafe { codegen_result.function.call() };
